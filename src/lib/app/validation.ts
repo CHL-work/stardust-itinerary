@@ -126,6 +126,15 @@ export const aiSettingsSchema = z.object({
 
 export const createMemberSchema = z.object({
   displayName: z.string().trim().min(1).max(120),
+  /** Let the new member use the adding owner's own AI keys in this trip (JOB-063). */
+  shareAiKeys: z.boolean().optional(),
+});
+
+export const aiKeyGrantSchema = z.strictObject({ shared: z.boolean() });
+
+export const joinLinkSchema = z.strictObject({
+  /** People joining through the link may use the creating owner's own AI keys (JOB-063). */
+  shareAiKeys: z.boolean().optional(),
 });
 
 export const updateMemberSchema = z.object({

@@ -17,7 +17,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Rehearsed on staging |
 | JOB-061 | Bring-your-own API keys | In review: Settings → AI keys, encrypted storage, per-request isolation, own-key funding, AI on in every trip, and fixes from a security review. Usage display moves to JOB-066 |
 | JOB-062 | Gemini models (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`) with Google Search grounding | Done |
-| JOB-063 | Trip-owner key sharing | In progress |
+| JOB-063 | Trip-owner key sharing | In review: invite and join-link checkboxes, per-member switches, shared-key funding with the trip model and daily limit |
 | JOB-064 | Guest mode and public sign-up | Planned |
 | JOB-065 | Public-launch security and privacy review | Planned; required before public sign-up |
 | JOB-066 | Showcase documentation, a private feedback repository, deploy workflow polish | Planned |
@@ -39,8 +39,8 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 - The invite dialog gets a checkbox, **"Let this member use my AI keys"**, off by default. Owners can switch it on or off per member at any time.
 - The grant names the sponsoring owner, and stops working if that owner removes the key, leaves or is removed.
-- **Limits:** members using shared keys use one trip-level model the owner chooses. They get a daily request limit (default 20) and an optional monthly cost cap.
-- All grant changes are audited; copy is in all four languages.
+- **Limits:** members using shared keys use one trip-level model the owner chooses, with the trip's daily request limit (default 20). A monthly cost cap is not built; it would need per-model prices.
+- All grant changes are audited; copy is in all four languages. Contract: [sharing your keys](PUBLIC_TRIPS_AND_MEMBERS.md#sharing-your-keys-with-members).
 
 ### JOB-064: guest mode and public sign-up
 

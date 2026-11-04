@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError } from "@/lib/app/http";
+import { AppInvalidInputError, requireKeysToShare } from "@/lib/app/repository";
+import { joinLinkSchema } from "@/lib/app/validation";
 import { getAuthConfig } from "@/lib/auth/config";
 import { JoinUnavailableError } from "@/lib/auth/errors";
 import { issueJoinLink, revokeJoinLink } from "@/lib/auth/repository";
@@ -22,10 +24,20 @@ export async function POST(
     const session = await requireAuthenticatedSession(request, config);
     const { tripId } = await params;
     requireTripOwner(session, tripId);
-    const link = await issueJoinLink(getPool(config), config, {
+    // The body is optional: older clients send none.
+    const text = await request.text();
+    let raw: unknown = {};
+    if (text.trim()) {
+      try { raw = JSON.parse(text); } catch { throw new AppInvalidInputError("The submitted values are invalid."); }
+    }
+    const { shareAiKeys } = joinLinkSchema.parse(raw);
+    const pool = getPool(config);
+    if (shareAiKeys) await requireKeysToShare(pool, session.userId);
+    const link = await issueJoinLink(pool, config, {
       tripId,
       actorMemberId: session.memberId,
       actorUserId: session.userId,
+      sharesAiKeys: shareAiKeys === true,
     });
     return NextResponse.json(
       { joinUrl: buildJoinUrl(config.appBaseUrl, link.rawToken) },

@@ -55,6 +55,27 @@ describe("host AI subscription is separate from trip ownership", () => {
     expect(html).toContain(`<option value="" selected="">${formatMessage(copy.sponsoredOption, { model: "gpt-6.1-sol" })}</option>`);
     expect(html).toContain(formatMessage(messages.en.aiMemberQuota, { remaining: 18, limit: 20 }));
   });
+  it.each(locales)("tells a member whose shared key and model run, with the trip's limit, in %s", (locale) => {
+    const html = render({ canSelectModel: false, hostSubscriptionEnabled: false, sharedKey: { sponsorName: "Synthetic owner", model: "claude-sonnet-5-5" } }, false, locale);
+    const copy = aiKeysMessages(locale);
+    expect(html).toContain(formatMessage(copy.sharedAccess, { owner: "Synthetic owner", model: "claude-sonnet-5-5", limit: 20 }).replaceAll("'", "&#x27;"));
+    expect(html).toContain(formatMessage(messages[locale].aiMemberQuota, { remaining: 18, limit: 20 }));
+    expect(html).not.toContain("model-select");
+  });
+  it("labels the default choice as the shared key when the member also holds a key in a sponsored trip", () => {
+    const html = render({ canSelectModel: false, hostSubscriptionEnabled: true, ownKeyProviders: ["google"],
+      sharedKey: { sponsorName: "Synthetic owner", model: "claude-sonnet-5-5" } }, false);
+    expect(html).toContain(`<option value="" selected="">${formatMessage(aiKeysMessages("en").sharedOption, { model: "claude-sonnet-5-5", owner: "Synthetic owner" }).replaceAll("'", "&#x27;")}</option>`);
+  });
+  it("offers the share switch only to owners, never for themselves, and never shows a key", () => {
+    const source = readFileSync("src/components/app-shell.tsx", "utf8");
+    const actions = source.slice(source.indexOf('{overview.session.isOwner ? <div className="member-actions">'), source.indexOf("{canInvite && memberClaimLinks[member.id]"));
+    expect(actions).toContain("member.id !== overview.session.memberId ? <button");
+    expect(actions).toContain("updateAiKeyGrant(member.id, !member.aiKeyGrant)");
+    const grant = source.slice(source.indexOf("const updateAiKeyGrant ="), source.indexOf("const updateSharedModel ="));
+    expect(grant).toContain("JSON.stringify({ shared })");
+    expect(grant).not.toMatch(/apiKey|secret/iu);
+  });
   it("never offers an own-key choice through the operator's trip settings control", () => {
     const html = render({ canSelectModel: false, hostSubscriptionEnabled: false, ownKeyProviders: ["openai"] }, false);
     expect(html).not.toContain('data-feedback-action="settings_save" class="model-select"');

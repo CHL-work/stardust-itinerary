@@ -73,7 +73,8 @@ export async function testAccountOnboarding(pool,connectionString,baseSession) {
     await updateAiSettings(pool,session,created.tripId,{enabled:false});
     await assert.rejects(getAiPolicy(pool,session),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_disabled");
     await updateAiSettings(pool,session,created.tripId,{enabled:true});
-    await assert.rejects(updateAiSettings(pool,session,created.tripId,{ownerDefaultModel:"gpt-6-astra"}),(error)=>error instanceof AppForbiddenError);
+    // Without sponsorship the trip model only picks which own or shared key runs (D-076).
+    await updateAiSettings(pool,session,created.tripId,{ownerDefaultModel:"gpt-6-astra"});
     // An enabled toggle cannot confer operator sponsorship.
     await assert.rejects(getAiPolicy(pool,session,"gpt-6-astra"),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_key_required");
     await assert.rejects(getAiPolicy(pool,session),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_key_required");

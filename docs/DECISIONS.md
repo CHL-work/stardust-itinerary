@@ -2,6 +2,22 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-076: Trip owners can share their own AI keys with chosen members (accepted November 4, 2026)
+
+The owner asked that a trip owner can let invited members use the owner's API keys: a checkbox when inviting, and a way to turn it off and on again.
+
+- **Per member, opt in:**
+  - "Let this member use my AI keys" on the add-member form, and "People who join with this link can use my AI keys" when creating the trip's join link, both off by default.
+  - An on/off switch on each member in Settings.
+  - Turning sharing on always shares the acting owner's keys. Any owner can turn it off.
+- **Who pays:** after the requester's own key and before operator sponsorship. A grant works only while its owner is an active owner of the trip who holds a key, and stops at the next request when that changes.
+- **Limits:**
+  - Shared requests run the trip's one model, which any owner of an unsponsored trip may choose (falling back to the sponsor's provider default).
+  - The member's own model choice is ignored.
+  - Shared requests count against the trip's daily prompt limit (default 20).
+  - No cost cap.
+- **Privacy:** members never receive the key. Owners see who uses whose keys; members see only whose key and model they use. Grants and their changes are audited without key material, and each shared request records its sponsor.
+
 ## D-075: Users can bring their own AI provider keys (accepted November 4, 2026)
 
 The owner wants a public instance that anyone can sign in to and use with their own API key, and that the owner also uses as a real travel assistant. Any signed-in user can store an OpenAI, Anthropic or Gemini key in **Settings → AI keys**.
@@ -21,7 +37,7 @@ The owner wants a public instance that anyone can sign in to and use with their 
   - A key is used only inside its owner's own requests, with a private provider state directory.
   - Background workers never use a user's key.
 
-Sharing an owner's key with trip members needs its own decision (JOB-063).
+Sharing an owner's key with trip members is D-076.
 
 ## D-074: Google sign-in in production, unverified, signup still gated (accepted November 4, 2026)
 

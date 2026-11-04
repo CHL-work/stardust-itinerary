@@ -18,9 +18,8 @@ permissions:
   contents: read
   id-token: write
 
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: false
+# Concurrency is on the deploy job only: a deploy waiting for approval must not hold back the image
+# builds of later pushes, which are idempotent per commit.
 
 env:
   REGION: asia-northeast1
@@ -83,6 +82,10 @@ jobs:
     needs: image
     if: github.event_name == 'workflow_dispatch'
     environment: production
+    # One deploy at a time; a newer request waits instead of cancelling one in progress.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

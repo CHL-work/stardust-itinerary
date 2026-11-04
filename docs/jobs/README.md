@@ -9,7 +9,7 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-060 | Move the public instance to GKE | in progress |
 | JOB-061 | Bring-your-own API keys | review |
 | JOB-062 | Gemini models | review |
-| JOB-063 | Trip-owner key sharing | in progress |
+| JOB-063 | Trip-owner key sharing | review |
 | JOB-064 | Guest mode and public sign-up | proposed |
 | JOB-065 | Public-launch security and privacy review | proposed |
 | JOB-066 | Showcase documentation and operations polish | proposed |

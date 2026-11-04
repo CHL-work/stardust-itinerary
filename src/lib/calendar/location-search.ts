@@ -69,18 +69,27 @@ export async function searchCalendarLocation(pool: Pool, config: AuthConfig, ses
     const policy = await getAiPolicy(client, session, undefined, { serializeMemberQuota: true });
     await assertBoundUserAiIdle(client, session.userId);
     const profile = ownerModelRegistry[policy.model];
-    const userCredential = policy.credentialSource === "own" ? await readAiCredentialSecret(client, session.userId, profile.provider) : null;
-    if (policy.credentialSource === "own" && !userCredential) throw new AppForbiddenError("Your saved API key for this provider is no longer available.");
+    // The requester's own key, or a trip owner's shared key (JOB-063), read server-side only.
+    const keyOwnerId = policy.credentialSource === "own" ? session.userId
+      : policy.credentialSource === "shared" ? policy.sponsor?.userId ?? null : null;
+    const userCredential = keyOwnerId ? await readAiCredentialSecret(client, keyOwnerId, profile.provider) : null;
+    if ((policy.credentialSource === "own" || policy.credentialSource === "shared") && !userCredential) {
+      throw new AppForbiddenError("The saved API key for this provider is no longer available.");
+    }
+    const sponsorMemberId = policy.credentialSource === "shared" ? policy.sponsor?.memberId ?? null : null;
     await client.query(`INSERT INTO ai_requests (trip_id,id,actor_member_id,actor_user_id,actor_role,feature,
-      prompt_text,requested_model,provider,transport,authentication_mode,billing_basis,client_request_id,request_payload_hash,credential_source)
-      VALUES ($1,$2,$3,$4,$5,'calendar_location',$6,$7,$8,$9,$10,'api',$11,$12,$13)`,
+      prompt_text,requested_model,provider,transport,authentication_mode,billing_basis,client_request_id,request_payload_hash,credential_source
+      ${sponsorMemberId ? ",credential_sponsor_member_id" : ""})
+      VALUES ($1,$2,$3,$4,$5,'calendar_location',$6,$7,$8,$9,$10,'api',$11,$12,$13${sponsorMemberId ? ",$14" : ""})`,
     [session.tripId,id,session.memberId,session.userId,session.role,buildCalendarLocationPrompt(subject),policy.model,
-      profile.provider,profile.transport,profile.authenticationMode,input.requestId,hash,policy.credentialSource]);
+      profile.provider,profile.transport,profile.authenticationMode,input.requestId,hash,policy.credentialSource,
+      ...(sponsorMemberId ? [sponsorMemberId] : [])]);
     await client.query(`INSERT INTO ai_request_events (trip_id,ai_request_id,sequence,event_type,payload)
       VALUES ($1,$2,1,'calendar.location.started',$3::jsonb)`,
     [session.tripId,id,JSON.stringify({ publicSubject: subject, locale: input.locale, consent: true, model: policy.model })]);
     return { kind: "start" as const, model: policy.model,
-      credential: userCredential ? { source: "own" as const, provider: profile.provider, ...userCredential } : null };
+      credential: userCredential && (policy.credentialSource === "own" || policy.credentialSource === "shared")
+        ? { source: policy.credentialSource, provider: profile.provider, ...userCredential } : null };
   });
   if (admission.kind === "replay") return admission.result;
   const controller = new AbortController();

@@ -1010,12 +1010,17 @@ export async function runAiPlanner(
       serializeMemberQuota: true,
     });
     selectedPolicyModel = currentPolicy.model;
-    // The requester's own key is read once, server-side, and lives only in this request's memory.
-    const userCredential = currentPolicy.credentialSource === "own"
-      ? await readAiCredentialSecret(client, session.userId, ownerModelRegistry[currentPolicy.model].provider) : null;
-    if (currentPolicy.credentialSource === "own" && !userCredential) {
-      throw new AiPolicyDeniedError("Your saved API key for this provider is no longer available. Add it again in Settings → AI keys.",
-        "ai_key_required", currentPolicy.model);
+    // The requester's own key, or the key a trip owner shares with them, is read once, server-side,
+    // and lives only in this request's memory. The member never receives a shared key.
+    const keyOwnerId = currentPolicy.credentialSource === "own" ? session.userId
+      : currentPolicy.credentialSource === "shared" ? currentPolicy.sponsor?.userId ?? null : null;
+    const userCredential = keyOwnerId
+      ? await readAiCredentialSecret(client, keyOwnerId, ownerModelRegistry[currentPolicy.model].provider) : null;
+    if ((currentPolicy.credentialSource === "own" || currentPolicy.credentialSource === "shared") && !userCredential) {
+      throw new AiPolicyDeniedError(currentPolicy.credentialSource === "shared"
+        ? "The trip owner's shared AI key is no longer available. Ask them to add it again."
+        : "Your saved API key for this provider is no longer available. Add it again in Settings → AI keys.",
+      "ai_key_required", currentPolicy.model);
     }
     await assertBoundUserAiIdle(client, session.userId);
     if (offTopicDecision.offTopic && images.length === 0) {
@@ -1098,14 +1103,18 @@ export async function runAiPlanner(
     const aiInstructions = await readAiInstructions(client, session.userId);
     setupFailureStage = "request_recording";
     const profile = ownerModelRegistry[currentPolicy.model];
+    // A shared key also records whose key paid (migration 0055, present whenever a grant exists).
+    const sponsorMemberId = currentPolicy.credentialSource === "shared" ? currentPolicy.sponsor?.memberId ?? null : null;
     await client.query(
       `INSERT INTO ai_requests (
          trip_id, id, actor_member_id, actor_user_id, conversation_id, actor_role,
          prompt_text, requested_model, provider, transport, authentication_mode, billing_basis, credential_source
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'api',$12)`,
+         ${sponsorMemberId ? ", credential_sponsor_member_id" : ""}
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'api',$12${sponsorMemberId ? ",$13" : ""})`,
       [session.tripId, requestId, session.memberId, session.userId, memory.conversationId,
         session.role, prompt, currentPolicy.model,
-        profile.provider, profile.transport, profile.authenticationMode, currentPolicy.credentialSource],
+        profile.provider, profile.transport, profile.authenticationMode, currentPolicy.credentialSource,
+        ...(sponsorMemberId ? [sponsorMemberId] : [])],
     );
     if (images.length) await saveAiRequestImages(client, session, requestId, images);
     if (clientRequestId) {
@@ -2444,7 +2453,8 @@ export async function runAiPlanner(
     throw error;
   }
   };
-  return userCredential
-    ? withUserAiCredential({ source: "own", provider: ownerModelRegistry[policy.model].provider, ...userCredential }, continuePlanning)
+  return userCredential && (policy.credentialSource === "own" || policy.credentialSource === "shared")
+    ? withUserAiCredential({ source: policy.credentialSource, provider: ownerModelRegistry[policy.model].provider, ...userCredential },
+      continuePlanning)
     : continuePlanning();
 }

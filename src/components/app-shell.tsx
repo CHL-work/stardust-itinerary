@@ -301,6 +301,8 @@ type Overview = {
     status: string;
     identityBound: boolean;
     googleEmail?: string | null;
+    /** Owner view only: whose AI keys this member may use (JOB-063). */
+    aiKeyGrant?: { sponsorMemberId: string; sponsorName: string } | null;
     currentRevision?: number;
     canRemove: boolean;
     permissions: Permissions;
@@ -330,6 +332,8 @@ type Overview = {
     canSelectModel?: boolean; hostSubscriptionEnabled?: boolean;
     /** Providers the signed-in user holds their own API key for (JOB-061). */
     ownKeyProviders?: string[];
+    /** A trip owner's AI keys shared with the user (JOB-063): who shares them and which model runs. */
+    sharedKey?: { sponsorName: string; model: string } | null;
     /** AI is allowed here, but only with the user's own key, and they have none. */
     keyRequired?: boolean;
     memberDailyLimit: number; usedToday: number; remainingToday: number | null;
@@ -877,6 +881,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const paymentCopy = memberPaymentMessages(locale);
   const cardMutationPending = useRef(false);
   const [overview, setOverview] = useState<Overview | null>(null);
+  // Sharing AI keys (JOB-063) needs at least one key of the owner's own.
+  const ownKeysToShare = (overview?.ai.ownKeyProviders?.length ?? 0) > 0;
   const [offlineSnapshot, setOfflineSnapshot] = useState<OfflineItinerarySnapshot | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -955,6 +961,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const [tripJoinLink, setTripJoinLink] = useState<string | null>(null);
   const [inviteToast, setInviteToast] = useState<string | null>(null);
   const [newMemberName, setNewMemberName] = useState<string | null>(null);
+  // The invite checkboxes for sharing the owner's AI keys (JOB-063); both start unchecked.
+  const [newMemberShareKeys, setNewMemberShareKeys] = useState(false);
+  const [joinLinkShareKeys, setJoinLinkShareKeys] = useState(false);
   const [memberPendingDisable, setMemberPendingDisable] = useState<{ id: string; displayName: string } | null>(null);
   const [memberRemoval, setMemberRemoval] = useState<{
     scope: string; member: Overview["members"][number]; preview: MemberRemovalPreview | null; loading: boolean; error: string | null;
@@ -1847,6 +1856,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     try {
       const result = await jsonRequest<{ joinUrl: string }>(`/api/trips/${overview.trip.id}/join-links`, {
         method: "POST",
+        body: JSON.stringify(joinLinkShareKeys ? { shareAiKeys: true } : {}),
       });
       setTripJoinLink(result.joinUrl);
       const copied = await navigator.clipboard.writeText(result.joinUrl)
@@ -1860,6 +1870,35 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     } finally {
       setBusy(false);
     }
+  };
+
+  /** An owner turns one member's use of the owner's own AI keys on or off (JOB-063). */
+  const updateAiKeyGrant = async (memberId: string, shared: boolean) => {
+    if (!overview?.session.isOwner) return;
+    setBusy(true);
+    try {
+      await jsonRequest(`/api/trips/${overview.trip.id}/members/${memberId}/ai-key-grant`, {
+        method: "PUT", body: JSON.stringify({ shared }),
+      });
+      setNotice(keysCopy.shareChanged);
+      await refresh();
+    } catch (error) {
+      setNotice(error instanceof JsonRequestError && error.status === 400 ? keysCopy.shareNeedsKey : keysCopy.shareFailed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Owners of an unsponsored trip pick the model shared keys run (JOB-063). */
+  const updateSharedModel = async (model: string) => {
+    if (!overview?.session.isOwner) return;
+    try {
+      await jsonRequest(`/api/trips/${overview.trip.id}/ai/settings`, {
+        method: "PATCH", body: JSON.stringify({ ownerDefaultModel: model }),
+      });
+      setNotice(formatMessage(messages.aiModelChanged, { model }));
+      await refresh();
+    } catch { setNotice(messages.aiModelChangeFailed); }
   };
 
   const copyTripJoinLink = async () => {
@@ -1892,9 +1931,10 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     try {
       await jsonRequest(`/api/trips/${overview.trip.id}/members`, {
         method: "POST",
-        body: JSON.stringify({ displayName: newMemberName }),
+        body: JSON.stringify({ displayName: newMemberName, ...(newMemberShareKeys ? { shareAiKeys: true } : {}) }),
       });
       setNewMemberName(null);
+      setNewMemberShareKeys(false);
       setNotice("Member created as inactive. Use Invite to copy their one-time Google sign-in link.");
       await refresh();
     } catch (error) {
@@ -3102,6 +3142,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <div className="settings-card-heading"><div><h2>Members</h2><p>{overview.session.isOwner ? "Add a named member, or share one reusable Google sign-in link until capacity is reached." : "People currently listed on this trip."}</p><small>{overview.trip.memberCount} of {overview.trip.maxMembers} member places reserved, including the owner</small></div>{overview.session.isOwner ? <button data-feedback-action="member_change" className="primary-button fit-button" disabled={busy || overview.trip.memberCount >= overview.trip.maxMembers} onClick={() => setNewMemberName("")}><UserPlus size={16} /> Add member</button> : null}</div>
             {overview.session.isOwner ? <div className="group-invite-panel">
               <div><strong>Open trip invitation</strong><p>Anyone eligible for this app&apos;s basic Google sign-in can join as a new member with this link. Calendar access is separate, and each member can choose to connect it later. The link closes permanently when the trip reaches {overview.trip.maxMembers} members.</p></div>
+              <label className="check-field"><input type="checkbox" checked={joinLinkShareKeys && ownKeysToShare} disabled={busy || !ownKeysToShare} onChange={(event) => setJoinLinkShareKeys(event.target.checked)} />{keysCopy.shareLinkCheckbox}</label>
+              {!ownKeysToShare ? <small>{keysCopy.shareNeedsKey}</small> : null}
               <div className="member-actions">
                 {tripJoinLink ? <button data-feedback-action="member_invite" className="mini-button" disabled={busy} onClick={() => void copyTripJoinLink()}><Copy size={14} /> Copy link</button> : null}
                 <button data-feedback-action="member_invite" className="primary-button fit-button" disabled={busy || overview.trip.memberCount >= overview.trip.maxMembers} onClick={() => void createTripJoinLink()}>{overview.trip.joinLinkActive ? "Replace invite link" : "Generate invite link"}</button>
@@ -3112,11 +3154,12 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <div className="member-admin-list">{overview.members.map((member) => {
               const canInvite = member.status === "invited" && !member.identityBound;
               return <div className="member-admin-row" key={member.id}>
-                <div><strong>{member.displayName}{member.id === overview.session.memberId ? " · you" : ""}</strong><small>{member.role} · {member.status} · Google sign-in {member.identityBound ? "linked" : "not linked"}</small>{overview.session.isOwner && member.googleEmail ? <small>{formatMessage(messages.memberGoogleEmail, { email: member.googleEmail })}</small> : null}
+                <div><strong>{member.displayName}{member.id === overview.session.memberId ? " · you" : ""}</strong><small>{member.role} · {member.status} · Google sign-in {member.identityBound ? "linked" : "not linked"}</small>{overview.session.isOwner && member.googleEmail ? <small>{formatMessage(messages.memberGoogleEmail, { email: member.googleEmail })}</small> : null}{member.aiKeyGrant ? <small>{formatMessage(keysCopy.sharedBy, { owner: member.aiKeyGrant.sponsorName })}</small> : null}
                   {overview.session.isOwner ? <MemberRoleControl key={`${member.id}:${member.currentRevision}:${member.role}:${member.status}:${member.identityBound}`} member={member} locale={locale} busy={busy} save={(role) => updateMemberRole(member, role)} /> : null}
                 </div>
                 {overview.session.isOwner ? <div className="member-actions">
                   {canInvite ? <button data-feedback-action="member_invite" className="mini-button" disabled={busy} onClick={() => void createMemberInvitation(member.id)}><Copy size={14} /> Invite</button> : null}
+                  {member.id !== overview.session.memberId ? <button data-feedback-action="member_change" className="mini-button" aria-pressed={Boolean(member.aiKeyGrant)} disabled={busy || (!member.aiKeyGrant && !ownKeysToShare)} title={!member.aiKeyGrant && !ownKeysToShare ? keysCopy.shareNeedsKey : undefined} onClick={() => void updateAiKeyGrant(member.id, !member.aiKeyGrant)}>{member.aiKeyGrant ? keysCopy.shareStop : keysCopy.shareStart}</button> : null}
                   <button data-feedback-action="member_change" className="mini-button" disabled={busy} onClick={() => requestMemberAccessChange(member)}>{member.status === "revoked" ? messages.enableMemberAccess : messages.disableMemberAccess}</button>
                   <button data-feedback-action="member_change" className="mini-button danger-button" disabled={busy || !member.canRemove} title={member.canRemove ? memberCopy.remove : memberCopy.lastOwner} onClick={() => void previewMemberRemoval(member)}><Trash2 size={14} /> {memberCopy.remove}</button>
                 </div> : null}
@@ -3129,8 +3172,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <summary data-feedback-action="navigate"><ChevronRight size={20} aria-hidden="true" /><span><strong>{advancedCopy.advanced}</strong><small>{overview.session.isOwner ? advancedCopy.description : advancedCopy.memberDescription}</small></span></summary>
             <div className={advancedStyles.body}>
           <article className="settings-card"><h2>{messages.aiAccess}</h2>
-            <p>{unsponsoredAiNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : formatMessage(messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit }))}</p>
+            <p>{aiFundingNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : formatMessage(messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit }))}</p>
             {overview.ai.canSelectModel ? <label>{messages.aiOwnerDefaultModel}<select data-feedback-action="settings_save" value={selectedModel} disabled={busy} onChange={(event) => void updateModel(event.target.value)}>{ownerModels.map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
+            {!overview.ai.canSelectModel && overview.session.isOwner && overview.ai.hostSubscriptionEnabled === false && ownKeysToShare ? <label>{keysCopy.sharedModelLabel}<select data-feedback-action="settings_save" value={overview.ai.ownerDefaultModel} disabled={busy} onChange={(event) => void updateSharedModel(event.target.value)}>{[...new Set([overview.ai.ownerDefaultModel, ...ownKeyModels(overview.ai.ownKeyProviders ?? [])])].map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
             {overview.session.isOwner ? <form className="inline-settings-form" data-feedback-action="settings_save" onSubmit={saveMemberDailyLimit}><label>{messages.aiMemberPromptsPerDay}<input type="number" min="1" max="1000" step="1" required value={memberDailyLimit} onChange={(event) => setMemberDailyLimit(event.target.value)} /></label><button data-feedback-action="settings_save" className="primary-button fit-button" disabled={busy}>{messages.saveAiLimit}</button></form> : overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <div className="quota-meter"><span style={{ width: `${Math.min(100, (overview.ai.usedToday / overview.ai.memberDailyLimit) * 100)}%` }} /></div> : null}
             {overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <strong>{overview.ai.canSelectModel ? formatMessage(messages.aiOwnerSummary, { limit: overview.ai.memberDailyLimit }) : formatMessage(messages.aiMemberRemaining, { remaining: overview.ai.remainingToday ?? 0 })}</strong> : null}
           </article>
@@ -3162,7 +3206,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                   <div className={advancedStyles.groupBody}>
                     <div className="section-heading"><p className="muted-copy">{advancedCopy.usageDescription}</p><button data-feedback-action="navigate" className="ghost-button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />{advancedCopy.refresh}</button></div>
                     <div className="metric-grid">
-                      <article className="metric-card"><span>{advancedCopy.requestsToday}</span><strong>{overview.ai.usedToday}</strong><small>{unsponsoredAiNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerPolicy : formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit }))}</small></article>
+                      <article className="metric-card"><span>{advancedCopy.requestsToday}</span><strong>{overview.ai.usedToday}</strong><small>{aiFundingNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerPolicy : formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit }))}</small></article>
                       <article className="metric-card"><span>{advancedCopy.inputTokens}</span><strong>{usageTotals.input.toLocaleString(locale)}</strong><small>{formatMessage(advancedCopy.outputTokens, { count: usageTotals.output.toLocaleString(locale) })}</small></article>
                       <article className="metric-card"><span>{advancedCopy.outcomes}</span><strong>{formatMessage(advancedCopy.succeededCount, { count: usageTotals.succeeded })}</strong><small>{formatMessage(advancedCopy.otherOutcomes, { failed: usageTotals.failed, rejected: usageTotals.rejected })}</small></article>
                       <article className="metric-card"><span>{advancedCopy.effectiveModel}</span><strong>{overview.ai.effectiveModel}</strong><small>{formatMessage(advancedCopy.recentEntries, { count: overview.aiLogs.length })}</small></article>
@@ -3194,7 +3238,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         <ApprovalRequestCards requests={[activityDetail.request]} locale={locale} messages={messages} timeZone={overview.trip.timeZone} busy={busy} readOnly review={() => undefined} />
       </Modal>}
 
-      {newMemberName !== null ? <Modal title="Add trip member" close={() => setNewMemberName(null)}><form data-feedback-action="member_change" className="form-grid" onSubmit={addMember}><label className="full-field">Member name<input autoFocus required maxLength={120} value={newMemberName} onChange={(event) => setNewMemberName(event.target.value)} /></label><p className="full-field muted-copy">This creates an inactive member. Afterward, click Invite to copy a one-time link. The first Google account that completes that link becomes this member’s identity.</p><div className="dialog-actions full-field"><button className="primary-button fit-button" disabled={busy || !newMemberName.trim()}><UserPlus size={16} /> Create member</button><button data-feedback-action="dialog_close" type="button" className="ghost-button" onClick={() => setNewMemberName(null)}>Cancel</button></div></form></Modal> : null}
+      {newMemberName !== null ? <Modal title="Add trip member" close={() => setNewMemberName(null)}><form data-feedback-action="member_change" className="form-grid" onSubmit={addMember}><label className="full-field">Member name<input autoFocus required maxLength={120} value={newMemberName} onChange={(event) => setNewMemberName(event.target.value)} /></label><label className="check-field full-field"><input type="checkbox" checked={newMemberShareKeys && ownKeysToShare} disabled={busy || !ownKeysToShare} onChange={(event) => setNewMemberShareKeys(event.target.checked)} />{keysCopy.shareCheckbox}</label>{!ownKeysToShare ? <small className="full-field">{keysCopy.shareNeedsKey}</small> : null}<p className="full-field muted-copy">This creates an inactive member. Afterward, click Invite to copy a one-time link. The first Google account that completes that link becomes this member’s identity.</p><div className="dialog-actions full-field"><button className="primary-button fit-button" disabled={busy || !newMemberName.trim()}><UserPlus size={16} /> Create member</button><button data-feedback-action="dialog_close" type="button" className="ghost-button" onClick={() => setNewMemberName(null)}>Cancel</button></div></form></Modal> : null}
 
       {memberPendingDisable ? <Modal title={messages.disableMemberTitle} closeLabel={messages.disableMemberCloseLabel} close={() => setMemberPendingDisable(null)}><div className="calendar-consent"><div><p>{formatMessage(messages.disableMemberWarning, { name: memberPendingDisable.displayName })}</p><p>{messages.disableMemberIdentityLinked}</p></div><div className="dialog-actions"><button type="button" className="ghost-button" autoFocus onClick={() => setMemberPendingDisable(null)}>{messages.cancelButton}</button><button type="button" className="primary-button fit-button danger-button" onClick={() => void confirmMemberDisable()}>{messages.disableMemberConfirm}</button></div></div></Modal> : null}
 
@@ -3817,11 +3861,17 @@ export function ownKeyAccess(ai: Overview["ai"]) {
   };
 }
 
-/** How AI works in a trip the operator does not sponsor, or null for a sponsored trip. */
-export function unsponsoredAiNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy): string | null {
-  if (ai.hostSubscriptionEnabled !== false) return null;
+/**
+ * How AI is paid for this viewer when it is not the operator's usual sponsorship: their own key, a
+ * trip owner's shared key (JOB-063), or neither. Null means the sponsored-trip copy applies.
+ */
+export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy): string | null {
   if (ai.keyRequired) return keysCopy.keyRequired;
-  return ai.enabled && ownKeyAccess(ai).ownKeyOnly ? keysCopy.ownKeyAccess : messages.aiUnavailable;
+  if (ai.enabled && ownKeyAccess(ai).ownKeyOnly) return keysCopy.ownKeyAccess;
+  if (ai.enabled && ai.sharedKey) {
+    return formatMessage(keysCopy.sharedAccess, { owner: ai.sharedKey.sponsorName, model: ai.sharedKey.model, limit: ai.memberDailyLimit });
+  }
+  return ai.hostSubscriptionEnabled === false ? messages.aiUnavailable : null;
 }
 
 export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, setModel, ownKeyChoice = "", setOwnKeyChoice, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale }: {
@@ -3850,16 +3900,16 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
   const keysCopy = aiKeysMessages(locale ?? imagePicker?.locale ?? "en");
   const access = ownKeyAccess(overview.ai);
   const ownChoice = (access.models as string[]).includes(ownKeyChoice) ? ownKeyChoice : "";
-  const idleMessage = overview.ai.keyRequired ? keysCopy.keyRequired
-    : !overview.ai.enabled ? messages.aiUnavailable
-    : access.ownKeyOnly ? keysCopy.ownKeyAccess
-    : overview.ai.canSelectModel
-      ? messages.aiOwnerPolicy
-      : messages.aiMemberPolicy;
+  const idleMessage = aiFundingNote(overview.ai, messages, keysCopy)
+    ?? (!overview.ai.enabled ? messages.aiUnavailable : overview.ai.canSelectModel ? messages.aiOwnerPolicy : messages.aiMemberPolicy);
+  // With no choice the server uses the user's own key in an unsponsored trip, else a shared key, else sponsorship.
+  const defaultOption = access.ownKeyOnly ? formatMessage(keysCopy.autoOption, { model: access.automatic ?? "" })
+    : overview.ai.sharedKey ? formatMessage(keysCopy.sharedOption, { model: overview.ai.sharedKey.model, owner: overview.ai.sharedKey.sponsorName })
+    : formatMessage(keysCopy.sponsoredOption, { model: overview.ai.effectiveModel });
   // Choosing one of the user's own-key models is per request; it never changes the trip's settings.
   const ownKeySelect = !overview.ai.canSelectModel && overview.ai.enabled && access.models.length > 0
     ? <select className="model-select" aria-label={keysCopy.modelLabel} value={ownChoice} disabled={busy} onChange={(event) => setOwnKeyChoice?.(event.target.value)}>
-      <option value="">{access.ownKeyOnly ? formatMessage(keysCopy.autoOption, { model: access.automatic ?? "" }) : formatMessage(keysCopy.sponsoredOption, { model: overview.ai.effectiveModel })}</option>
+      <option value="">{defaultOption}</option>
       {access.models.map((model) => <option key={model} value={model}>{formatMessage(keysCopy.ownModelOption, { model })}</option>)}
     </select>
     : null;

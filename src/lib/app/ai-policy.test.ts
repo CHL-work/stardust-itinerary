@@ -19,13 +19,19 @@ const memberSession: AuthenticatedSession = {
 };
 
 function policyClient(usedToday: number, ownerDefaultModel = "claude-haiku-5-5",
-  options: { ownProviders?: string[]; sponsored?: boolean; enabled?: boolean } = {}) {
+  options: { ownProviders?: string[]; sponsored?: boolean; enabled?: boolean; sharedProviders?: string[] } = {}) {
   return {
     query: vi.fn(async (...args: [sql: unknown, params?: readonly unknown[]]) => {
       const [sql] = args;
       const statement = String(sql);
       if (statement.includes("pg_advisory_xact_lock")) return { rows: [{}] };
       if (statement.includes("to_regclass('public.user_ai_credentials')")) return { rows: [{ present: true }] };
+      if (statement.includes("to_regclass('public.trip_ai_key_grants')")) return { rows: [{ present: true }] };
+      // A usable grant joins the sponsor's keys, so a grant whose sponsor holds none returns no row.
+      if (statement.includes("FROM trip_ai_key_grants")) {
+        return { rows: options.sharedProviders?.length ? [{ sponsor_member_id: "20000000-0000-4000-8000-000000000001",
+          sponsor_user_id: "00000000-0000-4000-8000-000000000001", sponsor_name: "Synthetic owner", providers: options.sharedProviders }] : [] };
+      }
       if (statement.includes("FROM user_ai_credentials")) return { rows: (options.ownProviders ?? []).map((provider) => ({ provider })) };
       if (statement.includes("FROM trip_ai_settings")) {
         return {
@@ -175,5 +181,43 @@ describe("AI policy with the requester's own keys", () => {
   it("still honors an owner's decision to turn AI off for the trip", async () => {
     await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { ownProviders: ["openai"], enabled: false }) as unknown as Pool,
       memberSession, "gpt-6.1-terra")).rejects.toMatchObject({ reasonCode: "ai_disabled" });
+  });
+});
+
+describe("AI policy with a trip owner's shared keys (JOB-063)", () => {
+  it("runs the trip's one model on the sponsor's key, within the trip's daily limit", async () => {
+    const policy = await getAiPolicy(policyClient(3, "claude-sonnet-5-5", { sharedProviders: ["anthropic"], sponsored: false }) as unknown as Pool,
+      memberSession, "gpt-6-astra");
+    expect(policy).toMatchObject({ model: "claude-sonnet-5-5", credentialSource: "shared", usedToday: 3, limit: 20,
+      sponsor: { memberId: "20000000-0000-4000-8000-000000000001", userId: "00000000-0000-4000-8000-000000000001" } });
+  });
+
+  it("falls back to the sponsor's provider default when the trip model's provider has no shared key", async () => {
+    const policy = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { sharedProviders: ["google"], sponsored: false }) as unknown as Pool, memberSession);
+    expect(policy).toMatchObject({ model: "gemini-3.8-flash", credentialSource: "shared" });
+  });
+
+  it("prefers the member's own key, and is used before operator sponsorship", async () => {
+    const own = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { ownProviders: ["openai"], sharedProviders: ["anthropic"], sponsored: false }) as unknown as Pool, memberSession);
+    expect(own.credentialSource).toBe("own");
+    const shared = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { sharedProviders: ["anthropic"], sponsored: true }) as unknown as Pool, memberSession);
+    expect(shared).toMatchObject({ credentialSource: "shared", model: "claude-sonnet-5-5" });
+  });
+
+  it("stops at the daily limit and respects AI being off", async () => {
+    await expect(getAiPolicy(policyClient(20, "gpt-6.1-sol", { sharedProviders: ["openai"], sponsored: false }) as unknown as Pool, memberSession))
+      .rejects.toMatchObject({ reasonCode: "daily_limit_reached" });
+    await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { sharedProviders: ["openai"], sponsored: false, enabled: false }) as unknown as Pool, memberSession))
+      .rejects.toMatchObject({ reasonCode: "ai_disabled" });
+  });
+
+  it("serializes the shared quota check like the member quota", async () => {
+    const client = policyClient(0, "gpt-6.1-sol", { sharedProviders: ["openai"], sponsored: false });
+    await getAiPolicy(client as unknown as Pool, memberSession, undefined, { serializeMemberQuota: true });
+    const statements = client.query.mock.calls.map(([sql]) => String(sql));
+    const lock = statements.findIndex((sql) => sql.includes("pg_advisory_xact_lock"));
+    const usage = statements.findIndex((sql) => sql.includes("FROM ai_requests"));
+    expect(lock).toBeGreaterThan(-1);
+    expect(lock).toBeLessThan(usage);
   });
 });

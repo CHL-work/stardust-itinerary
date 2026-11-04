@@ -79,8 +79,18 @@ describe("owner-only reusable trip join-link routes", () => {
     expect(mocks.issueJoinLink).toHaveBeenCalledWith(
       { synthetic: true },
       config,
-      { tripId, actorMemberId: ownerMemberId,actorUserId:"30000000-0000-4000-8000-000000000001" },
+      { tripId, actorMemberId: ownerMemberId,actorUserId:"30000000-0000-4000-8000-000000000001", sharesAiKeys: false },
     );
+  });
+
+  it("rejects a malformed or unknown invitation body before issuing anything", async () => {
+    for (const body of ["{", JSON.stringify({ shareAiKeys: "yes" }), JSON.stringify({ sponsorMemberId: ownerMemberId })]) {
+      const response = await POST(new NextRequest(`${config.appBaseUrl.origin}/api/trips/${tripId}/join-links`, {
+        method: "POST", headers: { origin: config.appBaseUrl.origin, "content-type": "application/json" }, body,
+      }), { params: Promise.resolve({ tripId }) });
+      expect(response.status).toBe(400);
+    }
+    expect(mocks.issueJoinLink).not.toHaveBeenCalled();
   });
 
   it("allows the current trip owner to revoke the active invitation", async () => {

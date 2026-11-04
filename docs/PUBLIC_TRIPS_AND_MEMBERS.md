@@ -44,13 +44,31 @@ The operator is verified through the stored Google identity and configured `OWNE
 
 ### Your own API keys
 
-Any member can add their own OpenAI, Anthropic or Gemini API key in **Settings → AI keys** (JOB-061). The key is checked with the provider before it is saved, stored encrypted, and never shown again; only its last four characters are. A request uses the requester's own key when they explicitly choose a model of a provider they hold a key for, or when the trip is not operator-sponsored and they hold any key. In that case the trip's daily prompt limit does not apply, because the requester's own provider account pays. With no explicit choice, a sponsored trip keeps its free sponsorship, so adding a key never silently starts charging a member. An owner who turns AI off for a trip turns it off for own-key requests too. A member without a key in an unsponsored trip is asked to add one (`ai_key_required`). Trip owners never see or use other members' keys; sharing an owner's key with invited members is JOB-063.
+Any member can add their own OpenAI, Anthropic or Gemini API key in **Settings → AI keys** (JOB-061). The key is checked with the provider before it is saved, stored encrypted, and never shown again; only its last four characters are. A request uses the requester's own key when they explicitly choose a model of a provider they hold a key for, or when the trip is not operator-sponsored and they hold any key. In that case the trip's daily prompt limit does not apply, because the requester's own provider account pays. With no explicit choice, a sponsored trip keeps its free sponsorship, so adding a key never silently starts charging a member. An owner who turns AI off for a trip turns it off for own-key requests too. A member without a key in an unsponsored trip is asked to add one (`ai_key_required`), unless an owner shares theirs (below). Trip owners never see or use other members' keys.
 
 In the app:
 - The overview tells the browser only which providers the viewer holds a key for.
 - The AI composer opens as soon as a key is saved.
 - A member with keys gets a model picker listing their providers' models. The choice applies to one request at a time and never changes the trip's settings.
 - In a sponsored trip, the picker's first option stays the free trip AI. In an unsponsored trip, it is the model the server would pick.
+
+### Sharing your keys with members
+
+Decision: [D-076](DECISIONS.md#d-076-trip-owners-can-share-their-own-ai-keys-with-chosen-members-accepted-november-4-2026) (JOB-063). An owner who holds a key can let chosen members use it in this trip:
+- **When inviting:** tick **Let this member use my AI keys** on the add-member form, or **People who join with this link can use my AI keys** before creating the join link. Both start unticked.
+- **Afterwards:** use **Share my AI keys** or **Stop sharing AI keys** on a member in Settings.
+
+Turning sharing on always shares the acting owner's own keys and replaces another owner's grant. Any owner can turn it off.
+
+Rules:
+- **Grants:** `trip_ai_key_grants` holds one grant per member, naming the sponsoring owner. `PUT /api/trips/{tripId}/members/{memberId}/ai-key-grant` takes `{shared}`. `POST /members` and `POST /join-links` accept `shareAiKeys`.
+- **Who can grant:** only active owners, never to themselves, and only with at least one key of their own (otherwise `400`). A join link grants only to people who join through it while its creator is an active owner.
+- **Funding:** after the requester's own key and before operator sponsorship. A grant works only while its sponsor is an active owner who holds a key. Turning it off, the sponsor losing ownership, or the sponsor deleting the key stops it at the next request.
+- **Model and quota:** shared requests run the trip's model, which any owner of an unsponsored trip can choose in Settings. If the sponsor holds no key for that model's provider, the sponsor's first provider's default runs. A member's own model choice is ignored. Shared requests count against `member_daily_limit`, as sponsored ones do.
+- **Visibility:**
+  - Owners see on each member whose keys they use. A member sees only whose key and which model their AI uses, and never the key.
+  - Changes are audited as `ai_keys_shared` and `ai_keys_unshared` without key material.
+  - Each shared request records `credential_sponsor_member_id`.
 
 ## Deleting a trip
 

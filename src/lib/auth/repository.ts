@@ -76,6 +76,8 @@ type ManageJoinLinkInput = {
   tripId: string;
   actorMemberId: string;
   actorUserId?: string;
+  /** People who join through the link may use the issuing owner's own AI keys (JOB-063). */
+  sharesAiKeys?: boolean;
 };
 
 async function lockAuthTrip(client: PoolClient, tripId: string): Promise<void> {
@@ -493,10 +495,11 @@ export async function issueJoinLink(
     const rawToken = createOpaqueToken();
     const tokenHash = hashOpaqueToken(config.authSecret, "trip-join", rawToken);
     const linkId = randomUUID();
+    // The column exists from migration 0055; a link that shares nothing works without it.
     await client.query(
       `INSERT INTO trip_join_links (
-         id, trip_id, token_hash, created_by_member_id
-       ) VALUES ($1, $2, $3, $4)`,
+         id, trip_id, token_hash, created_by_member_id${input.sharesAiKeys ? ", shares_ai_keys" : ""}
+       ) VALUES ($1, $2, $3, $4${input.sharesAiKeys ? ", true" : ""})`,
       [linkId, input.tripId, tokenHash, input.actorMemberId],
     );
     await client.query(
@@ -508,7 +511,10 @@ export async function issueJoinLink(
         randomUUID(),
         input.actorMemberId,
         linkId,
-        JSON.stringify({ remainingSeats: tripRow.max_members - tripRow.member_count }),
+        JSON.stringify({
+          remainingSeats: tripRow.max_members - tripRow.member_count,
+          ...(input.sharesAiKeys ? { sharesAiKeys: true } : {}),
+        }),
       ],
     );
     return { rawToken };
@@ -601,9 +607,11 @@ export async function consumeJoinLink(
       created_by_member_id: string;
       revoked_at: Date | null;
       exhausted_at: Date | null;
+      shares_ai_keys: boolean;
     }>(
-      `SELECT id, created_by_member_id, revoked_at, exhausted_at
-         FROM trip_join_links
+      `SELECT id, created_by_member_id, revoked_at, exhausted_at,
+              COALESCE((to_jsonb(link)->>'shares_ai_keys')::boolean, false) AS shares_ai_keys
+         FROM trip_join_links link
         WHERE id = $1
         FOR UPDATE`,
       [candidateRow.id],
@@ -737,6 +745,31 @@ export async function consumeJoinLink(
         JSON.stringify({ source: "reusable_join_link", joinLinkId: linkRow.id }),
       ],
     );
+    if (linkRow.shares_ai_keys) {
+      // The link was created to share its owner's AI keys (JOB-063). That holds only while the
+      // creator is still an active owner; the grant never carries key material.
+      const grant = await client.query(
+        `INSERT INTO trip_ai_key_grants (trip_id, member_id, sponsor_member_id)
+         SELECT $1, $2, sponsor.id FROM trip_members sponsor
+          WHERE sponsor.trip_id = $1 AND sponsor.id = $3 AND sponsor.role = 'owner' AND sponsor.status = 'active'
+         ON CONFLICT (trip_id, member_id) DO NOTHING`,
+        [candidateRow.trip_id, memberId, linkRow.created_by_member_id],
+      );
+      if (grant.rowCount) {
+        await client.query(
+          `INSERT INTO audit_events (
+             trip_id, id, actor_member_id, entity_type, entity_id, action, metadata
+           ) VALUES ($1, $2, $3, 'trip_member', $4, 'ai_keys_shared', $5)`,
+          [
+            candidateRow.trip_id,
+            randomUUID(),
+            linkRow.created_by_member_id,
+            memberId,
+            JSON.stringify({ source: "join_link", sponsorMemberId: linkRow.created_by_member_id, joinLinkId: linkRow.id }),
+          ],
+        );
+      }
+    }
 
     return insertSession(client, config, {
       tripId: candidateRow.trip_id,

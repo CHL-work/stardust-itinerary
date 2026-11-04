@@ -33,6 +33,7 @@ These rules apply to every human and AI contributor.
 - Use only provider-documented SDKs, authentication and endpoints. Hosted deployments authenticate with API keys. Never reuse consumer-subscription logins (ChatGPT, Claude.ai, Gemini CLI OAuth) as a hosted transport; Anthropic does not permit third-party products to offer Claude.ai login.
 - Preserve the funding rules in `getAiPolicy` (`src/lib/app/repository.ts`), which decides whose key pays for each request:
   - **The requester's own stored key** (JOB-061) pays when they choose one of its provider's models, or in a trip the operator does not sponsor. The trip's prompt cap does not apply.
+  - **A trip owner's shared key** (JOB-063) pays next, for a member the owner chose. It runs the trip's one model, within the trip's daily limit, and only while that owner is an active owner who holds a key.
   - **The operator's keys** pay only in operator-sponsored trips. There, only the verified platform operator who is also an active trip owner gets premium model choice and quota exemption; other users get the member model and the trip's daily UTC limit (default 20).
   - **Otherwise** the request is refused with `ai_key_required`.
 

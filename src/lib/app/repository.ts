@@ -1238,6 +1238,11 @@ async function readAppOverviewSnapshot(
     && (!settings.entitlement_available || await isPlatformOperator(client, session.userId));
   // Only which providers the viewer holds a key for, never anything about the keys (JOB-061).
   const ownKeyProviders = await aiCredentialProviders(client, session.userId);
+  // An owner's keys shared with the viewer (JOB-063): who shares them and which model runs.
+  const sharedGrant = await usableAiKeyGrant(client, session.tripId, session.memberId);
+  const sharedModel = sharedGrant ? ownKeyModel(undefined, settings.owner_default_model, sharedGrant.providers, false) : null;
+  const sharedKey = sharedGrant && sharedModel ? { sponsorName: sharedGrant.sponsorName, model: sharedModel } : null;
+  const memberKeyGrants = session.role === "owner" ? await aiKeyGrantsForTrip(client, session.tripId) : new Map();
   const used = Number(quotaResult.rows[0]?.used ?? 0);
   const permissionRows = new Map(permissionResult.rows.map((row) => [row.member_id, row]));
   const currentPermissions = await getMemberPermissions(client, session.tripId, session.memberId);
@@ -1327,7 +1332,7 @@ async function readAppOverviewSnapshot(
         role: row.role,
         status: row.status,
         identityBound: row.identity_bound,
-        ...(session.role === "owner" ? { googleEmail: ownerMemberEmails.get(row.id) ?? null } : {}),
+        ...(session.role === "owner" ? { googleEmail: ownerMemberEmails.get(row.id) ?? null, aiKeyGrant: memberKeyGrants.get(row.id) ?? null } : {}),
         canRemove: row.can_remove,
         currentRevision: row.current_revision,
         permissions: row.role === "owner" ? {
@@ -1460,11 +1465,13 @@ async function readAppOverviewSnapshot(
       return projection ? [projection] : [];
     }),
     ai: {
-      // Mirrors getAiPolicy: the operator pays only in sponsored trips; elsewhere the viewer's own key does.
-      enabled: settings.enabled && (settings.host_subscription_enabled || ownKeyProviders.size > 0),
+      // Mirrors getAiPolicy: the operator pays only in sponsored trips; elsewhere the viewer's own key
+      // or an owner's shared key does.
+      enabled: settings.enabled && (settings.host_subscription_enabled || ownKeyProviders.size > 0 || sharedKey !== null),
       hostSubscriptionEnabled: settings.host_subscription_enabled,
       ownKeyProviders: aiKeyProviderOrder.filter((provider) => ownKeyProviders.has(provider)),
-      keyRequired: settings.enabled && !settings.host_subscription_enabled && ownKeyProviders.size === 0,
+      sharedKey,
+      keyRequired: settings.enabled && !settings.host_subscription_enabled && ownKeyProviders.size === 0 && sharedKey === null,
       canSelectModel: canSelectAiModel,
       ownerDefaultModel: settings.owner_default_model,
       effectiveModel: canSelectAiModel ? settings.owner_default_model : MEMBER_MODEL,
@@ -3633,12 +3640,13 @@ export async function createTripMember(
   pool: Pool,
   session: AuthenticatedSession,
   tripId: string,
-  input: { displayName: string },
+  input: { displayName: string; shareAiKeys?: boolean },
 ): Promise<{ id: string }> {
   assertTrip(session, tripId);
   if (session.role !== "owner") throw new AppForbiddenError("Only the owner can add members.");
   return inTransaction(pool, async (client) => {
     await lockCurrentTripActor(client, session, { owner: true });
+    if (input.shareAiKeys) await requireKeysToShare(client, session.userId);
     const tripResult = await client.query<{ max_members: number }>(
       `SELECT max_members FROM trips WHERE id = $1 FOR UPDATE`,
       [tripId],
@@ -3679,6 +3687,11 @@ export async function createTripMember(
       action: "created",
       after: { displayName: input.displayName, role: "editor", status: "invited" },
     });
+    // The invite's "let this member use my AI keys" checkbox (JOB-063).
+    if (input.shareAiKeys) {
+      await writeAiKeyGrant(client, { tripId, memberId, sponsorMemberId: session.memberId, actorMemberId: session.memberId,
+        shared: true, source: "member_added" });
+    }
     return { id: memberId };
   });
 }
@@ -3821,8 +3834,10 @@ export async function updateAiSettings(
     );
     const access = entitlement.rows[0];
     // `enabled` only records whether the owners allow AI here (D-075). In a trip the operator does
-    // not sponsor, getAiPolicy still lets only each requester's own key pay.
-    if (input.ownerDefaultModel && access?.migrated && !await isPlatformOperator(client, session.userId)) {
+    // not sponsor, getAiPolicy still lets only the requester's own or an owner's shared key pay, so
+    // any owner may choose its model there (D-076). In a sponsored trip the model selects operator
+    // funding, which stays the operator's choice.
+    if (input.ownerDefaultModel && access?.migrated && access.sponsored && !await isPlatformOperator(client, session.userId)) {
       throw new AppForbiddenError("Host-funded model selection is restricted to the platform operator.");
     }
     await client.query(
@@ -3852,8 +3867,12 @@ export const OWN_KEY_DAILY_LIMIT = 100;
 
 export type AiPolicy = {
   enabled: boolean; model: OwnerModel; usedToday: number; limit: number | null;
-  /** Whose key pays: the server operator's, or the requester's own (JOB-061). */
-  credentialSource: "operator" | "own";
+  /**
+   * Whose key pays: the server operator's, the requester's own (JOB-061), or a trip owner's key
+   * shared with the requester (JOB-063), in which case `sponsor` names that owner.
+   */
+  credentialSource: "operator" | "own" | "shared";
+  sponsor?: { memberId: string; userId: string };
 };
 
 export async function getAiPolicy(
@@ -3896,12 +3915,31 @@ export async function getAiPolicy(
     // The requester's own provider account pays, so the trip's prompt cap does not apply.
     return { enabled: true, model: ownModel, usedToday, limit: null, credentialSource: "own" };
   }
-  const privileged = session.role === "owner" && (!row?.migrated || await isPlatformOperator(client, session.userId));
-  if (!privileged && options.serializeMemberQuota) {
+  const serializeQuota = async () => {
+    if (!options.serializeMemberQuota) return;
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
       JSON.stringify([session.tripId, session.memberId, "ai-daily-quota"]),
     ]);
+  };
+  // A trip owner's own keys, shared with this member (JOB-063): the trip's one model, ignoring any
+  // model the member asked for, within the trip's daily prompt limit.
+  const grant = row ? await usableAiKeyGrant(client, session.tripId, session.memberId) : null;
+  const sharedModel = grant ? ownKeyModel(undefined, row?.owner_default_model, grant.providers, false) : null;
+  if (row && grant && sharedModel) {
+    if (!row.enabled) throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", sharedModel);
+    await serializeQuota();
+    const usedToday = await tripPromptUsage(client, session);
+    if (usedToday >= row.member_daily_limit) {
+      throw new AiPolicyDeniedError(
+        `The daily AI limit of ${row.member_daily_limit} prompts has been reached.`,
+        "daily_limit_reached", sharedModel,
+      );
+    }
+    return { enabled: true, model: sharedModel, usedToday, limit: row.member_daily_limit, credentialSource: "shared",
+      sponsor: { memberId: grant.sponsorMemberId, userId: grant.sponsorUserId } };
   }
+  const privileged = session.role === "owner" && (!row?.migrated || await isPlatformOperator(client, session.userId));
+  if (!privileged) await serializeQuota();
   const model = privileged
     ? requestedModel ?? row?.owner_default_model ?? DEFAULT_OWNER_MODEL
     : MEMBER_MODEL;
@@ -3914,16 +3952,7 @@ export async function getAiPolicy(
       "ai_key_required", model,
     );
   }
-  const usage = await client.query<{ count: string }>(
-    `SELECT count(*)::text AS count FROM ai_requests request
-      WHERE trip_id = $1 AND actor_member_id = $2
-        AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
-        AND status <> 'rejected'
-        AND (to_jsonb(request)->>'credential_source') IS DISTINCT FROM 'own'`,
-    [session.tripId, session.memberId],
-  );
-  // Requests the member paid for with their own key do not use up the trip's prompt limit.
-  const usedToday = Number(usage.rows[0]?.count ?? 0);
+  const usedToday = await tripPromptUsage(client, session);
   if (!privileged && usedToday >= row.member_daily_limit) {
     throw new AiPolicyDeniedError(
       `The daily AI limit of ${row.member_daily_limit} prompts has been reached.`,
@@ -3938,6 +3967,116 @@ export async function getAiPolicy(
     limit: privileged ? null : row.member_daily_limit,
     credentialSource: "operator",
   };
+}
+
+/**
+ * Today's prompts by this member that count against the trip's daily limit: those on the
+ * operator's or a shared key. Requests the member paid for with their own key do not.
+ */
+async function tripPromptUsage(client: Queryable, session: AuthenticatedSession): Promise<number> {
+  const usage = await client.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM ai_requests request
+      WHERE trip_id = $1 AND actor_member_id = $2
+        AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+        AND status <> 'rejected'
+        AND (to_jsonb(request)->>'credential_source') IS DISTINCT FROM 'own'`,
+    [session.tripId, session.memberId],
+  );
+  return Number(usage.rows[0]?.count ?? 0);
+}
+
+export type AiKeyGrantSource = "settings" | "member_added" | "join_link";
+
+/** Refuse to share keys the acting owner does not hold: the grant would silently do nothing. */
+export async function requireKeysToShare(client: Queryable, userId: string): Promise<void> {
+  if ((await aiCredentialProviders(client, userId)).size === 0) {
+    throw new AppInvalidInputError("Add your own API key in Settings → AI keys before sharing it.");
+  }
+}
+
+/**
+ * Turn one member's use of `sponsorMemberId`'s keys on or off, with an audit event that records
+ * who shares with whom and nothing about the keys. Turning it on replaces another owner's grant.
+ */
+export async function writeAiKeyGrant(
+  client: Queryable,
+  input: { tripId: string; memberId: string; sponsorMemberId: string; actorMemberId: string; shared: boolean; source: AiKeyGrantSource },
+): Promise<void> {
+  if (input.memberId === input.sponsorMemberId) throw new AppInvalidInputError("Your own requests already use your keys.");
+  const changed = input.shared
+    ? await client.query(
+      `INSERT INTO trip_ai_key_grants (trip_id, member_id, sponsor_member_id) VALUES ($1, $2, $3)
+       ON CONFLICT (trip_id, member_id) DO UPDATE
+         SET sponsor_member_id = EXCLUDED.sponsor_member_id, created_at = CURRENT_TIMESTAMP
+         WHERE trip_ai_key_grants.sponsor_member_id <> EXCLUDED.sponsor_member_id`,
+      [input.tripId, input.memberId, input.sponsorMemberId])
+    : await client.query("DELETE FROM trip_ai_key_grants WHERE trip_id = $1 AND member_id = $2", [input.tripId, input.memberId]);
+  if (!changed.rowCount) return;
+  await appendAudit(client, {
+    tripId: input.tripId, actorMemberId: input.actorMemberId, entityType: "trip_member", entityId: input.memberId,
+    action: input.shared ? "ai_keys_shared" : "ai_keys_unshared",
+    metadata: { source: input.source, ...(input.shared ? { sponsorMemberId: input.sponsorMemberId } : {}) },
+  });
+}
+
+/**
+ * An owner lets a member use the owner's own AI keys in this trip, or stops it (JOB-063). Any active
+ * owner may turn sharing off; turning it on always shares the acting owner's keys.
+ */
+export async function setAiKeyGrant(
+  pool: Pool, session: AuthenticatedSession, tripId: string, memberId: string, shared: boolean,
+): Promise<void> {
+  assertTrip(session, tripId);
+  if (session.role !== "owner") throw new AppForbiddenError("Only an owner can share AI keys.");
+  await inTransaction(pool, async (client) => {
+    await lockCurrentTripActor(client, session, { owner: true });
+    const target = await client.query<{ status: string }>(
+      "SELECT status FROM trip_members WHERE trip_id = $1 AND id = $2 FOR UPDATE", [tripId, memberId]);
+    const status = target.rows[0]?.status;
+    if (!status || status === "removed" || status === "trip_deleted") throw new AppNotFoundError("Member not found.");
+    if (shared) await requireKeysToShare(client, session.userId);
+    await writeAiKeyGrant(client, { tripId, memberId, sponsorMemberId: session.memberId, actorMemberId: session.memberId,
+      shared, source: "settings" });
+  });
+}
+
+/** Owner view: who in the trip currently uses whose keys. Grants whose sponsor lost ownership are left out. */
+async function aiKeyGrantsForTrip(client: Queryable, tripId: string): Promise<Map<string, { sponsorMemberId: string; sponsorName: string }>> {
+  const table = await client.query<{ present: boolean }>("SELECT to_regclass('public.trip_ai_key_grants') IS NOT NULL AS present");
+  if (!table.rows[0]?.present) return new Map();
+  const result = await client.query<{ member_id: string; sponsor_member_id: string; sponsor_name: string }>(
+    `SELECT grant_row.member_id, grant_row.sponsor_member_id, sponsor.display_name AS sponsor_name
+       FROM trip_ai_key_grants grant_row
+       JOIN trip_members sponsor ON sponsor.trip_id = grant_row.trip_id AND sponsor.id = grant_row.sponsor_member_id
+      WHERE grant_row.trip_id = $1 AND sponsor.role = 'owner' AND sponsor.status = 'active'`,
+    [tripId],
+  );
+  return new Map(result.rows.map((row) => [row.member_id, { sponsorMemberId: row.sponsor_member_id, sponsorName: row.sponsor_name }]));
+}
+
+export type AiKeyGrant = { sponsorMemberId: string; sponsorUserId: string; sponsorName: string; providers: Set<string> };
+
+/**
+ * The grant letting this member use a trip owner's own keys (JOB-063), if it is usable now: its
+ * sponsor must still be an active owner of the trip who holds at least one key. Nothing is decrypted.
+ */
+export async function usableAiKeyGrant(client: Queryable, tripId: string, memberId: string): Promise<AiKeyGrant | null> {
+  const table = await client.query<{ present: boolean }>("SELECT to_regclass('public.trip_ai_key_grants') IS NOT NULL AS present");
+  if (!table.rows[0]?.present) return null;
+  const result = await client.query<{ sponsor_member_id: string; sponsor_user_id: string; sponsor_name: string; providers: string[] }>(
+    `SELECT grant_row.sponsor_member_id, sponsor.user_id AS sponsor_user_id, sponsor.display_name AS sponsor_name,
+            array_agg(credential.provider ORDER BY credential.provider) AS providers
+       FROM trip_ai_key_grants grant_row
+       JOIN trip_members sponsor ON sponsor.trip_id = grant_row.trip_id AND sponsor.id = grant_row.sponsor_member_id
+       JOIN user_ai_credentials credential ON credential.user_id = sponsor.user_id
+      WHERE grant_row.trip_id = $1 AND grant_row.member_id = $2
+        AND sponsor.role = 'owner' AND sponsor.status = 'active'
+      GROUP BY grant_row.sponsor_member_id, sponsor.user_id, sponsor.display_name`,
+    [tripId, memberId],
+  );
+  const grant = result.rows[0];
+  return grant ? { sponsorMemberId: grant.sponsor_member_id, sponsorUserId: grant.sponsor_user_id,
+    sponsorName: grant.sponsor_name, providers: new Set(grant.providers) } : null;
 }
 
 /** Providers the user holds an API key for (no decryption). */

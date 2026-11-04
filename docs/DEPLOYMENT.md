@@ -90,7 +90,7 @@ The [`deploy` workflow](../.github/workflows/deploy.yml) builds and pushes the i
 2. The deploy job waits for approval in the protected `production` environment.
 3. It runs [`deploy/deploy.sh`](../deploy/deploy.sh): shared objects and the database first, then a pre-migration backup, the migration job (which must succeed), the web rollout, and a health check through the public URL.
 
-Through Workload Identity Federation, only `main` can push images and only the `production` environment can obtain cluster credentials.
+Through Workload Identity Federation, only `main` can push images and only the `production` environment can obtain cluster credentials. Deploys run one at a time; image builds never wait behind a deploy awaiting approval.
 
 **Rollback:** run the workflow (or `deploy/deploy.sh`) with an earlier SHA. Migrations are forward-only; an older release must still work with the newer schema. See [database](DATABASE.md).
 

@@ -1,7 +1,7 @@
 ---
 id: JOB-063
 title: Trip-owner AI key sharing
-status: in_progress
+status: review
 priority: P1
 depends_on: [JOB-061]
 claimant: CHL-work
@@ -11,52 +11,55 @@ started: 2026-11-04T06:00Z
 
 ## Outcome
 
-A trip owner can let chosen members use the owner's own AI keys (JOB-061) in that trip. The owner opts in per member: with a checkbox when adding a member or creating the trip's join link, and with an on/off switch on each member afterwards. Members using a shared key never see it, use the trip's one model, and stay within the trip's daily prompt limit.
+A trip owner can let chosen members use the owner's own AI keys (JOB-061) in that trip. The owner opts in per member: with a checkbox when adding a member or creating the trip's join link, and with an on/off switch on each member afterwards. Members using a shared key never see it, use the trip's one model, and stay within the trip's daily prompt limit. Decision: [D-076](../DECISIONS.md#d-076-trip-owners-can-share-their-own-ai-keys-with-chosen-members-accepted-november-4-2026); contract: [sharing your keys](../PUBLIC_TRIPS_AND_MEMBERS.md#sharing-your-keys-with-members).
 
 The owner asked for this on November 4, 2026: invite people to a trip, with a checkbox to let the member use the owner's API keys, and an option to turn that off and on again.
 
-## In scope
+## Delivered
 
-1. **Storage (migration 0055):**
-   - `trip_ai_key_grants(trip_id, member_id, sponsor_member_id, created_at)`, with one grant per member. It names the owner whose keys pay, and is deleted with either membership.
-   - `trip_join_links.shares_ai_keys`: whether people joining through the link receive a grant from the owner who created it.
-   - `ai_requests.credential_sponsor_member_id`, set exactly when `credential_source = 'shared'`.
+1. **Migration 0055:**
+   - `trip_ai_key_grants(trip_id, member_id, sponsor_member_id, created_at)`: one grant per member, with self-grants refused by a check.
+   - `trip_join_links.shares_ai_keys`.
+   - `ai_requests.credential_sponsor_member_id`, tied by a check to `credential_source = 'shared'`.
 2. **Granting:**
-   - `POST /members` and `POST /join-links` accept `shareAiKeys`.
-   - `PUT /members/{memberId}/ai-key-grant` with `{shared}` turns a member's grant on, sponsored by the acting owner, or off.
-
-   Only active owners can grant, and never to themselves. Every change is audited without key material.
-3. **Resolution:** `getAiPolicy` tries, in order:
-   1. the requester's own key;
-   2. a usable grant, which is `shared`;
-   3. operator sponsorship;
-   4. `ai_key_required`.
-
-   A grant is usable only while its sponsor is an active owner of the trip and holds a key. Shared requests:
-   - use the trip's default model if the sponsor holds its provider's key, or else the sponsor's first provider's default model;
-   - ignore a member's model choice;
-   - count against `member_daily_limit`.
-
-   Own-key requests count toward no trip quota.
-4. **Plumbing:** the planner and location search run shared requests in the credential context with the sponsor's key. The member never receives it.
-5. **UI:**
-   - A checkbox on the add-member form and on join-link creation.
-   - Per-member share switches in the members list, visible to owners.
-   - The AI tab tells a member whose key is in use, which model runs and how many prompts are left.
-   - Owners of an unsponsored trip can choose the trip's model from their own providers' models.
+   - `setAiKeyGrant` (`PUT /members/{memberId}/ai-key-grant` with `{shared}`), plus `shareAiKeys` on `createTripMember` (`POST /members`) and on `issueJoinLink` (`POST /join-links`).
+   - `consumeJoinLink` grants to people who join through a sharing link while its creator is an active owner.
+   - Only active owners can grant, never to themselves, and only with a key of their own. Changes are audited as `ai_keys_shared` and `ai_keys_unshared`.
+3. **Resolution:** `getAiPolicy` tries the requester's own key, then a usable grant (`shared`, with `sponsor`), then operator sponsorship, then `ai_key_required`. `usableAiKeyGrant` requires the sponsor to be an active owner holding a key. Shared requests:
+   - run the trip model through `ownKeyModel`, and ignore the member's model choice;
+   - count against `member_daily_limit` under the same serialization as sponsored requests.
+4. **Plumbing:** the planner and location search read the sponsor's key server-side, run in the per-request credential context with source `shared`, and record the sponsor.
+5. **Trip model:** owners of an unsponsored trip may set the trip's model. In sponsored trips that remains the operator's choice.
+6. **UI:**
+   - Checkboxes on the add-member form and the join-link panel, disabled with a hint when the owner holds no key.
+   - Share and stop-sharing switches on members, with "Uses {owner}'s AI keys".
+   - In the AI tab and Settings: whose key and which model run, and the prompts left.
+   - A "model for members who use your keys" picker for owners.
    - Copy in all four languages.
-6. **Docs:** PUBLIC_TRIPS_AND_MEMBERS, DECISIONS (D-076), AGENTS funding rules, DATABASE, IDENTITY_AND_SECURITY, CHANGELOG, ROADMAP.
+7. **Overview:** owners get `members[].aiKeyGrant`; the viewer gets `ai.sharedKey` (sponsor name and model). `ai.enabled` and `ai.keyRequired` account for shared keys.
 
-## Out of scope
+## Verification
 
-- Cost caps and per-provider spend tracking. The daily prompt limit is the only cap.
-- Sharing keys across trips, or with guests (JOB-064).
-- Letting a member see or export the sponsor's key, or choose a different model on it.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm test:db` pass. The production build and the smoke test pass against a disposable database.
+- `tests/database/ai-key-sharing.mjs` covers:
+  - migration 0055;
+  - who may grant, and the not-found case;
+  - funding with the sponsor's provider default and with the trip model;
+  - the member holding no copy of the key, and the per-member scope;
+  - overview fields for owners and members, with no key in any payload;
+  - the sponsor check constraint and the daily limit;
+  - turning sharing off, the sponsor deleting and re-adding the key, and the sponsor's demotion;
+  - the add-member checkbox, including that a refusal adds nobody;
+  - sharing and non-sharing join links;
+  - audit without key material.
+- Unit tests cover the policy order, model fallback, limit, disabled AI and quota serialization (`src/lib/app/ai-policy.test.ts`). They also cover join-link body validation, and the AI tab's shared-key copy in all locales, default choice and owner-only switch.
 
-## Acceptance
+## Known limits
 
-- A member with a grant can plan in an unsponsored trip on the sponsor's key, within the daily limit, and the request records `shared` and the sponsor.
-- Turning the switch off, demoting or removing the sponsor, or the sponsor deleting their key stops shared use at the next request.
-- Grants cannot be created by non-owners, for oneself, or across trips. Join-link grants apply only to members who joined through that link while its creator was an active owner.
-- No API response, audit payload or browser state contains the sponsor's key.
-- `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm test:db` pass.
+- No monthly cost cap: it would need per-model prices. The daily prompt limit is the only cap.
+- A sponsor demoted and later promoted again resumes sharing with the members they shared with; owners can turn it off on each member.
+- Shared usage is not yet shown to the sponsor per member (JOB-066, with own-key usage).
+
+## Rollback
+
+Migration 0055 is additive. Older builds ignore grants and the sponsor column, and write only `operator` or `own` sources, which the new check accepts.

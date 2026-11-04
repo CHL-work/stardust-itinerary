@@ -39,7 +39,8 @@ async function testAiEnabledMigration(pool, connectionString) {
 /** Synthetic fixtures only, in the parent suite's guarded disposable database. */
 export async function testAiCredentials(pool, connectionString) {
   await testAiEnabledMigration(pool, connectionString);
-  await migrate({ connectionString });
+  // Through 0054 only: the key-sharing test that follows checks migration 0055.
+  await migrate({ connectionString, through: "0054_user_ai_credentials.sql" });
   const config = { authSecret: "synthetic-ai-credentials-secret-only", tripGraceDays: 2,
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
   const previousKey = process.env.CREDENTIAL_ENCRYPTION_KEY;

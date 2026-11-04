@@ -9,8 +9,9 @@ import advancedStyles from "./advanced-settings.module.css";
 import { advancedSettingsMessages, advancedRequestStatus } from "@/lib/app/advanced-settings-i18n";
 import { activityMessages } from "@/lib/app/activity-i18n";
 import { memberManagementMessages } from "@/lib/app/member-management-i18n";
-import { ownKeyAccess, unsponsoredAiNote } from "@/components/app-shell";
+import { aiFundingNote, ownKeyAccess } from "@/components/app-shell";
 import { aiKeysMessages } from "@/lib/ai/keys-i18n";
+import { ownKeyModels } from "@/lib/ai/own-key-model";
 import { ownerModels } from "@/lib/app/types";
 import { feedbackActions } from "@/lib/feedback/contracts";
 import { formatMessage, locales, messages, type Locale } from "@/lib/i18n";
@@ -53,7 +54,8 @@ function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectMod
   const setSection = vi.fn(); const refresh = vi.fn(); const saveMemberDailyLimit = vi.fn();
   const bindings = {
     React: { createElement, Fragment }, overview, locale, messages: messages[locale], advancedCopy: advancedSettingsMessages(locale),
-    advancedStyles, memberCopy: memberManagementMessages(locale), keysCopy: aiKeysMessages(locale), unsponsoredAiNote, ownKeyAccess,
+    advancedStyles, memberCopy: memberManagementMessages(locale), keysCopy: aiKeysMessages(locale), aiFundingNote, ownKeyAccess, ownKeyModels, updateSharedModel: vi.fn(),
+    ownKeysToShare: ((options.ai?.ownKeyProviders as string[] | undefined)?.length ?? 0) > 0,
     ChevronRight, RefreshCw, ActivitySettingsEntry,
     FeedbackOperations: () => null,
     advancedRequestStatus, formatMessage, ownerModels, busy: options.busy ?? false, selectedModel: "gpt-6.1-sol",

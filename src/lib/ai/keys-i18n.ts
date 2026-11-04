@@ -34,6 +34,17 @@ const english = {
   sponsoredOption: "Trip AI · {model}",
   autoOption: "Automatic · {model}",
   ownModelOption: "{model} · your key",
+  shareCheckbox: "Let this member use my AI keys",
+  shareLinkCheckbox: "People who join with this link can use my AI keys",
+  shareNeedsKey: "To share your AI keys, first add one in Settings → AI keys.",
+  shareStart: "Share my AI keys",
+  shareStop: "Stop sharing AI keys",
+  sharedBy: "Uses {owner}'s AI keys",
+  shareChanged: "AI key sharing updated.",
+  shareFailed: "AI key sharing could not be changed. Try again.",
+  sharedAccess: "AI in this trip runs on {owner}'s API key with {model}, up to {limit} prompts a day. You never see the key.",
+  sharedModelLabel: "Model for members who use your keys",
+  sharedOption: "{model} · {owner}'s key",
 };
 export type AiKeysCopy = { [K in keyof typeof english]: string };
 
@@ -70,6 +81,17 @@ const cantonese: AiKeysCopy = {
   sponsoredOption: "旅程 AI · {model}",
   autoOption: "自動 · {model}",
   ownModelOption: "{model} · 你嘅金鑰",
+  shareCheckbox: "容許呢位成員用我嘅 AI 金鑰",
+  shareLinkCheckbox: "經呢條連結加入嘅人可以用我嘅 AI 金鑰",
+  shareNeedsKey: "要分享 AI 金鑰，請先喺「設定 → AI 金鑰」加入一條。",
+  shareStart: "分享我嘅 AI 金鑰",
+  shareStop: "停止分享 AI 金鑰",
+  sharedBy: "使用 {owner} 嘅 AI 金鑰",
+  shareChanged: "已更新 AI 金鑰分享設定。",
+  shareFailed: "未能更改 AI 金鑰分享設定，請再試。",
+  sharedAccess: "呢個旅程嘅 AI 會用 {owner} 嘅 API 金鑰同 {model}，每日最多 {limit} 次提問。你唔會見到條金鑰。",
+  sharedModelLabel: "用你金鑰嘅成員所用嘅模型",
+  sharedOption: "{model} · {owner} 嘅金鑰",
 };
 
 const japanese: AiKeysCopy = {
@@ -105,6 +127,17 @@ const japanese: AiKeysCopy = {
   sponsoredOption: "旅行のAI · {model}",
   autoOption: "自動 · {model}",
   ownModelOption: "{model} · 自分のキー",
+  shareCheckbox: "このメンバーに自分のAIキーの利用を許可する",
+  shareLinkCheckbox: "このリンクから参加した人に自分のAIキーの利用を許可する",
+  shareNeedsKey: "AIキーを共有するには、まず「設定 → AIキー」でキーを追加してください。",
+  shareStart: "自分のAIキーを共有",
+  shareStop: "AIキーの共有をやめる",
+  sharedBy: "{owner} のAIキーを利用中",
+  shareChanged: "AIキーの共有設定を更新しました。",
+  shareFailed: "AIキーの共有設定を変更できませんでした。もう一度お試しください。",
+  sharedAccess: "この旅行のAIは {owner} のAPIキーと {model} で動き、1日に最大 {limit} 回まで質問できます。キーそのものが表示されることはありません。",
+  sharedModelLabel: "あなたのキーを使うメンバーのモデル",
+  sharedOption: "{model} · {owner} のキー",
 };
 
 export function aiKeysMessages(locale: Locale): AiKeysCopy {
