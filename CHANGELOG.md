@@ -39,6 +39,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 ### Changed
 
 - **Continuous deployment:** every push to `main` deploys once CI passes. The `production` environment no longer waits for an approval and accepts only `main`; the workflow deploys only CI runs for pushes to this repository, and a manual run deploys only commits on `main`. The deploy script now runs with `bash`, since the fresh repository did not keep its executable bit.
+- **Smaller pod requests on GKE:** the web server requests 250m CPU and 768 MiB (at most two replicas), the database 100m and 512 MiB, and each job 100m. The pods used about a tenth of their old requests, and every job run needed a second node; with the free trial's 250 GB SSD quota, a third node could not start, which left the first automatic deploy's backup job unscheduled.
 
 - **Codex lockdown:** planning and disruption checks run Codex without its shell or other local tools; a turn that used one is refused.
 - **AI on by default:** `trip_ai_settings.enabled` now records only whether a trip's owners allow AI; who pays is decided per request (D-075).

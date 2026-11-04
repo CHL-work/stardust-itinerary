@@ -6,7 +6,7 @@ How the public instance runs, and how to run your own the same way. For a single
 
 | Piece | Where | Notes |
 | --- | --- | --- |
-| Web server | `stardust-web` Deployment, autoscaled 1–3 replicas | Stateless; probes on `/api/health` |
+| Web server | `stardust-web` Deployment, autoscaled 1–2 replicas | Stateless; probes on `/api/health` |
 | PostgreSQL 17 | `stardust-db` StatefulSet, 10 GiB `pd-balanced` disk | Only application pods may connect (NetworkPolicy) |
 | Public access | `stardust-tunnel` (cloudflared) | Outbound-only Cloudflare Tunnel; no load balancer or public IP |
 | Background work | CronJobs `stardust-disruption` (every 5 min), `stardust-feedback` (hourly), `stardust-guest-purge` (hourly), `stardust-backup` (daily) | Each run is a short pod. The guest purge has its own service account and only the database administrator password, and reaches only the database |
@@ -110,7 +110,8 @@ On your own instance, add required reviewers to the `production` environment if 
   3. `kubectl -n stardust port-forward svc/stardust-db 15432:5432`.
   4. `pg_restore --clean --if-exists -d postgresql://postgres:<admin>@127.0.0.1:15432/stardust db.dump`.
   5. Run the migration job.
-- **Costs:** the cluster fee for one Autopilot cluster is covered by GKE's free tier. The instance requests about 1 vCPU and 3 GiB in total (about USD 35–45 a month at Tokyo list prices). The budget alert in `infra/` emails at 50/90/100% of the configured amount.
+- **Costs:** the cluster fee for one Autopilot cluster is covered by GKE's free tier. The always-on pods request about 0.4 vCPU and 1.4 GiB, and each job 0.1 vCPU, so a job fits next to them without a second node (about USD 20–30 a month at Tokyo list prices). Pods may burst above their CPU requests when the node has room. The budget alert in `infra/` emails at 50/90/100% of the configured amount.
+- **Free-trial quota:** a Google Cloud free trial allows 250 GB of SSD-backed disk, which fits only two Autopilot nodes (100 GB boot disk each) plus the database disk. Keep requests small enough that the jobs fit on one node. If the autoscaler reports `scale.up.error.quota.exceeded`, it may give up on that pod for good: delete the pending job, and the next scheduled run starts normally.
 
 ## Moving an existing instance
 

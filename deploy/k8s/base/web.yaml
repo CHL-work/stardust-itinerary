@@ -84,8 +84,8 @@ spec:
             failureThreshold: 6
           resources:
             requests:
-              cpu: 500m
-              memory: 1536Mi
+              cpu: 250m
+              memory: 768Mi
               ephemeral-storage: 2Gi
             limits:
               memory: 2Gi
@@ -147,7 +147,7 @@ spec:
     kind: Deployment
     name: stardust-web
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 2
   metrics:
     - type: Resource
       resource:
