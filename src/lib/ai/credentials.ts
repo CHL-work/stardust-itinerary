@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { geminiEndpointFor } from "@/lib/ai/gemini";
 import {
-  credentialEncryptionConfigured, credentialHint, openCredential, sealCredential, type AiCredentialProvider,
+  CredentialEncryptionUnavailableError, credentialEncryptionConfigured, credentialHint, openCredential, sealCredential,
+  type AiCredentialProvider,
 } from "@/lib/ai/credential-crypto";
 import { AppForbiddenError, AppInvalidInputError, appendAudit, assertTrip, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
@@ -48,11 +49,14 @@ export async function validateAiCredential(input: AiCredentialInput, fetchImpl: 
   const signal = AbortSignal.timeout(VALIDATION_TIMEOUT_MS);
   let response: Response;
   try {
+    // Never follow a redirect: fetch would forward the x-api-key and x-goog-api-key headers to it.
     if (input.provider === "openai") {
-      response = await fetchImpl("https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${input.apiKey}` }, signal });
+      response = await fetchImpl("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${input.apiKey}` }, redirect: "error", signal,
+      });
     } else if (input.provider === "anthropic") {
       response = await fetchImpl("https://api.anthropic.com/v1/models?limit=1", {
-        headers: { "x-api-key": input.apiKey, "anthropic-version": "2023-06-01" }, signal,
+        headers: { "x-api-key": input.apiKey, "anthropic-version": "2023-06-01" }, redirect: "error", signal,
       });
     } else {
       const endpoint = geminiEndpointFor(input.apiKey, input.vertexProject, input.vertexLocation ?? (input.vertexProject ? "global" : null));
@@ -60,7 +64,7 @@ export async function validateAiCredential(input: AiCredentialInput, fetchImpl: 
       // countTokens is free and works for both Gemini API and Vertex AI keys.
       response = await fetchImpl(endpoint.url("gemini-3.5-flash-lite").replace(/:generateContent$/u, ":countTokens"), {
         method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": endpoint.apiKey },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ok" }] }] }), signal,
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ok" }] }] }), redirect: "error", signal,
       });
     }
   } catch {
@@ -147,8 +151,13 @@ export async function readAiCredentialSecret(
   try {
     const apiKey = openCredential({ ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version }, { userId, provider });
     return { apiKey, vertex: row.vertex_project && row.vertex_location ? { project: row.vertex_project, location: row.vertex_location } : null };
-  } catch {
-    // A key that no longer opens (rotated encryption key, tampered row) is treated as absent.
+  } catch (error) {
+    // A key that no longer opens (changed encryption key, tampered row) is treated as absent. The
+    // operator still sees that it happened; the log names no user, key or ciphertext.
+    console.warn("A stored AI key could not be decrypted", {
+      provider, keyVersion: row.key_version,
+      reason: error instanceof CredentialEncryptionUnavailableError ? "encryption_unavailable" : "decrypt_failed",
+    });
     return null;
   }
 }

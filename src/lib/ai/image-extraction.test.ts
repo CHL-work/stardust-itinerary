@@ -1,3 +1,4 @@
+import { lockedDownCodexConfig } from "@/lib/ai/codex-lockdown";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -148,10 +149,7 @@ describe("bounded picture extraction", () => {
 
   it("disables documented Codex execution, connections, collaboration, hooks, search and network", async () => {
     await extractAiImageFacts(input());
-    expect(mocks.codex).toHaveBeenCalledWith({ env: expect.any(Object), config: {
-      features: { shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false, memories: false },
-      mcp_servers: {}, hooks: {}, notify: [], history: { persistence: "none" },
-    } });
+    expect(mocks.codex).toHaveBeenCalledWith({ env: expect.any(Object), config: lockedDownCodexConfig });
     expect(mocks.startThread).toHaveBeenCalledWith(expect.objectContaining({
       sandboxMode: "read-only", workingDirectory: workspace, networkAccessEnabled: false,
       webSearchMode: "disabled", approvalPolicy: "never", skipGitRepoCheck: true,

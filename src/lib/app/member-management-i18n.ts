@@ -25,7 +25,6 @@ const en = {
   total: "Expense total", share: "Departing member's share", payerReplacement: "Recorded payer after removal", shareRecipient: "Recipient of the departing member's entire share", choose: "Select an authorized member",
   confirmRemoval: "I reviewed the affected records and any financial reassignment above, and confirm removal from this trip.",
   removeConfirm: "Remove member", cancel: "Cancel", removing: "Removing member…", enable: "Enable", disable: "Disable",
-  aiUnsponsored: "AI is unavailable for this trip. Creating a trip or becoming its owner does not grant access to the host's AI subscription.",
 };
 type Copy = { [K in keyof typeof en]: string };
 const zh: Copy = {
@@ -53,7 +52,6 @@ const zh: Copy = {
   total: "開支總額", share: "離開成員的分帳金額", payerReplacement: "移除後記錄的付款人", shareRecipient: "接收離開成員全數分帳的成員", choose: "選擇有權查看開支的成員",
   confirmRemoval: "我已檢查受影響記錄及上述財務轉移，確認從此旅程移除成員。",
   removeConfirm: "移除成員", cancel: "取消", removing: "正在移除成員…", enable: "啟用", disable: "停用",
-  aiUnsponsored: "此旅程未啟用 AI。建立旅程或成為管理員不會自動取得主機的 AI 訂閱使用權。",
 };
 const ja: Copy = {
   role: "旅行の権限", owner: "管理者", editor: "編集者", viewer: "閲覧者", saveRole: "権限を保存",
@@ -80,7 +78,6 @@ const ja: Copy = {
   total: "経費合計", share: "退会者の負担額", payerReplacement: "削除後の記録上の支払者", shareRecipient: "退会者の負担額全額を引き継ぐ人", choose: "閲覧権限を持つメンバーを選択",
   confirmRemoval: "関連記録と上記の経費引き継ぎを確認し、この旅行からのメンバー削除に同意します。",
   removeConfirm: "メンバーを削除", cancel: "キャンセル", removing: "メンバーを削除中…", enable: "有効化", disable: "無効化",
-  aiUnsponsored: "この旅行では AI を利用できません。旅行の作成や管理者への昇格でホストの AI サブスクリプションを利用できるようにはなりません。",
 };
 
 export function memberManagementMessages(locale: Locale): Copy {

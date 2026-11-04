@@ -14,11 +14,33 @@ All notable changes to this project. The format follows [Keep a Changelog](https
   - OpenTofu for the GKE Autopilot instance (`infra/`), keyless GitHub identities and a budget alert ([guide](docs/DEPLOYMENT.md)).
 - **Gemini:** `gemini-4-argon`, `gemini-3.8-flash` and `gemini-3.5-flash-lite`, over the Gemini API or Vertex AI. Google Search grounding is the only tool, and the same public-subject gates apply to every reported query.
 - `scripts/db/backup.mjs` (pg_dump, archive check, age encryption, upload) and `scripts/db/runtime-role.mjs` (least-privilege runtime role and grants).
-- **Bring your own API key (JOB-061):** Settings → AI keys stores a user's own OpenAI, Anthropic or Gemini key, checked with the provider and encrypted at rest. Requests on a user's key run with only that key in a private per-request provider directory, and record `ai_requests.credential_source`. Members of unsponsored trips can now use AI with their own key. Migration `0054_user_ai_credentials.sql`.
+- **Bring your own API key (JOB-061, D-075):**
+  - Settings → AI keys stores a user's own OpenAI, Anthropic or Gemini key, checked with the provider and encrypted at rest.
+  - Requests on a user's key run with only that key, in a private per-request provider directory, and record `ai_requests.credential_source`.
+  - Members of unsponsored trips can now use AI with their own key. The AI composer opens once a key is saved, with a per-request picker for the models of the user's providers.
+  - Migration `0054_user_ai_credentials.sql`.
+  - On GKE the encryption key is a separate `stardust-credential-env` secret that only the web server mounts.
 
 ### Changed
 
 - **Codex lockdown:** planning and disruption checks run Codex without its shell or other local tools; a turn that used one is refused.
+- **AI on by default:** `trip_ai_settings.enabled` now records only whether a trip's owners allow AI; who pays is decided per request (D-075).
+  - New trips start with AI on, and owners of unsponsored trips can switch it.
+  - Migration 0054 turns AI on for existing unsponsored trips unless an owner turned it off.
+  - The operator's keys still pay only in sponsored trips.
+- **Funding rules documented:** AGENTS.md and D-023, D-024 and D-030 now describe own keys and the Gemini adapter.
 - **API keys instead of subscription logins.** Model calls authenticate with the server operator's provider API keys. Migration `0053_api_key_transport.sql` records the new authentication mode and billing basis for new AI requests.
 - **Allowlisted provider environment.** Provider subprocesses now receive only an allowlisted environment, instead of the whole server environment minus a few keys.
+- **Own-key requests and quotas:** requests on a user's own key no longer use up a sponsored trip's free daily prompts.
 - **Line-ending-tolerant migrations.** A migration may now differ from its recorded checksum by line endings only, which is how migrations applied from a Windows checkout were recorded.
+
+### Security
+
+- **Hardening from an independent review of bring-your-own keys (JOB-061):**
+  - Key checks are limited to 10 an hour per account and 30 per address.
+  - Requests on users' own keys are limited to 100 per account per UTC day.
+  - The encryption key must be exact base64 and differ from `AUTH_SECRET`.
+  - Undecryptable keys are logged without values.
+  - Key checks and Gemini calls refuse redirects.
+  - Leftover provider directories are swept.
+  - Research, venue-hours, image and place-lookup Codex calls use the locked-down configuration, which also turns off the image viewer and shell snapshots.

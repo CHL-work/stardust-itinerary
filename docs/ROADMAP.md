@@ -15,9 +15,9 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
 | JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script | Done; the GitHub deploy workflow is still to come |
 | JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Rehearsed on staging |
-| JOB-061 | Bring-your-own API keys | Done: Settings → AI keys, encrypted storage, per-request isolation and own-key funding. Usage display is still to come |
+| JOB-061 | Bring-your-own API keys | In review: Settings → AI keys, encrypted storage, per-request isolation, own-key funding, AI on in every trip, and fixes from a security review. Usage display moves to JOB-066 |
 | JOB-062 | Gemini models (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`) with Google Search grounding | Done |
-| JOB-063 | Trip-owner key sharing | Planned |
+| JOB-063 | Trip-owner key sharing | In progress |
 | JOB-064 | Guest mode and public sign-up | Planned |
 | JOB-065 | Public-launch security and privacy review | Planned; required before public sign-up |
 | JOB-066 | Showcase documentation, a private feedback repository, deploy workflow polish | Planned |
@@ -53,11 +53,15 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 ### JOB-065: public-launch review
 
 - **Threat model** covering guest flooding, key theft, prompt injection aimed at secrets, storage and cost abuse, and log redaction.
+- **Credential follow-ups** from the JOB-061 review:
+  - an encryption-key ring with re-encryption, so the key can be rotated;
+  - an explicit credential context for operator-funded calls in the web server.
 - **Pages:** a privacy policy, terms, and [security reporting](../SECURITY.md).
 - **Optional:** Google OAuth verification, which removes the unverified-app warning for Calendar.
 
 ### JOB-066: showcase and operations polish
 
 - **Case study** of the design for readers who want the why.
+- **Own-key usage:** in Settings, each key's owner sees their usage per provider (moved from JOB-061).
 - **Feedback issues** go to a private repository, never this public one, because reports can contain user text.
 - **Deploy workflow:** GitHub Actions with keyless Google authentication and an approval step before production.

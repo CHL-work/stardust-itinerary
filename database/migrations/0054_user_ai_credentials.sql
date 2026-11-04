@@ -26,3 +26,16 @@ COMMENT ON TABLE user_ai_credentials IS
 -- trip owner's shared key. Historical rows stay NULL.
 ALTER TABLE ai_requests
   ADD COLUMN credential_source text CHECK (credential_source IN ('operator', 'own', 'shared'));
+
+-- `trip_ai_settings.enabled` now records only whether a trip's owners allow AI; who pays is decided
+-- per request (D-075). Trips the operator does not sponsor were created with AI off and their owners
+-- could not turn it on, so turn it on for them, unless an owner's recorded settings change turned it off.
+UPDATE trip_ai_settings settings
+   SET enabled = true, updated_at = CURRENT_TIMESTAMP
+ WHERE NOT settings.host_subscription_enabled
+   AND NOT settings.enabled
+   AND NOT EXISTS (
+     SELECT 1 FROM audit_events audit
+      WHERE audit.trip_id = settings.trip_id
+        AND audit.entity_type = 'ai_settings'
+        AND audit.after_state ->> 'enabled' = 'false');

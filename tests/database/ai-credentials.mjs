@@ -1,12 +1,44 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { migrate } from "../../scripts/db/migration-lib.mjs";
-import { getAiPolicy, inTransaction } from "../../src/lib/app/repository.ts";
+import { OWN_KEY_DAILY_LIMIT, getAiPolicy, getAppOverview, inTransaction } from "../../src/lib/app/repository.ts";
 import { deleteAiCredential, listAiCredentials, readAiCredentialSecret, saveAiCredential } from "../../src/lib/ai/credentials.ts";
 import { signInExistingIdentity, verifySession } from "../../src/lib/auth/repository.ts";
 
+/**
+ * Migration 0054 turns AI on for unsponsored trips, which could not turn it on before, unless an
+ * owner's recorded settings change turned it off. Called at migration head 0053.
+ */
+async function testAiEnabledMigration(pool, connectionString) {
+  const userId = randomUUID();
+  await pool.query("INSERT INTO app_users(id,display_name) VALUES($1,'Synthetic migration owner')", [userId]);
+  const makeTrip = async (sponsored) => {
+    const tripId = randomUUID(), memberId = randomUUID();
+    await pool.query(`INSERT INTO trips(id,owner_user_id,name,time_zone,default_currency,starts_on,ends_on)
+      VALUES($1,$2,'Synthetic AI switch trip','Asia/Tokyo','JPY',CURRENT_DATE+20,CURRENT_DATE+23)`, [tripId, userId]);
+    await pool.query("INSERT INTO trip_members(trip_id,id,user_id,display_name,role,status) VALUES($1,$2,$3,'Synthetic owner','owner','active')",
+      [tripId, memberId, userId]);
+    await pool.query(`INSERT INTO trip_ai_settings(trip_id,enabled,updated_by_member_id,host_subscription_enabled)
+      VALUES($1,false,$2,$3)`, [tripId, memberId, sponsored]);
+    return { tripId, memberId };
+  };
+  const unsponsored = await makeTrip(false);
+  const turnedOff = await makeTrip(false);
+  await pool.query(`INSERT INTO audit_events(trip_id,id,actor_member_id,entity_type,action,after_state)
+    VALUES($1,$2,$3,'ai_settings','updated','{"enabled":false}')`, [turnedOff.tripId, randomUUID(), turnedOff.memberId]);
+  const sponsored = await makeTrip(true);
+
+  assert.deepEqual(await migrate({ connectionString, through: "0054_user_ai_credentials.sql" }), ["0054_user_ai_credentials.sql"]);
+  assert.deepEqual(await migrate({ connectionString, through: "0054_user_ai_credentials.sql" }), []);
+  const enabled = async ({ tripId }) => (await pool.query("SELECT enabled FROM trip_ai_settings WHERE trip_id=$1", [tripId])).rows[0].enabled;
+  assert.equal(await enabled(unsponsored), true, "an unsponsored trip's AI switch starts on");
+  assert.equal(await enabled(turnedOff), false, "an owner's own choice to turn AI off is kept");
+  assert.equal(await enabled(sponsored), false, "a sponsored trip's setting is untouched");
+}
+
 /** Synthetic fixtures only, in the parent suite's guarded disposable database. */
 export async function testAiCredentials(pool, connectionString) {
+  await testAiEnabledMigration(pool, connectionString);
   await migrate({ connectionString });
   const config = { authSecret: "synthetic-ai-credentials-secret-only", tripGraceDays: 2,
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
@@ -46,6 +78,11 @@ export async function testAiCredentials(pool, connectionString) {
     const secret = `sk-synthetic-${randomUUID()}-KEY9`;
 
     await assert.rejects(inTransaction(pool, (client) => getAiPolicy(client, memberSession)), { reasonCode: "ai_key_required" });
+    const aiOverview = async (session) => {
+      const { ai } = await getAppOverview(pool, session);
+      return { enabled: ai.enabled, keyRequired: ai.keyRequired, ownKeyProviders: ai.ownKeyProviders };
+    };
+    assert.deepEqual(await aiOverview(memberSession), { enabled: false, keyRequired: true, ownKeyProviders: [] });
 
     // A rejected key is never stored.
     await assert.rejects(saveAiCredential(pool, memberSession, tripId, { provider: "anthropic", apiKey: secret }, async () => false),
@@ -69,6 +106,29 @@ export async function testAiCredentials(pool, connectionString) {
     const policy = await inTransaction(pool, (client) => getAiPolicy(client, memberSession));
     assert.deepEqual({ model: policy.model, source: policy.credentialSource, limit: policy.limit },
       { model: "claude-sonnet-5-5", source: "own", limit: null });
+    // The overview tells the browser only which providers have a key, and opens AI for this member alone.
+    assert.deepEqual(await aiOverview(memberSession), { enabled: true, keyRequired: false, ownKeyProviders: ["anthropic"] });
+    assert.deepEqual(await aiOverview(ownerSession), { enabled: false, keyRequired: true, ownKeyProviders: [] });
+    assert.equal(JSON.stringify(await getAppOverview(pool, memberSession)).includes(secret), false);
+
+    // Own-key requests are bounded per account and day, and never use up a sponsored trip's free quota.
+    const ownRequests = async (count) => {
+      for (let index = 0; index < count; index += 1) await pool.query(
+        `INSERT INTO ai_requests (trip_id,id,actor_member_id,actor_user_id,actor_role,prompt_text,requested_model,status,completed_at,credential_source)
+         VALUES ($1,$2,$3,$4,'editor','Synthetic own-key fixture','claude-sonnet-5-5','failed',CURRENT_TIMESTAMP,'own')`,
+        [tripId, randomUUID(), memberSession.memberId, member.userId]);
+    };
+    await ownRequests(OWN_KEY_DAILY_LIMIT - 1);
+    assert.equal((await inTransaction(pool, (client) => getAiPolicy(client, memberSession))).usedToday, OWN_KEY_DAILY_LIMIT - 1);
+    await pool.query("UPDATE trip_ai_settings SET host_subscription_enabled=true WHERE trip_id=$1", [tripId]);
+    const sponsored = await inTransaction(pool, (client) => getAiPolicy(client, memberSession));
+    assert.deepEqual({ source: sponsored.credentialSource, used: sponsored.usedToday, limit: sponsored.limit },
+      { source: "operator", used: 0, limit: 20 }, "own-key requests do not count against the trip's free prompts");
+    assert.equal((await getAppOverview(pool, memberSession)).ai.usedToday, 0);
+    await pool.query("UPDATE trip_ai_settings SET host_subscription_enabled=false WHERE trip_id=$1", [tripId]);
+    await ownRequests(1);
+    await assert.rejects(inTransaction(pool, (client) => getAiPolicy(client, memberSession)), { reasonCode: "daily_limit_reached" });
+    await pool.query("DELETE FROM ai_requests WHERE trip_id=$1 AND credential_source='own'", [tripId]);
     await assert.rejects(inTransaction(pool, (client) => getAiPolicy(client, ownerSession)), { reasonCode: "ai_key_required" });
 
     // A ciphertext moved to another account does not open.

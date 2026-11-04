@@ -31,7 +31,12 @@ These rules apply to every human and AI contributor.
 ## AI providers
 
 - Use only provider-documented SDKs, authentication and endpoints. Hosted deployments authenticate with API keys. Never reuse consumer-subscription logins (ChatGPT, Claude.ai, Gemini CLI OAuth) as a hosted transport; Anthropic does not permit third-party products to offer Claude.ai login.
-- Preserve the current trip funding gates until the job that replaces them lands: in an entitled trip, only the verified platform operator who is also an active trip owner gets premium model choice and quota exemption; other users use the member model and the trip owner's daily UTC limit (default 20). Unsponsored trips cannot invoke general planning. See [funding](docs/PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role).
+- Preserve the funding rules in `getAiPolicy` (`src/lib/app/repository.ts`), which decides whose key pays for each request:
+  - **The requester's own stored key** (JOB-061) pays when they choose one of its provider's models, or in a trip the operator does not sponsor. The trip's prompt cap does not apply.
+  - **The operator's keys** pay only in operator-sponsored trips. There, only the verified platform operator who is also an active trip owner gets premium model choice and quota exemption; other users get the member model and the trip's daily UTC limit (default 20).
+  - **Otherwise** the request is refused with `ai_key_required`.
+
+  Users' keys are encrypted at rest, never returned to a browser and never used for anyone else's request. Background workers use only the operator's keys, and only in sponsored trips. See [funding](docs/PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role).
 - Destination-only lookup is separately available to authenticated eligible creators (`STARDUST_DESTINATION_LOOKUP=creators`), tool-free, ten uncached calls per account per UTC day for non-operators. It does not fund general planning. See [defaults](docs/TRIP_DESTINATION_DEFAULTS.md).
 - Model IDs and behavior come from the registry and contracts; check a provider's current model list before changing them.
 

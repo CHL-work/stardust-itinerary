@@ -8,8 +8,9 @@ import { JoinUnavailableError, SessionUnavailableError } from "../../src/lib/aut
 
 /** Synthetic fixtures only, in the parent suite's guarded disposable database. */
 export async function testTripDeletion(pool, connectionString) {
-  await migrate({ connectionString });
-  assert.deepEqual(await migrate({ connectionString }), []);
+  // Through 0053 only: the AI credentials test that follows checks migration 0054's data change.
+  await migrate({ connectionString, through: "0053_api_key_transport.sql" });
+  assert.deepEqual(await migrate({ connectionString, through: "0053_api_key_transport.sql" }), []);
   const config = { authSecret: "synthetic-trip-deletion-secret-only", tripGraceDays: 2,
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
   const userAgent = "Synthetic trip deletion browser";

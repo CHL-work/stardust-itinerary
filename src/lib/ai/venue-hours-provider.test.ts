@@ -1,3 +1,4 @@
+import { lockedDownCodexConfig } from "@/lib/ai/codex-lockdown";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -105,10 +106,7 @@ describe("isolated venue-hours provider", () => {
     expect(mocks.startThread).toHaveBeenCalledExactlyOnceWith({ model: request.model, modelReasoningEffort: "low",
       sandboxMode: "read-only", workingDirectory: request.workDirectory, skipGitRepoCheck: true,
       networkAccessEnabled: false, webSearchMode: "live", approvalPolicy: "never" });
-    expect(mocks.codex).toHaveBeenCalledExactlyOnceWith({ env: expect.any(Object), config: {
-      features: { shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false, memories: false },
-      mcp_servers: {}, hooks: {}, notify: [], history: { persistence: "none" },
-    } });
+    expect(mocks.codex).toHaveBeenCalledExactlyOnceWith({ env: expect.any(Object), config: lockedDownCodexConfig });
   });
 
   it("allows only Claude public search plus the side-effect-free validated serializer", async () => {

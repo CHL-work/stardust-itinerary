@@ -38,11 +38,19 @@ In **Settings → Members**, an owner can assign **owner**, **editor** or **view
 
 An arbitrary trip creator or promoted co-owner does not receive the platform operator's provider funding or model privileges. `trip_ai_settings.host_subscription_enabled` marks a trip as operator-funded; migration 0036 enabled it for every trip that existed before the migration, and new trips default to unsponsored. Only new trips created by the configured platform operator receive that entitlement. The setting is server-side and cannot be changed through member/AI-settings APIs.
 
-The operator is verified through the stored Google identity and configured `OWNER_GOOGLE_EMAIL`, never a client email or an `owner` role alone. In an entitled trip, the operator must also be a trip owner to choose premium models and bypass the application prompt quota. Other users, including co-owners, receive server-forced Sol and the trip's configured per-member daily limit (default 20 prompts per UTC day). Unsponsored trips cannot invoke the planner or operator-funded disruption worker even if a client requests an enabled state or premium model. Trip owners can still manage ordinary trip roles and daily-limit settings.
+The operator is verified through the stored Google identity and configured `OWNER_GOOGLE_EMAIL`, never a client email or an `owner` role alone. In an entitled trip, the operator must also be a trip owner to choose premium models and bypass the application prompt quota. Other users, including co-owners, receive server-forced Sol and the trip's configured per-member daily limit (default 20 prompts per UTC day). Unsponsored trips can never use the operator's keys, for the planner or for the operator-funded disruption worker, even if a client requests an enabled state or premium model; members there use their own keys (below). Trip owners can still manage ordinary trip roles and daily-limit settings.
+
+`trip_ai_settings.enabled` records only whether a trip's owners allow AI ([D-075](DECISIONS.md#d-075-users-can-bring-their-own-ai-provider-keys-accepted-november-4-2026)). Every new trip starts with AI on, and owners of an unsponsored trip may turn it off and on again. Migration 0054 turned it on for existing unsponsored trips, unless an owner had turned it off.
 
 ### Your own API keys
 
 Any member can add their own OpenAI, Anthropic or Gemini API key in **Settings → AI keys** (JOB-061). The key is checked with the provider before it is saved, stored encrypted, and never shown again; only its last four characters are. A request uses the requester's own key when they explicitly choose a model of a provider they hold a key for, or when the trip is not operator-sponsored and they hold any key. In that case the trip's daily prompt limit does not apply, because the requester's own provider account pays. With no explicit choice, a sponsored trip keeps its free sponsorship, so adding a key never silently starts charging a member. An owner who turns AI off for a trip turns it off for own-key requests too. A member without a key in an unsponsored trip is asked to add one (`ai_key_required`). Trip owners never see or use other members' keys; sharing an owner's key with invited members is JOB-063.
+
+In the app:
+- The overview tells the browser only which providers the viewer holds a key for.
+- The AI composer opens as soon as a key is saved.
+- A member with keys gets a model picker listing their providers' models. The choice applies to one request at a time and never changes the trip's settings.
+- In a sponsored trip, the picker's first option stays the free trip AI. In an unsponsored trip, it is the model the server would pick.
 
 ## Deleting a trip
 

@@ -7,8 +7,9 @@ import { formatMessage, type Locale } from "@/lib/i18n";
 
 type Provider = AiCredentialSummary["provider"];
 type Request = <T>(url: string, init?: RequestInit) => Promise<T>;
-type Props = { tripId: string; scope: string; locale: Locale; request: Request };
-type Notice = { provider: Provider; kind: "savedNotice" | "removedNotice" | "rejected" | "failed" | "unavailable" };
+/** `changed` runs after a key is saved or removed, so the page can refresh what AI it offers. */
+type Props = { tripId: string; scope: string; locale: Locale; request: Request; changed?: () => void };
+type Notice = { provider: Provider; kind: "savedNotice" | "removedNotice" | "rejected" | "failed" | "unavailable" | "limited" };
 
 export const aiKeyProviders: readonly Provider[] = ["openai", "anthropic", "google"];
 
@@ -27,7 +28,7 @@ export function AiKeysSettings(props: Props) {
   return <AiKeysEditor key={props.scope} {...props} />;
 }
 
-function AiKeysEditor({ tripId, locale, request }: Props) {
+function AiKeysEditor({ tripId, locale, request, changed }: Props) {
   const copy = aiKeysMessages(locale);
   const url = `/api/trips/${encodeURIComponent(tripId)}/ai/keys`;
   const [keys, setKeys] = useState<AiCredentialSummary[] | null>(null);
@@ -64,9 +65,11 @@ function AiKeysEditor({ tripId, locale, request }: Props) {
       });
       setKeys((current) => [...(current ?? []).filter((key) => key.provider !== provider), body.key]);
       setNotice({ provider, kind: "savedNotice" });
+      changed?.();
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : null;
-      setNotice({ provider, kind: code === "AI_KEY_REJECTED" ? "rejected" : code === "AI_KEYS_UNAVAILABLE" ? "unavailable" : "failed" });
+      setNotice({ provider, kind: code === "AI_KEY_REJECTED" ? "rejected" : code === "AI_KEYS_UNAVAILABLE" ? "unavailable"
+        : code === "AI_KEY_CHECKS_LIMITED" ? "limited" : "failed" });
     } finally {
       // The typed key never stays in the page once it has been sent.
       setDrafts((current) => ({ ...current, [provider]: { ...current[provider], apiKey: "" } }));
@@ -82,6 +85,7 @@ function AiKeysEditor({ tripId, locale, request }: Props) {
       await request(`${url}?provider=${provider}`, { method: "DELETE" });
       setKeys((current) => (current ?? []).filter((key) => key.provider !== provider));
       setNotice({ provider, kind: "removedNotice" });
+      changed?.();
     } catch {
       setNotice({ provider, kind: "failed" });
     } finally {

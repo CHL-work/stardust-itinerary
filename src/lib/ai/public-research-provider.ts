@@ -1,5 +1,6 @@
 import { isAbsolute } from "node:path";
 import { Codex } from "@openai/codex-sdk";
+import { lockedDownCodexConfig } from "@/lib/ai/codex-lockdown";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { query as claudeQuery, type HookCallback, type SDKResultSuccess } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
@@ -161,10 +162,7 @@ async function runCodex(input: PublicResearchInput, prompt: string): Promise<Pub
   if (profile.provider !== "openai") throw new PublicResearchError("AI_PUBLIC_RESEARCH_INVALID");
   const codex = new Codex({
     env: providerEnvironment(),
-    config: {
-      features: { shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false, memories: false },
-      mcp_servers: {}, hooks: {}, notify: [], history: { persistence: "none" },
-    },
+    config: lockedDownCodexConfig,
   });
   const thread = codex.startThread({
     model: input.model, modelReasoningEffort: profile.reasoningEffort,

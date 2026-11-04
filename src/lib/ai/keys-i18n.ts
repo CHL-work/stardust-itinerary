@@ -24,10 +24,16 @@ const english = {
   rejected: "{provider} did not accept this key. Check it and try again.",
   failed: "The key could not be saved. Try again.",
   unavailable: "Saving API keys is not set up on this server.",
+  limited: "Too many keys have been checked recently. Try again in an hour.",
   loading: "Loading your keys…",
   loadFailed: "Your keys could not be loaded.",
   retry: "Try again",
   keyRequired: "To use AI in this trip, add your own API key in Settings → AI keys.",
+  ownKeyAccess: "AI in this trip runs on your own API key. Your provider bills you directly, and the trip's daily limit does not apply.",
+  modelLabel: "Model",
+  sponsoredOption: "Trip AI · {model}",
+  autoOption: "Automatic · {model}",
+  ownModelOption: "{model} · your key",
 };
 export type AiKeysCopy = { [K in keyof typeof english]: string };
 
@@ -54,10 +60,16 @@ const cantonese: AiKeysCopy = {
   rejected: "{provider} 不接受呢個金鑰，請檢查後再試。",
   failed: "未能儲存金鑰，請再試。",
   unavailable: "呢個伺服器未設定儲存 API 金鑰。",
+  limited: "最近檢查咗太多金鑰，請一個鐘後再試。",
   loading: "正在載入你嘅金鑰…",
   loadFailed: "未能載入你嘅金鑰。",
   retry: "再試一次",
   keyRequired: "要喺呢個旅程用 AI，請喺「設定 → AI 金鑰」加入你自己嘅 API 金鑰。",
+  ownKeyAccess: "呢個旅程嘅 AI 會用你自己嘅 API 金鑰。費用由供應商直接向你收取，旅程嘅每日上限唔適用。",
+  modelLabel: "模型",
+  sponsoredOption: "旅程 AI · {model}",
+  autoOption: "自動 · {model}",
+  ownModelOption: "{model} · 你嘅金鑰",
 };
 
 const japanese: AiKeysCopy = {
@@ -83,10 +95,16 @@ const japanese: AiKeysCopy = {
   rejected: "{provider} がこのキーを受け付けませんでした。確認してからもう一度お試しください。",
   failed: "キーを保存できませんでした。もう一度お試しください。",
   unavailable: "このサーバーではAPIキーの保存が設定されていません。",
+  limited: "最近確認したキーが多すぎます。1時間後にもう一度お試しください。",
   loading: "キーを読み込んでいます…",
   loadFailed: "キーを読み込めませんでした。",
   retry: "もう一度試す",
   keyRequired: "この旅行でAIを使うには、「設定 → AIキー」で自分のAPIキーを追加してください。",
+  ownKeyAccess: "この旅行のAIはあなた自身のAPIキーで動きます。料金はプロバイダーからあなたに直接請求され、旅行の1日あたりの上限は適用されません。",
+  modelLabel: "モデル",
+  sponsoredOption: "旅行のAI · {model}",
+  autoOption: "自動 · {model}",
+  ownModelOption: "{model} · 自分のキー",
 };
 
 export function aiKeysMessages(locale: Locale): AiKeysCopy {

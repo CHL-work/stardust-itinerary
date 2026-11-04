@@ -8,4 +8,5 @@ regexTarget = "line"
 regexes = [
   '''DISRUPTION_RECEIPTS_KEY = "stardust-disruption-receipts-v1"''',
   '''= "SYN-[A-Z0-9-]+";''',
+  '''"sk-synthetic-[A-Za-z0-9-]+"''',
 ]

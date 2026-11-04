@@ -1,6 +1,11 @@
 # Self-hosting with Docker Compose
 
-Runs everything on one machine: PostgreSQL 17, the web app and a scheduler for background checks. You need Docker with Compose v2, a Google account for the sign-in client, and an API key for at least one AI provider (OpenAI or Anthropic). Kubernetes is covered in [deployment](DEPLOYMENT.md).
+Runs everything on one machine: PostgreSQL 17, the web app and a scheduler for background checks. You need:
+- Docker with Compose v2;
+- a Google account for the sign-in client;
+- an API key for at least one AI provider (OpenAI, Anthropic or Google Gemini), unless every user adds their own in Settings → AI keys.
+
+Kubernetes is covered in [deployment](DEPLOYMENT.md).
 
 ## 1. Get the code and configure it
 
@@ -15,12 +20,13 @@ Edit `.env`:
 | Setting | Value |
 | --- | --- |
 | `AUTH_SECRET` | output of `openssl rand -base64 32` |
-| `CREDENTIAL_ENCRYPTION_KEY` | another `openssl rand -base64 32`; encrypts the API keys users save in Settings |
+| `CREDENTIAL_ENCRYPTION_KEY` | another, different `openssl rand -base64 32`. It encrypts the API keys users save in Settings, and Compose gives it only to the web service. Keep a copy: without it, saved keys cannot be decrypted |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` (hex keeps it URL-safe) |
 | `OWNER_GOOGLE_EMAIL` | your Google email; you become the platform operator |
 | `PUBLIC_SIGNUP_ENABLED` | `true`, so you can create your own account (see step 2 for who can sign in) |
 | `OPENAI_API_KEY` and `CODEX_API_KEY` | the same OpenAI key, if you use OpenAI models |
 | `ANTHROPIC_API_KEY` | if you use Claude models |
+| `STARDUST_GEMINI_API_KEY` | if you use Gemini models; for a Vertex AI key, also `STARDUST_GEMINI_VERTEX_PROJECT` and `STARDUST_GEMINI_VERTEX_LOCATION` |
 | `DEFAULT_LOCALE` | `en`, `zh-HK`, `zh-HK-lihkg` or `ja-JP` |
 
 ## 2. Create the Google sign-in client

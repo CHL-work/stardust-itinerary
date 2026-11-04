@@ -7,7 +7,9 @@ import {
 import { apiError } from "@/lib/app/http";
 import { AppInvalidInputError } from "@/lib/app/repository";
 import { getAuthConfig } from "@/lib/auth/config";
-import { requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
+import { RateLimitError } from "@/lib/auth/errors";
+import { enforceRateLimit } from "@/lib/auth/repository";
+import { requestRateLimitKey, requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 
 /**
@@ -17,12 +19,19 @@ import { getPool } from "@/lib/db/pool";
 type Context = { params: Promise<{ tripId: string }> };
 const headers = { "Cache-Control": "private, no-store" };
 
+// Each save asks the provider about the key from this server's address. Bound how often one account,
+// or one browser address, can do that, so the server cannot be used to test lists of leaked keys.
+const KEY_CHECKS_PER_HOUR = { account: 10, address: 30 };
+
 function failure(error: unknown) {
   const response = error instanceof AiCredentialRejectedError
     ? NextResponse.json({ error: error.message, code: "AI_KEY_REJECTED" }, { status: 400 })
     : error instanceof AiKeysUnavailableError
       ? NextResponse.json({ error: error.message, code: "AI_KEYS_UNAVAILABLE" }, { status: 403 })
-      : apiError(error);
+      : error instanceof RateLimitError
+        ? NextResponse.json({ error: "Too many key checks. Try again later.", code: "AI_KEY_CHECKS_LIMITED" },
+          { status: 429, headers: { "Retry-After": String(error.retryAfterSeconds) } })
+        : apiError(error);
   response.headers.set("Cache-Control", headers["Cache-Control"]);
   return response;
 }
@@ -43,7 +52,12 @@ export async function PUT(request: NextRequest, { params }: Context) {
     const session = await requireAuthenticatedSession(request, config);
     const { tripId } = await params;
     const input = aiCredentialInputSchema.parse(await request.json());
-    return NextResponse.json({ key: await saveAiCredential(getPool(config), session, tripId, input) }, { headers });
+    const pool = getPool(config);
+    await enforceRateLimit(pool, config, { scope: "ai-key-check", key: session.userId,
+      maximum: KEY_CHECKS_PER_HOUR.account, windowSeconds: 3600 });
+    await enforceRateLimit(pool, config, { scope: "ai-key-check-address", key: requestRateLimitKey(request),
+      maximum: KEY_CHECKS_PER_HOUR.address, windowSeconds: 3600 });
+    return NextResponse.json({ key: await saveAiCredential(pool, session, tripId, input) }, { headers });
   } catch (error) { return failure(error); }
 }
 

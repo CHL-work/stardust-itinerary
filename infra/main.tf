@@ -7,10 +7,12 @@ locals {
   # Workload Identity Federation for GKE: each Kubernetes service account is its own principal.
   ksa_principal = "principal://iam.googleapis.com/projects/${local.project_number}/locations/global/workloadIdentityPools/${var.project_id}.svc.id.goog/subject/ns/${var.namespace}/sa"
 
-  # Secret Manager secret -> Kubernetes service accounts allowed to mount it.
+  # Secret Manager secret -> Kubernetes service accounts allowed to mount it. Only the web server
+  # decrypts users' stored AI keys, so only it mounts CREDENTIAL_ENCRYPTION_KEY.
   secrets = {
     "stardust-app-env"            = ["stardust-web", "stardust-worker", "stardust-migrate"]
     "stardust-ai-env"             = ["stardust-web", "stardust-worker"]
+    "stardust-credential-env"     = ["stardust-web"]
     "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup"]
     "stardust-tunnel-credentials" = ["stardust-tunnel"]
   }

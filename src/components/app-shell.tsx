@@ -62,6 +62,8 @@ import type { CalendarSourceMetadata } from "@/lib/calendar/import-contracts";
 import { AiConversationPage } from "@/components/ai-conversation-page";
 import { AiInstructionsSettings } from "@/components/ai-instructions-settings";
 import { AiKeysSettings } from "@/components/ai-keys-settings";
+import { aiKeysMessages, type AiKeysCopy } from "@/lib/ai/keys-i18n";
+import { ownKeyModel, ownKeyModels } from "@/lib/ai/own-key-model";
 import { aiInstructionsMessages } from "@/lib/ai/instructions-i18n";
 import { parseAiProviderFailureDetails, type AiProviderFailureDetails } from "@/lib/ai/provider-failure";
 import { aiProviderFailureMessage, type AiFailurePresentationOptions } from "@/lib/ai/provider-failure-presentation";
@@ -129,6 +131,7 @@ import {
   type DisruptionReasonCode,
   type EventDisruption,
   type EventWeatherForecast,
+  type OwnerModel,
   type PendingExpenseProjection,
   type PendingItineraryEditDetail,
   type PendingItineraryProjection,
@@ -325,6 +328,10 @@ type Overview = {
   ai: {
     enabled: boolean; ownerDefaultModel: string; effectiveModel: string;
     canSelectModel?: boolean; hostSubscriptionEnabled?: boolean;
+    /** Providers the signed-in user holds their own API key for (JOB-061). */
+    ownKeyProviders?: string[];
+    /** AI is allowed here, but only with the user's own key, and they have none. */
+    keyRequired?: boolean;
     memberDailyLimit: number; usedToday: number; remainingToday: number | null;
   };
   liveOperations: null | {
@@ -862,6 +869,7 @@ function Modal({ title, children, close, closeLabel = "Close" }: { title: string
 export function AppShell({ locale, messages }: { locale: Locale; messages: Messages }) {
   const router = useRouter();
   const memberCopy = memberManagementMessages(locale);
+  const keysCopy = aiKeysMessages(locale);
   const advancedCopy = advancedSettingsMessages(locale);
   const eventEditorCopy = eventEditorMessages(locale);
   const expensePageCopy = expensePageMessages(locale);
@@ -938,6 +946,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const aiRecoveryClient = useRef<AiRequestRecoveryClient | null>(null);
   const [aiConversationResetOpen, setAiConversationResetOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_OWNER_MODEL);
+  // A per-request choice of a model that runs on the user's own key; "" leaves it to the server.
+  const [ownKeyChoice, setOwnKeyChoice] = useState("");
   const [tripSettings, setTripSettings] = useState<TripSettingsDraft | null>(null);
   const tripSettingsSaving = useRef(false);
   const tripSettingsScopeRef = useRef<string | null>(null);
@@ -2554,8 +2564,10 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const askAi = async (event: FormEvent, conversationId = aiState.activeConversationId, purpose: "trip" | "preferences" = "trip") => {
     event.preventDefault();
     if (!overview || !aiPrompt.trim() || busy || aiThinking || aiImages.preparing || conversationId === undefined || purpose === "preferences") return;
+    const ownChoice = (ownKeyModels(overview.ai.ownKeyProviders ?? []) as string[]).includes(ownKeyChoice) ? ownKeyChoice : "";
     await aiRecoveryClient.current?.submit({
-      prompt: aiPrompt, locale, conversationId, ...(overview.ai.canSelectModel === true ? { model: selectedModel } : {}),
+      prompt: aiPrompt, locale, conversationId,
+      ...(overview.ai.canSelectModel === true ? { model: selectedModel } : ownChoice ? { model: ownChoice } : {}),
       ...(aiImages.images.length ? { images: aiImages.images.map((image) => image.input) } : {}),
     });
   };
@@ -3008,7 +3020,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
               {(section === "today" ? overviewTimelinePoints : itineraryTimelinePoints).some((point) => point.weather) ? <p className="weather-attribution"><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">{messages.weatherAttribution}</a></p> : null}
               {section === "itinerary" ? <GoogleCalendarPanel overview={overview} locale={locale} messages={messages} state={calendarState} busy={calendarBusy} refresh={() => void loadCalendar()} syncAll={() => requestCalendarSync("all")} openItineraryItem={revealItineraryItem} /> : null}
             </section>
-            <aside className="utility-column"><AiCard locale={locale} overview={overview} messages={messages} prompt={aiPrompt} setPrompt={setAiPrompt} reply={aiReply} sources={aiSources} memory={aiMemory} busy={busy || aiThinking || aiState.activeConversationId === undefined} thinking={aiThinking} statusText={aiStatusText} selectedModel={selectedModel} setModel={updateModel} submit={askAi} newConversation={() => setAiConversationResetOpen(true)} openHistory={() => setSection("ai")} historyLabel={aiHistoryCopy.viewHistory} imagePicker={{ ...aiImages, locale }} /><PersonalExpenseWidget overview={overview} locale={locale} openExpenses={() => setSection("expenses")} addExpense={overview.permissions.canEditExpenses ? () => openExpense() : undefined} />{section === "today" ? <GoogleCalendarPanel compact dateFilter={selectedOverviewDay?.date} overview={overview} locale={locale} messages={messages} state={calendarState} busy={calendarBusy} refresh={() => void loadCalendar()} syncAll={() => requestCalendarSync("all")} openItineraryItem={revealItineraryItem} /> : null}</aside>
+            <aside className="utility-column"><AiCard locale={locale} overview={overview} messages={messages} prompt={aiPrompt} setPrompt={setAiPrompt} reply={aiReply} sources={aiSources} memory={aiMemory} busy={busy || aiThinking || aiState.activeConversationId === undefined} thinking={aiThinking} statusText={aiStatusText} selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice} submit={askAi} newConversation={() => setAiConversationResetOpen(true)} openHistory={() => setSection("ai")} historyLabel={aiHistoryCopy.viewHistory} imagePicker={{ ...aiImages, locale }} /><PersonalExpenseWidget overview={overview} locale={locale} openExpenses={() => setSection("expenses")} addExpense={overview.permissions.canEditExpenses ? () => openExpense() : undefined} />{section === "today" ? <GoogleCalendarPanel compact dateFilter={selectedOverviewDay?.date} overview={overview} locale={locale} messages={messages} state={calendarState} busy={calendarBusy} refresh={() => void loadCalendar()} syncAll={() => requestCalendarSync("all")} openItineraryItem={revealItineraryItem} /> : null}</aside>
           </div>
         )}
 
@@ -3029,7 +3041,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             locale={locale}
             prompt={aiPrompt} setPrompt={setAiPrompt} reply={aiState.error ? aiReply : null}
             sources={[]} memory={null} busy={busy || aiThinking} thinking={aiThinking}
-            statusText={aiStatusText} selectedModel={selectedModel} setModel={updateModel}
+            statusText={aiStatusText} selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice}
             imagePicker={{ ...aiImages, locale }}
             submit={(event) => askAi(event, conversationId, purpose)} />}
         />}
@@ -3079,7 +3091,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         {section === "settings" && <section className="page-panel settings-grid">
           <UiModeSettingsCard locale={locale} />
           {!activityAccessLost ? <AiInstructionsSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} onDirtyChange={instructionsDirtyChanged} /> : null}
-          {!activityAccessLost ? <AiKeysSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} /> : null}
+          {!activityAccessLost ? <AiKeysSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} changed={() => void refresh()} /> : null}
           <article className="settings-card"><h2>{messages.switchTripTitle}</h2><p>{messages.switchTripDescription}</p><label>{messages.currentTripField}<select data-feedback-action="trip_switch" value={overview.trip.id} disabled={busy} onChange={(event) => void switchTrip(event.target.value)}>{overview.availableTrips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name} · {trip.role}</option>)}</select></label><small>{overview.trip.destinationName} · {overview.trip.startsOn} – {overview.trip.endsOn}</small><button className="primary-button fit-button" disabled={busy} onClick={openNewTrip}><Plus size={16} /> {messages.createNewTrip}</button></article>
           {overview.session.isOwner && tripSettings?.scope === tripSettingsScope(overview) ? <TripSettingsCard settings={tripSettings} setSettings={setTripSettings} busy={busy} memberCount={overview.trip.memberCount} messages={messages} submit={saveTripSettings} /> : null}
           {overview.session.isOwner && !activityAccessLost ? <TripDeletionCard locale={locale} busy={busy} open={() => void previewTripDeletion()} /> : null}
@@ -3117,10 +3129,10 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <summary data-feedback-action="navigate"><ChevronRight size={20} aria-hidden="true" /><span><strong>{advancedCopy.advanced}</strong><small>{overview.session.isOwner ? advancedCopy.description : advancedCopy.memberDescription}</small></span></summary>
             <div className={advancedStyles.body}>
           <article className="settings-card"><h2>{messages.aiAccess}</h2>
-            <p>{overview.ai.hostSubscriptionEnabled === false ? memberCopy.aiUnsponsored : overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : formatMessage(messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit })}</p>
+            <p>{unsponsoredAiNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : formatMessage(messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit }))}</p>
             {overview.ai.canSelectModel ? <label>{messages.aiOwnerDefaultModel}<select data-feedback-action="settings_save" value={selectedModel} disabled={busy} onChange={(event) => void updateModel(event.target.value)}>{ownerModels.map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
-            {overview.session.isOwner ? <form className="inline-settings-form" data-feedback-action="settings_save" onSubmit={saveMemberDailyLimit}><label>{messages.aiMemberPromptsPerDay}<input type="number" min="1" max="1000" step="1" required value={memberDailyLimit} onChange={(event) => setMemberDailyLimit(event.target.value)} /></label><button data-feedback-action="settings_save" className="primary-button fit-button" disabled={busy}>{messages.saveAiLimit}</button></form> : overview.ai.enabled ? <div className="quota-meter"><span style={{ width: `${Math.min(100, (overview.ai.usedToday / overview.ai.memberDailyLimit) * 100)}%` }} /></div> : null}
-            {overview.ai.enabled ? <strong>{overview.ai.canSelectModel ? formatMessage(messages.aiOwnerSummary, { limit: overview.ai.memberDailyLimit }) : formatMessage(messages.aiMemberRemaining, { remaining: overview.ai.remainingToday ?? 0 })}</strong> : null}
+            {overview.session.isOwner ? <form className="inline-settings-form" data-feedback-action="settings_save" onSubmit={saveMemberDailyLimit}><label>{messages.aiMemberPromptsPerDay}<input type="number" min="1" max="1000" step="1" required value={memberDailyLimit} onChange={(event) => setMemberDailyLimit(event.target.value)} /></label><button data-feedback-action="settings_save" className="primary-button fit-button" disabled={busy}>{messages.saveAiLimit}</button></form> : overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <div className="quota-meter"><span style={{ width: `${Math.min(100, (overview.ai.usedToday / overview.ai.memberDailyLimit) * 100)}%` }} /></div> : null}
+            {overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <strong>{overview.ai.canSelectModel ? formatMessage(messages.aiOwnerSummary, { limit: overview.ai.memberDailyLimit }) : formatMessage(messages.aiMemberRemaining, { remaining: overview.ai.remainingToday ?? 0 })}</strong> : null}
           </article>
               {overview.session.isOwner && overview.liveOperations ? <LiveOperationsCard status={overview.liveOperations} locale={locale} timeZone={overview.trip.timeZone} messages={messages} /> : null}
               <ActivitySettingsEntry locale={locale} isOwner={overview.session.isOwner} open={() => setSection("activity")} />
@@ -3150,7 +3162,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                   <div className={advancedStyles.groupBody}>
                     <div className="section-heading"><p className="muted-copy">{advancedCopy.usageDescription}</p><button data-feedback-action="navigate" className="ghost-button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />{advancedCopy.refresh}</button></div>
                     <div className="metric-grid">
-                      <article className="metric-card"><span>{advancedCopy.requestsToday}</span><strong>{overview.ai.usedToday}</strong><small>{overview.ai.hostSubscriptionEnabled === false ? memberCopy.aiUnsponsored : overview.ai.canSelectModel ? messages.aiOwnerPolicy : formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit })}</small></article>
+                      <article className="metric-card"><span>{advancedCopy.requestsToday}</span><strong>{overview.ai.usedToday}</strong><small>{unsponsoredAiNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerPolicy : formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit }))}</small></article>
                       <article className="metric-card"><span>{advancedCopy.inputTokens}</span><strong>{usageTotals.input.toLocaleString(locale)}</strong><small>{formatMessage(advancedCopy.outputTokens, { count: usageTotals.output.toLocaleString(locale) })}</small></article>
                       <article className="metric-card"><span>{advancedCopy.outcomes}</span><strong>{formatMessage(advancedCopy.succeededCount, { count: usageTotals.succeeded })}</strong><small>{formatMessage(advancedCopy.otherOutcomes, { failed: usageTotals.failed, rejected: usageTotals.rejected })}</small></article>
                       <article className="metric-card"><span>{advancedCopy.effectiveModel}</span><strong>{overview.ai.effectiveModel}</strong><small>{formatMessage(advancedCopy.recentEntries, { count: overview.aiLogs.length })}</small></article>
@@ -3790,7 +3802,29 @@ export function GoogleCalendarPanel({ overview, messages, state, busy, compact =
   );
 }
 
-export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, setModel, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale }: {
+/**
+ * What the signed-in user's own API keys allow in this trip (JOB-061): the models they can choose,
+ * whether every request runs on their own key (a trip the operator does not sponsor), and the
+ * model the server picks when they leave the choice to it.
+ */
+export function ownKeyAccess(ai: Overview["ai"]) {
+  const providers = ai.ownKeyProviders ?? [];
+  const sponsored = ai.hostSubscriptionEnabled !== false;
+  return {
+    models: ownKeyModels(providers),
+    ownKeyOnly: !sponsored && providers.length > 0,
+    automatic: ownKeyModel(undefined, ai.ownerDefaultModel as OwnerModel, new Set(providers), sponsored),
+  };
+}
+
+/** How AI works in a trip the operator does not sponsor, or null for a sponsored trip. */
+export function unsponsoredAiNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy): string | null {
+  if (ai.hostSubscriptionEnabled !== false) return null;
+  if (ai.keyRequired) return keysCopy.keyRequired;
+  return ai.enabled && ownKeyAccess(ai).ownKeyOnly ? keysCopy.ownKeyAccess : messages.aiUnavailable;
+}
+
+export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, setModel, ownKeyChoice = "", setOwnKeyChoice, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale }: {
   overview: Overview;
   messages: Messages;
   prompt: string;
@@ -3803,6 +3837,8 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
   statusText?: string | null;
   selectedModel: string;
   setModel: (model: string) => Promise<void>;
+  ownKeyChoice?: string;
+  setOwnKeyChoice?: (model: string) => void;
   submit: (event: FormEvent) => Promise<void>;
   newConversation?: () => void;
   openHistory?: () => void;
@@ -3811,13 +3847,25 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
   readOnly?: boolean;
   locale?: Locale;
 }) {
-  const unsponsoredMessage = memberManagementMessages(locale ?? imagePicker?.locale ?? "en").aiUnsponsored;
-  const idleMessage = overview.ai.hostSubscriptionEnabled === false
-    ? unsponsoredMessage
+  const keysCopy = aiKeysMessages(locale ?? imagePicker?.locale ?? "en");
+  const access = ownKeyAccess(overview.ai);
+  const ownChoice = (access.models as string[]).includes(ownKeyChoice) ? ownKeyChoice : "";
+  const idleMessage = overview.ai.keyRequired ? keysCopy.keyRequired
     : !overview.ai.enabled ? messages.aiUnavailable
+    : access.ownKeyOnly ? keysCopy.ownKeyAccess
     : overview.ai.canSelectModel
       ? messages.aiOwnerPolicy
       : messages.aiMemberPolicy;
+  // Choosing one of the user's own-key models is per request; it never changes the trip's settings.
+  const ownKeySelect = !overview.ai.canSelectModel && overview.ai.enabled && access.models.length > 0
+    ? <select className="model-select" aria-label={keysCopy.modelLabel} value={ownChoice} disabled={busy} onChange={(event) => setOwnKeyChoice?.(event.target.value)}>
+      <option value="">{access.ownKeyOnly ? formatMessage(keysCopy.autoOption, { model: access.automatic ?? "" }) : formatMessage(keysCopy.sponsoredOption, { model: overview.ai.effectiveModel })}</option>
+      {access.models.map((model) => <option key={model} value={model}>{formatMessage(keysCopy.ownModelOption, { model })}</option>)}
+    </select>
+    : null;
+  const quotaNote = !overview.ai.canSelectModel && overview.ai.enabled && !access.ownKeyOnly && !ownChoice
+    ? <p className="policy-note">{formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit })}</p>
+    : null;
   if (readOnly) return <section className="ai-card"><h2>{aiInstructionsMessages(locale ?? "en").archived}</h2>
     <p className="ai-memory-notice">{aiInstructionsMessages(locale ?? "en").archivedNotice}</p>
     {newConversation ? <button data-feedback-action="ai_new" type="button" className="ghost-button" disabled={busy} onClick={newConversation}>{messages.newAiConversation}</button> : null}
@@ -3829,7 +3877,9 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
         <div className="ai-card-title"><div className="card-icon violet"><Bot size={21} /></div><div><p className="eyebrow">{messages.aiPlannerLabel}</p><h2>{messages.askAi}</h2></div></div>
         {newConversation ? <button data-feedback-action="ai_new" type="button" className="ai-conversation-button" disabled={busy} onClick={newConversation}><Plus size={14} /> {messages.newAiConversation}</button> : null}
       </div>
-      {overview.ai.canSelectModel ? <select data-feedback-action="settings_save" className="model-select" value={selectedModel} disabled={busy} onChange={(event) => void setModel(event.target.value)}>{ownerModels.map((model) => <option key={model}>{model}</option>)}</select> : overview.ai.enabled ? <p className="policy-note">{formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit })}</p> : null}
+      {overview.ai.canSelectModel ? <select data-feedback-action="settings_save" className="model-select" value={selectedModel} disabled={busy} onChange={(event) => void setModel(event.target.value)}>{ownerModels.map((model) => <option key={model}>{model}</option>)}</select> : null}
+      {ownKeySelect}
+      {quotaNote}
       <p className="ai-memory-notice">{messages.aiMemoryNotice}</p>
       {openHistory ? <button data-feedback-action="navigate" type="button" className="ghost-button" onClick={openHistory}>{historyLabel}<ChevronRight size={16} /></button> : null}
       <form data-feedback-action="ai_submit" onSubmit={submit}><label className="ai-input"><span className="sr-only">{messages.askAi}</span><textarea required maxLength={AI_PROMPT_MAX_CHARACTERS} disabled={busy || !overview.ai.enabled} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={messages.aiPlaceholder} rows={4} /><button disabled={busy || !overview.ai.enabled || !prompt.trim() || imagePicker?.preparing} aria-label={messages.sendAiPrompt}><Sparkles size={17} /></button></label>

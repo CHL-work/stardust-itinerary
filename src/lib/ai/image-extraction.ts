@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
 import { Codex } from "@openai/codex-sdk";
+import { lockedDownCodexConfig } from "@/lib/ai/codex-lockdown";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { query as claudeQuery, type SDKResultSuccess, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
@@ -156,13 +157,7 @@ async function extractWithCodex(input: ExtractionInput, workDirectory: string): 
   }
   const codex = new Codex({
     env: providerEnvironment(),
-    config: {
-      features: { shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false, memories: false },
-      mcp_servers: {},
-      hooks: {},
-      notify: [],
-      history: { persistence: "none" },
-    },
+    config: lockedDownCodexConfig,
   });
   const thread = codex.startThread({
     model: input.model,

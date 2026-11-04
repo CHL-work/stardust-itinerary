@@ -9,6 +9,8 @@ import advancedStyles from "./advanced-settings.module.css";
 import { advancedSettingsMessages, advancedRequestStatus } from "@/lib/app/advanced-settings-i18n";
 import { activityMessages } from "@/lib/app/activity-i18n";
 import { memberManagementMessages } from "@/lib/app/member-management-i18n";
+import { ownKeyAccess, unsponsoredAiNote } from "@/components/app-shell";
+import { aiKeysMessages } from "@/lib/ai/keys-i18n";
 import { ownerModels } from "@/lib/app/types";
 import { feedbackActions } from "@/lib/feedback/contracts";
 import { formatMessage, locales, messages, type Locale } from "@/lib/i18n";
@@ -28,7 +30,7 @@ function descendants(node: ReactNode): ReactElement<Record<string, unknown>>[] {
   return [node, ...descendants(node.props.children as ReactNode)];
 }
 const permissions = { canEditItinerary: true, itineraryRequiresApproval: true, canEditExpenses: true, expenseRequiresApproval: false, canSyncCalendar: true };
-function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectModel?: boolean; busy?: boolean; sponsored?: boolean } = {}) {
+function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectModel?: boolean; busy?: boolean; sponsored?: boolean; ai?: Record<string, unknown> } = {}) {
   const isOwner = options.owner ?? true;
   const overview = {
     trip: { id: "synthetic-trip", timeZone: "Asia/Tokyo", startsOn: "2030-04-01", endsOn: "2030-04-05", memberCount: 3 },
@@ -41,7 +43,7 @@ function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectMod
       { id: "synthetic-removed", displayName: "Synthetic removed", role: "viewer", status: "removed", identityBound: false, permissions },
     ],
     ai: { canSelectModel: options.canSelectModel ?? isOwner, hostSubscriptionEnabled: options.sponsored ?? true, enabled: true,
-      memberDailyLimit: 20, usedToday: 3, remainingToday: 17, effectiveModel: "gpt-6.1-sol" },
+      memberDailyLimit: 20, usedToday: 3, remainingToday: 17, effectiveModel: "gpt-6.1-sol", ...options.ai },
     liveOperations: { synthetic: true },
     aiLogs: [{ id: "synthetic-log", actorName: "Synthetic actor", prompt: "SYNTHETIC_PRIVATE_PROMPT", result: "SYNTHETIC_PRIVATE_RESPONSE",
       status: "succeeded", effectiveModel: "gpt-6.1-sol", provider: "openai", transport: "codex_sdk", billingBasis: "subscription",
@@ -51,7 +53,8 @@ function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectMod
   const setSection = vi.fn(); const refresh = vi.fn(); const saveMemberDailyLimit = vi.fn();
   const bindings = {
     React: { createElement, Fragment }, overview, locale, messages: messages[locale], advancedCopy: advancedSettingsMessages(locale),
-    advancedStyles, memberCopy: memberManagementMessages(locale), ChevronRight, RefreshCw, ActivitySettingsEntry,
+    advancedStyles, memberCopy: memberManagementMessages(locale), keysCopy: aiKeysMessages(locale), unsponsoredAiNote, ownKeyAccess,
+    ChevronRight, RefreshCw, ActivitySettingsEntry,
     FeedbackOperations: () => null,
     advancedRequestStatus, formatMessage, ownerModels, busy: options.busy ?? false, selectedModel: "gpt-6.1-sol",
     memberDailyLimit: "20", setMemberDailyLimit: vi.fn(), updateModel: vi.fn(), saveMemberDailyLimit,
@@ -105,9 +108,22 @@ describe("collapsed advanced Settings", () => {
   });
 
   it("does not grant model selection to a trip owner without the existing provider entitlement", () => {
-    const { node, html } = renderAdvanced("en", { canSelectModel: false, sponsored: false });
+    const { node, html } = renderAdvanced("en", { canSelectModel: false, sponsored: false, ai: { enabled: false, keyRequired: true } });
     expect(descendants(node).filter((item) => item.type === "select")).toHaveLength(0);
-    expect(html).toContain(escape(memberManagementMessages("en").aiUnsponsored));
+    expect(html).toContain(escape(aiKeysMessages("en").keyRequired));
+  });
+
+  it.each(locales)("explains own-key AI without the trip's daily limit in an unsponsored trip in %s", (locale) => {
+    const { html } = renderAdvanced(locale, { owner: false, canSelectModel: false, sponsored: false, ai: { ownKeyProviders: ["google"] } });
+    expect(html).toContain(escape(aiKeysMessages(locale).ownKeyAccess));
+    expect(html).not.toContain("quota-meter");
+    expect(html).not.toContain(escape(formatMessage(messages[locale].aiMemberRemaining, { remaining: 17 })));
+  });
+
+  it("keeps the sponsored member quota when the member also holds their own key", () => {
+    const { html } = renderAdvanced("en", { owner: false, canSelectModel: false, ai: { ownKeyProviders: ["openai"] } });
+    expect(html).toContain("quota-meter");
+    expect(html).not.toContain(escape(aiKeysMessages("en").ownKeyAccess));
   });
 
   it("retains exact member permission callbacks and dependency rules", () => {

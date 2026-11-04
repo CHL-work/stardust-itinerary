@@ -139,6 +139,8 @@ export async function generateWithGemini(input: {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": endpoint.apiKey },
       body: JSON.stringify(body),
+      // A redirect would carry x-goog-api-key to wherever it points; Google's API never redirects.
+      redirect: "error",
       signal: input.signal,
     });
   } catch (error) {

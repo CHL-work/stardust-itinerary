@@ -1,4 +1,6 @@
-import { access } from "node:fs/promises";
+import { access, mkdtemp, rm, utimes } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { activeAiCredential, withOperatorAiCredential, withUserAiCredential } from "@/lib/ai/credential-context";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
@@ -46,6 +48,21 @@ describe("per-request AI credentials", () => {
       })));
     expect(results.map((env) => env.CODEX_API_KEY)).toEqual(["user-a", "user-b"]);
     expect(results[0]!.CODEX_HOME).not.toBe(results[1]!.CODEX_HOME);
+  });
+
+  it("sweeps provider directories left behind by earlier requests, but not recent ones", async () => {
+    const stale = await mkdtemp(join(tmpdir(), "stardust-ai-key-"));
+    const recent = await mkdtemp(join(tmpdir(), "stardust-ai-key-"));
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await utimes(stale, twoHoursAgo, twoHoursAgo);
+    try {
+      await withUserAiCredential({ source: "own", provider: "openai", apiKey: "user-a", vertex: null }, async () => undefined);
+      await expect(access(stale)).rejects.toMatchObject({ code: "ENOENT" });
+      await access(recent);
+    } finally {
+      await rm(stale, { recursive: true, force: true });
+      await rm(recent, { recursive: true, force: true });
+    }
   });
 
   it("gives Gemini the user's own key, including a Vertex AI project", async () => {

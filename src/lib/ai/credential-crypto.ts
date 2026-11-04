@@ -18,12 +18,15 @@ export class CredentialEncryptionUnavailableError extends Error {
   }
 }
 
+// Exactly 32 bytes in standard base64. Buffer.from(…, "base64") would silently skip stray characters.
+const KEY_FORMAT = /^[A-Za-z0-9+/]{43}=$/u;
+
 function encryptionKey(env: Record<string, string | undefined>, version: number): Buffer {
   if (version !== KEY_VERSION) throw new CredentialEncryptionUnavailableError();
   const raw = env.CREDENTIAL_ENCRYPTION_KEY?.trim();
-  const key = raw ? Buffer.from(raw, "base64") : null;
-  if (!key || key.length !== 32) throw new CredentialEncryptionUnavailableError();
-  return key;
+  // A dedicated secret: reusing AUTH_SECRET would let one leaked value both forge sessions and open keys.
+  if (!raw || !KEY_FORMAT.test(raw) || raw === env.AUTH_SECRET?.trim()) throw new CredentialEncryptionUnavailableError();
+  return Buffer.from(raw, "base64");
 }
 
 function additionalData(userId: string, provider: AiCredentialProvider): Buffer {

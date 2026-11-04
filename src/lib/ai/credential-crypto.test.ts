@@ -35,6 +35,16 @@ describe("AI credential encryption", () => {
     expect(() => sealCredential(secret, owner, {})).toThrow("Credential encryption is not configured.");
   });
 
+  it("accepts only exact base64 and never the session secret", () => {
+    const valid = env.CREDENTIAL_ENCRYPTION_KEY;
+    // Buffer.from would silently skip the stray characters and still decode 32 bytes.
+    expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: `${valid.slice(0, 20)}!${valid.slice(20)}` })).toBe(false);
+    expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: valid.replace("=", "") })).toBe(false);
+    expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: ` ${valid}\n` })).toBe(true);
+    expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: valid, AUTH_SECRET: valid })).toBe(false);
+    expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: valid, AUTH_SECRET: randomBytes(32).toString("base64") })).toBe(true);
+  });
+
   it("shows only the last four characters", () => {
     expect(credentialHint(secret)).toBe("WXYZ");
     expect(credentialHint("short")).toBe("hort");

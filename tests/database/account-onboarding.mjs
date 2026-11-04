@@ -68,12 +68,15 @@ export async function testAccountOnboarding(pool,connectionString,baseSession) {
         FROM trip_ai_settings ai JOIN trip_disruption_settings disruption ON disruption.trip_id=ai.trip_id WHERE ai.trip_id=$1`,
       [created.tripId,principal.userId],
     )).rows[0];
-    assert.deepEqual(state,{enabled:false,host_subscription_enabled:false,disruptions:false,days:3,selected:created.tripId});
-    await assert.rejects(updateAiSettings(pool,session,created.tripId,{enabled:true}),(error)=>error instanceof AppForbiddenError);
+    // AI starts on (D-075), but only the requester's own key can pay: no operator sponsorship.
+    assert.deepEqual(state,{enabled:true,host_subscription_enabled:false,disruptions:false,days:3,selected:created.tripId});
+    await updateAiSettings(pool,session,created.tripId,{enabled:false});
+    await assert.rejects(getAiPolicy(pool,session),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_disabled");
+    await updateAiSettings(pool,session,created.tripId,{enabled:true});
     await assert.rejects(updateAiSettings(pool,session,created.tripId,{ownerDefaultModel:"gpt-6-astra"}),(error)=>error instanceof AppForbiddenError);
-    // Even an accidentally enabled toggle cannot confer operator sponsorship.
-    await pool.query("UPDATE trip_ai_settings SET enabled=true WHERE trip_id=$1",[created.tripId]);
-    await assert.rejects(getAiPolicy(pool,session,"gpt-6-astra"),(error)=>error instanceof AiPolicyDeniedError);
+    // An enabled toggle cannot confer operator sponsorship.
+    await assert.rejects(getAiPolicy(pool,session,"gpt-6-astra"),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_key_required");
+    await assert.rejects(getAiPolicy(pool,session),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_key_required");
 
     // Signup is not a global trip-creation kill switch for an existing active
     // member. Changing that member's role cannot confer operator entitlement.

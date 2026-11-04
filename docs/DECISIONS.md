@@ -2,6 +2,27 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-075: Users can bring their own AI provider keys (accepted November 4, 2026)
+
+The owner wants a public instance that anyone can sign in to and use with their own API key, and that the owner also uses as a real travel assistant. Any signed-in user can store an OpenAI, Anthropic or Gemini key in **Settings → AI keys**.
+
+- **Who pays:**
+  1. The requester's own key, when they choose one of its provider's models, or in a trip the operator does not sponsor. The trip's daily prompt cap does not apply.
+  2. Otherwise the operator's keys, under D-030, in sponsored trips only.
+  3. Otherwise nothing: the request is refused with `ai_key_required`.
+
+  With no explicit model choice, a sponsored trip keeps its sponsorship, so adding a key never silently starts charging a member.
+- **AI on/off:** `trip_ai_settings.enabled` now records only whether a trip's owners allow AI; who pays is decided per request.
+  - New trips start with AI on.
+  - Migration 0054 turns AI on for unsponsored trips that no owner turned off, because before this change their owners could not turn it on.
+- **Safety:**
+  - Keys are checked with the provider before saving and stored with AES-256-GCM under a dedicated `CREDENTIAL_ENCRYPTION_KEY`.
+  - A key is never returned after saving.
+  - A key is used only inside its owner's own requests, with a private provider state directory.
+  - Background workers never use a user's key.
+
+Sharing an owner's key with trip members needs its own decision (JOB-063).
+
 ## D-074: Google sign-in in production, unverified, signup still gated (accepted November 4, 2026)
 
 The public instance's Google OAuth app is published from Testing to In production. Invitees no longer have to be registered as test users, and new Calendar tokens are not subject to the Testing-mode 7-day expiry. Public signup stays off.
@@ -85,14 +106,14 @@ IDs are retained for older references. **Superseded** means do not use the old i
 | D-020 | Every change gets CHANGELOG plus whole-documentation impact review; avoid meaningless edits to unaffected docs. |
 | D-021 | Node24/Next16/React19/strict TypeScript/pnpm/Vitest and portable standalone packaging. Lockfile is authoritative. |
 | D-022 | Future GitHub→Google Cloud automation should use short-lived OIDC/Workload Identity Federation, not service-account JSON keys. |
-| D-023 | Original owner-only connector rule is narrowed by D-030 and D-071: provider credentials stay server-side and restricted; explicit bounded member/creator mediation does not grant general provider access. |
-| D-024 | No copied sub2api/private endpoints/OAuth clients/token relay. Gemini CLI token reuse is unsupported; there is no Gemini adapter. |
+| D-023 | Original owner-only connector rule is narrowed by D-030, D-071 and D-075: provider credentials stay server-side and restricted; explicit bounded member/creator mediation does not grant general provider access. |
+| D-024 | No copied sub2api/private endpoints/OAuth clients/token relay. Gemini CLI token reuse is unsupported; Gemini runs over the documented Gemini API or Vertex AI with an API key (JOB-062). |
 | D-025 | Ordered plain SQL via pg, SHA-256 checked; never edit an applied migration. |
 | D-026 | Git stores schema/rebuild materials, never real dumps/secrets. Backups are encrypted; their storage target is a deployment choice ([database](DATABASE.md#4-dump-and-restore-contract)). |
 | D-027 | **Hosting mechanics superseded:** preserve recoverability/retention; old paid-database/dormancy plans are not active. |
 | D-028 | Future reminders use due-time work/coarse reconciliation; no claim of a delivered serverless reminder queue. |
 | D-029 | Google Authorization Code + PKCE/state/nonce; opaque purpose-hashed claim/session tokens, replay/revocation and independent authentication-age expiry. |
-| D-030 | Current general funding: verified platform operator **and active owner** may select registered premium models and avoid app prompt caps. Other entitled members/co-owners are Sol-only and quota-bound; provider limits still apply. Astra is opt-in, not fallback. |
+| D-030 | Current general funding: verified platform operator **and active owner** may select registered premium models and avoid app prompt caps. Other entitled members/co-owners are Sol-only and quota-bound; provider limits still apply. Astra is opt-in, not fallback. This governs the operator's keys in sponsored trips; users' own keys follow D-075. |
 | D-031 | Editors may edit visible approved/pending events; review by default. All AI creates pending, text-only validated operator-owner canonical itinerary update/cancel/restore fast path retained; expense AI create-only. |
 | D-032 | Calendar is personal projection, not canonical trip data; explicit idempotent actions and optional consent. |
 | D-033 | Switching replaces trip-scoped session and records last selection without extending absolute auth age; fresh login revalidates active membership, including completed trips. |

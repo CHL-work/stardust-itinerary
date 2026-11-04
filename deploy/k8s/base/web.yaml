@@ -102,6 +102,10 @@ spec:
             - name: ai-env
               mountPath: /var/run/stardust/env/ai
               readOnly: true
+            # Only the web server decrypts users' stored AI keys (CREDENTIAL_ENCRYPTION_KEY).
+            - name: credential-env
+              mountPath: /var/run/stardust/env/credential
+              readOnly: true
             - name: tmp
               mountPath: /tmp
             - name: home
@@ -117,6 +121,10 @@ spec:
         - name: ai-env
           secret:
             secretName: stardust-ai-env
+            optional: true
+        - name: credential-env
+          secret:
+            secretName: stardust-credential-env
             optional: true
         - name: tmp
           emptyDir: {}

@@ -5,11 +5,10 @@ import type { AuthenticatedSession } from "@/lib/auth/repository";
 import { readCurrentSessionCeiling } from "@/lib/auth/session-lifetime";
 import { isPlatformOperator } from "@/lib/auth/operator-access";
 import { lockCurrentTripActor, requireAnotherBoundOwner } from "@/lib/app/trip-authorization";
+import { aiKeyProviderOrder, ownKeyModel } from "@/lib/ai/own-key-model";
 import {
   DEFAULT_OWNER_MODEL,
   MEMBER_MODEL,
-  ownerModelRegistry,
-  providerDefaultModels,
   type ApprovalHistoryPage,
   type ApprovalRequest,
   type ChangeRequestInput,
@@ -1147,10 +1146,11 @@ async function readAppOverviewSnapshot(
     : null;
   const quotaResult = await client.query<{ used: string }>(
         `SELECT count(*)::text AS used
-           FROM ai_requests
+           FROM ai_requests request
           WHERE trip_id = $1 AND actor_member_id = $2
             AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
-            AND status <> 'rejected'`,
+            AND status <> 'rejected'
+            AND (to_jsonb(request)->>'credential_source') IS DISTINCT FROM 'own'`,
         [session.tripId, session.memberId],
   );
   const activity = await loadActivityEntries(client, session);
@@ -1236,6 +1236,8 @@ async function readAppOverviewSnapshot(
   };
   const canSelectAiModel = session.role === "owner"
     && (!settings.entitlement_available || await isPlatformOperator(client, session.userId));
+  // Only which providers the viewer holds a key for, never anything about the keys (JOB-061).
+  const ownKeyProviders = await aiCredentialProviders(client, session.userId);
   const used = Number(quotaResult.rows[0]?.used ?? 0);
   const permissionRows = new Map(permissionResult.rows.map((row) => [row.member_id, row]));
   const currentPermissions = await getMemberPermissions(client, session.tripId, session.memberId);
@@ -1458,8 +1460,11 @@ async function readAppOverviewSnapshot(
       return projection ? [projection] : [];
     }),
     ai: {
-      enabled: settings.enabled && settings.host_subscription_enabled,
+      // Mirrors getAiPolicy: the operator pays only in sponsored trips; elsewhere the viewer's own key does.
+      enabled: settings.enabled && (settings.host_subscription_enabled || ownKeyProviders.size > 0),
       hostSubscriptionEnabled: settings.host_subscription_enabled,
+      ownKeyProviders: aiKeyProviderOrder.filter((provider) => ownKeyProviders.has(provider)),
+      keyRequired: settings.enabled && !settings.host_subscription_enabled && ownKeyProviders.size === 0,
       canSelectModel: canSelectAiModel,
       ownerDefaultModel: settings.owner_default_model,
       effectiveModel: canSelectAiModel ? settings.owner_default_model : MEMBER_MODEL,
@@ -1594,12 +1599,13 @@ export async function createTrip(
        ) VALUES ($1,$2,true,false,true,false,true,$2)`,
       [tripId, memberId],
     );
+    // AI starts on in every trip (D-075); sponsorship only decides whether the operator's keys may pay.
     await client.query(
       `INSERT INTO trip_ai_settings (
          trip_id, enabled, owner_default_model,
          member_daily_limit, updated_by_member_id${accountCreationEnabled ? ", host_subscription_enabled" : ""}
-       ) VALUES ($1,$3,'gpt-6.1-sol',20,$2${accountCreationEnabled ? ",$3" : ""})`,
-      [tripId, memberId,hostEntitlement],
+       ) VALUES ($1,true,'gpt-6.1-sol',20,$2${accountCreationEnabled ? ",$3" : ""})`,
+      accountCreationEnabled ? [tripId, memberId, hostEntitlement] : [tripId, memberId],
     );
     const disruptionSettingsAvailable = await client.query<{ available: boolean }>(
       "SELECT to_regclass('trip_disruption_settings') IS NOT NULL AS available",
@@ -3814,9 +3820,8 @@ export async function updateAiSettings(
          FROM trip_ai_settings s WHERE trip_id = $1`, [tripId],
     );
     const access = entitlement.rows[0];
-    if (!access?.sponsored && input.enabled === true) {
-      throw new AppForbiddenError("AI funding is not configured for this trip.");
-    }
+    // `enabled` only records whether the owners allow AI here (D-075). In a trip the operator does
+    // not sponsor, getAiPolicy still lets only each requester's own key pay.
     if (input.ownerDefaultModel && access?.migrated && !await isPlatformOperator(client, session.userId)) {
       throw new AppForbiddenError("Host-funded model selection is restricted to the platform operator.");
     }
@@ -3842,24 +3847,8 @@ export async function updateAiSettings(
   });
 }
 
-/**
- * A model the requester can pay for with their own key, or null. An explicitly requested model uses
- * the requester's key whenever they hold one for its provider. With no explicit choice, an
- * operator-sponsored trip keeps its free sponsorship; otherwise the trip default (or the first
- * registered model) of a provider the requester holds a key for is used.
- */
-export function ownKeyModel(
-  requestedModel: OwnerModel | undefined, defaultModel: OwnerModel | undefined,
-  ownProviders: ReadonlySet<string>, sponsoredAvailable: boolean,
-): OwnerModel | null {
-  if (requestedModel) return ownProviders.has(ownerModelRegistry[requestedModel].provider) ? requestedModel : null;
-  if (sponsoredAvailable || ownProviders.size === 0) return null;
-  if (defaultModel && Object.hasOwn(ownerModelRegistry, defaultModel) && ownProviders.has(ownerModelRegistry[defaultModel].provider)) {
-    return defaultModel;
-  }
-  const provider = (["openai", "anthropic", "google"] as const).find((name) => ownProviders.has(name));
-  return provider ? providerDefaultModels[provider] : null;
-}
+/** Requests per account and UTC day on the user's own keys: a bound on this server's work, not on spend. */
+export const OWN_KEY_DAILY_LIMIT = 100;
 
 export type AiPolicy = {
   enabled: boolean; model: OwnerModel; usedToday: number; limit: number | null;
@@ -3888,15 +3877,24 @@ export async function getAiPolicy(
   const ownModel = ownKeyModel(requestedModel, row?.owner_default_model, ownProviders, Boolean(row?.enabled && row.sponsored));
   if (ownModel) {
     if (!row?.enabled) throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", ownModel);
+    // Holding a key implies migration 0054, so credential_source exists. Counted per account across
+    // trips: the provider bills the user, but every request still runs provider processes here.
     const ownUsage = await client.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM ai_requests
-        WHERE trip_id = $1 AND actor_member_id = $2
+        WHERE actor_user_id = $1 AND credential_source = 'own'
           AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
           AND status <> 'rejected'`,
-      [session.tripId, session.memberId],
+      [session.userId],
     );
+    const usedToday = Number(ownUsage.rows[0]?.count ?? 0);
+    if (usedToday >= OWN_KEY_DAILY_LIMIT) {
+      throw new AiPolicyDeniedError(
+        `The daily limit of ${OWN_KEY_DAILY_LIMIT} AI requests on your own key has been reached on this server.`,
+        "daily_limit_reached", ownModel,
+      );
+    }
     // The requester's own provider account pays, so the trip's prompt cap does not apply.
-    return { enabled: true, model: ownModel, usedToday: Number(ownUsage.rows[0]?.count ?? 0), limit: null, credentialSource: "own" };
+    return { enabled: true, model: ownModel, usedToday, limit: null, credentialSource: "own" };
   }
   const privileged = session.role === "owner" && (!row?.migrated || await isPlatformOperator(client, session.userId));
   if (!privileged && options.serializeMemberQuota) {
@@ -3917,12 +3915,14 @@ export async function getAiPolicy(
     );
   }
   const usage = await client.query<{ count: string }>(
-    `SELECT count(*)::text AS count FROM ai_requests
+    `SELECT count(*)::text AS count FROM ai_requests request
       WHERE trip_id = $1 AND actor_member_id = $2
         AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
-        AND status <> 'rejected'`,
+        AND status <> 'rejected'
+        AND (to_jsonb(request)->>'credential_source') IS DISTINCT FROM 'own'`,
     [session.tripId, session.memberId],
   );
+  // Requests the member paid for with their own key do not use up the trip's prompt limit.
   const usedToday = Number(usage.rows[0]?.count ?? 0);
   if (!privileged && usedToday >= row.member_daily_limit) {
     throw new AiPolicyDeniedError(

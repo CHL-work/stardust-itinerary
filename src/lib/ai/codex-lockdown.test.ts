@@ -27,4 +27,13 @@ describe("Codex lockdown for in-app model turns", () => {
       expect(text, file).toContain("usedForbiddenCodexItem(turn.items");
     }
   });
+
+  it("is the only configuration of every in-app Codex call, including research, images and place lookups", () => {
+    // These run on users' own keys too, next to other users' provider processes: no file-reading tools.
+    for (const file of ["ai/image-extraction.ts", "ai/public-research-provider.ts", "ai/venue-hours-provider.ts", "calendar/location-search-provider.ts"]) {
+      const text = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+      expect(text, file).toContain("config: lockedDownCodexConfig");
+      expect(text.match(/new Codex\(/gu), file).toHaveLength(1);
+    }
+  });
 });

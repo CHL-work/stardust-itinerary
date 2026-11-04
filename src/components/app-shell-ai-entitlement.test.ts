@@ -3,8 +3,10 @@ import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { AiCard } from "@/components/app-shell";
-import { memberManagementMessages } from "@/lib/app/member-management-i18n";
-import { messages, locales, type Locale } from "@/lib/i18n";
+import { aiKeysMessages } from "@/lib/ai/keys-i18n";
+import { ownKeyModels } from "@/lib/ai/own-key-model";
+import { providerDefaultModels } from "@/lib/app/types";
+import { formatMessage, messages, locales, type Locale } from "@/lib/i18n";
 
 type Overview = ComponentProps<typeof AiCard>["overview"];
 function render(ai: Partial<Overview["ai"]>, isOwner: boolean, locale: Locale = "en") {
@@ -27,11 +29,35 @@ describe("host AI subscription is separate from trip ownership", () => {
     const html = render({ canSelectModel: true, hostSubscriptionEnabled: true }, false);
     expect(html).toContain("model-select"); expect(html).toContain(messages.en.aiOwnerPolicy);
   });
-  it.each(locales)("disables unsponsored public-trip AI with clear %s copy", (locale) => {
-    const html = render({ enabled: false, canSelectModel: false, hostSubscriptionEnabled: false }, true, locale);
-    expect(html).toContain(memberManagementMessages(locale).aiUnsponsored.replaceAll("'", "&#x27;"));
+  it.each(locales)("asks for the user's own key in an unsponsored trip with clear %s copy", (locale) => {
+    const html = render({ enabled: false, canSelectModel: false, hostSubscriptionEnabled: false, keyRequired: true }, true, locale);
+    expect(html).toContain(aiKeysMessages(locale).keyRequired.replaceAll("'", "&#x27;"));
     expect(html).not.toContain("model-select"); expect(html).not.toContain(messages[locale].aiOwnerPolicy);
     expect(html).toContain('disabled=""');
+  });
+  it("says AI is unavailable when an owner turned it off in an unsponsored trip", () => {
+    const html = render({ enabled: false, canSelectModel: false, hostSubscriptionEnabled: false, keyRequired: false, ownKeyProviders: ["openai"] }, false);
+    expect(html).toContain(messages.en.aiUnavailable); expect(html).not.toContain("model-select");
+  });
+  it("offers own-key models, with an automatic default, when every request runs on the user's key", () => {
+    const html = render({ canSelectModel: false, hostSubscriptionEnabled: false, ownKeyProviders: ["anthropic", "google"] }, false);
+    const copy = aiKeysMessages("en");
+    expect(html).toContain("model-select");
+    expect(html).toContain(formatMessage(copy.autoOption, { model: providerDefaultModels.anthropic }));
+    for (const model of ownKeyModels(["anthropic", "google"])) expect(html).toContain(formatMessage(copy.ownModelOption, { model }));
+    expect(html).not.toContain(formatMessage(copy.ownModelOption, { model: "gpt-6.1-sol" }));
+    expect(html).not.toContain(formatMessage(messages.en.aiMemberQuota, { remaining: 18, limit: 20 }));
+    expect(html).toContain(copy.ownKeyAccess.replaceAll("'", "&#x27;"));
+  });
+  it("keeps the free trip AI as the default choice in a sponsored trip", () => {
+    const html = render({ canSelectModel: false, hostSubscriptionEnabled: true, ownKeyProviders: ["google"] }, false);
+    const copy = aiKeysMessages("en");
+    expect(html).toContain(`<option value="" selected="">${formatMessage(copy.sponsoredOption, { model: "gpt-6.1-sol" })}</option>`);
+    expect(html).toContain(formatMessage(messages.en.aiMemberQuota, { remaining: 18, limit: 20 }));
+  });
+  it("never offers an own-key choice through the operator's trip settings control", () => {
+    const html = render({ canSelectModel: false, hostSubscriptionEnabled: false, ownKeyProviders: ["openai"] }, false);
+    expect(html).not.toContain('data-feedback-action="settings_save" class="model-select"');
   });
   it("does not attach model overrides based on owner role in submitted requests", () => {
     const source = readFileSync("src/components/app-shell.tsx", "utf8");
