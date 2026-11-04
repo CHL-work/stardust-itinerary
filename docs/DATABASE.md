@@ -35,7 +35,7 @@ Important enforced rules:
 
 ## 2. Migration contract
 
-The repository contains **53 SQL files through `0057_guest_hardening.sql`**. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
+The repository contains **54 SQL files through `0058_private_feedback_repository.sql`**. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
 
 `scripts/db/migration-lib.mjs` sorts unique `NNNN_name.sql` files, takes an advisory lock, validates every applied SHA-256 against `app_schema_migrations`, runs each missing migration in its own transaction and records it only after success. A missing applied file or changed checksum is a hard failure. Never edit an applied migration; add a forward migration.
 
@@ -64,6 +64,7 @@ Checksums are taken over raw file bytes, so line endings matter. `.gitattributes
 | 0055 | Additive `trip_ai_key_grants` (which members may use which owner's own AI keys, [D-076](DECISIONS.md#d-076-trip-owners-can-share-their-own-ai-keys-with-chosen-members-accepted-november-4-2026)), `trip_join_links.shares_ai_keys` (default false) and nullable `ai_requests.credential_sponsor_member_id`, which a check ties to `credential_source = 'shared'`. Older builds ignore all three, so grants simply go unused by them. |
 | 0056 | Guest accounts ([D-077](DECISIONS.md#d-077-guest-accounts-for-trying-the-public-instance-accepted-november-4-2026)). Adds nullable `app_users.guest_expires_at` and `trips.guest_expires_at`, and isolation triggers on accounts, trips, members, join and claim links and feedback reports, which no existing row trips. `app_purge_expired_guest(uuid)` is the only sanctioned hard delete in the schema. It suspends triggers for its own deletes, so only a superuser can run it (see 0057). Older builds never create guests and ignore the columns. After a rollback, guests created earlier wait for a build with the purge job. |
 | 0057 | Guest hardening after a security review. Replaces `app_guard_guest_isolation`: guest status and a guest trip's owner and member are fixed for life. Replaces `app_purge_expired_guest`: caller's rights, qualified catalogs, `public` tables only, guest identity required, and a final check over every trip table. The runtime role is never granted it; only the purge job, as administrator, runs it. Adds nullable `app_users.guest_origin_hash` (a keyed address hash for the per-address cap) and `guest_purge_refused_at`. No existing row is affected. |
+| 0058 | Private feedback repository (JOB-066). Replaces 0044's two issue-receipt checks, which named the public source repository, with a GitHub issue URL format for any repository and a matching issue number. The publisher, not the schema, makes sure the repository is private. Older builds keep writing public-repository URLs, which still pass. |
 
 Owner-editable trip dates changed no schema: retained day IDs remain, but current-range guards are required. After date edits, an older range-unaware build may be schema-compatible but behaviorally unsafe. Prefer a forward fix; never alter real dates or restore old data to fit old code.
 

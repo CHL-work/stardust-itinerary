@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { providerEnvironment, feedbackProviderEnvironment } from "./provider-environment";
+import { AiCredentialContextMissingError, withOperatorAiCredential } from "@/lib/ai/credential-context";
+import { providerEnvironment as providerEnvironmentDirect, feedbackProviderEnvironment as feedbackProviderEnvironmentDirect } from "./provider-environment";
+
+// These cases check the operator's environment, so they run in an explicit operator context.
+const providerEnvironment = (source: Record<string, string | undefined>) => withOperatorAiCredential(() => providerEnvironmentDirect(source));
+const feedbackProviderEnvironment = (source: Record<string, string | undefined>) => withOperatorAiCredential(() => feedbackProviderEnvironmentDirect(source));
 
 describe("provider subprocess credentials", () => {
+  it("refuses to build any provider environment outside a credential context", () => {
+    const source = { PATH: "runtime", CODEX_API_KEY: "operator-key", OPENAI_API_KEY: "operator-key", ANTHROPIC_API_KEY: "operator-key" };
+    expect(() => providerEnvironmentDirect(source)).toThrow(AiCredentialContextMissingError);
+    expect(() => feedbackProviderEnvironmentDirect(source)).toThrow(AiCredentialContextMissingError);
+  });
   it("excludes the dedicated publisher credential case-insensitively without changing existing auth", () => {
     const source = { STARDUST_FEEDBACK_GITHUB_TOKEN: "secret", stardust_feedback_github_token: "secret2", CODEX_HOME: "profile", ANTHROPIC_API_KEY: "auth", PATH: "runtime", absent: undefined };
     expect(providerEnvironment(source)).toEqual({ CODEX_HOME: "profile", ANTHROPIC_API_KEY: "auth", PATH: "runtime" });

@@ -31,6 +31,7 @@ services:
       DATABASE_DIRECT_URL: postgresql://stardust:${POSTGRES_PASSWORD}@db:5432/stardust
       # Only the web server decrypts users' saved AI keys.
       CREDENTIAL_ENCRYPTION_KEY: ""
+      CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: ""
     depends_on:
       db:
         condition: service_healthy
@@ -59,6 +60,7 @@ services:
       <<: *app-database
       # Only the web server decrypts users' saved AI keys.
       CREDENTIAL_ENCRYPTION_KEY: ""
+      CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: ""
     depends_on:
       migrate:
         condition: service_completed_successfully

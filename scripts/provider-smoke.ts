@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Codex } from "@openai/codex-sdk";
 import { query as claudeQuery } from "@anthropic-ai/claude-agent-sdk";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
 import { generateWithGemini, geminiEndpoint } from "@/lib/ai/gemini";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 
@@ -71,7 +72,8 @@ let failed = false;
 for (const provider of requested.length ? requested : (Object.keys(checks) as Provider[])) {
   const started = Date.now();
   try {
-    const answer = await checks[provider]();
+    // The operator's keys: this is an operator check, never a user's request.
+    const answer = await withOperatorAiCredential(checks[provider]);
     console.log(`${provider} (${models[provider]}): ${answer} in ${Date.now() - started} ms`);
   } catch (error) {
     failed = true;

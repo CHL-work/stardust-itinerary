@@ -5,10 +5,15 @@ import { join } from "node:path";
 import type { AiCredentialProvider } from "@/lib/ai/credential-crypto";
 
 /**
- * Whose key pays for the model calls of one request. Outside any context (background workers,
- * operator-funded trips) providers use the server operator's keys from the environment. Inside a
- * user-key context, provider adapters see only that key, and SDK state lives in a fresh
- * per-request directory, so two users' requests never share a key or a provider profile.
+ * Whose key pays for the model calls of one request. Every provider call runs inside a context, and
+ * the code that decides funding enters it:
+ * - `withOperatorAiCredential`: the server operator's keys from the environment (operator-sponsored
+ *   trips, the destination lookup, background workers);
+ * - `withUserAiCredential`: one user's own or shared key. Provider adapters see only that key, and
+ *   SDK state lives in a fresh per-request directory, so two users' requests never share a key or a
+ *   provider profile.
+ * Outside any context, provider adapters refuse to run (`requireAiCredential`): a code path that
+ * forgot to choose never falls back to the operator's keys.
  */
 export type AiCredential =
   | { source: "operator" }
@@ -25,8 +30,22 @@ const STATE_PREFIX = "stardust-ai-key-";
 // Longer than any request (the planner's deadline is minutes), so a sweep never removes a live directory.
 const STALE_AFTER_MS = 60 * 60 * 1000;
 
+export class AiCredentialContextMissingError extends Error {
+  constructor() {
+    super("An AI provider call ran outside a credential context.");
+    this.name = "AI_CREDENTIAL_CONTEXT_MISSING";
+  }
+}
+
 export function activeAiCredential(): AiCredential | undefined {
   return storage.getStore();
+}
+
+/** The current call's credential; throws when no context was entered. */
+export function requireAiCredential(): AiCredential {
+  const credential = storage.getStore();
+  if (!credential) throw new AiCredentialContextMissingError();
+  return credential;
 }
 
 /**
@@ -61,7 +80,8 @@ export async function withUserAiCredential<T>(
   }
 }
 
-export function withOperatorAiCredential<T>(work: () => Promise<T>): Promise<T> {
+/** Run `work` on the server operator's keys. The caller is the code that decided the operator pays. */
+export function withOperatorAiCredential<T>(work: () => T): T {
   return storage.run({ source: "operator" }, work);
 }
 

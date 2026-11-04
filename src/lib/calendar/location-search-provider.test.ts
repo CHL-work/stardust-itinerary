@@ -9,7 +9,12 @@ vi.mock("@openai/codex-sdk", () => ({ Codex: class {
 } }));
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claude }));
 vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
-import { assessCalendarLocationEvidence, buildCalendarLocationPrompt, runCalendarLocationProvider, validateCalendarLocationSubject } from "./location-search-provider";
+import { assessCalendarLocationEvidence, buildCalendarLocationPrompt, runCalendarLocationProvider as runCalendarLocationProviderDirect,
+  validateCalendarLocationSubject } from "./location-search-provider";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+// Provider adapters run only inside a credential context; these tests exercise the operator's.
+const runCalendarLocationProvider = (...args: Parameters<typeof runCalendarLocationProviderDirect>) =>
+  withOperatorAiCredential(() => runCalendarLocationProviderDirect(...args));
 
 const subject = "Synthetic Sakura Park Tokyo";
 const search = `${subject} official address`;

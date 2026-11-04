@@ -67,7 +67,7 @@ Every signed-in user can store their own OpenAI, Anthropic or Gemini API key and
 
 ## Known limits
 
-- **Rotation:** no encryption-key rotation yet. `key_version` is reserved, and changing the key means users add their keys again. Planned for JOB-065, along with making a missing credential context an error in the web server.
+- **Rotation:** added in JOB-065 (a key ring plus `credential-reencrypt`), together with making a missing credential context an error.
 - **Usage:** Settings shows each key's request counts per provider (added with JOB-066). There are no token or cost estimates.
 - **Sharing:** sharing an owner's key with members is JOB-063.
 

@@ -13,7 +13,10 @@ vi.mock("@openai/codex-sdk", () => ({ Codex: class {
 } }));
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claudeQuery }));
 vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
-import { buildPublicResearchPrompt, runPublicResearch, PublicResearchError, type PublicResearchInput } from "@/lib/ai/public-research-provider";
+import { buildPublicResearchPrompt, runPublicResearch as runPublicResearchDirect, PublicResearchError, type PublicResearchInput } from "@/lib/ai/public-research-provider";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+// Provider adapters run only inside a credential context; these tests exercise the operator's.
+const runPublicResearch = (...args: Parameters<typeof runPublicResearchDirect>) => withOperatorAiCredential(() => runPublicResearchDirect(...args));
 
 const target = { key: "R1", kind: "venue" as const, subject: "Synthetic Sakura Park, Tokyo", date: "2030-04-01" };
 const fact: PublicResearchFact = { ...target, status: "verified", summary: "Official April opening hours are 09:00–17:00; admission requires a ticket.", sources: ["https://example.test/park"] };

@@ -19,7 +19,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-062 | Gemini models (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`) with Google Search grounding | Done |
 | JOB-063 | Trip-owner key sharing | In review: invite and join-link checkboxes, per-member switches, shared-key funding with the trip model and daily limit |
 | JOB-064 | Guest mode and public sign-up | In review: guest accounts with the 24-hour purge, behind `GUEST_MODE_ENABLED`. Public sign-up already exists behind `PUBLIC_SIGNUP_ENABLED`; self-service account deletion is still to come |
-| JOB-065 | Public-launch security and privacy review | In progress: [threat model](THREAT_MODEL.md), a [privacy notice](PRIVACY.md) draft, reviews of each public surface. Required before public sign-up or guest mode |
+| JOB-065 | Public-launch security and privacy review | Done: [threat model](THREAT_MODEL.md), the published [privacy notice](PRIVACY.md), reviews of each public surface, encryption-key rotation and explicit funding contexts. Guest mode is on; public sign-up stays an owner decision |
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | In progress: [case study](CASE_STUDY.md) and key usage in Settings are done; the private feedback repository is still to come |
 
 ## Planned work in more detail
@@ -54,14 +54,14 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 - **Threat model** covering guest flooding, key theft, prompt injection aimed at secrets, storage and cost abuse, and log redaction.
 - **Credential follow-ups** from the JOB-061 review:
-  - an encryption-key ring with re-encryption, so the key can be rotated;
-  - an explicit credential context for operator-funded calls in the web server.
-- **Pages:** a privacy policy, terms, and [security reporting](../SECURITY.md).
+  - an encryption-key ring with re-encryption, so the key can be rotated (done);
+  - an explicit credential context for operator-funded calls (done).
+- **Pages:** the [privacy notice](PRIVACY.md), with how the public instance may be used, linked from sign-in, and [security reporting](../SECURITY.md) (done).
 - **Optional:** Google OAuth verification, which removes the unverified-app warning for Calendar.
 
 ### JOB-066: showcase and operations polish
 
 - **Case study** of the design for readers who want the why.
 - **Own-key usage:** in Settings, each key's owner sees their usage per provider (moved from JOB-061).
-- **Feedback issues** go to a private repository, never this public one, because reports can contain user text.
+- **Feedback issues** go to a private repository, never this public one, because reports can contain user text (done: the publisher confirms the repository is private before each run).
 - **Usage:** each key owner sees requests per provider, including members using a shared key.

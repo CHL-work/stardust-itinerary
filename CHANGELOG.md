@@ -23,7 +23,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Key usage in Settings (JOB-066):**
   - Settings → AI keys shows, per provider, how many requests the user's key paid for today and in the last 30 days, and how many came from members using their shared key.
   - Counts only, from `GET /api/trips/{tripId}/ai/keys` (`usage`).
-- **Case study and threat model:** `docs/CASE_STUDY.md`, `docs/THREAT_MODEL.md` and a draft `docs/PRIVACY.md`.
+- **Case study and threat model:** `docs/CASE_STUDY.md` and `docs/THREAT_MODEL.md`.
+- **Privacy notice (JOB-065):** `docs/PRIVACY.md` describes what the public instance stores and shares, how long it keeps it, and how the instance may be used. The sign-in page links it when `PRIVACY_NOTICE_URL` is set (https only).
+- **Encryption-key rotation (JOB-065):** users' saved AI keys use a key ring: `CREDENTIAL_ENCRYPTION_KEY_VERSION` names the current key and `CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS` lists older ones for reading only. The `credential-reencrypt` container mode re-seals every stored key under the current version and prints counts only.
+- **Private feedback repository (JOB-066):** issue filing targets `STARDUST_FEEDBACK_REPOSITORY`, and the publisher refuses to deliver unless GitHub reports that repository private. On GKE the token and repository are a separate `stardust-feedback-env` secret, readable only by the feedback job's own `stardust-feedback` service account.
 - **Guest accounts (JOB-064, D-077):**
   - **Try as guest** (behind `GUEST_MODE_ENABLED`, Cloudflare Turnstile when configured, and rate limits) gives a 24-hour account with a synthetic Tokyo demo trip, AI on the guest's own key only, and a banner saying when everything is deleted.
   - Guests never mix with real trips; database triggers enforce it.
@@ -38,6 +41,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Explicit funding context:** every AI provider call runs inside a credential context entered by the code that decided who pays (the planner, Calendar lookup, destination lookup, disruption and feedback workers, provider smoke). Outside one, the provider adapters throw instead of falling back to the operator's keys, and the operator-funded destination lookup refuses a user's context.
+- **Feedback issue hash:** the stored payload hash no longer names a repository, since the target is configured and checked at delivery. No issue had been queued on the public instance.
 - **Continuous deployment:** every push to `main` deploys once CI passes. The `production` environment no longer waits for an approval and accepts only `main`; the workflow deploys only CI runs for pushes to this repository, and a manual run deploys only commits on `main`. The deploy script now runs with `bash`, since the fresh repository did not keep its executable bit.
 - **Smaller pod requests on GKE:** the web server requests 250m CPU and 768 MiB (at most two replicas), the database 100m and 512 MiB, and each job 100m. The pods used about a tenth of their old requests, and every job run needed a second node; with the free trial's 250 GB SSD quota, a third node could not start, which left the first automatic deploy's backup job unscheduled.
 
@@ -53,6 +58,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Deploy workflow:** concurrency now applies to the deploy job only, so a deploy waiting for approval no longer holds back image builds of later pushes.
 - **Own-key requests and quotas:** requests on a user's own key no longer use up a sponsored trip's free daily prompts.
 - **Line-ending-tolerant migrations.** A migration may now differ from its recorded checksum by line endings only, which is how migrations applied from a Windows checkout were recorded.
+
+### Fixed
+
+- **Guest purge on GKE:** its network policy now allows DNS through NodeLocal DNSCache (`169.254.20.10`) and the metadata address, which the first scheduled run could not reach.
 
 ### Security
 

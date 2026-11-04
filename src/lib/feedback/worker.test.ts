@@ -12,6 +12,9 @@ const id = "69bf0ac4-7b4a-48e6-80f6-a77d17c690f8";
 const content = renderFeedbackIssue(id, report, decision);
 const issue = { id, ...content, payloadHash: issuePayloadHash(content.title, content.body), leaseOwner: "lease", postAttempts: 0, reconciliationAttempts: 0 };
 const reviewer = vi.fn(); const request = vi.fn<typeof fetch>();
+const repository = "synthetic-owner/stardust-feedback";
+const publishing = { githubToken: "fake", githubRepository: repository };
+const privateRepository = () => Response.json({ full_name: repository, private: true, visibility: "private", has_issues: true, archived: false });
 beforeEach(() => {
   Object.values(mocks).forEach((mock) => mock.mockReset()); reviewer.mockReset(); request.mockReset();
   mocks.claimFeedbackRun.mockResolvedValue(null); mocks.claimFeedbackIssue.mockResolvedValue(null); mocks.beginFeedbackDelivery.mockResolvedValue(true);
@@ -43,23 +46,36 @@ describe("feedback durable worker orchestration", () => {
   });
   it("does not dispatch if the durable lease fence fails", async () => {
     mocks.claimFeedbackIssue.mockResolvedValueOnce(issue); mocks.beginFeedbackDelivery.mockResolvedValue(false);
-    await runFeedbackWorker(pool, { triageEnabled: false, githubToken: "fake", request });
-    expect(request).not.toHaveBeenCalled();
+    request.mockResolvedValue(privateRepository());
+    await runFeedbackWorker(pool, { triageEnabled: false, ...publishing, request });
+    expect(request.mock.calls.every(([, options]) => options?.method === "GET")).toBe(true);
   });
   it("known201 DB failure stops without a second POST, then old attempt reconciles GET only", async () => {
     mocks.claimFeedbackIssue.mockResolvedValueOnce(issue);
-    request.mockResolvedValue(Response.json({ number: 9, html_url: "https://github.com/CHL-work/stardust-itinerary/issues/9", ...content }, { status: 201 }));
+    request.mockResolvedValueOnce(privateRepository());
+    request.mockResolvedValueOnce(Response.json({ number: 9, html_url: `https://github.com/${repository}/issues/9`, ...content }, { status: 201 }));
     mocks.completeFeedbackDelivery.mockRejectedValueOnce(new Error("synthetic database unavailable"));
-    await expect(runFeedbackWorker(pool, { triageEnabled: false, githubToken: "fake", request })).rejects.toThrow();
-    expect(request).toHaveBeenCalledOnce();
+    await expect(runFeedbackWorker(pool, { triageEnabled: false, ...publishing, request })).rejects.toThrow();
+    expect(request.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
     request.mockReset(); mocks.claimFeedbackIssue.mockResolvedValueOnce({ ...issue, postAttempts: 1 });
-    request.mockResolvedValue(Response.json([{ number: 9, html_url: "https://github.com/CHL-work/stardust-itinerary/issues/9", ...content }]));
-    expect(await runFeedbackWorker(pool, { triageEnabled: false, githubToken: "fake", request })).toMatchObject({ published: 1 });
+    request.mockResolvedValueOnce(privateRepository());
+    request.mockResolvedValueOnce(Response.json([{ number: 9, html_url: `https://github.com/${repository}/issues/9`, ...content }]));
+    expect(await runFeedbackWorker(pool, { triageEnabled: false, ...publishing, request })).toMatchObject({ published: 1 });
     expect(request.mock.calls.every(([, options]) => options?.method === "GET")).toBe(true);
   });
   it("blocks tampered queued payload without any network call", async () => {
     mocks.claimFeedbackIssue.mockResolvedValueOnce({ ...issue, body: "tampered" });
-    expect(await runFeedbackWorker(pool, { triageEnabled: false, githubToken: "fake", request })).toMatchObject({ blocked: 1 });
+    expect(await runFeedbackWorker(pool, { triageEnabled: false, ...publishing, request })).toMatchObject({ blocked: 1 });
     expect(mocks.beginFeedbackDelivery).not.toHaveBeenCalled(); expect(request).not.toHaveBeenCalled();
+  });
+  it("never publishes without a target repository, or to one GitHub reports as public", async () => {
+    mocks.claimFeedbackIssue.mockResolvedValue(issue);
+    expect(await runFeedbackWorker(pool, { triageEnabled: false, githubToken: "fake", request })).toMatchObject({ publishing: "unconfigured" });
+    expect(mocks.claimFeedbackIssue).not.toHaveBeenCalled(); expect(request).not.toHaveBeenCalled();
+    request.mockResolvedValue(Response.json({ full_name: repository, private: false, visibility: "public", has_issues: true }));
+    expect(await runFeedbackWorker(pool, { triageEnabled: false, ...publishing, request }))
+      .toMatchObject({ publishing: "refused", publishingError: "repository_public", published: 0 });
+    expect(request).toHaveBeenCalledOnce();
+    expect(mocks.beginFeedbackDelivery).not.toHaveBeenCalled();
   });
 });

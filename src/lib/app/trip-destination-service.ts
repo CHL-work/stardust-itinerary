@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
 import { DESTINATION_LOOKUP_PROMPT_VERSION, DESTINATION_LOOKUP_TIMEOUT_MS, lookupTripDestination } from "@/lib/ai/trip-destination-provider";
 import { AppConflictError } from "@/lib/app/repository";
 import { unavailableDestination, type DestinationDefaults, type DestinationLookupReason,
@@ -174,7 +175,8 @@ export async function runTripDestinationLookup(
   let errorCode: string | null = null;
   try {
     result = await Promise.race([
-      (options.provider ?? lookupTripDestination)({ destination: normalized, locale: input.locale, signal: controller.signal }),
+      // Operator-funded for eligible creators (D-071).
+      withOperatorAiCredential(() => (options.provider ?? lookupTripDestination)({ destination: normalized, locale: input.locale, signal: controller.signal })),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => { controller.abort(); reject({ code: "TIMEOUT" }); }, options.timeoutMs ?? DESTINATION_LOOKUP_TIMEOUT_MS);
       }),

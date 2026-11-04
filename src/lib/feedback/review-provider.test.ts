@@ -10,7 +10,10 @@ vi.mock("@openai/codex-sdk", () => ({ Codex: class {
   }
 } }));
 vi.mock("node:fs/promises", async (original) => ({ ...await original<typeof import("node:fs/promises")>(), readFile: async () => mocks.config }));
-import { disabledFeedbackConnections, reviewFeedback } from "./review-provider";
+import { disabledFeedbackConnections, reviewFeedback as reviewFeedbackDirect } from "./review-provider";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+// Provider adapters run only inside a credential context; these tests exercise the operator's.
+const reviewFeedback = (...args: Parameters<typeof reviewFeedbackDirect>) => withOperatorAiCredential(() => reviewFeedbackDirect(...args));
 const report = { key: "R1", title: "Save fails", description: "Save fails", kind: "bug" as const, environment: "phone", actions: [], build: null };
 const decision = { key: "R1", decision: "issue", duplicateKey: null, title: "Save fails", evidence: ["Save fails"], reproductionSteps: [], expected: "", actual: "Save fails", hypotheses: [], missingInformation: [] };
 beforeEach(() => {

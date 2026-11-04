@@ -31,7 +31,7 @@ Checked Google's [Maps Static overview](https://developers.google.com/maps/docum
 
 ## Daily issue-only feedback review (September 20, 2026 UTC)
 
-Inspected the installed Codex SDK and current official [SDK](https://developers.openai.com/codex/sdk/), [Astra model](https://developers.openai.com/api/docs/models/gpt-6-astra) and [GitHub issue creation](https://docs.github.com/en/rest/issues/issues#create-an-issue) documentation. The reviewer uses a structured, no-tool operation; the separate publisher uses the fixed repository's Issues endpoint and minimum Issues permissions. Consent, redaction, UTC daily admission, duplicate linkage, immutable delivery markers and conservative uncertain-POST reconciliation are application safety decisions, not provider guarantees. No coding-agent execution or live synthetic GitHub issue is used for verification. See [feedback contract](FEEDBACK.md).
+Inspected the installed Codex SDK and current official [SDK](https://developers.openai.com/codex/sdk/), [Astra model](https://developers.openai.com/api/docs/models/gpt-6-astra) and [GitHub issue creation](https://docs.github.com/en/rest/issues/issues#create-an-issue) documentation. The reviewer uses a structured, no-tool operation; the separate publisher reads the configured repository's metadata to confirm it is private, then uses its Issues endpoint with minimum Issues permissions. Consent, redaction, UTC daily admission, duplicate linkage, immutable delivery markers and conservative uncertain-POST reconciliation are application safety decisions, not provider guarantees. No coding-agent execution or live synthetic GitHub issue is used for verification. See [feedback contract](FEEDBACK.md).
 
 ## Structured preference operations (September 20, 2026 UTC)
 

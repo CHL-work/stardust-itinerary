@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
 import { ownerModelRegistry, type OwnerModel } from "../src/lib/app/types";
+import { withOperatorAiCredential } from "../src/lib/ai/credential-context";
 import { runVenueHoursResearch } from "../src/lib/ai/venue-hours-provider";
 import { assessVenueHours, VENUE_HOURS_BUDGET_MS } from "../src/lib/ai/venue-hours";
 
@@ -22,8 +23,8 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 try {
   const target = { key: "V1", venueName: "とんかつ 丸五 東京都千代田区外神田1-8-14", date, timeZone: "Asia/Tokyo" };
   const result = await Promise.race([
-    runVenueHoursResearch({ model: model as OwnerModel, targets: [target], workDirectory,
-      abortController: controller, nowUtc: new Date().toISOString() }),
+    withOperatorAiCredential(() => runVenueHoursResearch({ model: model as OwnerModel, targets: [target], workDirectory,
+      abortController: controller, nowUtc: new Date().toISOString() })),
     new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error("AI_VENUE_HOURS_EVAL_TIMEOUT")); }, VENUE_HOURS_BUDGET_MS); }),
   ]);
   const checked = assessVenueHours([{ ...target, proposalIndex: 0, public: true,

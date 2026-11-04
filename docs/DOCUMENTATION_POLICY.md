@@ -37,7 +37,7 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 | Hosting and deployment | `docs/SELF_HOSTING.md`, `docs/DEPLOYMENT.md`, `Dockerfile`, `compose.yaml`, `.env.example`, `deploy/k8s/`, `infra/` |
 | Continuous integration | `.github/workflows/ci.yml` |
 | PostgreSQL schema and restore | `docs/DATABASE.md` |
-| Security and identity | `docs/IDENTITY_AND_SECURITY.md`, `docs/THREAT_MODEL.md`, `docs/PRIVACY.md` (draft privacy notice) |
+| Security and identity | `docs/IDENTITY_AND_SECURITY.md`, `docs/THREAT_MODEL.md`, `docs/PRIVACY.md` (the public instance's privacy notice) |
 | Public-ready accounts and member removal | `docs/PUBLIC_TRIPS_AND_MEMBERS.md` |
 | Create Trip destination defaults | `docs/TRIP_DESTINATION_DEFAULTS.md` |
 | AI | `docs/AI_AND_AGENTS.md` |

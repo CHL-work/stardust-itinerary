@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { migrate } from "../../scripts/db/migration-lib.mjs";
 import { OWN_KEY_DAILY_LIMIT, getAiPolicy, getAppOverview, inTransaction } from "../../src/lib/app/repository.ts";
-import { deleteAiCredential, listAiCredentials, readAiCredentialSecret, saveAiCredential } from "../../src/lib/ai/credentials.ts";
+import { deleteAiCredential, listAiCredentials, readAiCredentialSecret, reencryptAiCredentials, saveAiCredential } from "../../src/lib/ai/credentials.ts";
+import { openCredential, sealCredential } from "../../src/lib/ai/credential-crypto.ts";
 import { signInExistingIdentity, verifySession } from "../../src/lib/auth/repository.ts";
 
 /**
@@ -34,6 +35,47 @@ async function testAiEnabledMigration(pool, connectionString) {
   assert.equal(await enabled(unsponsored), true, "an unsponsored trip's AI switch starts on");
   assert.equal(await enabled(turnedOff), false, "an owner's own choice to turn AI off is kept");
   assert.equal(await enabled(sponsored), false, "a sponsored trip's setting is untouched");
+}
+
+/**
+ * Key rotation (JOB-065): re-encryption moves every readable key to the current version without
+ * touching its owner's last change, skips nothing it can read, and leaves an unreadable row in place.
+ */
+async function testCredentialReencryption(pool) {
+  const oldKey = randomBytes(32).toString("base64"), newKey = randomBytes(32).toString("base64");
+  const v1 = { CREDENTIAL_ENCRYPTION_KEY: oldKey };
+  const rotated = { CREDENTIAL_ENCRYPTION_KEY: newKey, CREDENTIAL_ENCRYPTION_KEY_VERSION: "2", CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: `1:${oldKey}` };
+  const retired = { CREDENTIAL_ENCRYPTION_KEY: newKey, CREDENTIAL_ENCRYPTION_KEY_VERSION: "2" };
+  const rows = [];
+  for (const [index, provider] of ["openai", "anthropic", "google", "openai"].entries()) {
+    const userId = randomUUID();
+    await pool.query("INSERT INTO app_users(id,display_name) VALUES($1,'Synthetic rotation holder')", [userId]);
+    const secret = `sk-synthetic-rotation-${index}-${randomUUID()}`;
+    // The last row was sealed under a key the ring no longer knows.
+    const sealed = sealCredential(secret, { userId, provider }, index === 3 ? { CREDENTIAL_ENCRYPTION_KEY: randomBytes(32).toString("base64") } : v1);
+    await pool.query(`INSERT INTO user_ai_credentials(user_id,provider,ciphertext,nonce,key_version,key_hint,validated_at,updated_at)
+      VALUES($1,$2,$3,$4,$5,'WXYZ',CURRENT_TIMESTAMP,TIMESTAMPTZ '2030-01-02 03:04:05+00')`, [userId, provider, sealed.ciphertext, sealed.nonce, sealed.keyVersion]);
+    rows.push({ userId, provider, secret });
+  }
+  const userIds = rows.map((row) => row.userId);
+  const stored = async () => (await pool.query(
+    `SELECT user_id, provider, ciphertext, nonce, key_version, updated_at FROM user_ai_credentials WHERE user_id = ANY($1::uuid[])`,
+    [userIds])).rows;
+
+  // Small batches, so the loop has to continue past the first one.
+  assert.deepEqual(await reencryptAiCredentials(pool, rotated, 2), { currentVersion: 2, reencrypted: 3, unreadable: 1, remaining: 1 });
+  const after = await stored();
+  for (const row of rows.slice(0, 3)) {
+    const record = after.find((candidate) => candidate.user_id === row.userId);
+    assert.equal(record.key_version, 2);
+    assert.equal(record.updated_at.toISOString(), "2030-01-02T03:04:05.000Z", "re-encryption is not the owner's change");
+    const sealed = { ciphertext: record.ciphertext, nonce: record.nonce, keyVersion: record.key_version };
+    assert.equal(openCredential(sealed, { userId: row.userId, provider: row.provider }, retired), row.secret, "opens without the old key");
+  }
+  assert.equal(after.find((candidate) => candidate.user_id === rows[3].userId).key_version, 1, "an unreadable key is left in place");
+  assert.deepEqual(await reencryptAiCredentials(pool, rotated), { currentVersion: 2, reencrypted: 0, unreadable: 1, remaining: 1 }, "a second run has nothing to move");
+  await assert.rejects(reencryptAiCredentials(pool, {}), { name: "CREDENTIAL_ENCRYPTION_UNAVAILABLE" });
+  await pool.query("DELETE FROM app_users WHERE id = ANY($1::uuid[])", [userIds]);
 }
 
 /** Synthetic fixtures only, in the parent suite's guarded disposable database. */
@@ -142,6 +184,8 @@ export async function testAiCredentials(pool, connectionString) {
     await deleteAiCredential(pool, memberSession, tripId, "anthropic");
     assert.deepEqual(await listAiCredentials(pool, memberSession, tripId), []);
     assert.equal(await readAiCredentialSecret(pool, member.userId, "anthropic"), null);
+
+    await testCredentialReencryption(pool);
   } finally {
     if (previousKey === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
     else process.env.CREDENTIAL_ENCRYPTION_KEY = previousKey;

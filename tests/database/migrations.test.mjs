@@ -12,6 +12,7 @@ import { testMemberRemoval } from "./member-removal.mjs";
 import { testTripDeletion } from "./trip-deletion.mjs";
 import { testAiCredentials } from "./ai-credentials.mjs";
 import { testAiKeySharing } from "./ai-key-sharing.mjs";
+import { testPrivateFeedbackRepository } from "./feedback-repository.mjs";
 import { testGuestAccounts } from "./guest-accounts.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
@@ -7308,6 +7309,7 @@ test(
       await testAiCredentials(appPool,connectionString);
       await testAiKeySharing(appPool,connectionString);
       await testGuestAccounts(appPool,connectionString);
+      await testPrivateFeedbackRepository(appPool,connectionString);
 
     } finally {
       await appPool.end();

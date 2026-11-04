@@ -41,12 +41,18 @@ vi.mock("@openai/codex-sdk", () => ({
 }));
 
 import {
-  createCodexDisruptionProvider,
+  createCodexDisruptionProvider as createCodexDisruptionProviderDirect,
   DISRUPTION_MODEL,
   DisruptionProviderCleanupError,
   DisruptionProviderInvocationError,
   DISRUPTION_TIMEOUT_MS,
 } from "@/lib/disruptions/provider";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+// Provider adapters run only inside a credential context; these tests exercise the operator's.
+function createCodexDisruptionProvider() {
+  const provider = createCodexDisruptionProviderDirect();
+  return { ...provider, check: (...args: Parameters<typeof provider.check>) => withOperatorAiCredential(() => provider.check(...args)) };
+}
 
 describe("Codex disruption provider", () => {
   afterEach(async () => {

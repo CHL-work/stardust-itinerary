@@ -8,11 +8,13 @@ locals {
   ksa_principal = "principal://iam.googleapis.com/projects/${local.project_number}/locations/global/workloadIdentityPools/${var.project_id}.svc.id.goog/subject/ns/${var.namespace}/sa"
 
   # Secret Manager secret -> Kubernetes service accounts allowed to mount it. Only the web server
-  # decrypts users' stored AI keys, so only it mounts CREDENTIAL_ENCRYPTION_KEY.
+  # decrypts users' stored AI keys, so only it mounts CREDENTIAL_ENCRYPTION_KEY. Only the feedback
+  # worker holds the GitHub token for the private feedback repository.
   secrets = {
-    "stardust-app-env"            = ["stardust-web", "stardust-worker", "stardust-migrate"]
-    "stardust-ai-env"             = ["stardust-web", "stardust-worker"]
+    "stardust-app-env"            = ["stardust-web", "stardust-worker", "stardust-feedback", "stardust-migrate"]
+    "stardust-ai-env"             = ["stardust-web", "stardust-worker", "stardust-feedback"]
     "stardust-credential-env"     = ["stardust-web"]
+    "stardust-feedback-env"       = ["stardust-feedback"]
     "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup", "stardust-guest-purge"]
     "stardust-tunnel-credentials" = ["stardust-tunnel"]
   }

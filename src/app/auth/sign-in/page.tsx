@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { GuestSignIn } from "@/components/guest-sign-in";
 import { guestModeEnabled } from "@/lib/app/guest";
+import { privacyNoticeUrl } from "@/lib/app/privacy-notice";
 import { isAuthConfigured } from "@/lib/auth/config";
 import { publicSignupEnabled } from "@/lib/auth/account-session";
 
@@ -28,6 +29,7 @@ export default async function SignInPage({
   const params = await searchParams;
   const errorCode = Array.isArray(params.error) ? params.error[0] : params.error;
   const errorMessage = errorCode ? signInErrors[errorCode] ?? signInErrors.oauth : null;
+  const privacyUrl = privacyNoticeUrl();
   return (
     <main className="auth-page">
       <section className="auth-panel">
@@ -49,6 +51,11 @@ export default async function SignInPage({
         )}
         {configured && guestModeEnabled() ? <GuestSignIn siteKey={process.env.TURNSTILE_SITE_KEY?.trim() || null} /> : null}
         <Link className="auth-secondary" href="/">Return to demo preview</Link>
+        {privacyUrl ? (
+          <p className="auth-privacy">
+            <a href={privacyUrl} target="_blank" rel="noopener noreferrer">Privacy notice</a>: what this instance stores, who receives it, and how long it is kept.
+          </p>
+        ) : null}
       </section>
     </main>
   );

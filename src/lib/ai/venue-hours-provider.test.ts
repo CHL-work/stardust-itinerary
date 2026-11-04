@@ -17,9 +17,12 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claudeQuery }));
 vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
 
 import {
-  buildVenueHoursResearchPrompt, runVenueHoursResearch, venueHoursOutputSchema,
+  buildVenueHoursResearchPrompt, runVenueHoursResearch as runVenueHoursResearchDirect, venueHoursOutputSchema,
   venueHoursResponseSchema, VenueHoursResearchError, type VenueHoursResearchInput,
 } from "@/lib/ai/venue-hours-provider";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+// Provider adapters run only inside a credential context; these tests exercise the operator's.
+const runVenueHoursResearch = (...args: Parameters<typeof runVenueHoursResearchDirect>) => withOperatorAiCredential(() => runVenueHoursResearchDirect(...args));
 
 const target = { key: "V1", venueName: "Synthetic Sakura Restaurant, Tokyo", date: "2030-04-01", timeZone: "Asia/Tokyo" };
 const evidence = {

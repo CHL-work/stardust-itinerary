@@ -20,7 +20,7 @@ Edit `.env`:
 | Setting | Value |
 | --- | --- |
 | `AUTH_SECRET` | output of `openssl rand -base64 32` |
-| `CREDENTIAL_ENCRYPTION_KEY` | another, different `openssl rand -base64 32`. It encrypts the API keys users save in Settings, and Compose gives it only to the web service. Keep a copy: without it, saved keys cannot be decrypted |
+| `CREDENTIAL_ENCRYPTION_KEY` | another, different `openssl rand -base64 32`. It encrypts the API keys users save in Settings, and Compose gives it only to the web service. Keep a copy: without it, saved keys cannot be decrypted. To rotate it, see [rotation](DEPLOYMENT.md#rotating-the-encryption-key); with Compose, run the re-encryption with `docker compose exec web /app/deploy/container/entrypoint.sh credential-reencrypt` |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` (hex keeps it URL-safe) |
 | `OWNER_GOOGLE_EMAIL` | your Google email; you become the platform operator |
 | `PUBLIC_SIGNUP_ENABLED` | `true`, so you can create your own account (see step 2 for who can sign in) |
@@ -29,6 +29,8 @@ Edit `.env`:
 | `STARDUST_GEMINI_API_KEY` | if you use Gemini models; for a Vertex AI key, also `STARDUST_GEMINI_VERTEX_PROJECT` and `STARDUST_GEMINI_VERTEX_LOCATION` |
 | `DEFAULT_LOCALE` | `en`, `zh-HK`, `zh-HK-lihkg` or `ja-JP` |
 | `GUEST_MODE_ENABLED` | optional, `true` adds **Try as guest**: a demo trip deleted after 24 hours. It also needs `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` from Cloudflare Turnstile. On a private instance, `GUEST_ALLOW_WITHOUT_TURNSTILE=true` waives the check. Per-address limits use Cloudflare's `CF-Connecting-IP`, or a reverse proxy's `X-Real-IP`. The scheduler purges expired guests every hour |
+| `PRIVACY_NOTICE_URL` | optional, an https link to your privacy notice, shown on the sign-in page. Adapt [the public instance's](PRIVACY.md) to your hosting |
+| `STARDUST_FEEDBACK_REPOSITORY` and `STARDUST_FEEDBACK_GITHUB_TOKEN` | optional, to file reviewed feedback as issues: a **private** repository as `owner/name`, and a fine-grained token for it with **Issues: read and write**. The publisher refuses a repository that is not private ([feedback](FEEDBACK.md)) |
 
 ## 2. Create the Google sign-in client
 

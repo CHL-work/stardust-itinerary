@@ -6,7 +6,7 @@ import type { Pool, PoolClient } from "pg";
 import { AppConflictError, AppForbiddenError, AppInvalidInputError, AppNotFoundError, getAiPolicy, getMemberPermissions, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
 import { assertBoundUserAiIdle, CALENDAR_LOCATION_ACTIVE_WINDOW_MINUTES } from "@/lib/ai/conversation";
-import { withUserAiCredential } from "@/lib/ai/credential-context";
+import { withOperatorAiCredential, withUserAiCredential } from "@/lib/ai/credential-context";
 import { readAiCredentialSecret } from "@/lib/ai/credentials";
 import { ownerModelRegistry } from "@/lib/app/types";
 import type { AuthConfig } from "@/lib/auth/config";
@@ -100,7 +100,7 @@ export async function searchCalendarLocation(pool: Pool, config: AuthConfig, ses
   try {
     directory = await mkdtemp(join(tmpdir(), "stardust-calendar-location-"));
     const lookup = () => runCalendarLocationProvider({ subject, model: admission.model, workDirectory: directory!, abortController: controller });
-    const work = admission.credential ? withUserAiCredential(admission.credential, lookup) : lookup();
+    const work = admission.credential ? withUserAiCredential(admission.credential, lookup) : withOperatorAiCredential(lookup);
     provider = await Promise.race([work, new Promise<never>((_, reject) => {
       timer = setTimeout(() => { controller.abort(); reject(new Error("CALENDAR_LOCATION_TIMEOUT")); }, BUDGET_MS);
     })]);

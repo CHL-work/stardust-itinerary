@@ -11,5 +11,5 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-062 | Gemini models | review |
 | JOB-063 | Trip-owner key sharing | review |
 | JOB-064 | Guest mode and public sign-up | review |
-| JOB-065 | Public-launch security and privacy review | in progress |
-| JOB-066 | Showcase documentation and operations polish | in progress |
+| JOB-065 | Public-launch security and privacy review | done |
+| JOB-066 | Showcase documentation and operations polish | in progress (the feedback token waits for the owner) |

@@ -4,7 +4,10 @@ import { claimFeedbackRun, completeFeedbackRun, failFeedbackRun, claimFeedbackIs
   beginFeedbackDelivery, completeFeedbackDelivery, blockFeedbackIssue } from "../../src/lib/feedback/worker-repository.ts";
 import { postFeedbackIssue, reconcileFeedbackIssue } from "../../src/lib/feedback/github-publisher.ts";
 
-const issueUrl = (number) => `https://github.com/CHL-work/stardust-itinerary/issues/${number}`;
+// This suite runs at a schema before 0058, whose receipt check still names the original repository;
+// feedback-repository.mjs covers a private target after 0058.
+const issueTarget = { repository: "CHL-work/stardust-itinerary", token: "synthetic-issue-token" };
+const issueUrl = (number) => `https://github.com/${issueTarget.repository}/issues/${number}`;
 const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 /** Hold a synthetic row until the tested operation really waits, then expire its lease. */
@@ -138,7 +141,7 @@ export async function testFeedbackWorker(pool, connectionString) {
   assert.equal(await beginFeedbackDelivery(pool, delivery), true);
   assert.equal(await beginFeedbackDelivery(pool, delivery), false, "The initial durable POST marker cannot be acquired twice");
   const methods = [];
-  const lostResponse = await postFeedbackIssue(delivery, "synthetic-issue-token", async (_url, options) => {
+  const lostResponse = await postFeedbackIssue(delivery, issueTarget, async (_url, options) => {
     methods.push(options.method);
     const durable = (await pool.query("SELECT state,post_attempts FROM feedback_issue_outbox WHERE id=$1", [delivery.id])).rows[0];
     assert.deepEqual(durable, { state: "uncertain", post_attempts: 1 });
@@ -151,7 +154,7 @@ export async function testFeedbackWorker(pool, connectionString) {
   const recovery = await claimFeedbackIssue(pool);
   assert.equal(recovery.postAttempts, 1);
   assert.equal(await beginFeedbackDelivery(pool, recovery), true);
-  const recovered = await reconcileFeedbackIssue(recovery, "synthetic-issue-token", async (url, options) => {
+  const recovered = await reconcileFeedbackIssue(recovery, issueTarget, async (url, options) => {
     methods.push(options.method);
     assert.match(url, /^https:\/\/api\.github\.com\/repos\/CHL-work\/stardust-itinerary\/issues\?/u);
     assert.equal(options.method, "GET");

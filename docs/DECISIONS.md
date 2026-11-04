@@ -2,6 +2,26 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-079: Feedback issues only in a verified private repository (accepted November 4, 2026)
+
+Reviewed feedback summaries quote what users reported, so they are never filed in the public source repository.
+
+- **Configured target:** `STARDUST_FEEDBACK_REPOSITORY` names the repository instead of a constant in code. Migration 0058 removes the public repository from the receipt checks.
+- **Checked every run:** before the first delivery, the publisher asks GitHub whether the repository is private, not archived and taking issues. Otherwise it refuses, and queued issues wait.
+- **Least privilege:** a fine-grained token for that repository only (Issues: read and write), in its own secret that only the feedback job's service account can read.
+
+## D-078: Continuous deployment for the public instance (accepted November 4, 2026)
+
+The owner chose to deploy every push to `main` without an approval step, since this is a personal app and a broken deploy is acceptable.
+
+- **Trigger:** when CI passes for a push to `main`, the `deploy` workflow builds the image and runs `deploy/deploy.sh`.
+- **What still guards it:**
+  - The `production` environment has no required reviewers, but accepts only `main`.
+  - Workload Identity still gives cluster credentials only to that environment.
+  - Only CI runs for pushes to this repository deploy, never a pull request, even from a fork branch named `main`.
+  - A manual run deploys only commits on `main`.
+- **Other instances** can add reviewers to their own environment.
+
 ## D-077: Guest accounts for trying the public instance (accepted November 4, 2026)
 
 The owner wants people to try the public instance without signing in, with guest data deleted within a day, and AI only with the guest's own key.

@@ -93,7 +93,8 @@ vi.mock("@/lib/app/repository", () => {
     createChangeRequestsAtomically: mocks.createChangeRequestsAtomically,
     getAiPendingItineraryContext: mocks.getAiPendingItineraryContext,
     updatePendingItineraryRequestWithClient: mocks.updatePendingItineraryRequestWithClient,
-    getAiPolicy: mocks.getAiPolicy,
+    // Real policies always name who pays; the mocks default to the operator.
+    getAiPolicy: async (...args: unknown[]) => ({ credentialSource: "operator", ...(await mocks.getAiPolicy(...args)) }),
     inTransaction: async (_pool: Pool, work: (client: { query: typeof mocks.query }) => unknown) => work({
       query: mocks.query,
     }),

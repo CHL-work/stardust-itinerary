@@ -2,9 +2,12 @@ import { access, mkdtemp, rm, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { activeAiCredential, withOperatorAiCredential, withUserAiCredential } from "@/lib/ai/credential-context";
+import {
+  activeAiCredential, AiCredentialContextMissingError, withOperatorAiCredential, withUserAiCredential,
+} from "@/lib/ai/credential-context";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { geminiEndpoint } from "@/lib/ai/gemini";
+import { tripDestinationProviderEnvironment } from "@/lib/ai/trip-destination-provider";
 
 const operatorEnv = {
   PATH: "/usr/bin", HOME: "/home/app", CODEX_HOME: "/home/app/.codex", CLAUDE_CONFIG_DIR: "/home/app/.claude",
@@ -13,12 +16,25 @@ const operatorEnv = {
 };
 
 describe("per-request AI credentials", () => {
-  it("uses the operator's keys outside any user-key context", async () => {
+  it("refuses every provider outside a credential context instead of falling back to the operator", () => {
     expect(activeAiCredential()).toBeUndefined();
-    expect(providerEnvironment(operatorEnv)).toMatchObject({ CODEX_API_KEY: "operator-openai", ANTHROPIC_API_KEY: "operator-anthropic" });
+    expect(() => providerEnvironment(operatorEnv)).toThrow(AiCredentialContextMissingError);
+    expect(() => geminiEndpoint(operatorEnv)).toThrow(AiCredentialContextMissingError);
+    expect(() => tripDestinationProviderEnvironment(operatorEnv)).toThrow(AiCredentialContextMissingError);
+  });
+
+  it("uses the operator's keys only inside an explicit operator context", async () => {
     await withOperatorAiCredential(async () => {
-      expect(providerEnvironment(operatorEnv)).toMatchObject({ CODEX_API_KEY: "operator-openai" });
+      expect(providerEnvironment(operatorEnv)).toMatchObject({ CODEX_API_KEY: "operator-openai", ANTHROPIC_API_KEY: "operator-anthropic" });
       expect(geminiEndpoint(operatorEnv)?.apiKey).toBe("operator-gemini");
+      expect(tripDestinationProviderEnvironment(operatorEnv)).toMatchObject({ CODEX_API_KEY: "operator-openai" });
+    });
+    expect(activeAiCredential()).toBeUndefined();
+  });
+
+  it("never runs the operator-funded destination lookup on a user's key", async () => {
+    await withUserAiCredential({ source: "own", provider: "openai", apiKey: "user-openai", vertex: null }, async () => {
+      expect(() => tripDestinationProviderEnvironment(operatorEnv)).toThrow(AiCredentialContextMissingError);
     });
   });
 

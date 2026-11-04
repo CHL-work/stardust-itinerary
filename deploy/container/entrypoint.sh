@@ -51,6 +51,10 @@ case "$mode" in
   guest-purge)
     # shellcheck disable=SC2086
     exec node $env_flags --import tsx scripts/run-guest-purge.ts "$@" ;;
+  credential-reencrypt)
+    # Key rotation for users' saved AI keys; needs the web server's secrets (see docs/DEPLOYMENT.md).
+    # shellcheck disable=SC2086
+    exec node $env_flags --import tsx scripts/reencrypt-credentials.ts "$@" ;;
   scheduler)
     # Single-host stand-in for the Kubernetes CronJobs: disruption checks every 5 minutes, the
     # feedback worker and the guest purge once an hour. Failures are logged and retried later.
@@ -68,6 +72,6 @@ case "$mode" in
       sleep 300
     done ;;
   *)
-    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|migrate|backup|scheduler|provider-smoke" >&2
+    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|credential-reencrypt|migrate|backup|scheduler|provider-smoke" >&2
     exit 64 ;;
 esac

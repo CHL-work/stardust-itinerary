@@ -9,7 +9,7 @@ import { query as claudeQuery, type SDKResultSuccess } from "@anthropic-ai/claud
 import { Codex } from "@openai/codex-sdk";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
 import { lockedDownCodexConfig, usedForbiddenCodexItem } from "@/lib/ai/codex-lockdown";
-import { withUserAiCredential } from "@/lib/ai/credential-context";
+import { withOperatorAiCredential, withUserAiCredential } from "@/lib/ai/credential-context";
 import { readAiCredentialSecret } from "@/lib/ai/credentials";
 import { generateWithGemini } from "@/lib/ai/gemini";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
@@ -2453,8 +2453,9 @@ export async function runAiPlanner(
     throw error;
   }
   };
-  return userCredential && (policy.credentialSource === "own" || policy.credentialSource === "shared")
-    ? withUserAiCredential({ source: policy.credentialSource, provider: ownerModelRegistry[policy.model].provider, ...userCredential },
-      continuePlanning)
-    : continuePlanning();
+  if (policy.credentialSource === "operator") return withOperatorAiCredential(continuePlanning);
+  // Setup refuses own- and shared-key requests without a readable key; never fall back to the operator.
+  if (!userCredential) throw new Error("A user-funded AI request has no key.");
+  return withUserAiCredential({ source: policy.credentialSource, provider: ownerModelRegistry[policy.model].provider, ...userCredential },
+    continuePlanning);
 }

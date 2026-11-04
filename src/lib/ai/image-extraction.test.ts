@@ -30,7 +30,10 @@ vi.mock("@openai/codex-sdk", () => ({
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claudeQuery }));
 vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
 
-import { AiImageExtractionError, extractAiImageFacts } from "@/lib/ai/image-extraction";
+import { AiImageExtractionError, extractAiImageFacts as extractAiImageFactsDirect } from "@/lib/ai/image-extraction";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+// Provider adapters run only inside a credential context; these tests exercise the operator's.
+const extractAiImageFacts = (...args: Parameters<typeof extractAiImageFactsDirect>) => withOperatorAiCredential(() => extractAiImageFactsDirect(...args));
 
 const workspace = join(tmpdir(), "stardust-image-extraction-synthetic");
 const image: PreparedAiImage = {

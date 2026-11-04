@@ -5,7 +5,6 @@ import { feedbackDiagnosticsSchema } from "./contracts";
 export const FEEDBACK_MODEL = "gpt-6-astra";
 export const FEEDBACK_EFFORT = "medium";
 export const FEEDBACK_BATCH_LIMIT = 20;
-export const FEEDBACK_REPOSITORY = "CHL-work/stardust-itinerary";
 export type ReviewReport = { key: string; title: string; description: string; kind: "bug" | "feedback";
   environment: string; actions: string[]; build: string | null };
 export type KnownFeedbackIssue = { key: string; title: string };
@@ -92,8 +91,9 @@ export function issueMarker(id: string): string {
   if (!z.uuid().safeParse(id).success) throw new Error("payload_invalid");
   return `<!-- stardust-feedback:${id} -->`;
 }
+/** Binds the reviewed title and body; the target repository is configured and verified at delivery. */
 export function issuePayloadHash(title: string, body: string): Buffer {
-  return createHash("sha256").update(JSON.stringify({ repository: FEEDBACK_REPOSITORY, title, body })).digest();
+  return createHash("sha256").update(JSON.stringify({ purpose: "stardust-feedback-issue", title, body })).digest();
 }
 export function renderFeedbackIssue(id: string, report: ReviewReport, decision: ReviewDecision): { title: string; body: string } {
   const list = (values: readonly string[]) => values.length ? values.map((value) => `- ${value}`).join("\n") : "- Not supplied.";

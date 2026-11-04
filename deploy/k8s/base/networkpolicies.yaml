@@ -99,7 +99,8 @@ spec:
               - 169.254.169.254/32
               - 169.254.169.252/32
 ---
-# The guest purge reaches only the database and DNS.
+# The guest purge reaches only the database and DNS. DNS may be kube-dns, a node-local cache
+# (NodeLocal DNSCache listens on 169.254.20.10, outside any pod selector) or the metadata address.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -122,6 +123,10 @@ spec:
           podSelector:
             matchLabels:
               k8s-app: kube-dns
+        - ipBlock:
+            cidr: 169.254.20.10/32
+        - ipBlock:
+            cidr: 169.254.169.254/32
       ports:
         - port: 53
           protocol: UDP

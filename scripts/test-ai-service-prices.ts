@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { ownerModelRegistry, type OwnerModel } from "../src/lib/app/types";
 import { aiProviderFailureDetails } from "../src/lib/ai/provider-failure";
+import { withOperatorAiCredential } from "../src/lib/ai/credential-context";
 import { runPublicResearch, type PublicResearchInput, type PublicResearchResult } from "../src/lib/ai/public-research-provider";
 import { assessPublicResearch, isBoundPublicResearchQuery, PUBLIC_RESEARCH_BUDGET_MS, type PublicResearchTarget } from "../src/lib/ai/public-research";
 
@@ -31,7 +32,8 @@ type Dependencies = {
   now: () => Date;
 };
 const defaults: Dependencies = {
-  research: runPublicResearch,
+  // A live operator check: the operator's keys, entered explicitly.
+  research: (input: PublicResearchInput) => withOperatorAiCredential(() => runPublicResearch(input)),
   createWorkspace: () => mkdtemp(join(tmpdir(), PRICE_WORKSPACE_PREFIX)),
   removeWorkspace: async (directory) => { await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); },
   now: () => new Date(),

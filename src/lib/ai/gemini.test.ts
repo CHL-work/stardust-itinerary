@@ -1,10 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import { geminiEndpoint, geminiFailureCode, generateWithGemini, parseGeminiResponse } from "@/lib/ai/gemini";
+import { AiCredentialContextMissingError, withOperatorAiCredential } from "@/lib/ai/credential-context";
+import { geminiEndpoint as geminiEndpointDirect, geminiFailureCode, generateWithGemini, parseGeminiResponse } from "@/lib/ai/gemini";
 import { AiProviderFailureError } from "@/lib/ai/provider-failure";
+
+// The operator's endpoint, so these cases run in an explicit operator context.
+const geminiEndpoint = (env: Record<string, string | undefined>) => withOperatorAiCredential(() => geminiEndpointDirect(env));
 
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
 describe("Gemini endpoint configuration", () => {
+  it("refuses to hand out any key outside a credential context", () => {
+    expect(() => geminiEndpointDirect({ STARDUST_GEMINI_API_KEY: "synthetic-key" })).toThrow(AiCredentialContextMissingError);
+  });
   it("is off without a key, uses the Gemini API by default and Vertex AI when a project is set", () => {
     expect(geminiEndpoint({})).toBeNull();
     const developer = geminiEndpoint({ STARDUST_GEMINI_API_KEY: "synthetic-key" })!;

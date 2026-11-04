@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Codex, type Usage } from "@openai/codex-sdk";
 import { z } from "zod";
+import { AiCredentialContextMissingError, requireAiCredential } from "@/lib/ai/credential-context";
 import type { Locale } from "@/lib/i18n";
 import type { DestinationDefaults } from "@/lib/app/trip-destination-contract";
 import { destinationLookupOutputSchema, normalizeDestination, validateDestinationInput, validateLookupOutput } from "@/lib/app/trip-destination-defaults";
@@ -22,8 +23,12 @@ export class TripDestinationProviderError extends Error {
   }
 }
 
-/** OpenAI API key and runtime settings only. Never pass application secrets or base-URL overrides. */
+/**
+ * The operator's OpenAI API key and runtime settings only. Never pass application secrets or
+ * base-URL overrides. The lookup is operator-funded, so it runs only in an operator context.
+ */
 export function tripDestinationProviderEnvironment(source: Record<string, string | undefined> = process.env): Record<string, string> {
+  if (requireAiCredential().source !== "operator") throw new AiCredentialContextMissingError();
   const allowed = /^(?:PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|TMPDIR|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|APPDATA|LOCALAPPDATA|LANG|LC_ALL|TZ|CODEX_HOME|HTTPS_PROXY|HTTP_PROXY|NO_PROXY|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE)$/iu;
   const providerKey = /^(?:CODEX_API_KEY|OPENAI_API_KEY)$/u;
   return Object.fromEntries(Object.entries(source).filter((entry): entry is [string, string] => entry[1] !== undefined

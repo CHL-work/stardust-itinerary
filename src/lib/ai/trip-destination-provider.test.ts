@@ -6,7 +6,13 @@ vi.mock("@openai/codex-sdk", () => ({ Codex: class {
   constructor(options: unknown) { mocks.codex(options); }
   startThread(options: unknown) { mocks.start(options); return { runStreamed: mocks.run }; }
 } }));
-import { buildTripDestinationPrompt, DESTINATION_LOOKUP_TIMEOUT_MS, lookupTripDestination, tripDestinationProviderEnvironment } from "./trip-destination-provider";
+import { buildTripDestinationPrompt, DESTINATION_LOOKUP_TIMEOUT_MS, lookupTripDestination as lookupTripDestinationDirect,
+  tripDestinationProviderEnvironment as tripDestinationProviderEnvironmentDirect } from "./trip-destination-provider";
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+// Provider adapters run only inside a credential context; these tests exercise the operator's.
+const lookupTripDestination = (...args: Parameters<typeof lookupTripDestinationDirect>) => withOperatorAiCredential(() => lookupTripDestinationDirect(...args));
+const tripDestinationProviderEnvironment = (...args: Parameters<typeof tripDestinationProviderEnvironmentDirect>) =>
+  withOperatorAiCredential(() => tripDestinationProviderEnvironmentDirect(...args));
 
 const answer = { status: "resolved", countryCode: "JP", timeZone: "Asia/Tokyo", timeZoneCandidates: [], currency: "JPY", currencyCandidates: [] };
 const usage = { input_tokens: 37, output_tokens: 16, cached_input_tokens: 8 };

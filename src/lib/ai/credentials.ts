@@ -3,8 +3,8 @@ import { z } from "zod";
 
 import { geminiEndpointFor } from "@/lib/ai/gemini";
 import {
-  CredentialEncryptionUnavailableError, credentialEncryptionConfigured, credentialHint, openCredential, sealCredential,
-  type AiCredentialProvider,
+  CredentialEncryptionUnavailableError, credentialEncryptionConfigured, credentialHint, currentCredentialKeyVersion, openCredential,
+  sealCredential, type AiCredentialProvider,
 } from "@/lib/ai/credential-crypto";
 import { AppForbiddenError, AppInvalidInputError, appendAudit, assertTrip, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
@@ -198,6 +198,53 @@ export async function readAiCredentialSecret(
     });
     return null;
   }
+}
+
+export type AiCredentialReencryption = { currentVersion: number; reencrypted: number; unreadable: number; remaining: number };
+
+/**
+ * Key rotation: re-seal every saved key that is not under the current encryption key. Rows are
+ * locked in small batches and skipped when a request holds them, so a concurrent save is never
+ * overwritten; a row that no longer opens is left in place, counted, and treated as absent, and its
+ * owner adds the key again. `updated_at` is the owner's last change, so it stays. Counts only.
+ */
+export async function reencryptAiCredentials(
+  pool: Pool, env: Record<string, string | undefined> = process.env, batchSize = 100,
+): Promise<AiCredentialReencryption> {
+  const currentVersion = currentCredentialKeyVersion(env);
+  const unreadableRows = new Set<string>();
+  let reencrypted = 0;
+  for (;;) {
+    const batch = await inTransaction(pool, async (client) => {
+      const rows = await client.query<{ user_id: string; provider: AiCredentialProvider; ciphertext: Buffer; nonce: Buffer; key_version: number }>(
+        `SELECT user_id, provider, ciphertext, nonce, key_version FROM user_ai_credentials
+          WHERE key_version <> $1 AND NOT ((user_id::text || ':' || provider) = ANY ($2::text[]))
+          ORDER BY user_id, provider LIMIT $3 FOR UPDATE SKIP LOCKED`, [currentVersion, [...unreadableRows], batchSize]);
+      let moved = 0;
+      for (const row of rows.rows) {
+        const owner = { userId: row.user_id, provider: row.provider };
+        let secret: string;
+        try {
+          secret = openCredential({ ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version }, owner, env);
+        } catch {
+          unreadableRows.add(`${row.user_id}:${row.provider}`);
+          continue;
+        }
+        const sealed = sealCredential(secret, owner, env);
+        await client.query(
+          `UPDATE user_ai_credentials SET ciphertext = $3, nonce = $4, key_version = $5
+            WHERE user_id = $1 AND provider = $2 AND key_version = $6`,
+          [row.user_id, row.provider, sealed.ciphertext, sealed.nonce, sealed.keyVersion, row.key_version]);
+        moved += 1;
+      }
+      return { fetched: rows.rows.length, moved };
+    });
+    reencrypted += batch.moved;
+    if (batch.fetched < batchSize) break;
+  }
+  const remaining = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM user_ai_credentials WHERE key_version <> $1", [currentVersion]);
+  return { currentVersion, reencrypted, unreadable: unreadableRows.size, remaining: Number(remaining.rows[0]?.count ?? 0) };
 }
 
 /** Providers the user holds keys for, without decrypting anything. */

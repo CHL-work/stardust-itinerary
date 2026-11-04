@@ -1,15 +1,22 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 /**
- * Users' AI provider keys at rest: AES-256-GCM under CREDENTIAL_ENCRYPTION_KEY (32 random bytes,
+ * Users' AI provider keys at rest: AES-256-GCM under a versioned key ring (32 random bytes each,
  * base64). The user and provider are bound as additional authenticated data, so a ciphertext
  * copied to another row or account fails to open. The tag is stored after the ciphertext.
+ *
+ * - `CREDENTIAL_ENCRYPTION_KEY` is the current key; new and re-encrypted keys are sealed with it.
+ * - `CREDENTIAL_ENCRYPTION_KEY_VERSION` is its version (default 1), stored with every ciphertext.
+ * - `CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS` lists older keys as `version:key` pairs, separated by
+ *   commas. They only open existing ciphertexts, until `reencryptAiCredentials` has moved every row
+ *   to the current key and the operator removes them.
  */
 export type AiCredentialProvider = "openai" | "anthropic" | "google";
 export type SealedCredential = { ciphertext: Buffer; nonce: Buffer; keyVersion: number };
 
-const KEY_VERSION = 1;
 const TAG_BYTES = 16;
+// The column is a smallint.
+const MAX_KEY_VERSION = 32_767;
 
 export class CredentialEncryptionUnavailableError extends Error {
   constructor() {
@@ -20,13 +27,49 @@ export class CredentialEncryptionUnavailableError extends Error {
 
 // Exactly 32 bytes in standard base64. Buffer.from(…, "base64") would silently skip stray characters.
 const KEY_FORMAT = /^[A-Za-z0-9+/]{43}=$/u;
+const VERSION_FORMAT = /^[1-9][0-9]{0,4}$/u;
 
-function encryptionKey(env: Record<string, string | undefined>, version: number): Buffer {
-  if (version !== KEY_VERSION) throw new CredentialEncryptionUnavailableError();
-  const raw = env.CREDENTIAL_ENCRYPTION_KEY?.trim();
-  // A dedicated secret: reusing AUTH_SECRET would let one leaked value both forge sessions and open keys.
-  if (!raw || !KEY_FORMAT.test(raw) || raw === env.AUTH_SECRET?.trim()) throw new CredentialEncryptionUnavailableError();
-  return Buffer.from(raw, "base64");
+type KeyRing = { version: number; current: Buffer; previous: ReadonlyMap<number, Buffer> };
+
+function keyVersion(raw: string | undefined): number {
+  const value = raw?.trim() || "1";
+  const version = VERSION_FORMAT.test(value) ? Number(value) : Number.NaN;
+  if (!Number.isSafeInteger(version) || version > MAX_KEY_VERSION) throw new CredentialEncryptionUnavailableError();
+  return version;
+}
+
+/**
+ * The whole ring or nothing: any malformed entry, a reused version or key, or a key equal to
+ * AUTH_SECRET makes credential storage unavailable instead of half-working.
+ */
+function keyRing(env: Record<string, string | undefined>): KeyRing {
+  const authSecret = env.AUTH_SECRET?.trim();
+  const seen = new Set<string>();
+  const key = (raw: string | undefined): Buffer => {
+    const value = raw?.trim();
+    // A dedicated secret: reusing AUTH_SECRET would let one leaked value both forge sessions and open keys.
+    if (!value || !KEY_FORMAT.test(value) || value === authSecret || seen.has(value)) throw new CredentialEncryptionUnavailableError();
+    seen.add(value);
+    return Buffer.from(value, "base64");
+  };
+  const version = keyVersion(env.CREDENTIAL_ENCRYPTION_KEY_VERSION);
+  const current = key(env.CREDENTIAL_ENCRYPTION_KEY);
+  const previous = new Map<number, Buffer>();
+  const listed = env.CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS?.trim();
+  for (const entry of listed ? listed.split(",") : []) {
+    const separator = entry.indexOf(":");
+    if (separator < 0) throw new CredentialEncryptionUnavailableError();
+    const previousVersion = keyVersion(entry.slice(0, separator));
+    if (previousVersion === version || previous.has(previousVersion)) throw new CredentialEncryptionUnavailableError();
+    previous.set(previousVersion, key(entry.slice(separator + 1)));
+  }
+  return { version, current, previous };
+}
+
+function encryptionKey(ring: KeyRing, version: number): Buffer {
+  const found = version === ring.version ? ring.current : ring.previous.get(version);
+  if (!found) throw new CredentialEncryptionUnavailableError();
+  return found;
 }
 
 function additionalData(userId: string, provider: AiCredentialProvider): Buffer {
@@ -34,22 +77,27 @@ function additionalData(userId: string, provider: AiCredentialProvider): Buffer 
 }
 
 export function credentialEncryptionConfigured(env: Record<string, string | undefined> = process.env): boolean {
-  try { encryptionKey(env, KEY_VERSION); return true; } catch { return false; }
+  try { keyRing(env); return true; } catch { return false; }
+}
+
+/** The version new ciphertexts are sealed with. Throws when the ring is not configured. */
+export function currentCredentialKeyVersion(env: Record<string, string | undefined> = process.env): number {
+  return keyRing(env).version;
 }
 
 export function sealCredential(secret: string, owner: { userId: string; provider: AiCredentialProvider },
   env: Record<string, string | undefined> = process.env): SealedCredential {
-  const key = encryptionKey(env, KEY_VERSION);
+  const ring = keyRing(env);
   const nonce = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, nonce);
+  const cipher = createCipheriv("aes-256-gcm", ring.current, nonce);
   cipher.setAAD(additionalData(owner.userId, owner.provider));
   const ciphertext = Buffer.concat([cipher.update(secret, "utf8"), cipher.final(), cipher.getAuthTag()]);
-  return { ciphertext, nonce, keyVersion: KEY_VERSION };
+  return { ciphertext, nonce, keyVersion: ring.version };
 }
 
 export function openCredential(sealed: SealedCredential, owner: { userId: string; provider: AiCredentialProvider },
   env: Record<string, string | undefined> = process.env): string {
-  const key = encryptionKey(env, sealed.keyVersion);
+  const key = encryptionKey(keyRing(env), sealed.keyVersion);
   if (sealed.nonce.length !== 12 || sealed.ciphertext.length <= TAG_BYTES) throw new Error("Credential ciphertext is malformed.");
   const decipher = createDecipheriv("aes-256-gcm", key, sealed.nonce);
   decipher.setAAD(additionalData(owner.userId, owner.provider));

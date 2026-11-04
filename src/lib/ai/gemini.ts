@@ -1,4 +1,4 @@
-import { activeAiCredential } from "@/lib/ai/credential-context";
+import { requireAiCredential } from "@/lib/ai/credential-context";
 import { AiProviderFailureError, type AiProviderFailureCode } from "@/lib/ai/provider-failure";
 
 /**
@@ -27,10 +27,13 @@ export function geminiEndpointFor(apiKey: string | undefined, project?: string |
     url: (model) => `https://${host}/v1/projects/${vertexProject}/locations/${vertexLocation}/publishers/google/models/${model}:generateContent` };
 }
 
-/** The request's own or shared Gemini key when one is active, otherwise the operator's. */
+/**
+ * The request's own or shared Gemini key in a user-key context, the operator's in an operator
+ * context. Outside any credential context it throws.
+ */
 export function geminiEndpoint(env: Record<string, string | undefined> = process.env): GeminiEndpoint | null {
-  const credential = activeAiCredential();
-  if (credential && credential.source !== "operator") {
+  const credential = requireAiCredential();
+  if (credential.source !== "operator") {
     return credential.provider === "google"
       ? geminiEndpointFor(credential.apiKey, credential.vertex?.project, credential.vertex?.location) : null;
   }

@@ -1,4 +1,4 @@
-import { activeAiCredential, userCredentialEnvironment } from "@/lib/ai/credential-context";
+import { requireAiCredential, userCredentialEnvironment } from "@/lib/ai/credential-context";
 
 /** OS, locale and network settings a provider CLI needs; nothing from the application's own configuration. */
 const runtimeVariable = /^(?:PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|TMPDIR|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|APPDATA|LOCALAPPDATA|LANG|LC_ALL|TZ|HTTPS_PROXY|HTTP_PROXY|NO_PROXY|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE)$/iu;
@@ -11,13 +11,14 @@ const operatorScoped = /^(?:CODEX_HOME|CODEX_API_KEY|OPENAI_API_KEY|CLAUDE_CONFI
  * Both installed SDKs replace (rather than merge) their subprocess env. Pass an explicit allowlist so
  * database URLs, session and OAuth secrets, map keys and publisher tokens never reach a model process.
  * Inside a user-key request the operator's keys and profile directories are swapped for that user's
- * key and a per-request directory (see credential-context.ts).
+ * key and a per-request directory (see credential-context.ts). Outside any credential context it
+ * throws instead of handing out the operator's keys.
  */
 export function providerEnvironment(source: Record<string, string | undefined> = process.env): Record<string, string> {
+  const credential = requireAiCredential();
   const allowed = Object.fromEntries(Object.entries(source).filter((entry): entry is [string, string] => entry[1] !== undefined
     && (runtimeVariable.test(entry[0]) || providerVariable.test(entry[0]))));
-  const credential = activeAiCredential();
-  if (!credential || credential.source === "operator") return allowed;
+  if (credential.source === "operator") return allowed;
   for (const key of Object.keys(allowed)) if (operatorScoped.test(key)) delete allowed[key];
   return { ...allowed, ...userCredentialEnvironment(credential) };
 }

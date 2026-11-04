@@ -27,7 +27,7 @@ These rules apply to every human and AI contributor.
 - Google links bind atomically after sign-in, never on GET. Sessions have a 24-hour rolling window inside a 30-day fresh-authentication ceiling; trip changes cannot revive or extend it. Completed trips do not revoke active membership.
 - Browser clients never receive provider, database or OAuth secrets.
 - External delivery uses idempotency/outbox safeguards; provider failures degrade gracefully.
-- In-app AI gets no shell, GitHub, cloud-console, deployment or secret-store access. Provider subprocesses receive only the allowlisted environment in `src/lib/ai/provider-environment.ts`. The separate feedback reviewer has no tools or GitHub credential; its deterministic publisher is fixed-repository and issue-create-only. Preserve redaction and historical opt-outs.
+- In-app AI gets no shell, GitHub, cloud-console, deployment or secret-store access. Provider subprocesses receive only the allowlisted environment in `src/lib/ai/provider-environment.ts`. The separate feedback reviewer has no tools or GitHub credential; its deterministic publisher is issue-create-only and files only in the configured repository after GitHub confirms it is private. Preserve redaction and historical opt-outs.
 
 ## AI providers
 
@@ -38,7 +38,8 @@ These rules apply to every human and AI contributor.
   - **The operator's keys** pay only in operator-sponsored trips. There, only the verified platform operator who is also an active trip owner gets premium model choice and quota exemption; other users get the member model and the trip's daily UTC limit (default 20).
   - **Otherwise** the request is refused with `ai_key_required`.
 
-  Users' keys are encrypted at rest, never returned to a browser and never used for anyone else's request. Background workers use only the operator's keys, and only in sponsored trips. See [funding](docs/PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role).
+  Users' keys are encrypted at rest, never returned to a browser and never used for anyone else's request. Background workers use only the operator's keys, and only in sponsored trips.
+- Every provider call runs inside a credential context entered by the code that decided who pays: `withOperatorAiCredential` or `withUserAiCredential` (`src/lib/ai/credential-context.ts`). Outside one, provider adapters throw; never add a fallback to the operator's keys. See [funding](docs/PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role).
 - Destination-only lookup is separately available to authenticated eligible creators (`STARDUST_DESTINATION_LOOKUP=creators`), tool-free, ten uncached calls per account per UTC day for non-operators. It does not fund general planning. See [defaults](docs/TRIP_DESTINATION_DEFAULTS.md).
 - Model IDs and behavior come from the registry and contracts; check a provider's current model list before changing them.
 

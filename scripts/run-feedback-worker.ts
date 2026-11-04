@@ -8,7 +8,7 @@ export function feedbackWorkerConfiguration(env: NodeJS.ProcessEnv) {
   const url = new URL(connectionString);
   if (!["postgres:", "postgresql:"].includes(url.protocol)) throw new Error("feedback_database_unconfigured");
   return { connectionString, triageEnabled: env.STARDUST_FEEDBACK_TRIAGE_ENABLED === "true",
-    githubToken: env.STARDUST_FEEDBACK_GITHUB_TOKEN };
+    githubToken: env.STARDUST_FEEDBACK_GITHUB_TOKEN, githubRepository: env.STARDUST_FEEDBACK_REPOSITORY };
 }
 export async function feedbackWorkerMain() {
   if (process.argv.length > 2) throw new Error("feedback_arguments_invalid");
@@ -17,7 +17,7 @@ export async function feedbackWorkerMain() {
   try {
     const result = await runFeedbackWorker(pool, config);
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    if (result.triage === "failed") process.exitCode = 1;
+    if (result.triage === "failed" || result.publishing === "refused") process.exitCode = 1;
   } finally { await pool.end(); }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

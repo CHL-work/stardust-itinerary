@@ -1,44 +1,69 @@
-# Privacy notice (draft)
+# Privacy notice
 
-**Status:** a draft for the operator of the public instance to review before guest mode or public sign-up is turned on (JOB-065). It describes what the software does. A self-hosted instance's operator should adapt it to their own hosting and contact details.
+This notice covers the public instance at <https://stardust-itinerary.chl-work.com>, which the project's maintainer runs as a personal project (the operator). It describes what the software stores and shares. Last updated 4 November 2026.
+
+If you run your own instance, adapt this notice to your hosting and contact details, and link it with `PRIVACY_NOTICE_URL` (see [deployment](DEPLOYMENT.md)).
+
+## Where it runs
+
+- **Google Cloud,** in Tokyo (`asia-northeast1`), hosts the service, its database and its encrypted backups.
+- **Cloudflare** carries every connection to the instance. For guests, it also runs the Turnstile check.
 
 ## What is stored
 
 - **Your account:**
   - Your Google account's subject identifier, email address and display name, used to sign you in.
-  - A guest account has none of these: only a random identifier.
+  - A guest account has none of these. It has a random identifier, plus a keyed hash of the network address that created it, used to limit guests per address.
 - **Trips you take part in:** events, places, times, notes, expenses, repayments, approvals and their history.
   - Trip history is kept even when a trip is deleted for its members, so that money and changes stay traceable.
   - Guest trips are the exception: they are permanently deleted after 24 hours.
-- **AI use:**
-  - Your prompts, the replies and pictures you attach, the model used, and which key paid.
+- **AI use:** your prompts, the replies, any pictures you attach, the model used, and which key paid.
 - **Your own AI keys:**
   - Encrypted, and never shown again after you save them; only the last four characters are.
   - You can remove a key at any time in Settings → AI keys.
 - **Google Calendar**, if you connect it: encrypted tokens, and which of your calendar entries were imported.
-- **Feedback you send:** the report and, if you agree, recent diagnostic context. If the operator enables issue filing, a reviewed, de-identified summary may become an issue in a GitHub repository. The public instance does not file issues today, and JOB-066 moves filing to a private repository.
-- **Security records:** sign-in sessions, and rate-limit counters keyed by a hash of your network address and browser.
+- **Feedback you send:**
+  - the report itself, and, if you agree, recent diagnostic context;
+  - a reviewed, de-identified summary may become an issue in the operator's **private** GitHub repository. Issues are never filed in the public source repository.
+- **Security records:**
+  - sign-in sessions;
+  - rate-limit counters, keyed by a keyed hash of your network address and browser, or of your account. Counters older than two days are deleted.
 
 ## Who receives it
 
 - **Other members of a trip** see that trip's shared content, as permitted by their role. Private events are visible only to the people they are shared with.
 - **AI providers** (OpenAI, Anthropic or Google) receive the prompt and trip context for each AI request, under the key that pays for it:
   - your own key;
-  - a trip owner's key shared with you;
-  - or the operator's key in a trip the operator sponsors.
+  - a trip owner's key shared with you, in which case the request also appears in that owner's provider account;
+  - or the operator's key, in a trip the operator sponsors.
 
   Their own terms apply to what they keep.
 - **Google** receives what is needed for sign-in and, if you connect it, Calendar.
-- **Cloudflare** carries the connection to the instance and, for guests, runs the Turnstile check.
-- **The operator** can access the database to run and recover the service. Backups are encrypted and kept for 30 days.
+- **GitHub** stores the private feedback issues described above.
+- **The operator** can access the database to run and recover the service.
+
+## How long it is kept
+
+- **Guest accounts and their trips:** permanently deleted 24 hours after they start.
+- **Sessions:** expire after 24 hours without use, and after 30 days at most.
+- **Backups:** encrypted, and kept for 30 days.
+- **Everything else** stays until you or a trip owner remove it, or the operator deletes it on request.
 
 ## Your choices
 
-- Leave a trip, ask an owner to remove you, or, as an owner, delete a trip (its records are kept as described above).
+- Leave a trip, ask an owner to remove you, or, as an owner, delete a trip. Its records are kept as described above.
 - Remove your AI keys and disconnect Calendar at any time.
-- Guest accounts need no personal details and are deleted automatically after 24 hours.
-- Deleting a whole Google-linked account is not self-service yet; ask the operator.
+- Use a guest account, which needs no personal details and is deleted automatically after 24 hours.
+- Ask the operator to delete your Google-linked account; this is not self-service yet.
+
+## Using the public instance
+
+- It is a personal project. It comes with no guarantee of availability, and may change or stop.
+- Requests on your own AI key are billed to your provider account, under your provider's terms.
+- Do not use it to attack the service or other people. The operator may turn off guest mode or remove accounts that abuse it.
+- The software is open source under the MIT license.
 
 ## Contact
 
-The operator of the public instance: see the repository's [security policy](../SECURITY.md) for how to reach them privately.
+- **Signed-in users** can write to the operator through the in-app feedback form. Reports are private to the operator.
+- **Anyone** can reach the operator privately through GitHub's private vulnerability reporting on the [repository](https://github.com/CHL-work/stardust-itinerary). See the [security policy](../SECURITY.md).

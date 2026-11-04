@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import type { Pool, PoolClient } from "pg";
 
+import { withOperatorAiCredential } from "@/lib/ai/credential-context";
 import { buildDisruptionPromptBatches } from "@/lib/disruptions/prompt";
 import {
   createCodexDisruptionProvider,
@@ -1313,9 +1314,17 @@ async function finalizeUnhandledClaimFailure(
   }
 }
 
-export async function runDueDisruptionMonitors(
+/** Background checks run only in operator-sponsored trips, so always on the operator's keys. */
+export function runDueDisruptionMonitors(
   pool: Pool,
   options: RunDisruptionMonitorOptions = {},
+): Promise<DisruptionMonitorSummary> {
+  return withOperatorAiCredential(() => runDueDisruptionMonitorsAsOperator(pool, options));
+}
+
+async function runDueDisruptionMonitorsAsOperator(
+  pool: Pool,
+  options: RunDisruptionMonitorOptions,
 ): Promise<DisruptionMonitorSummary> {
   const now = options.now ? new Date(options.now) : new Date();
   if (!Number.isFinite(now.getTime())) throw new Error("A valid monitor time is required.");

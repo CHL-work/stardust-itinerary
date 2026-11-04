@@ -19,7 +19,9 @@ vi.mock("@/lib/app/repository", () => ({
   AppConflictError: class AppConflictError extends Error {},
   AppInvalidInputError: class AppInvalidInputError extends Error {},
   AiPolicyDeniedError: class AiPolicyDeniedError extends Error {},
-  getAiPolicy: mocks.getAiPolicy, getAiPendingItineraryContext: mocks.getPending,
+  // Real policies always name who pays; the mock defaults to the operator.
+  getAiPolicy: async (...args: unknown[]) => ({ credentialSource: "operator", ...(await mocks.getAiPolicy(...args)) }),
+  getAiPendingItineraryContext: mocks.getPending,
   updatePendingItineraryRequestWithClient: mocks.editPending,
   createChangeRequestWithClient: mocks.create, createChangeRequest: mocks.create,
   createAiCreateRequestsWithClient: mocks.createBatch, createAiItineraryCreateRequestsWithClient: mocks.createBatch,

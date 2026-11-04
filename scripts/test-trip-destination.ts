@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withOperatorAiCredential } from "../src/lib/ai/credential-context";
 import type { lookupTripDestination } from "../src/lib/ai/trip-destination-provider";
 
 type Provider = typeof lookupTripDestination;
@@ -54,7 +55,7 @@ export async function runTripDestinationSmoke(
     try {
       // Same 20-second allowance and actual provider harness as the app. This
       // outer signal also covers setup before the provider starts its timer.
-      const output = await provider({ destination: test.destination, locale: "en", signal: AbortSignal.timeout(20_000) });
+      const output = await withOperatorAiCredential(() => provider({ destination: test.destination, locale: "en", signal: AbortSignal.timeout(20_000) }));
       const pass = matches(test.code, output);
       results.push({ pass, code: `${test.code}_${pass ? "PASS" : "RESULT_MISMATCH"}`, tokens: safeTokens(output.usage) });
     } catch (error) {

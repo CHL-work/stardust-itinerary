@@ -4,6 +4,7 @@ import { AppConflictError, AppForbiddenError, inTransaction } from "@/lib/app/re
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 import { isPlatformOperator } from "@/lib/auth/operator-access";
+import { feedbackRepository } from "@/lib/feedback/github-publisher";
 import { FEEDBACK_ACTIVITY_WINDOW_MS, feedbackSubmissionSchema, type FeedbackContext, type FeedbackDiagnostics, type FeedbackReceipt,
   type FeedbackSubmission, type FeedbackSubmissionResult, type PrivateFeedbackReport, type FeedbackOperatorStatus } from "@/lib/feedback/contracts";
 
@@ -135,7 +136,7 @@ export async function getFeedbackOperatorStatus(pool: Pool, session: Authenticat
       "SELECT run_date::text, state,attempt_count,started_at,completed_at,model,effort,error_code FROM feedback_triage_runs ORDER BY run_date DESC LIMIT 1");
     const count = counts.rows[0];
     const run = runs.rows[0];
-    return { configuration: { triageConfigured: process.env.STARDUST_FEEDBACK_TRIAGE_ENABLED === "true", publishingConfigured: Boolean(process.env.STARDUST_FEEDBACK_GITHUB_TOKEN?.trim()) },
+    return { configuration: { triageConfigured: process.env.STARDUST_FEEDBACK_TRIAGE_ENABLED === "true", publishingConfigured: Boolean(process.env.STARDUST_FEEDBACK_GITHUB_TOKEN?.trim() && feedbackRepository(process.env.STARDUST_FEEDBACK_REPOSITORY)) },
       queue: { reports: count.reports, queuedIssues: count.queued_issues, uncertainIssues: count.uncertain_issues, blockedIssues: count.blocked_issues, publishedIssues: count.published_issues },
       lastRun: run ? { runDate: String(run.run_date), state: run.state, attemptCount: run.attempt_count,
         startedAt: run.started_at?.toISOString() ?? null, completedAt: run.completed_at?.toISOString() ?? null,
