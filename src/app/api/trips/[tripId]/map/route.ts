@@ -4,7 +4,9 @@ import { apiError } from "@/lib/app/http";
 import { AppForbiddenError, AppInvalidInputError, assertTrip, getAppOverview } from "@/lib/app/repository";
 import { getAuthConfig } from "@/lib/auth/config";
 import { requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
+import { isGuestSession } from "@/lib/auth/guest-identity";
 import { isPlatformOperator } from "@/lib/auth/operator-access";
+import { enforceRateLimit } from "@/lib/auth/repository";
 import { getPool } from "@/lib/db/pool";
 import { dayMapInput, generateDayMap } from "@/lib/maps/service";
 import { withMapAbort } from "@/lib/maps/google";
@@ -41,6 +43,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const session = await requireAuthenticatedSession(request, config);
     const { tripId } = await params;
     assertTrip(session, z.uuid().parse(tripId));
+    // Map lookups share community services and a per-process budget; free guests get a small share (JOB-064).
+    if (isGuestSession(session)) {
+      await enforceRateLimit(getPool(config), config, { scope: "guest-map", key: session.userId, maximum: 20, windowSeconds: 3600 });
+    }
     const parsed = dayMapInput.safeParse(await readInput(request));
     if (!parsed.success) throw new AppInvalidInputError("map_invalid_input");
     const loadOverview = async () => {

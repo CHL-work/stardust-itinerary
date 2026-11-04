@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createGuestSession, GuestCapacityError, guestModeEnabled, verifyTurnstile } from "@/lib/app/guest";
+import {
+  createGuestSession, GuestAddressLimitError, GuestCapacityError, guestModeEnabled, turnstileMode, verifyTurnstile,
+} from "@/lib/app/guest";
 import { apiError } from "@/lib/app/http";
 import { getAuthConfig } from "@/lib/auth/config";
 import { RateLimitError } from "@/lib/auth/errors";
 import { enforceRateLimit } from "@/lib/auth/repository";
-import { requestRateLimitKey, requireSameOrigin, setSessionCookie } from "@/lib/auth/web";
+import { requireSameOrigin, setSessionCookie, trustedClientAddress } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 import { locales } from "@/lib/i18n";
 
 /**
  * "Try as guest" (JOB-064): a 24-hour guest account with a synthetic demo trip. Off unless
- * GUEST_MODE_ENABLED=true; gated by Cloudflare Turnstile when configured, and always rate limited.
+ * GUEST_MODE_ENABLED=true; gated by Cloudflare Turnstile (required unless explicitly waived),
+ * rate limited and capped per address on Cloudflare's own client-address header.
  */
 const guestRequestSchema = z.strictObject({
   turnstileToken: z.string().min(1).max(2048).optional(),
@@ -25,6 +28,11 @@ export async function POST(request: NextRequest) {
   try {
     const config = getAuthConfig();
     requireSameOrigin(request, config);
+    const mode = turnstileMode();
+    if (mode === "misconfigured") {
+      console.error("Guest mode is on without TURNSTILE_SECRET_KEY; guest creation is refused");
+      return NextResponse.json({ error: "Guest trips are not available right now.", code: "GUEST_UNAVAILABLE" }, { status: 503, headers });
+    }
     const text = await request.text();
     let raw: unknown = {};
     if (text.trim()) {
@@ -32,22 +40,24 @@ export async function POST(request: NextRequest) {
     }
     const body = guestRequestSchema.parse(raw);
     const pool = getPool(config);
-    await enforceRateLimit(pool, config, { scope: "guest-create", key: requestRateLimitKey(request), maximum: 3, windowSeconds: 3600 });
-    const address = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-real-ip");
-    if (await verifyTurnstile(body.turnstileToken, address) === "failed") {
+    const address = trustedClientAddress(request);
+    await enforceRateLimit(pool, config, { scope: "guest-create", key: address, maximum: 3, windowSeconds: 3600 });
+    if (mode === "required" && !await verifyTurnstile(body.turnstileToken, address === "unknown-address" ? null : address,
+      { hostname: config.appBaseUrl.hostname, action: "guest" })) {
       return NextResponse.json({ error: "The check that you are a person did not pass. Try again.", code: "GUEST_CHALLENGE_FAILED" },
         { status: 403, headers });
     }
     const created = await createGuestSession(pool, config, {
-      userAgent: request.headers.get("user-agent"), locale: body.locale ?? "en",
+      userAgent: request.headers.get("user-agent"), locale: body.locale ?? "en", address,
     });
     const response = NextResponse.json({ tripId: created.tripId }, { status: 201, headers });
     setSessionCookie(response, config, created.grant);
     return response;
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return NextResponse.json({ error: "Too many guest trips were started from here. Try again later.", code: "GUEST_RATE_LIMITED" },
-        { status: 429, headers: { ...headers, "Retry-After": String(error.retryAfterSeconds) } });
+    if (error instanceof RateLimitError || error instanceof GuestAddressLimitError) {
+      return NextResponse.json({ error: error instanceof GuestAddressLimitError ? error.message : "Too many guest trips were started from here. Try again later.",
+        code: "GUEST_RATE_LIMITED" },
+      { status: 429, headers: { ...headers, ...(error instanceof RateLimitError ? { "Retry-After": String(error.retryAfterSeconds) } : {}) } });
     }
     if (error instanceof GuestCapacityError) {
       return NextResponse.json({ error: error.message, code: "GUEST_CAPACITY" }, { status: 503, headers });

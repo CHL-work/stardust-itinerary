@@ -31,7 +31,8 @@ describe("localized private picture composer", () => {
   });
   it("wires both composers to one scoped draft with explicit send and safe lifecycle cleanup", () => {
     const shell = readFileSync("src/components/app-shell.tsx", "utf8");
-    expect(shell.match(/imagePicker=\{\{ \.\.\.aiImages, locale \}\}/g)).toHaveLength(2);
+    // Both composers share one draft; guests get no picture picker (JOB-064).
+    expect(shell.match(/imagePicker=\{overview\.session\.isGuest \? undefined : \{ \.\.\.aiImages, locale \}\}/g)).toHaveLength(2);
     expect(shell).toContain('readOnly={purpose === "preferences"}');
     expect(shell).toContain('conversationId === undefined || purpose === "preferences") return;');
     expect(shell).toContain('{imagePicker ?');

@@ -7,7 +7,7 @@ import {
   AppInvalidInputError,
   AppNotFoundError,
 } from "@/lib/app/repository";
-import { AuthConfigurationError, SessionUnavailableError } from "@/lib/auth/errors";
+import { AuthConfigurationError, RateLimitError, SessionUnavailableError } from "@/lib/auth/errors";
 
 export function apiError(error: unknown): NextResponse {
   if (error instanceof ZodError) {
@@ -18,6 +18,10 @@ export function apiError(error: unknown): NextResponse {
   }
   if (error instanceof SessionUnavailableError) {
     return NextResponse.json({ error: error.message }, { status: 401 });
+  }
+  if (error instanceof RateLimitError) {
+    return NextResponse.json({ error: "Too many requests. Try again later.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(error.retryAfterSeconds) } });
   }
   if (error instanceof AppForbiddenError) {
     return NextResponse.json({ error: error.message }, { status: 403 });

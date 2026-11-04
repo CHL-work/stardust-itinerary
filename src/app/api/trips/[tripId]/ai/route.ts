@@ -8,6 +8,7 @@ import { AiConversationChangedError } from "@/lib/ai/conversation";
 import { readAiRequestRecovery } from "@/lib/ai/request-recovery";
 import { aiProviderFailureDetails } from "@/lib/ai/provider-failure";
 import { apiError } from "@/lib/app/http";
+import { assertNotGuest } from "@/lib/app/repository";
 import { aiRequestSchema, aiRecoveryQuerySchema } from "@/lib/app/validation";
 import { getAuthConfig } from "@/lib/auth/config";
 import { requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
@@ -34,6 +35,8 @@ export async function POST(
       );
     }
     const body = aiRequestSchema.parse(await readAiRequestJson(request));
+    // Pictures are stored until the guest is purged; free accounts could fill the database (JOB-064).
+    if (body.images?.length) assertNotGuest(session, "attach pictures");
     if (body.conversationId === undefined) throw new AiConversationChangedError();
     const images = await prepareAiImages(body.images);
     const result = await runAiPlanner(getPool(config), session, body.prompt, body.model, body.locale,

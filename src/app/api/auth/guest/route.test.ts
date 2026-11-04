@@ -16,9 +16,11 @@ vi.mock("@/lib/app/guest", async (importOriginal) => ({
 }));
 import { POST } from "./route";
 
-function request(body?: unknown) {
+function request(body?: unknown, headers: Record<string, string> = {}) {
   return new NextRequest("https://stardust.test/api/auth/guest", {
-    method: "POST", headers: { origin: "https://stardust.test", "content-type": "application/json", "user-agent": "Synthetic browser" },
+    method: "POST",
+    headers: { origin: "https://stardust.test", "content-type": "application/json", "user-agent": "Synthetic browser",
+      "cf-connecting-ip": "203.0.113.7", ...headers },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
@@ -29,7 +31,9 @@ describe("starting a guest trip", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.stubEnv("GUEST_MODE_ENABLED", "true");
-    mocks.turnstile.mockResolvedValue("passed");
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "synthetic-turnstile-secret");
+    vi.stubEnv("GUEST_ALLOW_WITHOUT_TURNSTILE", "");
+    mocks.turnstile.mockResolvedValue(true);
     mocks.create.mockResolvedValue({ grant, tripId: "synthetic-trip" });
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -40,20 +44,32 @@ describe("starting a guest trip", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
-  it("rate limits, checks Turnstile, creates the guest and sets only the session cookie", async () => {
-    const response = await POST(request({ turnstileToken: "synthetic-token", locale: "ja-JP" }));
+  it("refuses to run without Turnstile unless the operator explicitly waives it", async () => {
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "");
+    vi.stubEnv("TURNSTILE_SITE_KEY", "synthetic-site-key");
+    const response = await POST(request({}));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: "GUEST_UNAVAILABLE" });
+    vi.stubEnv("GUEST_ALLOW_WITHOUT_TURNSTILE", "true");
+    expect((await POST(request({}))).status).toBe(201);
+    expect(mocks.turnstile).not.toHaveBeenCalled();
+  });
+
+  it("limits by Cloudflare's address, checks Turnstile for this site, and sets only the session cookie", async () => {
+    const response = await POST(request({ turnstileToken: "synthetic-token", locale: "ja-JP" },
+      { "x-forwarded-for": "198.51.100.1", "user-agent": "Another browser" }));
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ tripId: "synthetic-trip" });
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("set-cookie")).toContain("synthetic-session-token");
-    expect(mocks.limit).toHaveBeenCalledWith("pool", config, expect.objectContaining({ scope: "guest-create", maximum: 3, windowSeconds: 3600 }));
-    expect(mocks.turnstile).toHaveBeenCalledWith("synthetic-token", null);
-    expect(mocks.create).toHaveBeenCalledWith("pool", config, { userAgent: "Synthetic browser", locale: "ja-JP" });
+    expect(mocks.limit).toHaveBeenCalledWith("pool", config, { scope: "guest-create", key: "203.0.113.7", maximum: 3, windowSeconds: 3600 });
+    expect(mocks.turnstile).toHaveBeenCalledWith("synthetic-token", "203.0.113.7", { hostname: "stardust.test", action: "guest" });
+    expect(mocks.create).toHaveBeenCalledWith("pool", config, { userAgent: "Another browser", locale: "ja-JP", address: "203.0.113.7" });
     expect(mocks.limit.mock.invocationCallOrder[0]!).toBeLessThan(mocks.create.mock.invocationCallOrder[0]!);
   });
 
   it("refuses a failed person check, over-limit callers and unknown fields before creating anything", async () => {
-    mocks.turnstile.mockResolvedValueOnce("failed");
+    mocks.turnstile.mockResolvedValueOnce(false);
     const failed = await POST(request({ turnstileToken: "bad" }));
     expect(failed.status).toBe(403);
     expect(await failed.json()).toMatchObject({ code: "GUEST_CHALLENGE_FAILED" });

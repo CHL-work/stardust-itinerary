@@ -66,6 +66,15 @@ export function requestRateLimitKey(request: NextRequest): string {
   return `${address}\0${userAgent}`;
 }
 
+/**
+ * The client address for abuse limits that strangers could otherwise reset: Cloudflare's own
+ * `CF-Connecting-IP` (a client cannot set it through the tunnel), else a reverse proxy's
+ * `X-Real-IP`. Never the user agent or the client-supplied first `X-Forwarded-For` entry.
+ */
+export function trustedClientAddress(request: NextRequest): string {
+  return request.headers.get("cf-connecting-ip")?.trim() || request.headers.get("x-real-ip")?.trim() || "unknown-address";
+}
+
 export function requireSameOrigin(request: NextRequest, config: AuthConfig): void {
   if (!config.allowedOrigins.has(request.headers.get("origin") ?? "")) {
     throw new SessionUnavailableError("The request origin is not allowed.");

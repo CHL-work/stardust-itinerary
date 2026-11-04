@@ -5,6 +5,7 @@ import type { AuthConfig } from "@/lib/auth/config";
 import type { GoogleIdentity } from "@/lib/auth/google";
 import { freshAuthenticationCeiling, readCurrentSessionCeiling, rollingSessionExpiry } from "@/lib/auth/session-lifetime";
 import { closeMemberAiConversationForIdentityChange } from "@/lib/ai/conversation";
+import { revokeAiKeyGrants } from "@/lib/app/ai-key-grants";
 import {
   ClaimUnavailableError,
   JoinUnavailableError,
@@ -1324,6 +1325,11 @@ export async function unbindMemberIdentity(
       memberId: input.memberId,
       actorMemberId: input.actorMemberId,
       cause: "identity_unbound",
+    });
+    // A key grant belongs to the person, not the slot: whoever claims the slot next starts without one.
+    await revokeAiKeyGrants(client, {
+      tripId: input.tripId, memberId: input.memberId, actorMemberId: input.actorMemberId,
+      cause: "identity_unbound", roles: "member",
     });
     await client.query(
       `UPDATE trip_members

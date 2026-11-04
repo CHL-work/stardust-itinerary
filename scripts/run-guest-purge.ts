@@ -5,10 +5,12 @@ import { purgeExpiredGuests } from "../src/lib/app/guest";
 /**
  * Hourly: permanently delete guest accounts (JOB-064) whose 24 hours are over, with their demo
  * trips. Prints counts only. A guest the database refuses to purge is counted and left in place.
+ * The purge suspends triggers, so this job connects as the database administrator
+ * (DATABASE_DIRECT_URL, built from the mounted password); the runtime role cannot run it.
  */
 export async function guestPurgeMain() {
   if (process.argv.length > 2) throw new Error("guest_purge_arguments_invalid");
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.DATABASE_DIRECT_URL ?? process.env.DATABASE_URL;
   if (!connectionString || !["postgres:", "postgresql:"].includes(new URL(connectionString).protocol)) {
     throw new Error("guest_purge_database_unconfigured");
   }

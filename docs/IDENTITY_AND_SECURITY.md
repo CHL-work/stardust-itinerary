@@ -124,9 +124,17 @@ Offline storage is neither encrypted backup nor fresh authentication. It identif
   - Grants are owner-managed, audited and checked on every request against the sponsor's current ownership and keys.
 - **Guest accounts (JOB-064):**
   - A guest's identity uses the issuer `urn:stardust:guest`, which no Google sign-in can match, and its session ends when the account does, 24 hours after creation.
-  - Creation is off unless `GUEST_MODE_ENABLED=true`. It is same-origin, limited to three an hour per browser address, capped in total, and gated by Cloudflare Turnstile when `TURNSTILE_SECRET_KEY` is set. The Turnstile check never follows redirects.
+  - Creation is off unless `GUEST_MODE_ENABLED=true`, and is same-origin.
+  - **Turnstile:** required. Without a secret, creation is refused unless `GUEST_ALLOW_WITHOUT_TURNSTILE=true`. The check fails closed, must report this hostname and the `guest` action, and never follows redirects.
+  - **Limits:** three new guests an hour and three active guests per address, keyed on Cloudflare's `CF-Connecting-IP` (only a keyed hash is stored), plus a total cap.
+  - **Allowances:** guests get 5 key checks a day, 20 own-key AI requests a day and small map and weather allowances, and cannot attach pictures.
   - Guests are isolated from real trips by database triggers.
-  - `app_purge_expired_guest` is a `SECURITY DEFINER` function with a fixed `search_path`, not executable by `PUBLIC`. It deletes only provably guest-only rows and verifies afterwards that nothing references them.
+  - **The purge function:** `app_purge_expired_guest` runs with its caller's rights.
+    - Only the purge job calls it: it connects as the database administrator, with its own service account and no other secret.
+    - It is not executable by `PUBLIC` or the runtime role.
+    - It reads only schema-qualified catalogs, with temporary schemas searched last, and touches only tables in `public`.
+    - It deletes only accounts whose sole identity is the guest issuer, and verifies afterwards that no row or foreign key still references them.
+  - **Guest status:** fixed for life by triggers, so no real trip can become something the purge would erase.
 - Every in-app Codex call (planning, research, venue hours, image extraction, place lookups and disruption checks) runs with the same locked-down configuration: no shell, exec, apps, agents, hooks, memories, image viewer, shell snapshot, MCP or history. A turn that used anything beyond reasoning, its answer and (where allowed) web search is refused. The read-only sandbox alone would still let a shell read local files, and with users' keys in sibling provider processes, any file-reading tool could reach them.
 
 Provider, OAuth and database secrets belong in the deployment's secret store or server environment ([deployment](DEPLOYMENT.md), [self-hosting](SELF_HOSTING.md)), never in Git, logs, URLs or the browser. Give each process only the credentials it needs. Backups are covered in [database](DATABASE.md).

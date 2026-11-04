@@ -13,7 +13,7 @@ locals {
     "stardust-app-env"            = ["stardust-web", "stardust-worker", "stardust-migrate"]
     "stardust-ai-env"             = ["stardust-web", "stardust-worker"]
     "stardust-credential-env"     = ["stardust-web"]
-    "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup"]
+    "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup", "stardust-guest-purge"]
     "stardust-tunnel-credentials" = ["stardust-tunnel"]
   }
   secret_grants = merge([

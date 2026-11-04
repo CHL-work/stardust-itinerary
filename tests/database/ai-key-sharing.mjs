@@ -6,7 +6,7 @@ import {
   updateAiSettings, updateTripMember,
 } from "../../src/lib/app/repository.ts";
 import { aiKeyUsage, deleteAiCredential, readAiCredentialSecret, saveAiCredential } from "../../src/lib/ai/credentials.ts";
-import { consumeJoinLink, issueJoinLink, signInExistingIdentity, verifySession } from "../../src/lib/auth/repository.ts";
+import { consumeJoinLink, issueJoinLink, signInExistingIdentity, unbindMemberIdentity, verifySession } from "../../src/lib/auth/repository.ts";
 
 /**
  * Trip owners sharing their own AI keys with chosen members (JOB-063). Synthetic fixtures only, in
@@ -150,12 +150,24 @@ export async function testAiKeySharing(pool, connectionString) {
     assert.ok(audits.some((row) => row.metadata.includes("join_link")) && audits.some((row) => row.metadata.includes("member_added")));
     assert.equal(audits.some((row) => row.metadata.includes(sponsorKey) || row.metadata.includes("SHAR")), false);
 
+    // A grant belongs to the person: unbinding the member's identity removes it, so whoever claims
+    // the slot next starts without the owner's key.
+    await setAiKeyGrant(pool, ownerSession, tripId, outsiderMemberId, true);
+    await unbindMemberIdentity(pool, { tripId, memberId: outsiderMemberId, actorMemberId: ownerMemberId, actorUserId: owner.userId });
+    assert.equal((await pool.query("SELECT count(*)::int AS count FROM trip_ai_key_grants WHERE trip_id=$1 AND member_id=$2",
+      [tripId, outsiderMemberId])).rows[0].count, 0);
+    assert.equal((await pool.query(`SELECT count(*)::int AS count FROM audit_events WHERE trip_id=$1 AND entity_id=$2
+      AND action='ai_keys_unshared' AND metadata->>'source'='identity_unbound'`, [tripId, outsiderMemberId])).rows[0].count, 1);
+
     // A sponsor who stops being an owner stops sharing, without anyone else's action.
     const revision = (await pool.query("SELECT current_revision FROM trip_members WHERE trip_id=$1 AND id=$2", [tripId, ownerMemberId])).rows[0].current_revision;
     await updateTripMember(pool, coOwnerSession, tripId, ownerMemberId, { role: "editor", expectedRevision: revision });
     await assert.rejects(policy(memberSession), { reasonCode: "ai_key_required" });
     await assert.rejects(policy(joinedSession), { reasonCode: "ai_key_required" });
     assert.equal((await getAppOverview(pool, coOwnerSession)).members.find((entry) => entry.id === memberMemberId).aiKeyGrant, null);
+    // The grants are gone rather than dormant, so promoting the sponsor again does not revive them.
+    assert.equal((await pool.query("SELECT count(*)::int AS count FROM trip_ai_key_grants WHERE trip_id=$1 AND sponsor_member_id=$2",
+      [tripId, ownerMemberId])).rows[0].count, 0);
   } finally {
     if (previousKey === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
     else process.env.CREDENTIAL_ENCRYPTION_KEY = previousKey;

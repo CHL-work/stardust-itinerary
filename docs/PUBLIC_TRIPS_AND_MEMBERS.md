@@ -64,8 +64,10 @@ Turning sharing on always shares the acting owner's own keys and replaces anothe
 Rules:
 - **Grants:** `trip_ai_key_grants` holds one grant per member, naming the sponsoring owner. `PUT /api/trips/{tripId}/members/{memberId}/ai-key-grant` takes `{shared}`. `POST /members` and `POST /join-links` accept `shareAiKeys`.
 - **Who can grant:** only active owners, never to themselves, and only with at least one key of their own (otherwise `400`). A join link grants only to people who join through it while its creator is an active owner.
-- **Funding:** after the requester's own key and before operator sponsorship. A grant works only while its sponsor is an active owner who holds a key. Turning it off, the sponsor losing ownership, or the sponsor deleting the key stops it at the next request.
-- **Model and quota:** shared requests run the trip's model, which any owner of an unsponsored trip can choose in Settings. If the sponsor holds no key for that model's provider, the sponsor's first provider's default runs. A member's own model choice is ignored. Shared requests count against `member_daily_limit`, as sponsored ones do.
+- **Funding:** after the requester's own key and before operator sponsorship. A grant works only while its sponsor is an active owner who holds a key. Turning it off, or the sponsor deleting the key, stops it at the next request.
+- **A grant belongs to the person:** it is deleted, and audited, when the member's Google identity is unbound from the slot, when the sponsor stops being an active owner, and when either is removed. It never passes to whoever claims the slot next, and never revives if the sponsor becomes an owner again.
+- **Model and quota:** shared requests run the trip's model, which any owner of an unsponsored trip can choose in Settings. If the sponsor holds no key for that model's provider, the sponsor's first provider's default runs. A member's own model choice is ignored. Shared requests count against `member_daily_limit`, as sponsored ones do, and against a cap of 200 a day per sponsor and trip. That cap bounds what a leaked sharing link can cost.
+- **Privacy:** a member's prompts, and the trip context they need, go to the AI provider under the sponsor's account, and the AI tab says so.
 - **Visibility:**
   - Owners see on each member whose keys they use. A member sees only whose key and which model their AI uses, and never the key.
   - Changes are audited as `ai_keys_shared` and `ai_keys_unshared` without key material.
@@ -75,7 +77,12 @@ Rules:
 
 Decision: [D-077](DECISIONS.md#d-077-guest-accounts-for-trying-the-public-instance-accepted-november-4-2026) (JOB-064). With `GUEST_MODE_ENABLED=true`, the sign-in page offers **Try as guest**. `POST /api/auth/guest` takes an optional `{turnstileToken, locale}` and works as follows:
 
-1. It refuses `404` while guest mode is off, `429` beyond three new guests an hour per browser address, `403` when a configured Turnstile check fails, and `503` when the active-guest cap (`GUEST_ACTIVE_LIMIT`, default 200) is reached.
+1. It refuses:
+   - `404` while guest mode is off;
+   - `503` when Turnstile is not configured, unless `GUEST_ALLOW_WITHOUT_TURNSTILE=true` waives it;
+   - `403` when the Turnstile check fails. The check must also report this site's hostname and the `guest` action;
+   - `429` beyond three new guests an hour from one address, or three active guests from one address (`GUEST_PER_ADDRESS_LIMIT`). The address is Cloudflare's `CF-Connecting-IP`, never the user agent or a client-supplied `X-Forwarded-For`. Only a keyed hash of it is stored;
+   - `503` when the active-guest cap (`GUEST_ACTIVE_LIMIT`, default 200) is reached.
 2. Otherwise one transaction creates:
    - a guest account (`app_users.guest_expires_at`, 24 hours ahead) with an identity under `urn:stardust:guest`;
    - a three-day synthetic demo trip in Tokyo (`trips.guest_expires_at`, one member place), written in the browser's language;
@@ -83,11 +90,18 @@ Decision: [D-077](DECISIONS.md#d-077-guest-accounts-for-trying-the-public-instan
    - an owner session that ends with the account.
 
 A guest:
-- **Can:** use the trip like an owner, save their own AI keys and use AI with them. The trip is never sponsored.
+- **Can:** use the trip like an owner, save their own AI keys and use AI with them. The trip is never sponsored. Because anyone can create a guest, its allowances are smaller: 5 key checks a day, 20 own-key AI requests a day, 20 map loads and 4 weather refreshes an hour, and no attached pictures.
 - **Cannot:** add members, create join or claim links, create more trips, connect Google Calendar, send feedback or use the operator-funded destination lookup. Invitations and members are refused by database triggers as well as by the application.
 - **Is never mixed with real trips:** a guest belongs only to its own guest trip, and an account can never become, or stop being, a guest.
 
-An hourly job (`guest-purge`) calls `app_purge_expired_guest` for each expired guest. It permanently deletes the account, its identity, keys and sessions, and every row of its trips. It refuses, and changes nothing, if the guest is not provably isolated or has feedback reports. The app shows the guest when the deletion happens.
+An hourly job (`guest-purge`) calls `app_purge_expired_guest` for each expired guest. It permanently deletes the account, its identity, keys and sessions, and every row of its trips. The app shows the guest when the deletion happens.
+
+The purge refuses, and changes nothing, unless:
+- the account's only identity is the guest issuer;
+- its trips are guest trips whose only member is the guest;
+- there are no feedback reports.
+
+It runs with the caller's rights and needs the database administrator. Only the purge job, which has its own service account and only the administrator password, runs it. The web server's runtime role cannot. Guest status is fixed for life: a trip can never become a guest trip, and a guest trip's owner and member never change. So the purge can never be pointed at a real trip.
 
 ## Deleting a trip
 

@@ -1,3 +1,4 @@
+import { assertNotGuest } from "@/lib/app/repository";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -22,7 +23,7 @@ export async function POST(
   try {
     const config = getAuthConfig();
     requireSameOrigin(request, config);
-    const session = await requireAuthenticatedSession(request, config);
+    const session = await requireAuthenticatedSession(request, config); assertNotGuest(session, "use Google Calendar");
     const { tripId } = await params;
     const body = syncSchema.parse(await request.json());
     const pool = getPool(config);

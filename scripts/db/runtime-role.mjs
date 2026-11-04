@@ -33,9 +33,23 @@ export function grantStatements(client, roleName, database) {
      END $grant$`,
     `REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.app_schema_migrations FROM ${role}`,
     `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${role}`,
-    `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${role}`,
+    // Every application function except those reserved for administrator jobs: the guest purge
+    // suspends triggers and deletes for good, so only the guest-purge job (as administrator) runs it.
+    `DO $grant$ DECLARE item record; BEGIN
+       FOR item IN SELECT p.oid::regprocedure AS signature FROM pg_proc p
+         WHERE p.pronamespace = 'public'::regnamespace AND NOT (p.proname = ANY (${client.escapeLiteral(`{${administratorOnlyFunctions.join(",")}}`)}::text[])) LOOP
+         EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %I', item.signature, ${client.escapeLiteral(roleName)});
+       END LOOP;
+       FOR item IN SELECT p.oid::regprocedure AS signature FROM pg_proc p
+         WHERE p.pronamespace = 'public'::regnamespace AND p.proname = ANY (${client.escapeLiteral(`{${administratorOnlyFunctions.join(",")}}`)}::text[]) LOOP
+         EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %I', item.signature, ${client.escapeLiteral(roleName)});
+       END LOOP;
+     END $grant$`,
   ];
 }
+
+/** Functions the runtime role must never execute. */
+export const administratorOnlyFunctions = ["app_purge_expired_guest"];
 
 async function main() {
   const runtimeRole = runtimeRoleFromEnvironment();

@@ -65,6 +65,29 @@ The owner asked for this on November 4, 2026: a guest option without Google sign
   - an untouched real trip, and a later purge after the leak is repaired.
 - Unit tests cover the route (404, rate limit and Turnstile order, 403, 429, 400, cookie), the Turnstile verifier (redirects refused, fails closed), locale mapping, the sign-in button gating and the banner in all locales.
 
+## Security review
+
+An independent review of this job and JOB-063 found, and migration 0057 with its code changes fixed, the following.
+
+High:
+- **Superuser code execution:** the purge function was `SECURITY DEFINER` with temporary schemas searched first, and the web role could execute it. Temporary tables standing in for catalogs could have run code as superuser.
+  - Fix: it now runs with the caller's rights, reads qualified catalogs and touches only `public`.
+  - Only the purge job may run it, as database administrator, with its own service account and no other secret.
+
+Medium:
+- **A real trip passed off as a guest's:** the web role could have done this to have the purge erase a real trip. Fix: guest status is fixed for life, and the purge requires the guest identity.
+- **Spoofable rate-limit key:** the limit used client-chosen headers. Fix: it uses Cloudflare's client address, with a per-address active cap; Turnstile is required unless waived, and must match this hostname and action.
+- **Real-account allowances:** guests got them. Fix: smaller key-check, AI, map and weather allowances, and no pictures.
+- **Calendar from the callback, sync and import routes:** refused for guests.
+
+Low, fixed:
+- The final check now covers every trip table, catching a write that races the purge.
+- Refused guests go to the back of the queue.
+- Old rate-limit rows are pruned.
+- A guest trip's only member is its guest.
+
+The JOB-063 findings are recorded there.
+
 ## Not in this job
 
 - **Self-service account deletion** for Google accounts needs its own design, because D-073 keeps trip records. It is a follow-up job.

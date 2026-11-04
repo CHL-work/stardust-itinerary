@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { AppConflictError, AppForbiddenError, AppNotFoundError, appendAudit, assertTrip, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
+import { revokeAiKeyGrants } from "@/lib/app/ai-key-grants";
 import { memberPaymentSnapshot, type MemberPaymentRow } from "@/lib/app/member-payments";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 
@@ -309,6 +310,7 @@ export async function removeTripMemberSafely(pool: Pool, session: AuthenticatedS
         action: "invalidated", metadata: { reason: "member_removed", removedMemberId: memberId, retainedStatus: proposal.status } });
     }
     await client.query(`UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at,CURRENT_TIMESTAMP), revoke_reason = COALESCE(revoke_reason,'member_removed') WHERE trip_id = $1 AND member_id = $2`, [tripId, memberId]);
+    await revokeAiKeyGrants(client, { tripId, memberId, actorMemberId: session.memberId, cause: "member_removed", roles: "member" });
     await client.query(`UPDATE member_claim_links SET revoked_at = COALESCE(revoked_at,CURRENT_TIMESTAMP) WHERE trip_id = $1 AND member_id = $2 AND consumed_at IS NULL AND revoked_at IS NULL`, [tripId, memberId]);
     if (state.reusableInvites.length) await client.query(`UPDATE trip_join_links SET revoked_at = CURRENT_TIMESTAMP
       WHERE trip_id = $1 AND created_by_member_id = $2 AND id = ANY($3::uuid[]) AND revoked_at IS NULL AND exhausted_at IS NULL`,

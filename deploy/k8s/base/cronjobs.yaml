@@ -265,7 +265,9 @@ spec:
             app.kubernetes.io/name: stardust-itinerary
             app.kubernetes.io/component: guest-purge
         spec:
-          serviceAccountName: stardust-worker
+          # Its own identity: the purge suspends triggers, which needs the database administrator,
+          # so this job gets the administrator password and nothing else (no app or AI secrets).
+          serviceAccountName: stardust-guest-purge
           enableServiceLinks: false
           automountServiceAccountToken: false
           restartPolicy: Never
@@ -282,6 +284,8 @@ spec:
               env:
                 - name: STARDUST_ENV_DIR
                   value: /var/run/stardust/env
+                - name: STARDUST_DB_ADMIN_PASSWORD_FILE
+                  value: /var/run/stardust/db/password
                 - name: TMPDIR
                   value: /tmp
               resources:
@@ -296,17 +300,20 @@ spec:
                 capabilities:
                   drop: ["ALL"]
               volumeMounts:
-                - name: app-env
-                  mountPath: /var/run/stardust/env/app
+                - name: db-admin
+                  mountPath: /var/run/stardust/db
                   readOnly: true
                 - name: tmp
                   mountPath: /tmp
                 - name: home
                   mountPath: /home/stardust
           volumes:
-            - name: app-env
+            - name: db-admin
               secret:
-                secretName: stardust-app-env
+                secretName: stardust-db-admin
+                items:
+                  - key: password
+                    path: password
             - name: tmp
               emptyDir: {}
             - name: home

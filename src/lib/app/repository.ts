@@ -7,6 +7,7 @@ import { isPlatformOperator } from "@/lib/auth/operator-access";
 import { lockCurrentTripActor, requireAnotherBoundOwner } from "@/lib/app/trip-authorization";
 import { aiKeyProviderOrder, ownKeyModel } from "@/lib/ai/own-key-model";
 import { isGuestSession } from "@/lib/auth/guest-identity";
+import { revokeAiKeyGrants } from "@/lib/app/ai-key-grants";
 import {
   DEFAULT_OWNER_MODEL,
   MEMBER_MODEL,
@@ -3744,6 +3745,8 @@ export async function updateTripMember(
     const nextRole = input.role ?? target.role;
     if (target.role === "owner" && (input.disabled === true || nextRole !== "owner")) {
       await requireAnotherBoundOwner(client, tripId, memberId);
+      // Sharing ends for good when the sponsor stops being an active owner (JOB-063).
+      await revokeAiKeyGrants(client, { tripId, memberId, actorMemberId: session.memberId, cause: "sponsor_not_owner", roles: "sponsor" });
       await client.query(
         `UPDATE trips SET owner_user_id = (
            SELECT user_id FROM trip_members WHERE trip_id = $1 AND id <> $2
@@ -3870,6 +3873,13 @@ export async function updateAiSettings(
 
 /** Requests per account and UTC day on the user's own keys: a bound on this server's work, not on spend. */
 export const OWN_KEY_DAILY_LIMIT = 100;
+/** The same bound for a free guest account (JOB-064), which anyone can create. */
+export const GUEST_OWN_KEY_DAILY_LIMIT = 20;
+/**
+ * Shared-key requests per sponsoring owner, trip and UTC day, across all the members they share
+ * with: what a leaked sharing link can cost the owner at most, on top of each member's limit.
+ */
+export const SHARED_KEY_DAILY_LIMIT = 200;
 
 export type AiPolicy = {
   enabled: boolean; model: OwnerModel; usedToday: number; limit: number | null;
@@ -3912,9 +3922,10 @@ export async function getAiPolicy(
       [session.userId],
     );
     const usedToday = Number(ownUsage.rows[0]?.count ?? 0);
-    if (usedToday >= OWN_KEY_DAILY_LIMIT) {
+    const ownLimit = isGuestSession(session) ? GUEST_OWN_KEY_DAILY_LIMIT : OWN_KEY_DAILY_LIMIT;
+    if (usedToday >= ownLimit) {
       throw new AiPolicyDeniedError(
-        `The daily limit of ${OWN_KEY_DAILY_LIMIT} AI requests on your own key has been reached on this server.`,
+        `The daily limit of ${ownLimit} AI requests on your own key has been reached on this server.`,
         "daily_limit_reached", ownModel,
       );
     }
@@ -3938,6 +3949,20 @@ export async function getAiPolicy(
     if (usedToday >= row.member_daily_limit) {
       throw new AiPolicyDeniedError(
         `The daily AI limit of ${row.member_daily_limit} prompts has been reached.`,
+        "daily_limit_reached", sharedModel,
+      );
+    }
+    // A grant exists only from migration 0055, so the sponsor column does too.
+    const sponsorUsage = await client.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM ai_requests
+        WHERE trip_id = $1 AND credential_source = 'shared' AND credential_sponsor_member_id = $2
+          AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+          AND status <> 'rejected'`,
+      [session.tripId, grant.sponsorMemberId],
+    );
+    if (Number(sponsorUsage.rows[0]?.count ?? 0) >= SHARED_KEY_DAILY_LIMIT) {
+      throw new AiPolicyDeniedError(
+        "The trip owner's shared AI key has reached today's limit for this trip. Try again tomorrow.",
         "daily_limit_reached", sharedModel,
       );
     }

@@ -54,6 +54,18 @@ The owner asked for this on November 4, 2026: invite people to a trip, with a ch
   - audit without key material.
 - Unit tests cover the policy order, model fallback, limit, disabled AI and quota serialization (`src/lib/app/ai-policy.test.ts`). They also cover join-link body validation, and the AI tab's shared-key copy in all locales, default choice and owner-only switch.
 
+## Security review
+
+The independent review of this job and JOB-064 found:
+- No path for a non-owner, former member or other trip to use an owner's key without a grant.
+- One medium issue: a grant stayed with the member slot. A co-owner could unbind the member, claim the slot with another account and use the sponsor's key. Grants are now deleted, with an audit event:
+  - when the slot's identity is unbound;
+  - when the sponsor stops being an active owner (they no longer revive);
+  - on removal.
+- Low findings, fixed:
+  - A cap of 200 shared requests a day per sponsor and trip now bounds a leaked sharing link.
+  - The AI tab now tells members their prompts go to the sponsor's provider account.
+
 ## Known limits
 
 - No monthly cost cap: it would need per-model prices. The daily prompt limit is the only cap.

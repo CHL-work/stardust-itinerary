@@ -53,6 +53,15 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Security
 
+- **Hardening from an independent review of key sharing and guest accounts (migration `0057_guest_hardening.sql`):**
+  - **Guest purge:** `app_purge_expired_guest` is no longer `SECURITY DEFINER`, so the web role cannot use it to run code as superuser. Only the purge job runs it, connecting as the database administrator with its own service account and no other secret. It reads only qualified catalogs (temporary schemas last), touches only `public`, requires the guest identity, and its final check covers every trip table.
+  - **Guest status:** fixed for life, so no real trip can be turned into something the purge would erase.
+  - **Guest limits:** Turnstile is required unless explicitly waived, and its answer must match this hostname and action. Limits use Cloudflare's client address, with three active guests per address.
+  - **Guest allowances:** 5 key checks a day, 20 own-key AI requests a day, small map and weather allowances, and no pictures.
+  - **Calendar:** refused for guests on every route.
+  - **Key grants:** deleted when a member slot's identity changes or the sponsor stops being an owner, capped at 200 shared requests a day per sponsor and trip. Members are told their prompts go to the sponsor's provider account.
+  - **Rate limits:** API errors now map rate limits to 429 with `Retry-After`.
+
 - **Hardening from an independent review of bring-your-own keys (JOB-061):**
   - Key checks are limited to 10 an hour per account and 30 per address.
   - Requests on users' own keys are limited to 100 per account per UTC day.

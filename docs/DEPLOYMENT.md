@@ -9,7 +9,7 @@ How the public instance runs, and how to run your own the same way. For a single
 | Web server | `stardust-web` Deployment, autoscaled 1–3 replicas | Stateless; probes on `/api/health` |
 | PostgreSQL 17 | `stardust-db` StatefulSet, 10 GiB `pd-balanced` disk | Only application pods may connect (NetworkPolicy) |
 | Public access | `stardust-tunnel` (cloudflared) | Outbound-only Cloudflare Tunnel; no load balancer or public IP |
-| Background work | CronJobs `stardust-disruption` (every 5 min), `stardust-feedback` (hourly), `stardust-guest-purge` (hourly), `stardust-backup` (daily) | Each run is a short pod. The guest purge reaches only the database |
+| Background work | CronJobs `stardust-disruption` (every 5 min), `stardust-feedback` (hourly), `stardust-guest-purge` (hourly), `stardust-backup` (daily) | Each run is a short pod. The guest purge has its own service account and only the database administrator password, and reaches only the database |
 | Migrations | `stardust-migrate`, a suspended CronJob used as a template | Started once per release by the deploy script |
 | Secrets | Google Secret Manager, mounted as files by the GKE Secret Manager add-on | Each Kubernetes service account may read only its own secrets |
 | Backups | `gs://<project>-backups`, age-encrypted, 30-day lifecycle | The backup job can create objects but not read or delete them |
@@ -53,7 +53,7 @@ You need `gcloud`, OpenTofu 1.8+, `kubectl` with `gke-gcloud-auth-plugin`, `clou
    gcloud secrets versions add stardust-app-env --data-file=app.env --project=<project-id>
    ```
 
-   The migration job creates the `stardust_app` runtime role from `DATABASE_URL` and grants it only data access. The guest purge function suspends triggers for its own deletes, so migrations must run as a superuser, as they do with the bundled PostgreSQL; on a managed database without one, leave guest mode off.
+   The migration job creates the `stardust_app` runtime role from `DATABASE_URL` and grants it only data access. The guest purge function suspends triggers for its own deletes, so only a superuser can run it. The runtime role is never granted it; the purge job connects as the administrator. On a managed database without a superuser, leave guest mode off.
 
 4. **Tunnel:**
 

@@ -8,7 +8,7 @@ const session = { tripId: "trip-a", memberId: "member-a", userId: "user-a", role
 const config = { appBaseUrl: new URL("https://stardust.test"), databaseUrl: "postgresql://local/test", authSecret: "synthetic" };
 vi.mock("@/lib/auth/config", () => ({ getAuthConfig: () => config }));
 vi.mock("@/lib/auth/web", () => ({ requireAuthenticatedSession: mocks.auth, requireSameOrigin: mocks.origin,
-  requestRateLimitKey: () => "203.0.113.9\0synthetic-agent" }));
+  trustedClientAddress: () => "203.0.113.9" }));
 vi.mock("@/lib/auth/repository", () => ({ enforceRateLimit: mocks.limit }));
 vi.mock("@/lib/db/pool", () => ({ getPool: () => "pool" }));
 vi.mock("@/lib/ai/credentials", async (importOriginal) => ({

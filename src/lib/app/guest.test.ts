@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { GuestBanner } from "@/components/app-shell";
 import { GuestSignIn, guestLocale } from "@/components/guest-sign-in";
-import { guestModeEnabled, verifyTurnstile } from "@/lib/app/guest";
+import { guestModeEnabled, turnstileMode, verifyTurnstile } from "@/lib/app/guest";
 import { guestMessages } from "@/lib/app/guest-i18n";
 import { GUEST_ISSUER, isGuestSession } from "@/lib/auth/guest-identity";
 import { locales } from "@/lib/i18n";
@@ -22,23 +22,35 @@ describe("guest accounts", () => {
     expect(isGuestSession({ issuer: "https://accounts.google.com" })).toBe(false);
   });
 
-  it("checks Turnstile with the secret, never following redirects, and fails closed", async () => {
-    const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+  it("checks Turnstile with the secret, for this site and action, never following redirects, and fails closed", async () => {
+    const answer = (body: Record<string, unknown>) => vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       void url; void init;
-      return new Response(JSON.stringify({ success: true }), { status: 200 });
+      return new Response(JSON.stringify(body), { status: 200 });
     });
+    const expected = { hostname: "stardust.test", action: "guest" };
     const env = { TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret" };
-    await expect(verifyTurnstile("token", "203.0.113.4", env, fetchImpl as unknown as typeof fetch)).resolves.toBe("passed");
-    const [url, init] = fetchImpl.mock.calls[0]!;
+    const passing = answer({ success: true, hostname: "stardust.test", action: "guest" });
+    await expect(verifyTurnstile("token", "203.0.113.4", expected, env, passing as unknown as typeof fetch)).resolves.toBe(true);
+    const [url, init] = passing.mock.calls[0]!;
     expect(url).toBe("https://challenges.cloudflare.com/turnstile/v0/siteverify");
     expect(init).toMatchObject({ method: "POST", redirect: "error" });
     expect(String(init?.body)).toContain("remoteip=203.0.113.4");
-    await expect(verifyTurnstile(undefined, null, env, fetchImpl as unknown as typeof fetch)).resolves.toBe("failed");
-    const refusing = vi.fn(async () => new Response(JSON.stringify({ success: false }), { status: 200 }));
-    await expect(verifyTurnstile("token", null, env, refusing as unknown as typeof fetch)).resolves.toBe("failed");
+    for (const reply of [{ success: false }, { success: true, hostname: "evil.test", action: "guest" }, { success: true, hostname: "stardust.test", action: "login" },
+      { success: true }]) {
+      await expect(verifyTurnstile("token", null, expected, env, answer(reply) as unknown as typeof fetch)).resolves.toBe(false);
+    }
+    await expect(verifyTurnstile(undefined, null, expected, env, passing as unknown as typeof fetch)).resolves.toBe(false);
     const broken = vi.fn(async () => { throw new Error("network"); });
-    await expect(verifyTurnstile("token", null, env, broken as unknown as typeof fetch)).resolves.toBe("failed");
-    await expect(verifyTurnstile("token", null, {}, fetchImpl as unknown as typeof fetch)).resolves.toBe("not_configured");
+    await expect(verifyTurnstile("token", null, expected, env, broken as unknown as typeof fetch)).resolves.toBe(false);
+    await expect(verifyTurnstile("token", null, expected, {}, passing as unknown as typeof fetch)).resolves.toBe(false);
+  });
+
+  it("requires Turnstile unless the operator explicitly waives it", () => {
+    expect(turnstileMode({ TURNSTILE_SECRET_KEY: "synthetic" })).toBe("required");
+    expect(turnstileMode({ TURNSTILE_SITE_KEY: "synthetic-site" })).toBe("misconfigured");
+    expect(turnstileMode({})).toBe("misconfigured");
+    expect(turnstileMode({ GUEST_ALLOW_WITHOUT_TURNSTILE: "true" })).toBe("waived");
+    expect(turnstileMode({ TURNSTILE_SECRET_KEY: "synthetic", GUEST_ALLOW_WITHOUT_TURNSTILE: "true" })).toBe("required");
   });
 
   it("writes the demo trip in the browser's language", () => {

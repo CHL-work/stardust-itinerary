@@ -23,6 +23,13 @@ The owner wants people to try the public instance without signing in, with guest
   - Three new guests an hour per browser address.
   - A cap on active guests (default 200).
 
+**Hardened after an independent review** (migration 0057):
+- The purge runs with the caller's rights, and only the purge job (as database administrator) may call it; the web server's role cannot.
+- Guest status is fixed for life.
+- Turnstile is required unless explicitly waived.
+- Limits use Cloudflare's client address.
+- Guests get smaller allowances and no pictures.
+
 Public sign-up with Google already exists behind `PUBLIC_SIGNUP_ENABLED`. Turning either mode on for the public instance is an owner decision after the JOB-065 review.
 
 ## D-076: Trip owners can share their own AI keys with chosen members (accepted November 4, 2026)

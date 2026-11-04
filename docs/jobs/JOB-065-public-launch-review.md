@@ -18,7 +18,7 @@ Before strangers can use the public instance (public sign-up or guest mode), its
 1. [Threat model](../THREAT_MODEL.md), including the launch gates.
 2. An independent security review of each new public surface, with fixes:
    - **Bring-your-own keys:** done in JOB-061.
-   - **Key sharing and guest accounts:** this job.
+   - **Key sharing and guest accounts:** done. One high and five medium findings were fixed in migration 0057 and the code; the details are in JOB-063 and JOB-064.
 3. A [privacy notice](../PRIVACY.md) draft describing what the software stores and shares, for the owner to review and publish.
 4. **Credential follow-ups from the JOB-061 review:**
    - an encryption-key ring with re-encryption (rotation);

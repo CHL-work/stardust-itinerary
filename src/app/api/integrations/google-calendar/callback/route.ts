@@ -1,3 +1,4 @@
+import { assertNotGuest } from "@/lib/app/repository";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthConfig } from "@/lib/auth/config";
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   const verifier = request.cookies.get(calendarCookieNames.verifier)?.value;
   if (!state || !verifier) return NextResponse.json({ error: "Calendar authorization expired." }, { status: 400 });
   try {
-    const session = await requireAuthenticatedSession(request, config);
+    const session = await requireAuthenticatedSession(request, config); assertNotGuest(session, "use Google Calendar");
     const tokens = await completeCalendarAuthorization(config, new URL(request.url), state, verifier);
     await storeCalendarConnection(getPool(config), config, session, tokens);
     const response = NextResponse.redirect(new URL(`/${locale}?calendar=connected`, config.appBaseUrl));

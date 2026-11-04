@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 
 import {
@@ -17,6 +17,7 @@ import type { Locale } from "@/lib/i18n";
 export { GUEST_ISSUER, isGuestSession } from "@/lib/auth/guest-identity";
 export const GUEST_LIFETIME_HOURS = 24;
 const DEFAULT_ACTIVE_GUEST_LIMIT = 200;
+const DEFAULT_GUESTS_PER_ADDRESS = 3;
 
 export class GuestCapacityError extends Error {
   constructor() {
@@ -25,40 +26,59 @@ export class GuestCapacityError extends Error {
   }
 }
 
+export class GuestAddressLimitError extends Error {
+  constructor() {
+    super("Too many guest trips are active from here. Use one you already started, or try again tomorrow.");
+    this.name = "GuestAddressLimitError";
+  }
+}
+
 export function guestModeEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env.GUEST_MODE_ENABLED === "true";
 }
 
-function activeGuestLimit(env: Record<string, string | undefined>): number {
-  const value = Number(env.GUEST_ACTIVE_LIMIT ?? DEFAULT_ACTIVE_GUEST_LIMIT);
-  return Number.isInteger(value) && value > 0 ? value : DEFAULT_ACTIVE_GUEST_LIMIT;
+function positiveSetting(value: string | undefined, fallback: number): number {
+  const parsed = Number(value ?? fallback);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-type TurnstileResult = "passed" | "failed" | "not_configured";
+/**
+ * Whether guest creation must pass Cloudflare Turnstile. With guest mode on, a missing secret is a
+ * misconfiguration that disables guest creation, unless the operator explicitly waives the check
+ * for a private instance with GUEST_ALLOW_WITHOUT_TURNSTILE=true.
+ */
+export function turnstileMode(env: Record<string, string | undefined> = process.env): "required" | "waived" | "misconfigured" {
+  if (env.TURNSTILE_SECRET_KEY?.trim()) return "required";
+  return env.GUEST_ALLOW_WITHOUT_TURNSTILE === "true" ? "waived" : "misconfigured";
+}
 
 /**
- * Cloudflare Turnstile check for guest creation. Without TURNSTILE_SECRET_KEY the check is skipped
- * (local and self-hosted use); a public instance should configure it. Never follows redirects.
+ * Cloudflare Turnstile verification for guest creation. Fails closed on anything but a successful
+ * answer for this site's hostname and the guest action. Never follows redirects.
  */
 export async function verifyTurnstile(
-  token: string | undefined, remoteAddress: string | null,
+  token: string | undefined, remoteAddress: string | null, expected: { hostname: string; action: string },
   env: Record<string, string | undefined> = process.env, fetchImpl: typeof fetch = fetch,
-): Promise<TurnstileResult> {
+): Promise<boolean> {
   const secret = env.TURNSTILE_SECRET_KEY?.trim();
-  if (!secret) return "not_configured";
-  if (!token || token.length > 2048) return "failed";
+  if (!secret || !token || token.length > 2048) return false;
   const body = new URLSearchParams({ secret, response: token });
   if (remoteAddress) body.set("remoteip", remoteAddress);
   try {
     const response = await fetchImpl("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST", body, redirect: "error", signal: AbortSignal.timeout(8_000),
     });
-    if (!response.ok) return "failed";
-    const result = await response.json() as { success?: unknown };
-    return result.success === true ? "passed" : "failed";
+    if (!response.ok) return false;
+    const result = await response.json() as { success?: unknown; hostname?: unknown; action?: unknown };
+    return result.success === true && result.hostname === expected.hostname && result.action === expected.action;
   } catch {
-    return "failed";
+    return false;
   }
+}
+
+/** A keyed hash of the address a guest was created from: enough to count, nothing to read back. */
+function guestOriginHash(config: AuthConfig, address: string): Buffer {
+  return createHmac("sha256", config.authSecret).update(`stardust-guest-origin:${address}`).digest();
 }
 
 /** A date in Tokyo, `offset` days from now, as YYYY-MM-DD. */
@@ -93,25 +113,30 @@ const demoEvents = [
  */
 export async function createGuestSession(
   pool: Pool, config: AuthConfig,
-  input: { userAgent: string | null; locale: Locale; now?: Date },
+  input: { userAgent: string | null; locale: Locale; address: string; now?: Date },
   env: Record<string, string | undefined> = process.env,
 ): Promise<{ grant: SessionGrant; tripId: string }> {
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + GUEST_LIFETIME_HOURS * 60 * 60 * 1000);
   const copy = demoTitles[input.locale === "ja-JP" ? "ja" : input.locale.startsWith("zh") ? "zh" : "en"];
+  const origin = guestOriginHash(config, input.address);
   return inTransaction(pool, async (client) => {
-    // One lock serializes guest creation, so the capacity check below is exact.
+    // One lock serializes guest creation, so the capacity checks below are exact.
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended('stardust-guest-creation', 0))");
-    const active = await client.query<{ count: number }>(
-      "SELECT count(*)::integer AS count FROM app_users WHERE guest_expires_at > CURRENT_TIMESTAMP");
-    if ((active.rows[0]?.count ?? 0) >= activeGuestLimit(env)) throw new GuestCapacityError();
+    const active = await client.query<{ total: number; from_origin: number }>(
+      `SELECT count(*)::integer AS total, count(*) FILTER (WHERE guest_origin_hash = $1)::integer AS from_origin
+         FROM app_users WHERE guest_expires_at > CURRENT_TIMESTAMP`, [origin]);
+    if ((active.rows[0]?.total ?? 0) >= positiveSetting(env.GUEST_ACTIVE_LIMIT, DEFAULT_ACTIVE_GUEST_LIMIT)) throw new GuestCapacityError();
+    if ((active.rows[0]?.from_origin ?? 0) >= positiveSetting(env.GUEST_PER_ADDRESS_LIMIT, DEFAULT_GUESTS_PER_ADDRESS)) {
+      throw new GuestAddressLimitError();
+    }
 
     const userId = randomUUID();
     const tripId = randomUUID();
     const memberId = randomUUID();
     const subject = randomUUID();
-    await client.query("INSERT INTO app_users (id, display_name, guest_expires_at) VALUES ($1, $2, $3)",
-      [userId, copy.guest, expiresAt]);
+    await client.query("INSERT INTO app_users (id, display_name, guest_expires_at, guest_origin_hash) VALUES ($1, $2, $3, $4)",
+      [userId, copy.guest, expiresAt, origin]);
     await client.query("INSERT INTO oidc_identities (issuer, subject, user_id) VALUES ($1, $2, $3)", [GUEST_ISSUER, subject, userId]);
     const dates = [0, 1, 2].map((offset) => tokyoDate(now, offset + 1));
     await client.query(
@@ -176,9 +201,10 @@ export async function createGuestSession(
  * function. Returns counts only; nothing about a guest's content is logged.
  */
 export async function purgeExpiredGuests(pool: Pool, options: { limit?: number } = {}): Promise<{ purged: number; refused: number }> {
+  // Guests refused before go last, so they can never hold back the others.
   const candidates = await pool.query<{ id: string }>(
     `SELECT id FROM app_users WHERE guest_expires_at IS NOT NULL AND guest_expires_at <= CURRENT_TIMESTAMP
-      ORDER BY guest_expires_at LIMIT $1`, [options.limit ?? 100]);
+      ORDER BY guest_purge_refused_at NULLS FIRST, guest_expires_at LIMIT $1`, [options.limit ?? 100]);
   let purged = 0;
   let refused = 0;
   for (const candidate of candidates.rows) {
@@ -189,7 +215,10 @@ export async function purgeExpiredGuests(pool: Pool, options: { limit?: number }
     } catch {
       // The function refuses anything not provably guest-only; leave it for the operator.
       refused += 1;
+      await pool.query("UPDATE app_users SET guest_purge_refused_at = CURRENT_TIMESTAMP WHERE id = $1", [candidate.id]).catch(() => {});
     }
   }
+  // Rate-limit windows last at most a day; old counters are only clutter.
+  await pool.query("DELETE FROM auth_rate_limits WHERE window_started_at < CURRENT_TIMESTAMP - interval '2 days'").catch(() => {});
   return { purged, refused };
 }

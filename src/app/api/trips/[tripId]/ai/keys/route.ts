@@ -9,7 +9,8 @@ import { AppInvalidInputError } from "@/lib/app/repository";
 import { getAuthConfig } from "@/lib/auth/config";
 import { RateLimitError } from "@/lib/auth/errors";
 import { enforceRateLimit } from "@/lib/auth/repository";
-import { requestRateLimitKey, requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
+import { isGuestSession } from "@/lib/auth/guest-identity";
+import { requireAuthenticatedSession, requireSameOrigin, trustedClientAddress } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 
 /**
@@ -22,6 +23,7 @@ const headers = { "Cache-Control": "private, no-store" };
 // Each save asks the provider about the key from this server's address. Bound how often one account,
 // or one browser address, can do that, so the server cannot be used to test lists of leaked keys.
 const KEY_CHECKS_PER_HOUR = { account: 10, address: 30 };
+const GUEST_KEY_CHECKS_PER_DAY = 5;
 
 function failure(error: unknown) {
   const response = error instanceof AiCredentialRejectedError
@@ -57,8 +59,13 @@ export async function PUT(request: NextRequest, { params }: Context) {
     const pool = getPool(config);
     await enforceRateLimit(pool, config, { scope: "ai-key-check", key: session.userId,
       maximum: KEY_CHECKS_PER_HOUR.account, windowSeconds: 3600 });
-    await enforceRateLimit(pool, config, { scope: "ai-key-check-address", key: requestRateLimitKey(request),
+    await enforceRateLimit(pool, config, { scope: "ai-key-check-address", key: trustedClientAddress(request),
       maximum: KEY_CHECKS_PER_HOUR.address, windowSeconds: 3600 });
+    // Free guest accounts must not multiply the allowance (JOB-064): a few checks per guest.
+    if (isGuestSession(session)) {
+      await enforceRateLimit(pool, config, { scope: "ai-key-check-guest", key: session.userId,
+        maximum: GUEST_KEY_CHECKS_PER_DAY, windowSeconds: 86_400 });
+    }
     return NextResponse.json({ key: await saveAiCredential(pool, session, tripId, input) }, { headers });
   } catch (error) { return failure(error); }
 }
