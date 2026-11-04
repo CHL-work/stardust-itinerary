@@ -8,6 +8,7 @@ import { ZodError } from "zod";
 import { query as claudeQuery, type SDKResultSuccess } from "@anthropic-ai/claude-agent-sdk";
 import { Codex } from "@openai/codex-sdk";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
+import { lockedDownCodexConfig, usedForbiddenCodexItem } from "@/lib/ai/codex-lockdown";
 import { generateWithGemini } from "@/lib/ai/gemini";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { AiProviderFailureError, aiProviderFailureDetails, createClaudeProviderFailureTracker } from "@/lib/ai/provider-failure";
@@ -621,7 +622,7 @@ async function runCodexTurn(
   if (profile.provider !== "openai") {
     throw new Error(`Model ${model} is not configured for the Codex SDK transport.`);
   }
-  const codex = new Codex({ env: providerEnvironment() });
+  const codex = new Codex({ env: providerEnvironment(), config: lockedDownCodexConfig });
   const thread = codex.startThread({
     model,
     modelReasoningEffort: profile.reasoningEffort,
@@ -647,6 +648,9 @@ async function runCodexTurn(
     ) + (control.repair ? `\n\n${timestampRepairInstructions(control.repair)}` : ""),
     { outputSchema: outputSchema, signal: control.abortController.signal },
   );
+  if (usedForbiddenCodexItem(turn.items, { webSearch: liveWebSearchEnabled })) {
+    throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "openai" });
+  }
   let output: PlannerOutput;
   try { output = parseOutput(turn.finalResponse); }
   catch { throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "openai" }); }

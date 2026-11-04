@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { Codex } from "@openai/codex-sdk";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
+import { lockedDownCodexConfig, usedForbiddenCodexItem } from "@/lib/ai/codex-lockdown";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 
 import { sanitizeSearchQueries } from "@/lib/disruptions/privacy";
@@ -35,7 +36,7 @@ export function createCodexDisruptionProvider(): DisruptionProvider {
       const workDirectory = await mkdtemp(join(tmpdir(), "stardust-disruption-"));
       let operationFailed = false;
       try {
-        const codex = new Codex({ env: providerEnvironment() });
+        const codex = new Codex({ env: providerEnvironment(), config: lockedDownCodexConfig });
         const thread = codex.startThread({
           model: DISRUPTION_MODEL,
           modelReasoningEffort: "medium",
@@ -54,6 +55,9 @@ export function createCodexDisruptionProvider(): DisruptionProvider {
           });
         } catch (error) {
           throw new DisruptionProviderInvocationError(error);
+        }
+        if (usedForbiddenCodexItem(turn.items, { webSearch: true })) {
+          throw new DisruptionProviderInvocationError(new Error("A disruption check used a forbidden tool."));
         }
         const webSearchItems = turn.items.filter((item) => item.type === "web_search");
         return {
