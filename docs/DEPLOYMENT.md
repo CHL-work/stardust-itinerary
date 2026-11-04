@@ -83,13 +83,13 @@ You need `gcloud`, OpenTofu 1.8+, `kubectl` with `gke-gcloud-auth-plugin`, `clou
 
 ## Releases
 
-The [`deploy` workflow](../.github/workflows/deploy.yml) runs on every push to `main`:
+The [`deploy` workflow](../.github/workflows/deploy.yml) builds and pushes the image, tagged with the commit SHA, on every push to `main`. Deploying is a separate, deliberate step:
 
-1. It builds and pushes the image, tagged with the commit SHA.
-2. It waits for approval in the protected `production` environment.
+1. Start the workflow manually (**Actions → Deploy → Run workflow**), optionally with a revision.
+2. The deploy job waits for approval in the protected `production` environment.
 3. It runs [`deploy/deploy.sh`](../deploy/deploy.sh): shared objects and the database first, then a pre-migration backup, the migration job (which must succeed), the web rollout, and a health check through the public URL.
 
-Only that environment can obtain deploy credentials, through Workload Identity Federation.
+Through Workload Identity Federation, only `main` can push images and only the `production` environment can obtain cluster credentials.
 
 **Rollback:** run the workflow (or `deploy/deploy.sh`) with an earlier SHA. Migrations are forward-only; an older release must still work with the newer schema. See [database](DATABASE.md).
 

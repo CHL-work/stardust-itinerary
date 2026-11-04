@@ -1,0 +1,107 @@
+name: Deploy
+
+# Every push to main builds and pushes the container image (tagged with the commit SHA).
+# Deploying is a separate, deliberate step: run this workflow manually ("Run workflow") with the
+# revision to deploy; the deploy job then waits for approval in the protected "production"
+# environment, the only identity that can obtain cluster credentials.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Commit SHA to deploy (defaults to the selected branch's head)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGION: asia-northeast1
+  IMAGE: asia-northeast1-docker.pkg.dev/stardust-itinerary-live/stardust/stardust-itinerary
+  WORKLOAD_IDENTITY_PROVIDER: projects/207089361723/locations/global/workloadIdentityPools/github/providers/stardust-itinerary
+
+jobs:
+  image:
+    if: github.repository == 'CHL-work/stardust-itinerary' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      revision: ${{ steps.revision.outputs.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+
+      - name: Resolve revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud (image builder)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: image-builder@stardust-itinerary-live.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Skip when the image already exists
+        id: existing
+        run: |
+          if gcloud artifacts docker images describe "$IMAGE:${{ steps.revision.outputs.sha }}" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.existing.outputs.found != 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Configure Artifact Registry
+        if: steps.existing.outputs.found != 'true'
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - name: Build and push
+        if: steps.existing.outputs.found != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.revision.outputs.sha }}
+          build-args: STARDUST_BUILD_VERSION=${{ steps.revision.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: image
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.image.outputs.revision }}
+
+      - name: Authenticate to Google Cloud (deployer)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: github-deployer@stardust-itinerary-live.iam.gserviceaccount.com
+
+      - name: Get cluster credentials
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: stardust
+          location: ${{ env.REGION }}
+
+      - name: Deploy
+        run: deploy/deploy.sh "${{ needs.image.outputs.revision }}"

@@ -1,16 +1,16 @@
 # AI Harness and Agent Boundaries
 
-Current implementation reference. [Architecture](ARCHITECTURE.md#ai-transport-boundary) owns timing/topology; linked topic documents hold detailed contracts. Evaluation results are not provider availability claims. Provider calls use the server operator's configured provider credentials.
+Current implementation reference. [Architecture](ARCHITECTURE.md#ai-transport-boundary) owns timing/topology; linked topic documents hold detailed contracts. Evaluation results are not provider availability claims. Provider calls use the server operator's API keys; [architecture](ARCHITECTURE.md#ai-transport-boundary) describes the transports.
 
 ## 1. Separate planning, provider and development trust domains
 
-The provider-neutral planner uses the official OpenAI Codex SDK and Claude Agent SDK adapters with the server operator's configured provider credentials. SDK subprocesses do not receive the feedback publisher token or Google Maps keys. No private endpoints, token harvesting, arbitrary shell/file/network tools, database-write tool, GitHub/cloud credentials or deployment capability enter app chat. Application code alone validates/persists/applies typed proposals.
+The provider-neutral planner uses the official OpenAI Codex SDK and Claude Agent SDK adapters and a direct Gemini REST adapter, all with the server operator's API keys. SDK subprocesses receive only an allowlisted environment; Gemini runs in-process with Google Search grounding as its only tool, and every query it reports must pass the same public-subject gates as the other providers. No private endpoints, token harvesting, arbitrary shell/file/network tools, database-write tool, GitHub/cloud credentials or deployment capability enter app chat. Application code alone validates/persists/applies typed proposals.
 
 Trip ownership is not platform-operator authority. General operator-funded planning requires the current entitlement checks; privileged model selection and app prompt-cap exemption require the configured operator **and active trip ownership**. Other entitled members/co-owners remain on `gpt-6.1-sol`, with owner-configurable 1–1000 prompts/UTC day (default 20). Provider account limits still apply. Unsponsored trips do not gain planning/disruption funding simply by creation. [Funding](PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role).
 
 The separate destination-default lookup is an explicit exception for all eligible authenticated creators: public-place-only, tool-free Sol/low, bounded account quota/cache and form suggestions, not planning or auto-creation. [Destination defaults](TRIP_DESTINATION_DEFAULTS.md).
 
-The code registry in `src/lib/app/types.ts` is authoritative: Sol is initial/fallback owner default; Astra is explicit owner opt-in, not automatic fallback. Registered choices are `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6.1-terra`, `gpt-6-luna`, `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5` and `claude-fable-5-1`, each retaining its tier's recorded transport/effort. Do not rename models from marketing assumptions or silently change a model's provider, transport or authentication.
+The code registry in `src/lib/app/types.ts` is authoritative: Sol is initial/fallback owner default; Astra is explicit owner opt-in, not automatic fallback. Registered choices are `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6.1-terra`, `gpt-6-luna`, `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-fable-5-1`, `gemini-4-argon`, `gemini-3.8-flash` and `gemini-3.5-flash-lite`, each retaining its tier's recorded transport/effort. Do not rename models from marketing assumptions or silently change a model's provider, transport or authentication.
 
 ## 2. Request flow and observability
 
