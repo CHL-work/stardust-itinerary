@@ -1,0 +1,11 @@
+# Secret scanning (gitleaks). The default rules apply; these lines are known non-secrets.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "A localStorage key name and explicitly synthetic test values"
+regexTarget = "line"
+regexes = [
+  '''DISRUPTION_RECEIPTS_KEY = "stardust-disruption-receipts-v1"''',
+  '''= "SYN-[A-Z0-9-]+";''',
+]
