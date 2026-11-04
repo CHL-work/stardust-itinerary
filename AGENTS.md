@@ -19,7 +19,8 @@ These rules apply to every human and AI contributor.
 
 ## Product and security invariants
 
-- At most 20 members per trip, including one or more owners. Public signup stays behind `PUBLIC_SIGNUP_ENABLED`. No booking marketplace or payment processing.
+- At most 20 members per trip, including one or more owners. Public signup stays behind `PUBLIC_SIGNUP_ENABLED`, and guest accounts behind `GUEST_MODE_ENABLED`. No booking marketplace or payment processing.
+- Guest accounts never mix with real trips, and only `app_purge_expired_guest` deletes them. Do not weaken its isolation checks or its final reference check.
 - PostgreSQL is canonical. Discord or other channels are only projections.
 - Models propose; application code owns authorization, validation, deterministic money and route calculations, concurrency, and audited, versioned canonical writes.
 - Every trip query enforces membership, scope and the current private audience. Preserve last-active-bound-owner protection, explicit financial reassignment, tombstones and permanent proposal invalidation.

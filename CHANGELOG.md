@@ -20,6 +20,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
   - Members of unsponsored trips can now use AI with their own key. The AI composer opens once a key is saved, with a per-request picker for the models of the user's providers.
   - Migration `0054_user_ai_credentials.sql`.
   - On GKE the encryption key is a separate `stardust-credential-env` secret that only the web server mounts.
+- **Guest accounts (JOB-064, D-077):**
+  - **Try as guest** (behind `GUEST_MODE_ENABLED`, Cloudflare Turnstile when configured, and rate limits) gives a 24-hour account with a synthetic Tokyo demo trip, AI on the guest's own key only, and a banner saying when everything is deleted.
+  - Guests never mix with real trips; database triggers enforce it.
+  - An hourly `guest-purge` job (CronJob `stardust-guest-purge`, and the Compose scheduler) calls `app_purge_expired_guest`. It deletes every guest row and proves nothing references them, or rolls back.
+  - Migration `0056_guest_accounts.sql`.
 - **Trip-owner key sharing (JOB-063, D-076):**
   - Owners can let chosen members use their own AI keys in a trip: a checkbox on the add-member form and on join-link creation, and a per-member on/off switch in Settings.
   - Shared requests run the trip's one model, which owners of unsponsored trips can now choose, within the trip's daily limit.

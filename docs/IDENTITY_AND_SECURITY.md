@@ -122,6 +122,11 @@ Offline storage is neither encrypted backup nor fresh authentication. It identif
 - **Shared keys (JOB-063):** an owner's key shared with a member is decrypted only server-side, for that member's request, in the same per-request context.
   - The member's browser learns only the sponsor's display name and the model.
   - Grants are owner-managed, audited and checked on every request against the sponsor's current ownership and keys.
+- **Guest accounts (JOB-064):**
+  - A guest's identity uses the issuer `urn:stardust:guest`, which no Google sign-in can match, and its session ends when the account does, 24 hours after creation.
+  - Creation is off unless `GUEST_MODE_ENABLED=true`. It is same-origin, limited to three an hour per browser address, capped in total, and gated by Cloudflare Turnstile when `TURNSTILE_SECRET_KEY` is set. The Turnstile check never follows redirects.
+  - Guests are isolated from real trips by database triggers.
+  - `app_purge_expired_guest` is a `SECURITY DEFINER` function with a fixed `search_path`, not executable by `PUBLIC`. It deletes only provably guest-only rows and verifies afterwards that nothing references them.
 - Every in-app Codex call (planning, research, venue hours, image extraction, place lookups and disruption checks) runs with the same locked-down configuration: no shell, exec, apps, agents, hooks, memories, image viewer, shell snapshot, MCP or history. A turn that used anything beyond reasoning, its answer and (where allowed) web search is refused. The read-only sandbox alone would still let a shell read local files, and with users' keys in sibling provider processes, any file-reading tool could reach them.
 
 Provider, OAuth and database secrets belong in the deployment's secret store or server environment ([deployment](DEPLOYMENT.md), [self-hosting](SELF_HOSTING.md)), never in Git, logs, URLs or the browser. Give each process only the credentials it needs. Backups are covered in [database](DATABASE.md).

@@ -1925,6 +1925,28 @@ button:disabled {
   font-size: 11px;
 }
 
+.auth-guest {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.auth-guest p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.auth-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-turnstile {
+  min-height: 65px;
+}
+
 .planned-time-copy strong {
   color: var(--ink);
   font-size: 13px;

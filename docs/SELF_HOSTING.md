@@ -28,6 +28,7 @@ Edit `.env`:
 | `ANTHROPIC_API_KEY` | if you use Claude models |
 | `STARDUST_GEMINI_API_KEY` | if you use Gemini models; for a Vertex AI key, also `STARDUST_GEMINI_VERTEX_PROJECT` and `STARDUST_GEMINI_VERTEX_LOCATION` |
 | `DEFAULT_LOCALE` | `en`, `zh-HK`, `zh-HK-lihkg` or `ja-JP` |
+| `GUEST_MODE_ENABLED` | optional, `true` adds **Try as guest**: a demo trip deleted after 24 hours. On an internet-facing instance, also set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` from Cloudflare Turnstile. The scheduler purges expired guests every hour |
 
 ## 2. Create the Google sign-in client
 

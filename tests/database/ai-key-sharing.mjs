@@ -13,8 +13,8 @@ import { consumeJoinLink, issueJoinLink, signInExistingIdentity, verifySession }
  * the parent suite's guarded disposable database, starting at migration head 0054.
  */
 export async function testAiKeySharing(pool, connectionString) {
+  // Through 0055 only: the guest-account test that follows checks migration 0056.
   assert.deepEqual(await migrate({ connectionString, through: "0055_ai_key_sharing.sql" }), ["0055_ai_key_sharing.sql"]);
-  await migrate({ connectionString });
   const config = { authSecret: "synthetic-ai-key-sharing-secret-only", tripGraceDays: 2,
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
   const userAgent = "Synthetic key sharing browser";

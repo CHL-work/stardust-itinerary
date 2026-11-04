@@ -2,6 +2,29 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-077: Guest accounts for trying the public instance (accepted November 4, 2026)
+
+The owner wants people to try the public instance without signing in, with guest data deleted within a day, and AI only with the guest's own key.
+
+- **What a guest gets:**
+  - **Try as guest** creates a guest account, a synthetic Tokyo demo trip (written through the normal audited change path), and a session that ends after 24 hours.
+  - The guest's identity uses its own issuer, `urn:stardust:guest`, which no Google sign-in can match.
+  - AI is on but never sponsored, so only the guest's own key pays.
+- **Never mixed with real trips:**
+  - A guest belongs only to its own guest trip.
+  - Nobody else can join it, and it has no invitations, Calendar, feedback, new trips or operator-funded destination lookups.
+  - Database triggers enforce the membership and invitation rules even if application code is wrong.
+- **Deleted for good:** an hourly job calls `app_purge_expired_guest`, which deletes the expired guest and every row of its trip. This is deliberately unlike D-073, which keeps a deleted trip's records.
+  - It refuses anything not provably guest-only.
+  - It suspends triggers only for its own deletes, then proves no reference to the deleted rows remains, or rolls back.
+- **Abuse limits:**
+  - Off unless `GUEST_MODE_ENABLED=true`.
+  - Cloudflare Turnstile when configured.
+  - Three new guests an hour per browser address.
+  - A cap on active guests (default 200).
+
+Public sign-up with Google already exists behind `PUBLIC_SIGNUP_ENABLED`. Turning either mode on for the public instance is an owner decision after the JOB-065 review.
+
 ## D-076: Trip owners can share their own AI keys with chosen members (accepted November 4, 2026)
 
 The owner asked that a trip owner can let invited members use the owner's API keys: a checkbox when inviting, and a way to turn it off and on again.

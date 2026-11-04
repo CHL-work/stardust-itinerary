@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { GuestSignIn } from "@/components/guest-sign-in";
+import { guestModeEnabled } from "@/lib/app/guest";
 import { isAuthConfigured } from "@/lib/auth/config";
 import { publicSignupEnabled } from "@/lib/auth/account-session";
 
@@ -45,6 +47,7 @@ export default async function SignInPage({
             Local authentication is disabled until the database and Google development credentials are configured.
           </p>
         )}
+        {configured && guestModeEnabled() ? <GuestSignIn siteKey={process.env.TURNSTILE_SITE_KEY?.trim() || null} /> : null}
         <Link className="auth-secondary" href="/">Return to demo preview</Link>
       </section>
     </main>

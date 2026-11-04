@@ -48,9 +48,12 @@ case "$mode" in
   provider-smoke)
     # shellcheck disable=SC2086
     exec node $env_flags --import tsx scripts/provider-smoke.ts "$@" ;;
+  guest-purge)
+    # shellcheck disable=SC2086
+    exec node $env_flags --import tsx scripts/run-guest-purge.ts "$@" ;;
   scheduler)
-    # Single-host stand-in for the Kubernetes CronJobs: disruption checks every 5 minutes,
-    # the feedback worker once an hour. Failures are logged and retried on the next tick.
+    # Single-host stand-in for the Kubernetes CronJobs: disruption checks every 5 minutes, the
+    # feedback worker and the guest purge once an hour. Failures are logged and retried later.
     tick=0
     while :; do
       # shellcheck disable=SC2086
@@ -58,11 +61,13 @@ case "$mode" in
       if [ $((tick % 12)) -eq 0 ]; then
         # shellcheck disable=SC2086
         node $env_flags --import tsx scripts/run-feedback-worker.ts || echo "feedback run failed" >&2
+        # shellcheck disable=SC2086
+        node $env_flags --import tsx scripts/run-guest-purge.ts || echo "guest purge run failed" >&2
       fi
       tick=$((tick + 1))
       sleep 300
     done ;;
   *)
-    echo "usage: entrypoint.sh web|disruption|feedback|migrate|backup|scheduler|provider-smoke" >&2
+    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|migrate|backup|scheduler|provider-smoke" >&2
     exit 64 ;;
 esac

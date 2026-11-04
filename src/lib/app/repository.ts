@@ -6,6 +6,7 @@ import { readCurrentSessionCeiling } from "@/lib/auth/session-lifetime";
 import { isPlatformOperator } from "@/lib/auth/operator-access";
 import { lockCurrentTripActor, requireAnotherBoundOwner } from "@/lib/app/trip-authorization";
 import { aiKeyProviderOrder, ownKeyModel } from "@/lib/ai/own-key-model";
+import { isGuestSession } from "@/lib/auth/guest-identity";
 import {
   DEFAULT_OWNER_MODEL,
   MEMBER_MODEL,
@@ -1301,6 +1302,9 @@ async function readAppOverviewSnapshot(
       displayName: session.displayName,
       role: session.role,
       isOwner: session.role === "owner",
+      // A guest's session ends when the guest and the demo trip are deleted (JOB-064).
+      isGuest: isGuestSession(session),
+      guestExpiresAt: isGuestSession(session) ? session.absoluteExpiresAt.toISOString() : null,
     },
     availableTrips: availableTripResult.rows.map((row) => ({
       id: row.id,
@@ -1534,6 +1538,7 @@ export async function createTrip(
   input: CreateTripInput,
   options?: { config: import("@/lib/auth/config").AuthConfig; userAgent: string | null },
 ): Promise<{ tripId: string; memberId: string; sessionGrant?: import("@/lib/auth/repository").SessionGrant }> {
+  if ("issuer" in session) assertNotGuest(session, "create more trips");
   const parsed = createTripSchema.parse(input);
   const startMs = Date.parse(`${parsed.startsOn}T00:00:00Z`);
   const endMs = Date.parse(`${parsed.endsOn}T00:00:00Z`);
@@ -3643,6 +3648,7 @@ export async function createTripMember(
   input: { displayName: string; shareAiKeys?: boolean },
 ): Promise<{ id: string }> {
   assertTrip(session, tripId);
+  assertNotGuest(session, "invite people");
   if (session.role !== "owner") throw new AppForbiddenError("Only the owner can add members.");
   return inTransaction(pool, async (client) => {
     await lockCurrentTripActor(client, session, { owner: true });
@@ -3986,6 +3992,14 @@ async function tripPromptUsage(client: Queryable, session: AuthenticatedSession)
 }
 
 export type AiKeyGrantSource = "settings" | "member_added" | "join_link";
+
+/**
+ * Refuse something a guest account cannot do (JOB-064): invite people, create trips, connect
+ * Calendar, send feedback or use operator-funded lookups. The database refuses the invitations too.
+ */
+export function assertNotGuest(session: { issuer: string }, action: string): void {
+  if (isGuestSession(session)) throw new AppForbiddenError(`Guest trips cannot ${action}. Sign in with Google to do that.`);
+}
 
 /** Refuse to share keys the acting owner does not hold: the grant would silently do nothing. */
 export async function requireKeysToShare(client: Queryable, userId: string): Promise<void> {

@@ -63,6 +63,7 @@ import { AiConversationPage } from "@/components/ai-conversation-page";
 import { AiInstructionsSettings } from "@/components/ai-instructions-settings";
 import { AiKeysSettings } from "@/components/ai-keys-settings";
 import { aiKeysMessages, type AiKeysCopy } from "@/lib/ai/keys-i18n";
+import { guestMessages } from "@/lib/app/guest-i18n";
 import { ownKeyModel, ownKeyModels } from "@/lib/ai/own-key-model";
 import { aiInstructionsMessages } from "@/lib/ai/instructions-i18n";
 import { parseAiProviderFailureDetails, type AiProviderFailureDetails } from "@/lib/ai/provider-failure";
@@ -276,7 +277,11 @@ function isPendingEventEditorTarget(
 }
 
 type Overview = {
-  session: { memberId: string; userId?: string; displayName: string; role: string; isOwner: boolean };
+  session: {
+    memberId: string; userId?: string; displayName: string; role: string; isOwner: boolean;
+    /** A 24-hour guest account (JOB-064): when it and its demo trip are deleted. */
+    isGuest?: boolean; guestExpiresAt?: string | null;
+  };
   availableTrips: Array<{
     id: string; name: string; destinationName: string; startsOn: string; endsOn: string;
     role: string; current: boolean;
@@ -2986,6 +2991,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
 
       <main className="main-content">
         <header className={`topbar ${advancedStyles.feedbackSpace}`}><div><p className="eyebrow">{overview.trip.timeZone} · {overview.session.role}</p><h1>{section === "activity" ? activityMessages(locale).title : navItems.find((item) => item.id === section)?.label}</h1></div><div className="topbar-actions"><UiModeToggle locale={locale} /><LocaleSwitcher locale={locale} />{overview.session.isOwner ? <button data-feedback-action="navigate" className="icon-button" aria-label="Approval request notifications" onClick={() => setSection("requests")}><Bell size={19} />{overview.approvalPendingCount > 0 ? <span className="notification-dot" /> : null}</button> : null}<Link className="owner-avatar" href="/auth/sessions" title={overview.session.displayName}>{overview.session.displayName.slice(0, 2).toUpperCase()}</Link></div></header>
+        {overview.session.isGuest && overview.session.guestExpiresAt ? <GuestBanner locale={locale} expiresAt={overview.session.guestExpiresAt} timeZone={overview.trip.timeZone} /> : null}
         {notice ? <div className="notice-banner" role="status"><span>{notice}{notice.includes("Google Calendar API is disabled") ? <> <a href={overview.calendar.setupUrl} target="_blank" rel="noreferrer">Enable the API</a></> : null}</span><button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={15} /></button></div> : null}
         {section === "today" ? <TripAdjacentNav trips={overview.availableTrips} currentTripId={overview.trip.id} locale={locale} disabled={busy} select={(tripId) => void switchTrip(tripId)} /> : null}
         {section === "today" || section === "itinerary" ? <TripOverviewBar trip={overview.trip} members={overview.members} today={todayDate} locale={locale} /> : null}
@@ -3139,8 +3145,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           <article className="settings-card"><h2>{messages.googleCalendar}</h2><strong>{overview.calendar.connected ? messages.calendarConnectedStatus : messages.calendarNotConnectedStatus}</strong><p>{formatMessage(messages.calendarConnectionPersonal, { name: overview.session.displayName })}</p>{overview.permissions.canSyncCalendar ? (!overview.calendar.connected ? <button data-feedback-action="calendar_connect" className="primary-button fit-button" disabled={busy} onClick={() => setCalendarConnectIntent({ mode: "connect" })}><CalendarRange size={15} /> {messages.linkGoogleCalendar}</button> : null) : <small>{messages.calendarAccessDisabledDescription}</small>}</article>
           <article className="settings-card"><h2>Identity & devices</h2><p>Signed in as {overview.session.displayName}. Change your trip display name here; signing out revokes this device session.</p><form data-feedback-action="settings_save" className="inline-settings-form" onSubmit={saveProfileName}><label>Display name<input required maxLength={120} value={profileName} onChange={(event) => setProfileName(event.target.value)} /></label><button className="primary-button fit-button" disabled={busy || profileName.trim() === overview.session.displayName}>Save name</button></form><div className="dialog-actions"><Link className="auth-primary" href="/auth/sessions">Manage devices</Link><button data-feedback-action="logout" className="ghost-button" disabled={busy} onClick={() => void signOut()}><LogOut size={15} /> Sign out</button></div></article>
           <article className="settings-card members-settings-card">
-            <div className="settings-card-heading"><div><h2>Members</h2><p>{overview.session.isOwner ? "Add a named member, or share one reusable Google sign-in link until capacity is reached." : "People currently listed on this trip."}</p><small>{overview.trip.memberCount} of {overview.trip.maxMembers} member places reserved, including the owner</small></div>{overview.session.isOwner ? <button data-feedback-action="member_change" className="primary-button fit-button" disabled={busy || overview.trip.memberCount >= overview.trip.maxMembers} onClick={() => setNewMemberName("")}><UserPlus size={16} /> Add member</button> : null}</div>
-            {overview.session.isOwner ? <div className="group-invite-panel">
+            <div className="settings-card-heading"><div><h2>Members</h2><p>{overview.session.isOwner ? "Add a named member, or share one reusable Google sign-in link until capacity is reached." : "People currently listed on this trip."}</p><small>{overview.trip.memberCount} of {overview.trip.maxMembers} member places reserved, including the owner</small></div>{overview.session.isOwner && !overview.session.isGuest ? <button data-feedback-action="member_change" className="primary-button fit-button" disabled={busy || overview.trip.memberCount >= overview.trip.maxMembers} onClick={() => setNewMemberName("")}><UserPlus size={16} /> Add member</button> : null}</div>
+            {overview.session.isOwner && !overview.session.isGuest ? <div className="group-invite-panel">
               <div><strong>Open trip invitation</strong><p>Anyone eligible for this app&apos;s basic Google sign-in can join as a new member with this link. Calendar access is separate, and each member can choose to connect it later. The link closes permanently when the trip reaches {overview.trip.maxMembers} members.</p></div>
               <label className="check-field"><input type="checkbox" checked={joinLinkShareKeys && ownKeysToShare} disabled={busy || !ownKeysToShare} onChange={(event) => setJoinLinkShareKeys(event.target.checked)} />{keysCopy.shareLinkCheckbox}</label>
               {!ownKeysToShare ? <small>{keysCopy.shareNeedsKey}</small> : null}
@@ -3844,6 +3850,15 @@ export function GoogleCalendarPanel({ overview, messages, state, busy, compact =
       {busy ? <p className="calendar-clear" role="status" aria-live="polite"><RefreshCw size={14} /> {messages.calendarSyncing}</p> : conflictCount ? <div className="calendar-conflicts"><strong>{countLabel(conflictCount, messages.possibleCalendarConflictOne, messages.possibleCalendarConflictMany)}</strong>{conflicts?.map((conflict) => <button className="calendar-conflict" key={`${conflict.itineraryItemId}-${conflict.calendarEventId}`} onClick={() => openItineraryItem(conflict.itineraryItemId)}><span>{conflict.itineraryTitle}</span><small>{formatMessage(messages.calendarOverlaps, { title: conflict.calendarTitle })}</small></button>)}</div> : state ? <p className="calendar-clear">{messages.noCalendarConflicts}</p> : null}
     </section>
   );
+}
+
+/** A guest's reminder that the demo trip is temporary and how to keep trips (JOB-064). */
+export function GuestBanner({ locale, expiresAt }: { locale: Locale; expiresAt: string; timeZone?: string }) {
+  const copy = guestMessages(locale);
+  const time = new Date(expiresAt).toLocaleString(locale === "zh-HK-lihkg" ? "zh-HK" : locale, { dateStyle: "medium", timeStyle: "short" });
+  return <div className="notice-banner guest-banner" role="note">
+    <span>{formatMessage(copy.banner, { time })} {copy.aiHint} <Link href="/auth/sign-in">{copy.signIn}</Link></span>
+  </div>;
 }
 
 /**

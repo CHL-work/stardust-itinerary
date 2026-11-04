@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { apiError } from "@/lib/app/http";
-import { AppInvalidInputError } from "@/lib/app/repository";
+import { AppInvalidInputError, assertNotGuest } from "@/lib/app/repository";
 import { runTripDestinationLookup } from "@/lib/app/trip-destination-service";
 import { accountCookieName, verifyAccountOnboarding } from "@/lib/auth/account-session";
 import { getAuthConfig } from "@/lib/auth/config";
@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
     const principal = await authenticatedSession(request, config)
       ?? await verifyAccountOnboarding(pool, config, request.cookies.get(accountCookieName)?.value);
     if (!principal) throw new SessionUnavailableError("Sign in with Google before looking up a trip destination.");
+    // The lookup runs on the operator's keys; guests cannot create trips to use it for (JOB-064).
+    if ("issuer" in principal) assertNotGuest(principal, "look up destinations");
     const input = lookupInput.parse(await readInput(request));
     const result = await runTripDestinationLookup(pool, config, principal, input);
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store, private" } });

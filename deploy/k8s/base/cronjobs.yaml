@@ -238,3 +238,76 @@ spec:
             - name: tmp
               emptyDir:
                 sizeLimit: 4Gi
+---
+# Hourly: permanently delete guest accounts whose 24 hours are over (JOB-064). Needs only the
+# database: no AI keys, no internet (see the guest-purge-egress NetworkPolicy).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: stardust-guest-purge
+  labels:
+    app.kubernetes.io/component: guest-purge
+spec:
+  schedule: "41 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: stardust-itinerary
+            app.kubernetes.io/component: guest-purge
+        spec:
+          serviceAccountName: stardust-worker
+          enableServiceLinks: false
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: guest-purge
+              image: stardust-itinerary
+              args: ["guest-purge"]
+              env:
+                - name: STARDUST_ENV_DIR
+                  value: /var/run/stardust/env
+                - name: TMPDIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: app-env
+                  mountPath: /var/run/stardust/env/app
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+                - name: home
+                  mountPath: /home/stardust
+          volumes:
+            - name: app-env
+              secret:
+                secretName: stardust-app-env
+            - name: tmp
+              emptyDir: {}
+            - name: home
+              emptyDir: {}

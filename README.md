@@ -2,7 +2,7 @@
 
 A mobile-first, AI-assisted planner for group trips: one shared itinerary, private events, expense splitting and repayments, Google Calendar import, day maps, weather and disruption checks. Interface in English, Hong Kong Cantonese (two tones) and Japanese.
 
-**Live instance:** <https://stardust-itinerary.chl-work.com>. You currently need an invitation to a trip to get in; a guest mode and bring-your-own-API-key accounts are on the [roadmap](docs/ROADMAP.md).
+**Live instance:** <https://stardust-itinerary.chl-work.com>. You currently need an invitation to a trip to get in. Bring-your-own API keys, trip owners sharing their keys with members, and a guest mode with 24-hour demo trips are built; guest mode waits to be switched on. See the [roadmap](docs/ROADMAP.md).
 
 ## What it does
 

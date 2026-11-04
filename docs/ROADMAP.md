@@ -18,7 +18,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-061 | Bring-your-own API keys | In review: Settings → AI keys, encrypted storage, per-request isolation, own-key funding, AI on in every trip, and fixes from a security review. Usage display moves to JOB-066 |
 | JOB-062 | Gemini models (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`) with Google Search grounding | Done |
 | JOB-063 | Trip-owner key sharing | In review: invite and join-link checkboxes, per-member switches, shared-key funding with the trip model and daily limit |
-| JOB-064 | Guest mode and public sign-up | Planned |
+| JOB-064 | Guest mode and public sign-up | In review: guest accounts with the 24-hour purge, behind `GUEST_MODE_ENABLED`. Public sign-up already exists behind `PUBLIC_SIGNUP_ENABLED`; self-service account deletion is still to come |
 | JOB-065 | Public-launch security and privacy review | Planned; required before public sign-up |
 | JOB-066 | Showcase documentation, a private feedback repository, deploy workflow polish | Planned |
 

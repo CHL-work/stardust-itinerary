@@ -9,7 +9,7 @@ How the public instance runs, and how to run your own the same way. For a single
 | Web server | `stardust-web` Deployment, autoscaled 1–3 replicas | Stateless; probes on `/api/health` |
 | PostgreSQL 17 | `stardust-db` StatefulSet, 10 GiB `pd-balanced` disk | Only application pods may connect (NetworkPolicy) |
 | Public access | `stardust-tunnel` (cloudflared) | Outbound-only Cloudflare Tunnel; no load balancer or public IP |
-| Background work | CronJobs `stardust-disruption` (every 5 min), `stardust-feedback` (hourly), `stardust-backup` (daily) | Each run is a short pod |
+| Background work | CronJobs `stardust-disruption` (every 5 min), `stardust-feedback` (hourly), `stardust-guest-purge` (hourly), `stardust-backup` (daily) | Each run is a short pod. The guest purge reaches only the database |
 | Migrations | `stardust-migrate`, a suspended CronJob used as a template | Started once per release by the deploy script |
 | Secrets | Google Secret Manager, mounted as files by the GKE Secret Manager add-on | Each Kubernetes service account may read only its own secrets |
 | Backups | `gs://<project>-backups`, age-encrypted, 30-day lifecycle | The backup job can create objects but not read or delete them |
@@ -44,7 +44,7 @@ You need `gcloud`, OpenTofu 1.8+, `kubectl` with `gke-gcloud-auth-plugin`, `clou
    | Secret | Content |
    | --- | --- |
    | `stardust-db-admin-password` | 64 hex characters (`openssl rand -hex 32`), no newline |
-   | `stardust-app-env` | dotenv with `APP_BASE_URL`, `APP_ALLOWED_ORIGINS`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OWNER_GOOGLE_EMAIL`, `PUBLIC_SIGNUP_ENABLED`, `DEFAULT_LOCALE`, `AUTH_TRIP_GRACE_DAYS`, `STARDUST_FEEDBACK_TRIAGE_ENABLED` and `DATABASE_URL=postgresql://stardust_app:<64 hex>@stardust-db:5432/stardust` |
+   | `stardust-app-env` | dotenv with `APP_BASE_URL`, `APP_ALLOWED_ORIGINS`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OWNER_GOOGLE_EMAIL`, `PUBLIC_SIGNUP_ENABLED`, `DEFAULT_LOCALE`, `AUTH_TRIP_GRACE_DAYS`, `STARDUST_FEEDBACK_TRIAGE_ENABLED` and `DATABASE_URL=postgresql://stardust_app:<64 hex>@stardust-db:5432/stardust`. For guest mode also `GUEST_MODE_ENABLED=true`, `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` |
    | `stardust-ai-env` | dotenv with `OPENAI_API_KEY`, `CODEX_API_KEY`, `ANTHROPIC_API_KEY`, `STARDUST_GEMINI_API_KEY` (plus `STARDUST_GEMINI_VERTEX_PROJECT`/`_LOCATION` for a Vertex AI key) |
    | `stardust-credential-env` | dotenv with `CREDENTIAL_ENCRYPTION_KEY=` 32 random bytes in base64 (`openssl rand -base64 32`). Only the web server mounts it. Keep a copy with your recovery materials: without it, users' saved AI keys cannot be decrypted and they must add them again |
    | `stardust-tunnel-credentials` | the tunnel credentials JSON from step 4 |
@@ -53,7 +53,7 @@ You need `gcloud`, OpenTofu 1.8+, `kubectl` with `gke-gcloud-auth-plugin`, `clou
    gcloud secrets versions add stardust-app-env --data-file=app.env --project=<project-id>
    ```
 
-   The migration job creates the `stardust_app` runtime role from `DATABASE_URL` and grants it only data access.
+   The migration job creates the `stardust_app` runtime role from `DATABASE_URL` and grants it only data access. The guest purge function suspends triggers for its own deletes, so migrations must run as a superuser, as they do with the bundled PostgreSQL; on a managed database without one, leave guest mode off.
 
 4. **Tunnel:**
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError } from "@/lib/app/http";
-import { AppInvalidInputError, requireKeysToShare } from "@/lib/app/repository";
+import { AppInvalidInputError, assertNotGuest, requireKeysToShare } from "@/lib/app/repository";
 import { joinLinkSchema } from "@/lib/app/validation";
 import { getAuthConfig } from "@/lib/auth/config";
 import { JoinUnavailableError } from "@/lib/auth/errors";
@@ -24,6 +24,7 @@ export async function POST(
     const session = await requireAuthenticatedSession(request, config);
     const { tripId } = await params;
     requireTripOwner(session, tripId);
+    assertNotGuest(session, "invite people");
     // The body is optional: older clients send none.
     const text = await request.text();
     let raw: unknown = {};

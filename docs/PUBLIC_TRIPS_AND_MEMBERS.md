@@ -70,6 +70,24 @@ Rules:
   - Changes are audited as `ai_keys_shared` and `ai_keys_unshared` without key material.
   - Each shared request records `credential_sponsor_member_id`.
 
+## Guest accounts
+
+Decision: [D-077](DECISIONS.md#d-077-guest-accounts-for-trying-the-public-instance-accepted-november-4-2026) (JOB-064). With `GUEST_MODE_ENABLED=true`, the sign-in page offers **Try as guest**. `POST /api/auth/guest` takes an optional `{turnstileToken, locale}` and works as follows:
+
+1. It refuses `404` while guest mode is off, `429` beyond three new guests an hour per browser address, `403` when a configured Turnstile check fails, and `503` when the active-guest cap (`GUEST_ACTIVE_LIMIT`, default 200) is reached.
+2. Otherwise one transaction creates:
+   - a guest account (`app_users.guest_expires_at`, 24 hours ahead) with an identity under `urn:stardust:guest`;
+   - a three-day synthetic demo trip in Tokyo (`trips.guest_expires_at`, one member place), written in the browser's language;
+   - seven demo events, through the same validated, audited path as an owner's edits;
+   - an owner session that ends with the account.
+
+A guest:
+- **Can:** use the trip like an owner, save their own AI keys and use AI with them. The trip is never sponsored.
+- **Cannot:** add members, create join or claim links, create more trips, connect Google Calendar, send feedback or use the operator-funded destination lookup. Invitations and members are refused by database triggers as well as by the application.
+- **Is never mixed with real trips:** a guest belongs only to its own guest trip, and an account can never become, or stop being, a guest.
+
+An hourly job (`guest-purge`) calls `app_purge_expired_guest` for each expired guest. It permanently deletes the account, its identity, keys and sessions, and every row of its trips. It refuses, and changes nothing, if the guest is not provably isolated or has feedback reports. The app shows the guest when the deletion happens.
+
 ## Deleting a trip
 
 Decision: [D-073](DECISIONS.md#d-073-deleting-a-trip-removes-it-for-members-and-keeps-its-records-accepted-november-4-2026). Any active owner can open **Settings → Delete this trip**. `GET /api/trips/{tripId}/deletion` returns an owner-only, private/no-store preview with totals only: other members, events, expenses, posted repayments and pending requests. It never names other members' private records.

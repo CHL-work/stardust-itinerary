@@ -35,7 +35,7 @@ Important enforced rules:
 
 ## 2. Migration contract
 
-The repository contains **51 SQL files through `0055_ai_key_sharing.sql`**. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
+The repository contains **52 SQL files through `0056_guest_accounts.sql`**. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
 
 `scripts/db/migration-lib.mjs` sorts unique `NNNN_name.sql` files, takes an advisory lock, validates every applied SHA-256 against `app_schema_migrations`, runs each missing migration in its own transaction and records it only after success. A missing applied file or changed checksum is a hard failure. Never edit an applied migration; add a forward migration.
 
@@ -62,6 +62,7 @@ Checksums are taken over raw file bytes, so line endings matter. `.gitattributes
 | 0053 | New AI requests default to `authentication_mode = 'api_key'` and `billing_basis = 'api'`; account lookups accept `api_key` alongside the historical `chatgpt_subscription`. Older builds still insert their own explicit values, so the change is rollback-compatible. |
 | 0054 | Additive `user_ai_credentials` (encrypted per-user provider keys, deleted with the account) and nullable `ai_requests.credential_source`. Older builds ignore both; keys saved meanwhile simply go unused by them. Data change: AI is turned on for unsponsored trips that no recorded owner change turned off ([D-075](DECISIONS.md#d-075-users-can-bring-their-own-ai-provider-keys-accepted-november-4-2026)). An older build still refuses AI there, because it also requires sponsorship, so the change is rollback-compatible. |
 | 0055 | Additive `trip_ai_key_grants` (which members may use which owner's own AI keys, [D-076](DECISIONS.md#d-076-trip-owners-can-share-their-own-ai-keys-with-chosen-members-accepted-november-4-2026)), `trip_join_links.shares_ai_keys` (default false) and nullable `ai_requests.credential_sponsor_member_id`, which a check ties to `credential_source = 'shared'`. Older builds ignore all three, so grants simply go unused by them. |
+| 0056 | Guest accounts ([D-077](DECISIONS.md#d-077-guest-accounts-for-trying-the-public-instance-accepted-november-4-2026)). Adds nullable `app_users.guest_expires_at` and `trips.guest_expires_at`, and isolation triggers on accounts, trips, members, join and claim links and feedback reports, which no existing row trips. `app_purge_expired_guest(uuid)` is the only sanctioned hard delete in the schema. It runs as the migration owner with triggers suspended for its own deletes, so migrations must run as a superuser. Older builds never create guests and ignore the columns. After a rollback, guests created earlier wait for a build with the purge job. |
 
 Owner-editable trip dates changed no schema: retained day IDs remain, but current-range guards are required. After date edits, an older range-unaware build may be schema-compatible but behaviorally unsafe. Prefer a forward fix; never alter real dates or restore old data to fit old code.
 
