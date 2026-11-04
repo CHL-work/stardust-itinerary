@@ -61,6 +61,7 @@ import { projectPersonalCalendarEvents, projectCalendarAwareTimelinePoints, type
 import type { CalendarSourceMetadata } from "@/lib/calendar/import-contracts";
 import { AiConversationPage } from "@/components/ai-conversation-page";
 import { AiInstructionsSettings } from "@/components/ai-instructions-settings";
+import { AiKeysSettings } from "@/components/ai-keys-settings";
 import { aiInstructionsMessages } from "@/lib/ai/instructions-i18n";
 import { parseAiProviderFailureDetails, type AiProviderFailureDetails } from "@/lib/ai/provider-failure";
 import { aiProviderFailureMessage, type AiFailurePresentationOptions } from "@/lib/ai/provider-failure-presentation";
@@ -3078,6 +3079,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         {section === "settings" && <section className="page-panel settings-grid">
           <UiModeSettingsCard locale={locale} />
           {!activityAccessLost ? <AiInstructionsSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} onDirtyChange={instructionsDirtyChanged} /> : null}
+          {!activityAccessLost ? <AiKeysSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} /> : null}
           <article className="settings-card"><h2>{messages.switchTripTitle}</h2><p>{messages.switchTripDescription}</p><label>{messages.currentTripField}<select data-feedback-action="trip_switch" value={overview.trip.id} disabled={busy} onChange={(event) => void switchTrip(event.target.value)}>{overview.availableTrips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name} · {trip.role}</option>)}</select></label><small>{overview.trip.destinationName} · {overview.trip.startsOn} – {overview.trip.endsOn}</small><button className="primary-button fit-button" disabled={busy} onClick={openNewTrip}><Plus size={16} /> {messages.createNewTrip}</button></article>
           {overview.session.isOwner && tripSettings?.scope === tripSettingsScope(overview) ? <TripSettingsCard settings={tripSettings} setSettings={setTripSettings} busy={busy} memberCount={overview.trip.memberCount} messages={messages} submit={saveTripSettings} /> : null}
           {overview.session.isOwner && !activityAccessLost ? <TripDeletionCard locale={locale} busy={busy} open={() => void previewTripDeletion()} /> : null}

@@ -15,7 +15,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
 | JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script | Done; the GitHub deploy workflow is still to come |
 | JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Rehearsed on staging |
-| JOB-061 | Bring-your-own API keys | Partly done: the operator's API keys replace subscription logins, and provider subprocesses get an allowlisted environment. Per-user keys are next |
+| JOB-061 | Bring-your-own API keys | Done: Settings → AI keys, encrypted storage, per-request isolation and own-key funding. Usage display is still to come |
 | JOB-062 | Gemini models (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`) with Google Search grounding | Done |
 | JOB-063 | Trip-owner key sharing | Planned |
 | JOB-064 | Guest mode and public sign-up | Planned |

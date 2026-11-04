@@ -71,7 +71,7 @@ Server secrets come from runtime configuration (environment or the deployment's 
 
 ## 7. Schema, release and rollback
 
-Current source has **49 SQL files through 0053**. Numeric gaps 0045–0048 are not missing migrations to invent: they belong to unrelated historical work. Applied checksums cannot be rewritten. Migration 0049 removed structured preferences and is incompatible with pre-0049 runtime rollback; 0050 is additive account-level lookup storage; 0051 moves current AI selections to the newest models, so a code rollback must first reverse them; 0052 adds trip deletion state; 0053 records API-key authentication for new AI requests. Details are in the [database compatibility checkpoints](DATABASE.md#compatibility-checkpoints).
+Current source has **50 SQL files through 0054**. Numeric gaps 0045–0048 are not missing migrations to invent: they belong to unrelated historical work. Applied checksums cannot be rewritten. Migration 0049 removed structured preferences and is incompatible with pre-0049 runtime rollback; 0050 is additive account-level lookup storage; 0051 moves current AI selections to the newest models, so a code rollback must first reverse them; 0052 adds trip deletion state; 0053 records API-key authentication for new AI requests; 0054 stores users' own encrypted provider keys. Details are in the [database compatibility checkpoints](DATABASE.md#compatibility-checkpoints).
 
 Release and rollback procedures depend on the hosting option: see [deployment](DEPLOYMENT.md) and [self-hosting](SELF_HOSTING.md). Take and verify a backup before migrating a database that holds real data.
 

@@ -1,3 +1,4 @@
+import { activeAiCredential } from "@/lib/ai/credential-context";
 import { AiProviderFailureError, type AiProviderFailureCode } from "@/lib/ai/provider-failure";
 
 /**
@@ -11,19 +12,29 @@ const projectPattern = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u;
 const locationPattern = /^[a-z][a-z0-9-]{0,39}$/u;
 const modelPattern = /^[a-z0-9][a-z0-9.-]{0,80}$/u;
 
-export function geminiEndpoint(env: Record<string, string | undefined> = process.env): GeminiEndpoint | null {
-  const apiKey = env.STARDUST_GEMINI_API_KEY?.trim();
-  if (!apiKey) return null;
-  const project = env.STARDUST_GEMINI_VERTEX_PROJECT?.trim();
-  if (!project) {
-    return { apiKey, backend: "gemini_api",
+export function geminiEndpointFor(apiKey: string | undefined, project?: string | null, location?: string | null): GeminiEndpoint | null {
+  const key = apiKey?.trim();
+  if (!key) return null;
+  if (!project?.trim()) {
+    return { apiKey: key, backend: "gemini_api",
       url: (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` };
   }
-  const location = env.STARDUST_GEMINI_VERTEX_LOCATION?.trim() || "global";
-  if (!projectPattern.test(project) || !locationPattern.test(location)) return null;
-  const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
-  return { apiKey, backend: "vertex_ai",
-    url: (model) => `https://${host}/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent` };
+  const vertexProject = project.trim();
+  const vertexLocation = location?.trim() || "global";
+  if (!projectPattern.test(vertexProject) || !locationPattern.test(vertexLocation)) return null;
+  const host = vertexLocation === "global" ? "aiplatform.googleapis.com" : `${vertexLocation}-aiplatform.googleapis.com`;
+  return { apiKey: key, backend: "vertex_ai",
+    url: (model) => `https://${host}/v1/projects/${vertexProject}/locations/${vertexLocation}/publishers/google/models/${model}:generateContent` };
+}
+
+/** The request's own or shared Gemini key when one is active, otherwise the operator's. */
+export function geminiEndpoint(env: Record<string, string | undefined> = process.env): GeminiEndpoint | null {
+  const credential = activeAiCredential();
+  if (credential && credential.source !== "operator") {
+    return credential.provider === "google"
+      ? geminiEndpointFor(credential.apiKey, credential.vertex?.project, credential.vertex?.location) : null;
+  }
+  return geminiEndpointFor(env.STARDUST_GEMINI_API_KEY, env.STARDUST_GEMINI_VERTEX_PROJECT, env.STARDUST_GEMINI_VERTEX_LOCATION);
 }
 
 export type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };

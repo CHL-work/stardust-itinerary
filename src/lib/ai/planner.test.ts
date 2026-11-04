@@ -36,6 +36,8 @@ const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   runCodex: vi.fn(),
   gemini: vi.fn(),
+  codexOptions: undefined as unknown,
+  readAiCredentialSecret: vi.fn(),
   runVenueHoursResearch: vi.fn(),
   runPublicResearch: vi.fn(),
   extractAiImageFacts: vi.fn(),
@@ -65,6 +67,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 });
 
 vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
+vi.mock("@/lib/ai/credentials", () => ({ readAiCredentialSecret: mocks.readAiCredentialSecret }));
 
 vi.mock("@/lib/app/repository", () => {
   class AppConflictError extends Error {}
@@ -127,6 +130,7 @@ vi.mock("@/lib/ai/planning-draft", async (importOriginal) => ({
 
 vi.mock("@openai/codex-sdk", () => ({
   Codex: class {
+    constructor(options: unknown) { mocks.codexOptions = options; }
     startThread(options: { workingDirectory?: string }) {
       mocks.threadOptions = options;
       mocks.workDirectory = options.workingDirectory ?? "";
@@ -1955,6 +1959,28 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.claudeQuery).not.toHaveBeenCalled();
     const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
     expect(requestInsert?.[1]?.slice(7, 11)).toEqual([model, "google", "gemini_api", "api_key"]);
+  });
+
+  it("runs an own-key request on that user's key only, in a private provider directory", async () => {
+    const previous = { CODEX_API_KEY: process.env.CODEX_API_KEY, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
+    process.env.CODEX_API_KEY = "operator-key"; process.env.OPENAI_API_KEY = "operator-key";
+    try {
+      mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "gpt-6.1-terra", usedToday: 0, limit: null, credentialSource: "own" });
+      mocks.readAiCredentialSecret.mockResolvedValue({ apiKey: "user-own-key", vertex: null });
+      mocks.runCodex.mockResolvedValue({ finalResponse: JSON.stringify({ message: "Done.", proposals: [], sources: [] }), items: [], usage: null });
+      await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Summarize this trip", "gpt-6.1-terra");
+      expect(mocks.readAiCredentialSecret).toHaveBeenCalledWith(expect.anything(), ownerSession.userId, "openai");
+      const env = (mocks.codexOptions as { env: Record<string, string> }).env;
+      expect(env).toMatchObject({ CODEX_API_KEY: "user-own-key", OPENAI_API_KEY: "user-own-key" });
+      expect(JSON.stringify(env)).not.toContain("operator-key");
+      expect(env.CODEX_HOME).toContain("stardust-ai-key-");
+      const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
+      expect(requestInsert?.[1]?.at(-1)).toBe("own");
+    } finally {
+      process.env.CODEX_API_KEY = previous.CODEX_API_KEY; process.env.OPENAI_API_KEY = previous.OPENAI_API_KEY;
+      if (previous.CODEX_API_KEY === undefined) delete process.env.CODEX_API_KEY;
+      if (previous.OPENAI_API_KEY === undefined) delete process.env.OPENAI_API_KEY;
+    }
   });
 
   it("gives Gemini no search tool when the user asks for no online lookup", async () => {

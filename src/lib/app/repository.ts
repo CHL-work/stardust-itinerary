@@ -8,6 +8,8 @@ import { lockCurrentTripActor, requireAnotherBoundOwner } from "@/lib/app/trip-a
 import {
   DEFAULT_OWNER_MODEL,
   MEMBER_MODEL,
+  ownerModelRegistry,
+  providerDefaultModels,
   type ApprovalHistoryPage,
   type ApprovalRequest,
   type ChangeRequestInput,
@@ -108,7 +110,7 @@ function validatedExpenseSplits(patch: ExpensePatch, current?: { amountMinor: nu
 export class AiPolicyDeniedError extends AppForbiddenError {
   constructor(
     message: string,
-    readonly reasonCode: "ai_disabled" | "daily_limit_reached",
+    readonly reasonCode: "ai_disabled" | "daily_limit_reached" | "ai_key_required",
     readonly model: OwnerModel,
   ) {
     super(message);
@@ -3840,12 +3842,37 @@ export async function updateAiSettings(
   });
 }
 
+/**
+ * A model the requester can pay for with their own key, or null. An explicitly requested model uses
+ * the requester's key whenever they hold one for its provider. With no explicit choice, an
+ * operator-sponsored trip keeps its free sponsorship; otherwise the trip default (or the first
+ * registered model) of a provider the requester holds a key for is used.
+ */
+export function ownKeyModel(
+  requestedModel: OwnerModel | undefined, defaultModel: OwnerModel | undefined,
+  ownProviders: ReadonlySet<string>, sponsoredAvailable: boolean,
+): OwnerModel | null {
+  if (requestedModel) return ownProviders.has(ownerModelRegistry[requestedModel].provider) ? requestedModel : null;
+  if (sponsoredAvailable || ownProviders.size === 0) return null;
+  if (defaultModel && Object.hasOwn(ownerModelRegistry, defaultModel) && ownProviders.has(ownerModelRegistry[defaultModel].provider)) {
+    return defaultModel;
+  }
+  const provider = (["openai", "anthropic", "google"] as const).find((name) => ownProviders.has(name));
+  return provider ? providerDefaultModels[provider] : null;
+}
+
+export type AiPolicy = {
+  enabled: boolean; model: OwnerModel; usedToday: number; limit: number | null;
+  /** Whose key pays: the server operator's, or the requester's own (JOB-061). */
+  credentialSource: "operator" | "own";
+};
+
 export async function getAiPolicy(
   client: Queryable,
   session: AuthenticatedSession,
   requestedModel?: OwnerModel,
   options: { serializeMemberQuota?: boolean } = {},
-): Promise<{ enabled: boolean; model: OwnerModel; usedToday: number; limit: number | null }> {
+): Promise<AiPolicy> {
   const settings = await client.query<{
     enabled: boolean;
     owner_default_model: OwnerModel;
@@ -3857,6 +3884,20 @@ export async function getAiPolicy(
           to_jsonb(s) ? 'host_subscription_enabled' AS migrated
         FROM trip_ai_settings s WHERE trip_id = $1`, [session.tripId]);
   const row = settings.rows[0];
+  const ownProviders = await aiCredentialProviders(client, session.userId);
+  const ownModel = ownKeyModel(requestedModel, row?.owner_default_model, ownProviders, Boolean(row?.enabled && row.sponsored));
+  if (ownModel) {
+    if (!row?.enabled) throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", ownModel);
+    const ownUsage = await client.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM ai_requests
+        WHERE trip_id = $1 AND actor_member_id = $2
+          AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+          AND status <> 'rejected'`,
+      [session.tripId, session.memberId],
+    );
+    // The requester's own provider account pays, so the trip's prompt cap does not apply.
+    return { enabled: true, model: ownModel, usedToday: Number(ownUsage.rows[0]?.count ?? 0), limit: null, credentialSource: "own" };
+  }
   const privileged = session.role === "owner" && (!row?.migrated || await isPlatformOperator(client, session.userId));
   if (!privileged && options.serializeMemberQuota) {
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
@@ -3866,8 +3907,14 @@ export async function getAiPolicy(
   const model = privileged
     ? requestedModel ?? row?.owner_default_model ?? DEFAULT_OWNER_MODEL
     : MEMBER_MODEL;
-  if (!row?.enabled || !row.sponsored) {
+  if (!row?.enabled) {
     throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", model);
+  }
+  if (!row.sponsored) {
+    throw new AiPolicyDeniedError(
+      "Add your own API key for this model's provider in Settings → AI keys to use AI in this trip.",
+      "ai_key_required", model,
+    );
   }
   const usage = await client.query<{ count: string }>(
     `SELECT count(*)::text AS count FROM ai_requests
@@ -3889,7 +3936,18 @@ export async function getAiPolicy(
     model,
     usedToday,
     limit: privileged ? null : row.member_daily_limit,
+    credentialSource: "operator",
   };
+}
+
+/** Providers the user holds an API key for (no decryption). */
+async function aiCredentialProviders(client: Queryable, userId: string): Promise<Set<string>> {
+  // Like the other schema-aware reads here, tolerate a database from before migration 0054:
+  // probing first avoids an undefined-table error, which would abort the caller's transaction.
+  const table = await client.query<{ present: boolean }>("SELECT to_regclass('public.user_ai_credentials') IS NOT NULL AS present");
+  if (!table.rows[0]?.present) return new Set();
+  const result = await client.query<{ provider: string }>("SELECT provider FROM user_ai_credentials WHERE user_id = $1", [userId]);
+  return new Set(result.rows.map((entry) => entry.provider));
 }
 
 export { appendAudit, assertTrip, inTransaction };

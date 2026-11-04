@@ -50,6 +50,7 @@ vi.mock("@/lib/ai/request-recovery", async (original) => ({
   assertAiRequestWritable: mocks.writable,
 }));
 vi.mock("@/lib/ai/custom-instructions", () => ({ readAiInstructions: mocks.instructions }));
+vi.mock("@/lib/ai/credentials", () => ({ readAiCredentialSecret: async () => null }));
 vi.mock("@/lib/ai/planning-draft", async (original) => ({
   ...await original<typeof import("@/lib/ai/planning-draft")>(), loadPlanningDraft: mocks.draft,
   assertPlanningDraftCurrent: mocks.assertDraft, recordPlanningDraft: mocks.recordDraft,

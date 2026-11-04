@@ -15,6 +15,7 @@ Edit `.env`:
 | Setting | Value |
 | --- | --- |
 | `AUTH_SECRET` | output of `openssl rand -base64 32` |
+| `CREDENTIAL_ENCRYPTION_KEY` | another `openssl rand -base64 32`; encrypts the API keys users save in Settings |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` (hex keeps it URL-safe) |
 | `OWNER_GOOGLE_EMAIL` | your Google email; you become the platform operator |
 | `PUBLIC_SIGNUP_ENABLED` | `true`, so you can create your own account (see step 2 for who can sign in) |

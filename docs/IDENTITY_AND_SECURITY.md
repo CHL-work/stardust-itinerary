@@ -115,6 +115,9 @@ Offline storage is neither encrypted backup nor fresh authentication. It identif
 - Disruption workers use only planned trip-visible events, ephemeral aliases and bounded public fields; no private/pending/cancelled/completed event, member/booking/financial data or personal instruction context. Evidence persistence belongs to deterministic application transactions.
 - [Feedback](FEEDBACK.md) uses HMAC-bound report scope and separate operator-only access. The tool-free reviewer never receives GitHub credentials; the issue-only publisher is not a trip-chat capability or coding agent.
 
+- Users' own provider API keys (JOB-061) are encrypted with AES-256-GCM under `CREDENTIAL_ENCRYPTION_KEY`, with the user and provider bound as authenticated data, so a ciphertext copied to another row or account does not open. APIs return only the provider, the last four characters and timestamps; audit events record only the provider. A request's key travels in a per-request credential context: provider subprocesses see only that key, never the operator's, and keep their state in a private temporary directory removed after the request.
+- In-app Codex turns run with a locked-down configuration (no shell, exec, apps, agents, hooks, memories, image viewer, MCP or history), and a turn that used any other tool is refused. The read-only sandbox alone would still let a shell read local files.
+
 Provider, OAuth and database secrets belong in the deployment's secret store or server environment ([deployment](DEPLOYMENT.md), [self-hosting](SELF_HOSTING.md)), never in Git, logs, URLs or the browser. Give each process only the credentials it needs. Backups are covered in [database](DATABASE.md).
 
 ## 7. Threats to test

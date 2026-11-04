@@ -35,7 +35,7 @@ Important enforced rules:
 
 ## 2. Migration contract
 
-The repository contains **49 SQL files through `0053_api_key_transport.sql`**. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
+The repository contains **50 SQL files through `0054_user_ai_credentials.sql`**. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
 
 `scripts/db/migration-lib.mjs` sorts unique `NNNN_name.sql` files, takes an advisory lock, validates every applied SHA-256 against `app_schema_migrations`, runs each missing migration in its own transaction and records it only after success. A missing applied file or changed checksum is a hard failure. Never edit an applied migration; add a forward migration.
 
@@ -60,6 +60,7 @@ Checksums are taken over raw file bytes, so line endings matter. `.gitattributes
 | 0051 | Moves current trip AI selections and defaults to the newest models; audit rows keep the model that ran and checks accept both Sol IDs (`gpt-5.6-sol`, `gpt-6.1-sol`). Older builds lack registry entries for the new owner selections, so a code rollback must first map `trip_ai_settings` back to identifiers that build knows (the inverse of the mapping in `0051_model_refresh.sql`). |
 | 0052 | Additive trip deletion state (`deleted_at`, terminal `trip_deleted` memberships with their prior status). Every access path requires an active membership, so an older build keeps deleted trips hidden; reopen a trip only with the procedure below. |
 | 0053 | New AI requests default to `authentication_mode = 'api_key'` and `billing_basis = 'api'`; account lookups accept `api_key` alongside the historical `chatgpt_subscription`. Older builds still insert their own explicit values, so the change is rollback-compatible. |
+| 0054 | Additive `user_ai_credentials` (encrypted per-user provider keys, deleted with the account) and nullable `ai_requests.credential_source`. Older builds ignore both; keys saved meanwhile simply go unused by them. |
 
 Owner-editable trip dates changed no schema: retained day IDs remain, but current-range guards are required. After date edits, an older range-unaware build may be schema-compatible but behaviorally unsafe. Prefer a forward fix; never alter real dates or restore old data to fit old code.
 

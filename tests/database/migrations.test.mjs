@@ -10,6 +10,7 @@ import { testAiImageInputs } from "./ai-image-inputs.mjs";
 import { testAccountOnboarding } from "./account-onboarding.mjs";
 import { testMemberRemoval } from "./member-removal.mjs";
 import { testTripDeletion } from "./trip-deletion.mjs";
+import { testAiCredentials } from "./ai-credentials.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
 import { testCustomExpenseSplits } from "./custom-expense-splits.mjs";
@@ -7302,6 +7303,7 @@ test(
       await testCustomAiInstructions(appPool,connectionString,ownerSession);
       await testTripDestinationLookups(appPool,connectionString);
       await testTripDeletion(appPool,connectionString);
+      await testAiCredentials(appPool,connectionString);
 
     } finally {
       await appPool.end();

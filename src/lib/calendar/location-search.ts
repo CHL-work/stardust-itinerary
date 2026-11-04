@@ -6,6 +6,8 @@ import type { Pool, PoolClient } from "pg";
 import { AppConflictError, AppForbiddenError, AppInvalidInputError, AppNotFoundError, getAiPolicy, getMemberPermissions, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
 import { assertBoundUserAiIdle, CALENDAR_LOCATION_ACTIVE_WINDOW_MINUTES } from "@/lib/ai/conversation";
+import { withUserAiCredential } from "@/lib/ai/credential-context";
+import { readAiCredentialSecret } from "@/lib/ai/credentials";
 import { ownerModelRegistry } from "@/lib/app/types";
 import type { AuthConfig } from "@/lib/auth/config";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
@@ -67,15 +69,18 @@ export async function searchCalendarLocation(pool: Pool, config: AuthConfig, ses
     const policy = await getAiPolicy(client, session, undefined, { serializeMemberQuota: true });
     await assertBoundUserAiIdle(client, session.userId);
     const profile = ownerModelRegistry[policy.model];
+    const userCredential = policy.credentialSource === "own" ? await readAiCredentialSecret(client, session.userId, profile.provider) : null;
+    if (policy.credentialSource === "own" && !userCredential) throw new AppForbiddenError("Your saved API key for this provider is no longer available.");
     await client.query(`INSERT INTO ai_requests (trip_id,id,actor_member_id,actor_user_id,actor_role,feature,
-      prompt_text,requested_model,provider,transport,authentication_mode,billing_basis,client_request_id,request_payload_hash)
-      VALUES ($1,$2,$3,$4,$5,'calendar_location',$6,$7,$8,$9,$10,'api',$11,$12)`,
+      prompt_text,requested_model,provider,transport,authentication_mode,billing_basis,client_request_id,request_payload_hash,credential_source)
+      VALUES ($1,$2,$3,$4,$5,'calendar_location',$6,$7,$8,$9,$10,'api',$11,$12,$13)`,
     [session.tripId,id,session.memberId,session.userId,session.role,buildCalendarLocationPrompt(subject),policy.model,
-      profile.provider,profile.transport,profile.authenticationMode,input.requestId,hash]);
+      profile.provider,profile.transport,profile.authenticationMode,input.requestId,hash,policy.credentialSource]);
     await client.query(`INSERT INTO ai_request_events (trip_id,ai_request_id,sequence,event_type,payload)
       VALUES ($1,$2,1,'calendar.location.started',$3::jsonb)`,
     [session.tripId,id,JSON.stringify({ publicSubject: subject, locale: input.locale, consent: true, model: policy.model })]);
-    return { kind: "start" as const, model: policy.model };
+    return { kind: "start" as const, model: policy.model,
+      credential: userCredential ? { source: "own" as const, provider: profile.provider, ...userCredential } : null };
   });
   if (admission.kind === "replay") return admission.result;
   const controller = new AbortController();
@@ -85,7 +90,8 @@ export async function searchCalendarLocation(pool: Pool, config: AuthConfig, ses
   let provider: CalendarLocationProviderResult | undefined;
   try {
     directory = await mkdtemp(join(tmpdir(), "stardust-calendar-location-"));
-    const work = runCalendarLocationProvider({ subject, model: admission.model, workDirectory: directory, abortController: controller });
+    const lookup = () => runCalendarLocationProvider({ subject, model: admission.model, workDirectory: directory!, abortController: controller });
+    const work = admission.credential ? withUserAiCredential(admission.credential, lookup) : lookup();
     provider = await Promise.race([work, new Promise<never>((_, reject) => {
       timer = setTimeout(() => { controller.abort(); reject(new Error("CALENDAR_LOCATION_TIMEOUT")); }, BUDGET_MS);
     })]);

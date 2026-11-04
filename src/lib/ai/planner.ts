@@ -9,6 +9,8 @@ import { query as claudeQuery, type SDKResultSuccess } from "@anthropic-ai/claud
 import { Codex } from "@openai/codex-sdk";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
 import { lockedDownCodexConfig, usedForbiddenCodexItem } from "@/lib/ai/codex-lockdown";
+import { withUserAiCredential } from "@/lib/ai/credential-context";
+import { readAiCredentialSecret } from "@/lib/ai/credentials";
 import { generateWithGemini } from "@/lib/ai/gemini";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { AiProviderFailureError, aiProviderFailureDetails, createClaudeProviderFailureTracker } from "@/lib/ai/provider-failure";
@@ -833,7 +835,7 @@ async function recordAiPolicyDenial(
     locale: Locale;
     denial: {
       message: string;
-      reasonCode: "ai_disabled" | "daily_limit_reached" | "conversation_busy";
+      reasonCode: "ai_disabled" | "daily_limit_reached" | "ai_key_required" | "conversation_busy";
       model: OwnerModel;
     };
     latencyMs: number;
@@ -1008,6 +1010,13 @@ export async function runAiPlanner(
       serializeMemberQuota: true,
     });
     selectedPolicyModel = currentPolicy.model;
+    // The requester's own key is read once, server-side, and lives only in this request's memory.
+    const userCredential = currentPolicy.credentialSource === "own"
+      ? await readAiCredentialSecret(client, session.userId, ownerModelRegistry[currentPolicy.model].provider) : null;
+    if (currentPolicy.credentialSource === "own" && !userCredential) {
+      throw new AiPolicyDeniedError("Your saved API key for this provider is no longer available. Add it again in Settings → AI keys.",
+        "ai_key_required", currentPolicy.model);
+    }
     await assertBoundUserAiIdle(client, session.userId);
     if (offTopicDecision.offTopic && images.length === 0) {
       setupFailureStage = "off_topic_recording";
@@ -1092,11 +1101,11 @@ export async function runAiPlanner(
     await client.query(
       `INSERT INTO ai_requests (
          trip_id, id, actor_member_id, actor_user_id, conversation_id, actor_role,
-         prompt_text, requested_model, provider, transport, authentication_mode, billing_basis
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'api')`,
+         prompt_text, requested_model, provider, transport, authentication_mode, billing_basis, credential_source
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'api',$12)`,
       [session.tripId, requestId, session.memberId, session.userId, memory.conversationId,
         session.role, prompt, currentPolicy.model,
-        profile.provider, profile.transport, profile.authenticationMode],
+        profile.provider, profile.transport, profile.authenticationMode, currentPolicy.credentialSource],
     );
     if (images.length) await saveAiRequestImages(client, session, requestId, images);
     if (clientRequestId) {
@@ -1130,6 +1139,7 @@ export async function runAiPlanner(
       conversationMemory: memory,
       planningDraft,
       aiInstructions,
+      userCredential,
     };
   }).catch(async (error: unknown) => {
     if (error instanceof AiPolicyDeniedError) {
@@ -1181,7 +1191,10 @@ export async function runAiPlanner(
   if (setup.kind === "replay") return setup.recovery;
   if (setup.kind === "off_topic") return setup.response;
 
-  const { policy, conversationMemory, aiInstructions, planningDraft } = setup;
+  const { policy, conversationMemory, aiInstructions, planningDraft, userCredential } = setup;
+  // Every provider call below (planning, pictures, research, venue hours) runs on the same key:
+  // the requester's own when the policy chose it, otherwise the server operator's.
+  const continuePlanning = async (): Promise<AiPlannerResult | AiRequestRecoveryResponse> => {
   let reservationSecrets = inspectReservationSecrets([
     prompt, aiInstructions.instructions, JSON.stringify(conversationMemory.turns), JSON.stringify(conversationMemory.checkpoint),
     JSON.stringify(planningDraft?.userRequests ?? []),
@@ -2430,4 +2443,8 @@ export async function runAiPlanner(
     );
     throw error;
   }
+  };
+  return userCredential
+    ? withUserAiCredential({ source: "own", provider: ownerModelRegistry[policy.model].provider, ...userCredential }, continuePlanning)
+    : continuePlanning();
 }

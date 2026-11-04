@@ -110,6 +110,13 @@ export const ownerModelRegistry = {
   },
 } as const satisfies Record<OwnerModel, OwnerModelProfile>;
 
+/** The model used with a user's own key when they have not chosen one: a capable, moderately priced tier. */
+export const providerDefaultModels = {
+  openai: "gpt-6.1-sol",
+  anthropic: "claude-sonnet-5-5",
+  google: "gemini-3.8-flash",
+} as const satisfies Record<OwnerModelProfile["provider"], OwnerModel>;
+
 /** The legacy marker is retained only to fence read-only archived chats. */
 export type AiConversationPurpose = "trip" | "preferences";
 
