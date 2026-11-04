@@ -1,33 +1,63 @@
+# Self-hosting with Docker Compose: PostgreSQL 17, a one-off migration, the web app and the
+# background scheduler (disruption checks and feedback). See docs/SELF_HOSTING.md.
+name: stardust
+
+x-app-database: &app-database
+  DATABASE_URL: postgresql://stardust:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/stardust
+
 services:
-  postgres:
-    image: postgres:17-alpine
+  db:
+    image: postgres:17-bookworm
+    restart: unless-stopped
     environment:
       POSTGRES_DB: stardust
       POSTGRES_USER: stardust
-      POSTGRES_PASSWORD: stardust
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
-      - stardust-postgres:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U stardust -d stardust"]
       interval: 5s
       timeout: 5s
-      retries: 10
-    restart: unless-stopped
+      retries: 20
 
-  app:
+  migrate:
     build: .
+    image: stardust-itinerary:local
+    command: ["migrate"]
+    env_file: .env
     environment:
-      DATABASE_URL: postgresql://stardust:stardust@postgres:5432/stardust
-      APP_BASE_URL: http://localhost:8080
-      DEFAULT_LOCALE: zh-HK-lihkg
-    ports:
-      - "8080:8080"
+      <<: *app-database
+      DATABASE_DIRECT_URL: postgresql://stardust:${POSTGRES_PASSWORD}@db:5432/stardust
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    profiles: ["app"]
+    restart: "no"
+
+  web:
+    image: stardust-itinerary:local
+    command: ["web"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-database
+      STARDUST_MAP_CACHE_DIR: /home/stardust/day-map-cache
+    ports:
+      - "${STARDUST_PORT:-3100}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    image: stardust-itinerary:local
+    command: ["scheduler"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *app-database
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
-  stardust-postgres:
+  db-data:

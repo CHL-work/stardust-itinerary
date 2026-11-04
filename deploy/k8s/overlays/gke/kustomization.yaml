@@ -17,7 +17,7 @@ configMapGenerator:
   - name: stardust-backup-config
     namespace: stardust
     literals:
-      - STARDUST_DB_HOST=stardust-db
+      - STARDUST_DATABASE_HOST=stardust-db
       - STARDUST_BACKUP_GCS_BUCKET=stardust-itinerary-live-backups
       - STARDUST_BACKUP_AGE_RECIPIENT=age1x5qt2jcrsz0qnqqs92n3yjf3n9rrvaya2z9qx2m8weu0fa57mv8sjqwlpl
 generatorOptions:

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { ownerModels, ownerModelRegistry, type OwnerModel } from "@/lib/app/types";
+const sdkModels = ownerModels.filter((model) => ownerModelRegistry[model].provider !== "google");
 import { AI_IMAGE_FACTS_MAX_CHARACTERS, AI_IMAGE_MAX_BYTES, AI_IMAGE_MAX_COUNT, AI_IMAGE_MAX_EDGE } from "@/lib/ai/image-types";
 import type { PreparedAiImage } from "@/lib/ai/image-server-types";
 import type { Locale } from "@/lib/i18n";
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   startThread: vi.fn(),
   run: vi.fn(),
   claudeQuery: vi.fn(),
+  gemini: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({ mkdtemp: mocks.mkdir, writeFile: mocks.writeFile, rm: mocks.rm }));
@@ -25,6 +27,7 @@ vi.mock("@openai/codex-sdk", () => ({
   },
 }));
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claudeQuery }));
+vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
 
 import { AiImageExtractionError, extractAiImageFacts } from "@/lib/ai/image-extraction";
 
@@ -79,10 +82,12 @@ beforeEach(() => {
   mocks.rm.mockResolvedValue(undefined);
   mocks.run.mockResolvedValue(codexResult());
   mocks.claudeQuery.mockImplementation(async function* () { yield claudeResult(); });
+  mocks.gemini.mockResolvedValue({ text: JSON.stringify(extracted), modelVersion: null, inputTokens: 430, outputTokens: 95,
+    cachedInputTokens: 0, webSearchQueries: [], groundingDomains: [] });
 });
 
 describe("bounded picture extraction", () => {
-  it.each(ownerModels)("retains separate service rows, missing prices and explicit free tiers with %s", async (model) => {
+  it.each(sdkModels)("retains separate service rows, missing prices and explicit free tiers with %s", async (model) => {
     const rows = { ...extracted,
       facts: "1. Synthetic Wellness North: body-care, 60 minutes, price unknown. 2. Synthetic Wellness South: body-care, 90 minutes, final paid JPY 12000. 3. Synthetic Gallery: admission explicitly free; no payment stated.",
       uncertainties: ["Row 1 shows no price. Row 2 has no payment date."],
@@ -182,9 +187,17 @@ describe("bounded picture extraction", () => {
     if (profile.provider === "openai") {
       expect(mocks.startThread).toHaveBeenCalledWith(expect.objectContaining({ model, modelReasoningEffort: profile.reasoningEffort }));
       expect(mocks.claudeQuery).not.toHaveBeenCalled();
-    } else {
+    } else if (profile.provider === "anthropic") {
       expect(mocks.claudeQuery).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ model, effort: profile.effort }) }));
       expect(mocks.run).not.toHaveBeenCalled();
+    } else {
+      // Gemini gets the pictures inline, no tools and no workspace files.
+      expect(mocks.gemini).toHaveBeenCalledWith(expect.objectContaining({ model }));
+      expect(mocks.gemini.mock.calls[0]![0]).not.toHaveProperty("googleSearch");
+      expect(mocks.gemini.mock.calls[0]![0].parts.some((part: { inlineData?: unknown }) => part.inlineData)).toBe(true);
+      expect(mocks.writeFile).not.toHaveBeenCalled();
+      expect(mocks.run).not.toHaveBeenCalled();
+      expect(mocks.claudeQuery).not.toHaveBeenCalled();
     }
   });
 

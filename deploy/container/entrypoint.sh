@@ -19,7 +19,7 @@ if [ -n "${STARDUST_DB_ADMIN_PASSWORD_FILE:-}" ] && [ -z "${DATABASE_DIRECT_URL:
   case "$admin_password" in
     ''|*[!0-9a-fA-F]*) echo "the administrator password file must contain only hexadecimal characters" >&2; exit 64 ;;
   esac
-  DATABASE_DIRECT_URL="postgresql://${STARDUST_DB_ADMIN_USER:-postgres}:${admin_password}@${STARDUST_DB_HOST:-stardust-db}:${STARDUST_DB_PORT:-5432}/${STARDUST_DB_NAME:-stardust}"
+  DATABASE_DIRECT_URL="postgresql://${STARDUST_DATABASE_ADMIN_USER:-postgres}:${admin_password}@${STARDUST_DATABASE_HOST:-stardust-db}:${STARDUST_DATABASE_PORT:-5432}/${STARDUST_DATABASE_NAME:-stardust}"
   export DATABASE_DIRECT_URL
   unset admin_password
 fi
@@ -45,6 +45,9 @@ case "$mode" in
   backup)
     # shellcheck disable=SC2086
     exec node $env_flags scripts/db/backup.mjs "$@" ;;
+  provider-smoke)
+    # shellcheck disable=SC2086
+    exec node $env_flags --import tsx scripts/provider-smoke.ts "$@" ;;
   scheduler)
     # Single-host stand-in for the Kubernetes CronJobs: disruption checks every 5 minutes,
     # the feedback worker once an hour. Failures are logged and retried on the next tick.
@@ -60,6 +63,6 @@ case "$mode" in
       sleep 300
     done ;;
   *)
-    echo "usage: entrypoint.sh web|disruption|feedback|migrate|backup|scheduler" >&2
+    echo "usage: entrypoint.sh web|disruption|feedback|migrate|backup|scheduler|provider-smoke" >&2
     exit 64 ;;
 esac

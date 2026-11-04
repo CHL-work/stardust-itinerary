@@ -25,6 +25,7 @@ spec:
             app.kubernetes.io/component: disruption
         spec:
           serviceAccountName: stardust-worker
+          enableServiceLinks: false
           automountServiceAccountToken: false
           restartPolicy: Never
           securityContext:
@@ -102,6 +103,7 @@ spec:
             app.kubernetes.io/component: feedback
         spec:
           serviceAccountName: stardust-worker
+          enableServiceLinks: false
           automountServiceAccountToken: false
           restartPolicy: Never
           securityContext:
@@ -186,6 +188,7 @@ spec:
             app.kubernetes.io/component: backup
         spec:
           serviceAccountName: stardust-backup
+          enableServiceLinks: false
           automountServiceAccountToken: false
           restartPolicy: Never
           securityContext:

@@ -10,6 +10,7 @@ import { containsReservationSecret } from "@/lib/ai/reservation-secrets";
 import { sanitizeVenueHoursSource } from "@/lib/ai/venue-hours-sources";
 import { containsPrivateIdentifier, sanitizeSearchQueries } from "@/lib/disruptions/privacy";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
+import { generateWithGemini } from "@/lib/ai/gemini";
 
 const MAX_RAW_OUTPUT_CHARACTERS = 65_536;
 const targetSchema = z.object({
@@ -290,6 +291,28 @@ async function runClaude(input: VenueHoursResearchInput, prompt: string): Promis
   };
 }
 
+async function runGemini(input: VenueHoursResearchInput, prompt: string): Promise<VenueHoursResearchResult> {
+  const profile = ownerModelRegistry[input.model];
+  if (profile.provider !== "google") throw new VenueHoursResearchError("AI_VENUE_HOURS_INVALID");
+  // Google Search grounding runs its queries inside Google; each reported query must still be a
+  // public venue-hours search, or the answer is refused.
+  const result = await generateWithGemini({
+    model: input.model, parts: [{ text: prompt }], responseJsonSchema: venueHoursOutputSchema,
+    googleSearch: true, signal: input.abortController.signal,
+  });
+  abortIfNeeded(input);
+  if (result.webSearchQueries.some((query) => !searchInput({ query }))) {
+    throw new VenueHoursResearchError("AI_VENUE_HOURS_TOOL_BLOCKED");
+  }
+  const { assessments } = parseRoot(result.text);
+  return {
+    assessments,
+    inputTokens: result.inputTokens, outputTokens: result.outputTokens, cachedInputTokens: result.cachedInputTokens,
+    webSearchQueries: sanitizeSearchQueries(result.webSearchQueries),
+    sourceUrls: publicSourceUrls(assessmentSourceUrls(assessments)),
+  };
+}
+
 /** The caller creates and cleans this fresh temporary workspace and owns the deadline. */
 export async function runVenueHoursResearch(input: VenueHoursResearchInput): Promise<VenueHoursResearchResult> {
   try {
@@ -298,7 +321,9 @@ export async function runVenueHoursResearch(input: VenueHoursResearchInput): Pro
       throw new VenueHoursResearchError("AI_VENUE_HOURS_INVALID");
     }
     const prompt = buildVenueHoursResearchPrompt(input.targets, input.nowUtc);
-    return ownerModelRegistry[input.model].provider === "openai" ? await runCodex(input, prompt) : await runClaude(input, prompt);
+    const provider = ownerModelRegistry[input.model].provider;
+    return provider === "openai" ? await runCodex(input, prompt)
+      : provider === "google" ? await runGemini(input, prompt) : await runClaude(input, prompt);
   } catch (error) {
     if (error instanceof AiProviderFailureError) throw error;
     if (error instanceof VenueHoursResearchError) throw error;

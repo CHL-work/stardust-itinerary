@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 import { ownerModels, ownerModelRegistry } from "@/lib/app/types";
+const sdkModels = ownerModels.filter((model) => ownerModelRegistry[model].provider !== "google");
 import type { PreparedAiImage } from "@/lib/ai/image-server-types";
 import { VENUE_HOURS_BUDGET_MS } from "@/lib/ai/venue-hours";
 import { PUBLIC_RESEARCH_BUDGET_MS } from "@/lib/ai/public-research";
@@ -34,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   readAiInstructions: vi.fn(),
   query: vi.fn(),
   runCodex: vi.fn(),
+  gemini: vi.fn(),
   runVenueHoursResearch: vi.fn(),
   runPublicResearch: vi.fn(),
   extractAiImageFacts: vi.fn(),
@@ -61,6 +63,8 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     },
   };
 });
+
+vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
 
 vi.mock("@/lib/app/repository", () => {
   class AppConflictError extends Error {}
@@ -670,7 +674,7 @@ describe("AI planner live-search and approval policy", () => {
   });
 
   describe("automatic isolated public-fact research", () => {
-    it.each(ownerModels)("hands source-backed ordinary service tariffs to final planning with %s without recording an estimated bill", async (model) => {
+    it.each(sdkModels)("hands source-backed ordinary service tariffs to final planning with %s without recording an estimated bill", async (model) => {
       const target = { kind: "price", subject: "Synthetic Wellness Central Branch", date: null };
       const source = "https://synthetic-wellness.example.test/menu";
       const quote: PublishedPriceQuote = { service: "Relaxation massage", durationMinutes: 60, currency: "JPY", baseFeeMinor: 7000,
@@ -726,7 +730,7 @@ describe("AI planner live-search and approval policy", () => {
       expect(mocks.applyPermittedChangeRequest).not.toHaveBeenCalled();
     });
 
-    it.each(ownerModels)("researches missing current facts and finalizes without direct tools using %s", async (model) => {
+    it.each(sdkModels)("researches missing current facts and finalizes without direct tools using %s", async (model) => {
       mocks.getAiPolicy.mockResolvedValue({ enabled: true, model, usedToday: 0, limit: null });
       queuePublicResearchPlanner(model);
       mocks.runPublicResearch.mockImplementationOnce(async () => {
@@ -1871,7 +1875,7 @@ describe("AI planner live-search and approval policy", () => {
     expect(requiresLivePlaceSearch(prompt)).toBe(true);
   });
 
-  it.each(ownerModels)("imports reservation confirmation copy without mandatory search using %s", async (model) => {
+  it.each(sdkModels)("imports reservation confirmation copy without mandatory search using %s", async (model) => {
     mocks.getAiPolicy.mockResolvedValue({ enabled: true, model, usedToday: 0, limit: null });
     const reply = reservationReply(reservationPatch());
     if (ownerModelRegistry[model].provider === "anthropic") {
@@ -1913,7 +1917,7 @@ describe("AI planner live-search and approval policy", () => {
     expect(blocksLivePlaceSearchForPrivacy("Find dinner near Tokyo Station")).toBe(false);
   });
 
-  it.each(ownerModels)("enables real search options for a short follow-up with %s", async (model) => {
+  it.each(sdkModels)("enables real search options for a short follow-up with %s", async (model) => {
     mocks.getAiPolicy.mockResolvedValue({ enabled: true, model, usedToday: 0, limit: null });
     const output = { message: "Official public venue information.", proposals: [], sources: ["https://www.tokyo-skytree.jp/en/"] };
     const query = "Tokyo Skytree official website";
@@ -1936,6 +1940,31 @@ describe("AI planner live-search and approval policy", () => {
     const policy = mocks.query.mock.calls.find(([sql]) => String(sql).includes("web.search.policy"));
     expect(JSON.parse(String(policy?.[1]?.[3]))).toMatchObject({ model, intent: "required", enabled: true, reason: "public_lookup" });
     expect(mocks.createChangeRequestsAtomically).not.toHaveBeenCalled();
+  });
+
+  it("plans with Gemini over its REST transport and grounds a required public lookup in Google Search", async () => {
+    const model = "gemini-3.8-flash";
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model, usedToday: 0, limit: null });
+    const output = { message: "Official public venue information.", proposals: [], sources: ["https://www.tokyo-skytree.jp/en/"] };
+    mocks.gemini.mockResolvedValue({ text: JSON.stringify(output), modelVersion: model, inputTokens: 30, outputTokens: 10,
+      cachedInputTokens: 0, webSearchQueries: ["Tokyo Skytree official website"], groundingDomains: ["tokyo-skytree.jp"] });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "you search for it", model);
+    expect(result).toMatchObject({ model, proposalCount: 0, webSearch: { performed: true, queryCount: 1 } });
+    expect(mocks.gemini).toHaveBeenCalledWith(expect.objectContaining({ model, googleSearch: true }));
+    expect(mocks.runCodex).not.toHaveBeenCalled();
+    expect(mocks.claudeQuery).not.toHaveBeenCalled();
+    const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
+    expect(requestInsert?.[1]?.slice(7, 11)).toEqual([model, "google", "gemini_api", "api_key"]);
+  });
+
+  it("gives Gemini no search tool when the user asks for no online lookup", async () => {
+    const model = "gemini-4-argon";
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model, usedToday: 0, limit: null });
+    mocks.gemini.mockResolvedValue({ text: JSON.stringify({ message: "Using supplied facts only.", proposals: [], sources: [] }),
+      modelVersion: model, inputTokens: 5, outputTokens: 5, cachedInputTokens: 0, webSearchQueries: [], groundingDomains: [] });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Do not use the web to search for this hotel", model);
+    expect(result.webSearch.performed).toBe(false);
+    expect(mocks.gemini).toHaveBeenCalledWith(expect.objectContaining({ model, googleSearch: false }));
   });
 
   it.each([
@@ -3404,7 +3433,7 @@ describe("AI planner live-search and approval policy", () => {
     };
   }
 
-  it.each(ownerModels)("uses saved ordinary booking image facts on a no-attachment clarification with %s and still requires approval", async (model) => {
+  it.each(sdkModels)("uses saved ordinary booking image facts on a no-attachment clarification with %s and still requires approval", async (model) => {
     const facts = "Booking row 1: Synthetic Wellness Central Branch. Relaxation massage, 60 minutes, September 1, 2026, 15:00 JST. Confirmed amount owed: JPY 7000. Booking row 2: Synthetic Wellness Riverside Branch. Relaxation massage, 90 minutes, September 2, 2026, 10:00 JST. Price not visible; do not borrow row 1's price.";
     const originalRequest = "Create only booking row 1 as a private event and linked expense shared with Guest from this picture. Do not create row 2.";
     const draft = openReservationDraft(withAiImageFacts(originalRequest, facts));
@@ -3491,7 +3520,7 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.applyPermittedChangeRequest).not.toHaveBeenCalled();
   });
 
-  it.each(ownerModels)("uses contextual colloquial clarification with %s", async (model) => {
+  it.each(sdkModels)("uses contextual colloquial clarification with %s", async (model) => {
     mocks.getAiPolicy.mockResolvedValue({ enabled: true, model, usedToday: 0, limit: null });
     mocks.loadPlanningDraft.mockResolvedValue(openReservationDraft());
     const reply = reservationReply(reservationPatch(), { continuesDraft: true });

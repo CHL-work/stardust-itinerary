@@ -57,7 +57,8 @@ export function aiProviderFailureMessage(failure: { errorCode?: string | null; p
   if (!code || !Object.prototype.hasOwnProperty.call(english, code) || !code.startsWith("AI_PROVIDER_")) return null;
   const parsed = parseAiProviderFailureDetails(failure.providerFailure);
   const details = parsed?.code === code ? parsed : null;
-  const provider = details?.provider === "anthropic" ? "Anthropic (Claude)" : details?.provider === "openai" ? "OpenAI" : copy.provider;
+  const provider = details?.provider === "anthropic" ? "Anthropic (Claude)" : details?.provider === "openai" ? "OpenAI"
+    : details?.provider === "google" ? "Google (Gemini)" : copy.provider;
   const reason = formatMessage(copy[code as keyof FailureCopy], { provider });
   let reset: string | null = null;
   if (code === "AI_PROVIDER_RATE_LIMITED" && details?.retryAt) {

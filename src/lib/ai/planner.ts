@@ -8,6 +8,7 @@ import { ZodError } from "zod";
 import { query as claudeQuery, type SDKResultSuccess } from "@anthropic-ai/claude-agent-sdk";
 import { Codex } from "@openai/codex-sdk";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
+import { generateWithGemini } from "@/lib/ai/gemini";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { AiProviderFailureError, aiProviderFailureDetails, createClaudeProviderFailureTracker } from "@/lib/ai/provider-failure";
 import { aiRequestWorkBudgetMs } from "@/lib/ai/request-budget";
@@ -213,8 +214,8 @@ type PlannerOutput = {
 type ProviderTurn = {
   output: PlannerOutput;
   effectiveModel: string;
-  provider: "anthropic" | "openai";
-  transport: "claude_agent_sdk" | "codex_sdk";
+  provider: "anthropic" | "openai" | "google";
+  transport: "claude_agent_sdk" | "codex_sdk" | "gemini_api";
   authenticationMode: "api_key";
   inputTokens: number | null;
   outputTokens: number | null;
@@ -763,6 +764,59 @@ async function runClaudeTurn(
     webSearchQueries: uniqueSearchQueries(webSearchQueries),
     sourceUrls: liveWebSearchEnabled ? uniqueSourceUrls([...sourceUrls, ...output.sources]) : [],
     ...(lifecycle.cleanupFailed ? { sdkCleanupFailed: true } : {}),
+  };
+}
+
+async function runGeminiTurn(
+  model: OwnerModel,
+  prompt: string,
+  context: unknown,
+  _workDirectory: string,
+  locale: Locale,
+  recentConversation: readonly AiConversationTurn[],
+  conversationCheckpoint: AiConversationCheckpoint | null,
+  aiInstructions: string,
+  liveWebSearchEnabled: boolean,
+  liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext },
+): Promise<ProviderTurn> {
+  const profile = ownerModelRegistry[model];
+  if (profile.provider !== "google") {
+    throw new Error(`Model ${model} is not configured for the Gemini transport.`);
+  }
+  const result = await generateWithGemini({
+    model,
+    parts: [{ text: plannerPrompt(
+      prompt,
+      context,
+      locale,
+      recentConversation,
+      liveWebSearchEnabled,
+      liveWebSearchPrivacyBlockReason ?? false,
+      conversationCheckpoint,
+      aiInstructions,
+      control.draft ?? null,
+      control.research ?? null,
+    ) + (control.repair ? `\n\n${timestampRepairInstructions(control.repair)}` : "") }],
+    responseJsonSchema: outputSchema,
+    // Google Search grounding is Gemini's only tool here; nothing can touch files, shells or the network otherwise.
+    googleSearch: liveWebSearchEnabled,
+    signal: control.abortController.signal,
+  });
+  let output: PlannerOutput;
+  try { output = parseOutput(result.text); }
+  catch { throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "google" }); }
+  return {
+    output,
+    effectiveModel: model,
+    provider: "google",
+    transport: "gemini_api",
+    authenticationMode: "api_key",
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+    cachedInputTokens: result.cachedInputTokens,
+    webSearchQueries: uniqueSearchQueries(result.webSearchQueries),
+    sourceUrls: liveWebSearchEnabled ? uniqueSourceUrls(output.sources) : [],
   };
 }
 
@@ -1346,21 +1400,15 @@ export async function runAiPlanner(
       let providerReturned = false;
       try {
         if (started + workBudget <= Date.now()) throw new AiPlannerTimeoutError();
-        const providerPromise = ownerModelRegistry[policy.model].provider === "anthropic"
-          ? runClaudeTurn(
-              policy.model, prompt, context, workDirectory, locale, conversationMemory.turns,
-              conversationMemory.checkpoint, aiInstructions.instructions,
-              repair || researchContext.phase === "complete" ? false : livePlaceSearchRequired,
-              liveWebSearchPrivacyBlockReason,
-              control,
-            )
-          : runCodexTurn(
-              policy.model, prompt, context, workDirectory, locale, conversationMemory.turns,
-              conversationMemory.checkpoint, aiInstructions.instructions,
-              repair || researchContext.phase === "complete" ? false : livePlaceSearchRequired,
-              liveWebSearchPrivacyBlockReason,
-              control,
-            );
+        const provider = ownerModelRegistry[policy.model].provider;
+        const runProviderTurn = provider === "anthropic" ? runClaudeTurn : provider === "google" ? runGeminiTurn : runCodexTurn;
+        const providerPromise = runProviderTurn(
+          policy.model, prompt, context, workDirectory, locale, conversationMemory.turns,
+          conversationMemory.checkpoint, aiInstructions.instructions,
+          repair || researchContext.phase === "complete" ? false : livePlaceSearchRequired,
+          liveWebSearchPrivacyBlockReason,
+          control,
+        );
         const providerResult = await Promise.race([providerPromise, deadline]);
         providerReturned = true;
         const result: ProviderTurn = {

@@ -6,7 +6,7 @@ export const aiProviderFailureCodes = [
 ] as const;
 export type AiProviderFailureCode = typeof aiProviderFailureCodes[number];
 export type AiProviderFailureDetails = {
-  code: AiProviderFailureCode; provider: "anthropic" | "openai"; retryAt?: string;
+  code: AiProviderFailureCode; provider: "anthropic" | "openai" | "google"; retryAt?: string;
 };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -16,7 +16,7 @@ function record(value: unknown): value is Record<string, unknown> {
 export function parseAiProviderFailureDetails(value: unknown): AiProviderFailureDetails | null {
   if (!record(value) || Object.keys(value).some((key) => !["code", "provider", "retryAt"].includes(key))
     || !aiProviderFailureCodes.includes(value.code as AiProviderFailureCode)
-    || (value.provider !== "anthropic" && value.provider !== "openai")) return null;
+    || (value.provider !== "anthropic" && value.provider !== "openai" && value.provider !== "google")) return null;
   let retryAt: string | undefined;
   if (value.retryAt !== undefined) {
     if (value.code !== "AI_PROVIDER_RATE_LIMITED" || typeof value.retryAt !== "string"

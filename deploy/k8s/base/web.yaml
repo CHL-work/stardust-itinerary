@@ -39,6 +39,7 @@ spec:
         app.kubernetes.io/component: web
     spec:
       serviceAccountName: stardust-web
+      enableServiceLinks: false
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 45
       securityContext:

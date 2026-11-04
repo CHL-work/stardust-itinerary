@@ -15,6 +15,9 @@ export const ownerModels = [
   "claude-sonnet-5-5",
   "claude-opus-5-5",
   "claude-fable-5-1",
+  "gemini-4-argon",
+  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite",
 ] as const;
 
 export type OwnerModel = (typeof ownerModels)[number];
@@ -33,7 +36,13 @@ type AnthropicOwnerModelProfile = Readonly<{
   effort: "low";
 }>;
 
-export type OwnerModelProfile = OpenAiOwnerModelProfile | AnthropicOwnerModelProfile;
+type GoogleOwnerModelProfile = Readonly<{
+  provider: "google";
+  transport: "gemini_api";
+  authenticationMode: "api_key";
+}>;
+
+export type OwnerModelProfile = OpenAiOwnerModelProfile | AnthropicOwnerModelProfile | GoogleOwnerModelProfile;
 
 export const ownerModelRegistry = {
   "gpt-6.1-sol": {
@@ -83,6 +92,21 @@ export const ownerModelRegistry = {
     transport: "claude_agent_sdk",
     authenticationMode: "api_key",
     effort: "low",
+  },
+  "gemini-4-argon": {
+    provider: "google",
+    transport: "gemini_api",
+    authenticationMode: "api_key",
+  },
+  "gemini-3.8-flash": {
+    provider: "google",
+    transport: "gemini_api",
+    authenticationMode: "api_key",
+  },
+  "gemini-3.5-flash-lite": {
+    provider: "google",
+    transport: "gemini_api",
+    authenticationMode: "api_key",
   },
 } as const satisfies Record<OwnerModel, OwnerModelProfile>;
 

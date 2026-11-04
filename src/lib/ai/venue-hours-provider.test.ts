@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ownerModelRegistry, ownerModels, type OwnerModel } from "@/lib/app/types";
 
 const mocks = vi.hoisted(() => ({
-  codex: vi.fn(), startThread: vi.fn(), run: vi.fn(), claudeQuery: vi.fn(), close: vi.fn(),
+  codex: vi.fn(), startThread: vi.fn(), run: vi.fn(), claudeQuery: vi.fn(), close: vi.fn(), gemini: vi.fn(),
 }));
 vi.mock("@openai/codex-sdk", () => ({
   Codex: class {
@@ -13,6 +13,7 @@ vi.mock("@openai/codex-sdk", () => ({
   },
 }));
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claudeQuery }));
+vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
 
 import {
   buildVenueHoursResearchPrompt, runVenueHoursResearch, venueHoursOutputSchema,
@@ -44,6 +45,8 @@ function claudeMessages(messages: unknown[]) {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.run.mockResolvedValue(codexResult());
+  mocks.gemini.mockResolvedValue({ text: JSON.stringify(evidence), modelVersion: null, inputTokens: 120, outputTokens: 60,
+    cachedInputTokens: 0, webSearchQueries: ["Synthetic Sakura Restaurant Tokyo official hours"], groundingDomains: ["example.test"] });
   mocks.claudeQuery.mockImplementation(() => claudeMessages([
     { type: "assistant", message: { content: [{ type: "tool_use", name: "WebSearch", input: { query: "Synthetic Sakura Restaurant Tokyo official hours" } }] } },
     { type: "user", tool_use_result: { query: "Synthetic Sakura Restaurant Tokyo official hours", results: [{ content: [{ url: "https://example.test/sakura/hours" }] }] } },
@@ -174,9 +177,13 @@ describe("isolated venue-hours provider", () => {
     if (profile.provider === "openai") {
       expect(mocks.startThread).toHaveBeenCalledWith(expect.objectContaining({ model, modelReasoningEffort: profile.reasoningEffort }));
       expect(mocks.claudeQuery).not.toHaveBeenCalled();
-    } else {
+    } else if (profile.provider === "anthropic") {
       expect(mocks.claudeQuery).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ model, effort: profile.effort }) }));
       expect(mocks.run).not.toHaveBeenCalled();
+    } else {
+      expect(mocks.gemini).toHaveBeenCalledWith(expect.objectContaining({ model, googleSearch: true }));
+      expect(mocks.run).not.toHaveBeenCalled();
+      expect(mocks.claudeQuery).not.toHaveBeenCalled();
     }
   });
 

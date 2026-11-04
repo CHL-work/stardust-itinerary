@@ -5,6 +5,7 @@ import { query, type HookCallback } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { ownerModelRegistry, type OwnerModel } from "@/lib/app/types";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
+import { generateWithGemini } from "@/lib/ai/gemini";
 import { createClaudeProviderFailureTracker } from "@/lib/ai/provider-failure";
 import { isBoundPublicResearchQuery, sanitizePublicResearchSource, validatePublicResearchTargets } from "@/lib/ai/public-research";
 import { containsPrivateIdentifier } from "@/lib/disruptions/privacy";
@@ -87,6 +88,17 @@ export async function runCalendarLocationProvider(input: CalendarLocationProvide
     }
     return { evidence: assessCalendarLocationEvidence(turn.finalResponse, subject, queries), queries,
       inputTokens: usage(turn.usage?.input_tokens), outputTokens: usage(turn.usage?.output_tokens), cachedInputTokens: usage(turn.usage?.cached_input_tokens) };
+  }
+  if (profile.provider === "google") {
+    // Google Search grounding chooses its own query count; every reported query must still be a
+    // bounded public venue search, and a few more than Codex's two are tolerated for that reason.
+    const result = await generateWithGemini({ model: input.model, parts: [{ text: prompt }], responseJsonSchema: outputSchema,
+      googleSearch: true, signal: input.abortController.signal });
+    abort();
+    const queries = result.webSearchQueries;
+    if (queries.length > 4 || queries.some((q) => !safeSearch({ query: q }, subject))) throw new Error("CALENDAR_LOCATION_TOOL_BLOCKED");
+    return { evidence: assessCalendarLocationEvidence(result.text, subject, queries), queries,
+      inputTokens: result.inputTokens, outputTokens: result.outputTokens, cachedInputTokens: result.cachedInputTokens };
   }
   let allowedSearches = 0;
   const gate: HookCallback = async (hook) => {

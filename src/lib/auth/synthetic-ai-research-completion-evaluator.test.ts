@@ -190,7 +190,7 @@ function workflow() {
   } });
   mock.poolQuery.mockImplementation(async (sql: string) => {
     if (sql.startsWith("SELECT status,")) return { rowCount: 1, rows: [{ status: "succeeded", requested_model: options.model,
-      effective_model: options.model, provider: "openai", transport: "codex_sdk", authentication_mode: "chatgpt_subscription",
+      effective_model: options.model, provider: "openai", transport: "codex_sdk", authentication_mode: "api_key",
       proposal_id: null, response_json: result, actor_user_id: session.userId, actor_member_id: session.memberId,
       client_request_id: planner.mock.calls[0]?.[5] }] };
     if (sql.startsWith("SELECT event_type")) return { rows: events, rowCount: events.length };

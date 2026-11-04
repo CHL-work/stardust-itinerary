@@ -14,6 +14,7 @@ import {
 import { assessReusableVenueHours, type VenueHoursResearchTarget, type VenueHoursEvidence } from "@/lib/ai/venue-hours-evidence";
 import { containsPrivateIdentifier, sanitizeSearchQueries } from "@/lib/disruptions/privacy";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
+import { generateWithGemini } from "@/lib/ai/gemini";
 
 const MAX_RAW_OUTPUT_CHARACTERS = 65_536;
 export type PublicResearchInput = {
@@ -294,6 +295,32 @@ async function runClaude(input: PublicResearchInput, prompt: string): Promise<Pu
   };
 }
 
+async function runGemini(input: PublicResearchInput, prompt: string): Promise<PublicResearchResult> {
+  const profile = ownerModelRegistry[input.model];
+  if (profile.provider !== "google") throw new PublicResearchError("AI_PUBLIC_RESEARCH_INVALID");
+  // Google Search grounding is the only tool. Its queries run inside Google, so, as for Codex,
+  // every reported query must pass the exact public-subject gate after the fact.
+  const result = await generateWithGemini({
+    model: input.model, parts: [{ text: prompt }], responseJsonSchema: publicResearchOutputSchema,
+    googleSearch: true, signal: input.abortController.signal,
+  });
+  abortIfNeeded(input);
+  const { facts: rawFacts, hours: rawHours } = parseRoot(result.text);
+  const queries = result.webSearchQueries;
+  if (queries.some((query) => !searchInput({ query }, input.targets))) {
+    throw new PublicResearchError("AI_PUBLIC_RESEARCH_TOOL_BLOCKED");
+  }
+  const searchedKeys = new Set(input.targets.filter((target) => queries.some((query) => isBoundPublicResearchQuery(query, [target]))).map((target) => target.key));
+  const facts = assessPublicResearch(input.targets, rawFacts, queries.length > 0, searchedKeys, input.nowUtc.slice(0, 10));
+  const hours = reusableHours(input, rawHours, searchedKeys);
+  return {
+    facts, ...hours,
+    inputTokens: result.inputTokens, outputTokens: result.outputTokens, cachedInputTokens: result.cachedInputTokens,
+    webSearchQueries: sanitizeSearchQueries(queries),
+    sourceUrls: publicSourceUrls([...assessmentSourceUrls(facts), ...assessmentSourceUrls(hours.hoursEvidence)]),
+  };
+}
+
 /** The caller creates and cleans this fresh temporary workspace and owns the deadline. */
 export async function runPublicResearch(input: PublicResearchInput): Promise<PublicResearchResult> {
   try {
@@ -304,7 +331,9 @@ export async function runPublicResearch(input: PublicResearchInput): Promise<Pub
     const targets = validatePublicResearchTargets(input.targets);
     const safeInput = { ...input, targets, hoursTargets: validatePublicResearchHoursTargets(targets, input.hoursTargets) };
     const prompt = buildPublicResearchPrompt(safeInput.targets, safeInput.nowUtc, safeInput.hoursTargets);
-    return ownerModelRegistry[input.model].provider === "openai" ? await runCodex(safeInput, prompt) : await runClaude(safeInput, prompt);
+    const provider = ownerModelRegistry[input.model].provider;
+    return provider === "openai" ? await runCodex(safeInput, prompt)
+      : provider === "google" ? await runGemini(safeInput, prompt) : await runClaude(safeInput, prompt);
   } catch (error) {
     if (error instanceof AiProviderFailureError) throw error;
     if (error instanceof PublicResearchError) throw error;

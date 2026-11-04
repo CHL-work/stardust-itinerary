@@ -2,12 +2,13 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ownerModels, type OwnerModel } from "@/lib/app/types";
-const mocks = vi.hoisted(() => ({ codex: vi.fn(), start: vi.fn(), run: vi.fn(), claude: vi.fn(), close: vi.fn() }));
+const mocks = vi.hoisted(() => ({ codex: vi.fn(), start: vi.fn(), run: vi.fn(), claude: vi.fn(), close: vi.fn(), gemini: vi.fn() }));
 vi.mock("@openai/codex-sdk", () => ({ Codex: class {
   constructor(options: unknown) { mocks.codex(options); }
   startThread(options: unknown) { mocks.start(options); return { run: mocks.run }; }
 } }));
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claude }));
+vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
 import { assessCalendarLocationEvidence, buildCalendarLocationPrompt, runCalendarLocationProvider, validateCalendarLocationSubject } from "./location-search-provider";
 
 const subject = "Synthetic Sakura Park Tokyo";
@@ -26,11 +27,23 @@ beforeEach(() => {
   mocks.run.mockResolvedValue({ finalResponse: JSON.stringify(evidence), items: [{ type: "web_search", query: search }],
     usage: { input_tokens: 10, output_tokens: 5, cached_input_tokens: 1 } });
   mocks.claude.mockImplementation(() => messages([tool(), success]));
+  mocks.gemini.mockResolvedValue({ text: JSON.stringify(evidence), modelVersion: null, inputTokens: 12, outputTokens: 6,
+    cachedInputTokens: 0, webSearchQueries: [search], groundingDomains: [] });
 });
 
 describe("isolated Calendar public venue lookup", () => {
   it.each(ownerModels)("supports registered %s with observed search and structured evidence", async (model) => {
     expect((await runCalendarLocationProvider(input(model))).evidence).toEqual(evidence);
+  });
+  it("grounds Gemini in search only and refuses unrelated or excessive reported queries", async () => {
+    await expect(runCalendarLocationProvider(input("gemini-3.8-flash"))).resolves.toMatchObject({ evidence, queries: [search] });
+    expect(mocks.gemini).toHaveBeenCalledWith(expect.objectContaining({ model: "gemini-3.8-flash", googleSearch: true }));
+    expect(mocks.run).not.toHaveBeenCalled(); expect(mocks.claude).not.toHaveBeenCalled();
+    for (const queries of [["Other venue address"], [search, search, search, search, search]]) {
+      mocks.gemini.mockResolvedValue({ text: JSON.stringify(evidence), modelVersion: null, inputTokens: 1, outputTokens: 1,
+        cachedInputTokens: 0, webSearchQueries: queries, groundingDomains: [] });
+      await expect(runCalendarLocationProvider(input("gemini-3.8-flash"))).rejects.toThrow("TOOL_BLOCKED");
+    }
   });
   it("keeps the prompt narrow and never grants scheduling authority", () => {
     const prompt = buildCalendarLocationPrompt(subject);

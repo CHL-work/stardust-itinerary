@@ -6,6 +6,7 @@ import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { query as claudeQuery, type SDKResultSuccess, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { AiProviderFailureError, createClaudeProviderFailureTracker } from "@/lib/ai/provider-failure";
+import { generateWithGemini } from "@/lib/ai/gemini";
 
 import { ownerModelRegistry, type OwnerModel } from "@/lib/app/types";
 import { AI_IMAGE_FACTS_MAX_CHARACTERS, AI_IMAGE_MAX_BYTES, AI_IMAGE_MAX_COUNT, AI_IMAGE_MAX_EDGE } from "@/lib/ai/image-types";
@@ -281,6 +282,29 @@ async function extractWithClaude(input: ExtractionInput, workDirectory: string):
   }
 }
 
+async function extractWithGemini(input: ExtractionInput): Promise<AiImageExtractionResult> {
+  const profile = ownerModelRegistry[input.model];
+  if (profile.provider !== "google") throw new AiImageExtractionError("AI_IMAGE_EXTRACTION_INVALID");
+  // No tools at all: the pictures and the instruction go in, schema-constrained JSON comes out.
+  const result = await generateWithGemini({
+    model: input.model,
+    parts: [
+      ...input.images.map((image) => ({ inlineData: { mimeType: image.mediaType, data: image.data.toString("base64") } })),
+      { text: promptForImages(input.locale, input.images.length) },
+    ],
+    responseJsonSchema: outputSchema,
+    signal: input.signal,
+  });
+  abortIfNeeded(input.signal);
+  return {
+    ...parsedFacts(claudeSerializerPayload(result.text)),
+    effectiveModel: input.model,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+    cachedInputTokens: result.cachedInputTokens,
+  };
+}
+
 export async function extractAiImageFacts(input: ExtractionInput): Promise<AiImageExtractionResult> {
   abortIfNeeded(input.signal);
   assertInput(input);
@@ -295,9 +319,10 @@ export async function extractAiImageFacts(input: ExtractionInput): Promise<AiIma
     }
     workDirectory = created;
     abortIfNeeded(input.signal);
-    return ownerModelRegistry[input.model].provider === "openai"
-      ? await extractWithCodex(input, workDirectory)
-      : await extractWithClaude(input, workDirectory);
+    const provider = ownerModelRegistry[input.model].provider;
+    return provider === "openai" ? await extractWithCodex(input, workDirectory)
+      : provider === "google" ? await extractWithGemini(input)
+        : await extractWithClaude(input, workDirectory);
   } catch (error) {
     failed = true;
     if (input.signal.aborted) throw new AiImageExtractionError("AI_IMAGE_EXTRACTION_ABORTED");

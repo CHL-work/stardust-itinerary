@@ -20,6 +20,7 @@ spec:
         app.kubernetes.io/component: tunnel
     spec:
       serviceAccountName: stardust-tunnel
+      enableServiceLinks: false
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true

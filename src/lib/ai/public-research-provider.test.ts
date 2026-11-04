@@ -6,12 +6,13 @@ import { publicResearchQuery, type PublicResearchFact } from "@/lib/ai/public-re
 import type { VenueHoursEvidence } from "@/lib/ai/venue-hours-evidence";
 import type { PublishedPriceQuote } from "@/lib/ai/price-evidence";
 
-const mocks = vi.hoisted(() => ({ codex: vi.fn(), startThread: vi.fn(), run: vi.fn(), claudeQuery: vi.fn(), close: vi.fn() }));
+const mocks = vi.hoisted(() => ({ codex: vi.fn(), startThread: vi.fn(), run: vi.fn(), claudeQuery: vi.fn(), close: vi.fn(), gemini: vi.fn() }));
 vi.mock("@openai/codex-sdk", () => ({ Codex: class {
   constructor(options: unknown) { mocks.codex(options); }
   startThread(options: unknown) { mocks.startThread(options); return { run: mocks.run }; }
 } }));
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: mocks.claudeQuery }));
+vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
 import { buildPublicResearchPrompt, runPublicResearch, PublicResearchError, type PublicResearchInput } from "@/lib/ai/public-research-provider";
 
 const target = { key: "R1", kind: "venue" as const, subject: "Synthetic Sakura Park, Tokyo", date: "2030-04-01" };
@@ -48,6 +49,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.run.mockResolvedValue(codexResult());
   mocks.claudeQuery.mockImplementation(() => messages([search, claudeResult()]));
+  mocks.gemini.mockResolvedValue({ text: JSON.stringify({ facts: [fact] }), modelVersion: null, inputTokens: 120, outputTokens: 60,
+    cachedInputTokens: 0, webSearchQueries: [query], groundingDomains: ["example.test"] });
 });
 
 describe("bounded published tariff adapters", () => {
@@ -330,12 +333,22 @@ describe("isolated same-model public research", () => {
       expect(mocks.codex.mock.calls[0]![0].config).toMatchObject({ features: { shell_tool: false, apps: false, memories: false, multi_agent: false }, mcp_servers: {}, notify: [] });
       expect(result).toMatchObject({ inputTokens: 100, outputTokens: 50, cachedInputTokens: 10 });
       expect(mocks.claudeQuery).not.toHaveBeenCalled();
-    } else {
+    } else if (ownerModelRegistry[model].provider === "anthropic") {
       expect(mocks.claudeQuery.mock.calls[0]![0].options).toMatchObject({ model, tools: ["WebSearch"], mcpServers: {}, strictMcpConfig: true, settingSources: [], persistSession: false });
       expect(result).toMatchObject({ inputTokens: 110, outputTokens: 55, cachedInputTokens: 11 });
       expect(mocks.close).toHaveBeenCalledTimes(1);
       expect(mocks.codex).not.toHaveBeenCalled();
+    } else {
+      expect(mocks.gemini).toHaveBeenCalledWith(expect.objectContaining({ model, googleSearch: true }));
+      expect(result).toMatchObject({ inputTokens: 120, outputTokens: 60, cachedInputTokens: 0 });
+      expect(mocks.codex).not.toHaveBeenCalled();
+      expect(mocks.claudeQuery).not.toHaveBeenCalled();
     }
+  });
+  it("refuses a Gemini answer whose reported search left the projected public subject", async () => {
+    mocks.gemini.mockResolvedValue({ text: JSON.stringify({ facts: [fact] }), modelVersion: null, inputTokens: 1, outputTokens: 1,
+      cachedInputTokens: 0, webSearchQueries: [query, "owner home address"], groundingDomains: [] });
+    await expect(runPublicResearch(input("gemini-3.8-flash"))).rejects.toMatchObject({ code: "AI_PUBLIC_RESEARCH_TOOL_BLOCKED" });
   });
   it("shares identical public prompts and output schemas across providers", async () => {
     await runPublicResearch(input());

@@ -23,6 +23,7 @@ spec:
             app.kubernetes.io/component: migrate
         spec:
           serviceAccountName: stardust-migrate
+          enableServiceLinks: false
           automountServiceAccountToken: false
           restartPolicy: Never
           securityContext:
