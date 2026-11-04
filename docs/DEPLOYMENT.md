@@ -100,6 +100,7 @@ Through Workload Identity Federation, only `main` can push images and only the `
 - **Scaling:** change `minReplicas`/`maxReplicas` in `deploy/k8s/base/web.yaml`, or the pod `resources`; Autopilot provides the capacity. Autopilot bills pod requests, not nodes.
 - **Secrets:** add a new version, then `kubectl -n stardust rollout restart deploy/stardust-web`; CronJob pods pick it up on their next run. Destroy old versions you no longer need.
 - **Manual backup:** `kubectl -n stardust create job backup-now --from=cronjob/stardust-backup`.
+- **Guest purge:** a failed `stardust-guest-purge` run means the database refused to purge a guest that is not provably isolated. The guest stays in place, and the run logs only counts. Find it with `SELECT id FROM app_users WHERE guest_expires_at <= now()`, investigate, and never delete guest rows by hand.
 - **Restore:**
   1. Download the object and its `.json` manifest.
   2. Decrypt with the age identity: `age -d -i <key> -o db.dump <object>.dump.age`.

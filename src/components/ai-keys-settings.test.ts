@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { AiKeysView, aiKeyProviders, savedKeyLine } from "@/components/ai-keys-settings";
 import { aiKeysMessages } from "@/lib/ai/keys-i18n";
-import { locales } from "@/lib/i18n";
+import { formatMessage, locales } from "@/lib/i18n";
 
 const saved = { provider: "anthropic" as const, hint: "KEY9", vertex: false, validatedAt: "2030-04-01T00:00:00.000Z", updatedAt: "2030-04-01T00:00:00.000Z" };
 const empty = { apiKey: "", vertexProject: "" };
@@ -29,6 +29,21 @@ describe("Settings → AI keys", () => {
     expect(html.match(/ai-key-google-vertex/gu)?.length).toBeGreaterThan(0);
     expect(html).not.toContain("ai-key-openai-vertex");
     expect(html).toContain("Check and replace");
+  });
+
+  it("shows the owner how much each saved key was used, and shared use only when there is some", () => {
+    const counts = (shared: number) => ({ today: 2, last30Days: 9, sharedToday: 0, sharedLast30Days: shared });
+    const html = renderToStaticMarkup(createElement(AiKeysView, {
+      copy: aiKeysMessages("en"), locale: "en", keys: [saved], phase: "ready", busy: null, notice: null,
+      usage: { openai: counts(0), anthropic: counts(3), google: counts(0) },
+      drafts: { openai: empty, anthropic: empty, google: empty },
+      edit: () => undefined, save: () => () => undefined, remove: () => () => undefined, reload: () => undefined,
+    }));
+    const copy = aiKeysMessages("en");
+    expect(html).toContain(formatMessage(copy.usageLine, { today: 2, month: 9 }));
+    expect(html.match(/Your requests on this key/gu)).toHaveLength(1);
+    expect(html).toContain(formatMessage(copy.sharedUsageLine, { today: 0, month: 3 }));
+    expect(render()).not.toContain("Your requests on this key");
   });
 
   it("is complete and neutral in every locale", () => {

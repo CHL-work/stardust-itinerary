@@ -139,6 +139,44 @@ export async function deleteAiCredential(pool: Pool, session: AuthenticatedSessi
   });
 }
 
+/** Requests that ran on a user's keys, per provider: their own, and members' through a shared key. */
+export type AiKeyUsage = Record<AiCredentialProvider, { today: number; last30Days: number; sharedToday: number; sharedLast30Days: number }>;
+
+/**
+ * The key owner's own view of what their keys paid for (JOB-066), across every trip: counts only,
+ * never prompts. Shared use counts requests where one of the user's memberships was the sponsor.
+ */
+export async function aiKeyUsage(pool: Pool, session: AuthenticatedSession, tripId: string): Promise<AiKeyUsage> {
+  assertTrip(session, tripId);
+  const usage = Object.fromEntries(aiCredentialProviders.map((provider) =>
+    [provider, { today: 0, last30Days: 0, sharedToday: 0, sharedLast30Days: 0 }])) as AiKeyUsage;
+  const sponsorColumn = await pool.query<{ present: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'ai_requests' AND column_name = 'credential_sponsor_member_id') AS present`);
+  const shared = sponsorColumn.rows[0]?.present
+    ? `OR (request.credential_source = 'shared' AND EXISTS (SELECT 1 FROM trip_members sponsor
+         WHERE sponsor.trip_id = request.trip_id AND sponsor.id = request.credential_sponsor_member_id AND sponsor.user_id = $1))`
+    : "";
+  const result = await pool.query<{ provider: AiCredentialProvider; own_today: string; own_month: string; shared_today: string; shared_month: string }>(
+    `SELECT request.provider,
+            count(*) FILTER (WHERE request.credential_source = 'own' AND request.created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::text AS own_today,
+            count(*) FILTER (WHERE request.credential_source = 'own')::text AS own_month,
+            count(*) FILTER (WHERE request.credential_source = 'shared' AND request.created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::text AS shared_today,
+            count(*) FILTER (WHERE request.credential_source = 'shared')::text AS shared_month
+       FROM ai_requests request
+      WHERE request.created_at >= CURRENT_TIMESTAMP - interval '30 days' AND request.status <> 'rejected'
+        AND request.provider IN ('openai', 'anthropic', 'google')
+        AND ((request.credential_source = 'own' AND request.actor_user_id = $1) ${shared})
+      GROUP BY request.provider`,
+    [session.userId],
+  );
+  for (const row of result.rows) {
+    usage[row.provider] = { today: Number(row.own_today), last30Days: Number(row.own_month),
+      sharedToday: Number(row.shared_today), sharedLast30Days: Number(row.shared_month) };
+  }
+  return usage;
+}
+
 /** Server-only: the decrypted key for one provider, or null. Never send the result to a client. */
 export async function readAiCredentialSecret(
   client: Pick<PoolClient, "query">, userId: string, provider: AiCredentialProvider,

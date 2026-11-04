@@ -62,7 +62,7 @@ Always use clear neutral Cantonese for:
 - safety, weather, closure, missed transport, accessibility and medical information;
 - privacy, consent, export/deletion, errors and reliability guidance.
 
-Trip deletion copy (`src/lib/app/trip-deletion-i18n.ts`) follows this rule: both Cantonese modes share one neutral text.
+Trip deletion copy (`src/lib/app/trip-deletion-i18n.ts`) follows this rule: both Cantonese modes share one neutral text. So do AI key, billing and key-sharing copy (`src/lib/ai/keys-i18n.ts`) and guest-account deletion copy (`src/lib/app/guest-i18n.ts`).
 
 Japanese safety/money copy likewise stays direct and polite. Casual post-save financial acknowledgements are not an exception.
 

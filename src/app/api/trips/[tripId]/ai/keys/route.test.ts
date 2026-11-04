@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiCredentialRejectedError } from "@/lib/ai/credentials";
 import { RateLimitError } from "@/lib/auth/errors";
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), limit: vi.fn(), list: vi.fn(), save: vi.fn(), remove: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), limit: vi.fn(), list: vi.fn(), save: vi.fn(), remove: vi.fn(), usage: vi.fn() }));
 const session = { tripId: "trip-a", memberId: "member-a", userId: "user-a", role: "editor" };
 const config = { appBaseUrl: new URL("https://stardust.test"), databaseUrl: "postgresql://local/test", authSecret: "synthetic" };
 vi.mock("@/lib/auth/config", () => ({ getAuthConfig: () => config }));
@@ -13,7 +13,7 @@ vi.mock("@/lib/auth/repository", () => ({ enforceRateLimit: mocks.limit }));
 vi.mock("@/lib/db/pool", () => ({ getPool: () => "pool" }));
 vi.mock("@/lib/ai/credentials", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/ai/credentials")>(),
-  listAiCredentials: mocks.list, saveAiCredential: mocks.save, deleteAiCredential: mocks.remove,
+  listAiCredentials: mocks.list, saveAiCredential: mocks.save, deleteAiCredential: mocks.remove, aiKeyUsage: mocks.usage,
 }));
 import { DELETE, GET, PUT } from "./route";
 
@@ -26,6 +26,8 @@ function request(method: string, body?: unknown, query = "") {
   });
 }
 const saved = { provider: "openai", hint: "6789", vertex: false, validatedAt: "2030-01-01T00:00:00.000Z", updatedAt: "2030-01-01T00:00:00.000Z" };
+const counts = { today: 1, last30Days: 4, sharedToday: 0, sharedLast30Days: 2 };
+const usage = { openai: counts, anthropic: counts, google: counts };
 
 describe("own AI keys route", () => {
   beforeEach(() => {
@@ -33,13 +35,14 @@ describe("own AI keys route", () => {
     mocks.auth.mockResolvedValue(session);
     mocks.list.mockResolvedValue([saved]);
     mocks.save.mockResolvedValue(saved);
+    mocks.usage.mockResolvedValue(usage);
   });
 
   it("lists only summaries, never cached", async () => {
     const response = await GET(request("GET"), context);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(await response.json()).toEqual({ keys: [saved] });
+    expect(await response.json()).toEqual({ keys: [saved], usage });
   });
 
   it("budgets key checks per account and per address before asking the provider", async () => {

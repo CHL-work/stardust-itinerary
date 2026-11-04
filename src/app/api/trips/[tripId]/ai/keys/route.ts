@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  AiCredentialRejectedError, aiCredentialInputSchema, aiCredentialProviders, AiKeysUnavailableError, deleteAiCredential,
+  AiCredentialRejectedError, aiCredentialInputSchema, aiCredentialProviders, aiKeyUsage, AiKeysUnavailableError, deleteAiCredential,
   listAiCredentials, saveAiCredential,
 } from "@/lib/ai/credentials";
 import { apiError } from "@/lib/app/http";
@@ -41,7 +41,9 @@ export async function GET(request: NextRequest, { params }: Context) {
     const config = getAuthConfig();
     const session = await requireAuthenticatedSession(request, config);
     const { tripId } = await params;
-    return NextResponse.json({ keys: await listAiCredentials(getPool(config), session, tripId) }, { headers });
+    const pool = getPool(config);
+    const [keys, usage] = await Promise.all([listAiCredentials(pool, session, tripId), aiKeyUsage(pool, session, tripId)]);
+    return NextResponse.json({ keys, usage }, { headers });
   } catch (error) { return failure(error); }
 }
 

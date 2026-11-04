@@ -7,7 +7,9 @@ Source map and safe verification guide. Runtime topology is in [architecture](AR
 - Google-bound accounts, revocable rolling sessions, assigned/reusable invitations, trip switching, owner trip creation/date settings, safe member removal and owner trip deletion that keeps records.
 - Shared/private canonical events and visible pending projections, owner review/history, endpoint-specific transport rows, revisioned editing and cancelled-event tombstones.
 - Per-person expense summaries, equal/exact splits, multiple bills per event, atomic linked-event bills and manual repayments.
-- AI through the official Codex SDK and Claude Agent SDK: text/pictures, typed proposals, private browseable history, bounded memory/clarification drafts, manual account instructions, isolated public research and recoverable delivery.
+- AI through the official Codex SDK, Claude Agent SDK and Gemini REST API: text/pictures, typed proposals, private browseable history, bounded memory/clarification drafts, manual account instructions, isolated public research and recoverable delivery.
+- Bring-your-own provider keys, encrypted at rest and isolated per request (JOB-061). Trip owners can share them with chosen members (JOB-063).
+- Default-off 24-hour guest accounts with a synthetic demo trip, isolated from real trips and permanently purged (JOB-064).
 - Optional per-member Calendar export/import with duplicate receipts; silent passive refresh and deterministic conflicts.
 - Explicit-load MapLibre/OSM day map, deterministic weather, backend qualified disruptions and bounded read-only public offline itinerary.
 - New default/classic optional UI, four locales, Advanced settings, owner Activity and private feedback with a separate issue-only pipeline.

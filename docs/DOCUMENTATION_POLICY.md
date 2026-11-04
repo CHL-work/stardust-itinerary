@@ -31,13 +31,13 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 
 | Area | Documents |
 | --- | --- |
-| Entry points and history | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CLAUDE.md` |
+| Entry points and history | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CLAUDE.md`, `docs/CASE_STUDY.md` |
 | Product, decisions and plans | `docs/DESIGN.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md` |
 | Architecture and source map | `docs/ARCHITECTURE.md`, `docs/IMPLEMENTATION.md` |
 | Hosting and deployment | `docs/SELF_HOSTING.md`, `docs/DEPLOYMENT.md`, `Dockerfile`, `compose.yaml`, `.env.example`, `deploy/k8s/`, `infra/` |
 | Continuous integration | `.github/workflows/ci.yml` |
 | PostgreSQL schema and restore | `docs/DATABASE.md` |
-| Security and identity | `docs/IDENTITY_AND_SECURITY.md` |
+| Security and identity | `docs/IDENTITY_AND_SECURITY.md`, `docs/THREAT_MODEL.md`, `docs/PRIVACY.md` (draft privacy notice) |
 | Public-ready accounts and member removal | `docs/PUBLIC_TRIPS_AND_MEMBERS.md` |
 | Create Trip destination defaults | `docs/TRIP_DESTINATION_DEFAULTS.md` |
 | AI | `docs/AI_AND_AGENTS.md` |

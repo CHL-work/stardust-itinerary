@@ -45,6 +45,8 @@ const english = {
   sharedAccess: "AI in this trip runs on {owner}'s API key with {model}, up to {limit} prompts a day. You never see the key.",
   sharedModelLabel: "Model for members who use your keys",
   sharedOption: "{model} · {owner}'s key",
+  usageLine: "Your requests on this key: {today} today, {month} in the last 30 days.",
+  sharedUsageLine: "Members using your shared key: {today} today, {month} in the last 30 days.",
 };
 export type AiKeysCopy = { [K in keyof typeof english]: string };
 
@@ -92,6 +94,8 @@ const cantonese: AiKeysCopy = {
   sharedAccess: "呢個旅程嘅 AI 會用 {owner} 嘅 API 金鑰同 {model}，每日最多 {limit} 次提問。你唔會見到條金鑰。",
   sharedModelLabel: "用你金鑰嘅成員所用嘅模型",
   sharedOption: "{model} · {owner} 嘅金鑰",
+  usageLine: "你用呢條金鑰發出嘅請求：今日 {today} 次，過去 30 日 {month} 次。",
+  sharedUsageLine: "用你分享金鑰嘅成員：今日 {today} 次，過去 30 日 {month} 次。",
 };
 
 const japanese: AiKeysCopy = {
@@ -138,6 +142,8 @@ const japanese: AiKeysCopy = {
   sharedAccess: "この旅行のAIは {owner} のAPIキーと {model} で動き、1日に最大 {limit} 回まで質問できます。キーそのものが表示されることはありません。",
   sharedModelLabel: "あなたのキーを使うメンバーのモデル",
   sharedOption: "{model} · {owner} のキー",
+  usageLine: "このキーでのあなたのリクエスト：今日 {today} 件、過去30日間 {month} 件。",
+  sharedUsageLine: "共有キーを使うメンバー：今日 {today} 件、過去30日間 {month} 件。",
 };
 
 export function aiKeysMessages(locale: Locale): AiKeysCopy {

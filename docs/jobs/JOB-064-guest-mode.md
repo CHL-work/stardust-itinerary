@@ -38,7 +38,9 @@ The owner asked for this on November 4, 2026: a guest option without Google sign
    - `403` when a configured Turnstile check fails;
    - `503` at capacity;
    - `201` with the session cookie on success.
-4. **Restrictions:** `assertNotGuest` refuses adding members, join links, new trips, feedback and destination lookups. Guest members are created without Calendar sync, and the database refuses invitations.
+4. **Restrictions:** `assertNotGuest` refuses adding members, join links, new trips, feedback, destination lookups and Google Calendar authorization. The database refuses invitations as well.
+
+   A guest owns its demo trip, so owner permissions alone would have allowed Calendar; a local end-to-end check in the browser found this. The Calendar, create-trip and invite controls are hidden for guests.
 5. **Purge job:**
    - `scripts/run-guest-purge.ts` and the `guest-purge` entrypoint mode, also run hourly by the Compose scheduler.
    - CronJob `stardust-guest-purge`, with only `app-env` and a NetworkPolicy allowing only the database and DNS.

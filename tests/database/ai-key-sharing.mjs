@@ -5,7 +5,7 @@ import {
   AppForbiddenError, AppInvalidInputError, AppNotFoundError, createTripMember, getAiPolicy, getAppOverview, inTransaction, setAiKeyGrant,
   updateAiSettings, updateTripMember,
 } from "../../src/lib/app/repository.ts";
-import { deleteAiCredential, readAiCredentialSecret, saveAiCredential } from "../../src/lib/ai/credentials.ts";
+import { aiKeyUsage, deleteAiCredential, readAiCredentialSecret, saveAiCredential } from "../../src/lib/ai/credentials.ts";
 import { consumeJoinLink, issueJoinLink, signInExistingIdentity, verifySession } from "../../src/lib/auth/repository.ts";
 
 /**
@@ -105,6 +105,11 @@ export async function testAiKeySharing(pool, connectionString) {
        VALUES ($1,$2,$3,$4,'editor','Synthetic shared fixture','claude-opus-5-5','failed',CURRENT_TIMESTAMP,'shared',$5)`,
       [tripId, randomUUID(), memberMemberId, member.userId, ownerMemberId]);
     await assert.rejects(policy(memberSession), { reasonCode: "daily_limit_reached" });
+    // The sponsor sees how much members used the shared key; the member sees none of it as their own.
+    await pool.query("UPDATE ai_requests SET provider='anthropic' WHERE trip_id=$1 AND credential_source='shared'", [tripId]);
+    const sponsorUsage = await aiKeyUsage(pool, ownerSession, tripId);
+    assert.deepEqual(sponsorUsage.anthropic, { today: 0, last30Days: 0, sharedToday: 20, sharedLast30Days: 20 });
+    assert.deepEqual((await aiKeyUsage(pool, memberSession, tripId)).anthropic, { today: 0, last30Days: 0, sharedToday: 0, sharedLast30Days: 0 });
     await pool.query("DELETE FROM ai_requests WHERE trip_id=$1 AND credential_source='shared'", [tripId]);
 
     // Turning sharing off, or the sponsor deleting the key, stops it at the next request.

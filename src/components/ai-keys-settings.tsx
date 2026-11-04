@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { AiCredentialSummary } from "@/lib/ai/credentials";
+import type { AiCredentialSummary, AiKeyUsage } from "@/lib/ai/credentials";
 import { aiKeysMessages, type AiKeysCopy } from "@/lib/ai/keys-i18n";
 import { formatMessage, type Locale } from "@/lib/i18n";
 
@@ -32,6 +32,7 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
   const copy = aiKeysMessages(locale);
   const url = `/api/trips/${encodeURIComponent(tripId)}/ai/keys`;
   const [keys, setKeys] = useState<AiCredentialSummary[] | null>(null);
+  const [usage, setUsage] = useState<AiKeyUsage | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "failed">("loading");
   const [drafts, setDrafts] = useState<Record<Provider, { apiKey: string; vertexProject: string }>>({
     openai: { apiKey: "", vertexProject: "" }, anthropic: { apiKey: "", vertexProject: "" }, google: { apiKey: "", vertexProject: "" },
@@ -39,16 +40,16 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
   const [busy, setBusy] = useState<Provider | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
-  const fetchKeys = useCallback(() => request<{ keys: AiCredentialSummary[] }>(url), [request, url]);
+  const fetchKeys = useCallback(() => request<{ keys: AiCredentialSummary[]; usage?: AiKeyUsage }>(url), [request, url]);
   useEffect(() => {
     let active = true;
-    fetchKeys().then((body) => { if (active) { setKeys(body.keys); setPhase("ready"); } },
+    fetchKeys().then((body) => { if (active) { setKeys(body.keys); setUsage(body.usage ?? null); setPhase("ready"); } },
       () => { if (active) setPhase("failed"); });
     return () => { active = false; };
   }, [fetchKeys]);
   const reload = () => {
     setPhase("loading");
-    fetchKeys().then((body) => { setKeys(body.keys); setPhase("ready"); }, () => setPhase("failed"));
+    fetchKeys().then((body) => { setKeys(body.keys); setUsage(body.usage ?? null); setPhase("ready"); }, () => setPhase("failed"));
   };
 
   const save = (provider: Provider) => async (event: FormEvent) => {
@@ -93,13 +94,13 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
     }
   };
 
-  return <AiKeysView copy={copy} locale={locale} keys={keys} phase={phase} drafts={drafts} busy={busy} notice={notice}
+  return <AiKeysView copy={copy} locale={locale} keys={keys} usage={usage} phase={phase} drafts={drafts} busy={busy} notice={notice}
     edit={(provider, field, value) => setDrafts((current) => ({ ...current, [provider]: { ...current[provider], [field]: value } }))}
     save={save} remove={remove} reload={reload} />;
 }
 
 type ViewProps = {
-  copy: AiKeysCopy; locale: Locale; keys: AiCredentialSummary[] | null; phase: "loading" | "ready" | "failed";
+  copy: AiKeysCopy; locale: Locale; keys: AiCredentialSummary[] | null; usage?: AiKeyUsage | null; phase: "loading" | "ready" | "failed";
   drafts: Record<Provider, { apiKey: string; vertexProject: string }>; busy: Provider | null; notice: Notice | null;
   edit: (provider: Provider, field: "apiKey" | "vertexProject", value: string) => void;
   save: (provider: Provider) => (event: FormEvent) => void;
@@ -107,7 +108,7 @@ type ViewProps = {
   reload: () => void;
 };
 
-export function AiKeysView({ copy, locale, keys, phase, drafts, busy, notice, edit, save, remove, reload }: ViewProps) {
+export function AiKeysView({ copy, locale, keys, usage = null, phase, drafts, busy, notice, edit, save, remove, reload }: ViewProps) {
   return <article className="settings-card" aria-busy={phase === "loading" || busy !== null}>
     <h2>{copy.title}</h2>
     <p>{copy.description}</p>
@@ -121,6 +122,10 @@ export function AiKeysView({ copy, locale, keys, phase, drafts, busy, notice, ed
       return <section key={provider} aria-labelledby={`${inputId}-title`}>
         <h3 id={`${inputId}-title`}>{name}</h3>
         <p>{savedKeyLine(copy, locale, saved)}</p>
+        {saved && usage ? <p className="muted-copy">{formatMessage(copy.usageLine, { today: usage[provider].today, month: usage[provider].last30Days })}</p> : null}
+        {usage && usage[provider].sharedLast30Days > 0
+          ? <p className="muted-copy">{formatMessage(copy.sharedUsageLine, { today: usage[provider].sharedToday, month: usage[provider].sharedLast30Days })}</p>
+          : null}
         <form data-feedback-action="settings_save" onSubmit={save(provider)}>
           <label htmlFor={inputId}>{copy.label}</label>
           <input id={inputId} type="password" autoComplete="off" spellCheck={false} aria-describedby="ai-keys-privacy"

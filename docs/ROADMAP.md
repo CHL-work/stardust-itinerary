@@ -13,14 +13,14 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | Job | What | Status |
 | --- | --- | --- |
 | JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
-| JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script | Done; the GitHub deploy workflow is still to come |
-| JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Rehearsed on staging |
+| JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script and the `deploy` workflow with an approval step | Done |
+| JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Done: cut over on November 4, 2026 after a staging rehearsal. The old services are disabled; the VM stays as a rollback for now |
 | JOB-061 | Bring-your-own API keys | In review: Settings → AI keys, encrypted storage, per-request isolation, own-key funding, AI on in every trip, and fixes from a security review. Usage display moves to JOB-066 |
 | JOB-062 | Gemini models (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`) with Google Search grounding | Done |
 | JOB-063 | Trip-owner key sharing | In review: invite and join-link checkboxes, per-member switches, shared-key funding with the trip model and daily limit |
 | JOB-064 | Guest mode and public sign-up | In review: guest accounts with the 24-hour purge, behind `GUEST_MODE_ENABLED`. Public sign-up already exists behind `PUBLIC_SIGNUP_ENABLED`; self-service account deletion is still to come |
-| JOB-065 | Public-launch security and privacy review | Planned; required before public sign-up |
-| JOB-066 | Showcase documentation, a private feedback repository, deploy workflow polish | Planned |
+| JOB-065 | Public-launch security and privacy review | In progress: [threat model](THREAT_MODEL.md), a [privacy notice](PRIVACY.md) draft, reviews of each public surface. Required before public sign-up or guest mode |
+| JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | In progress: [case study](CASE_STUDY.md) and key usage in Settings are done; the private feedback repository is still to come |
 
 ## Planned work in more detail
 
@@ -64,4 +64,4 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 - **Case study** of the design for readers who want the why.
 - **Own-key usage:** in Settings, each key's owner sees their usage per provider (moved from JOB-061).
 - **Feedback issues** go to a private repository, never this public one, because reports can contain user text.
-- **Deploy workflow:** GitHub Actions with keyless Google authentication and an approval step before production.
+- **Usage:** each key owner sees requests per provider, including members using a shared key.

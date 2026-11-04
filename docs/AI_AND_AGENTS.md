@@ -4,9 +4,14 @@ Current implementation reference. [Architecture](ARCHITECTURE.md#ai-transport-bo
 
 ## 1. Separate planning, provider and development trust domains
 
-The provider-neutral planner uses the official OpenAI Codex SDK and Claude Agent SDK adapters and a direct Gemini REST adapter, all with the server operator's API keys. SDK subprocesses receive only an allowlisted environment; Gemini runs in-process with Google Search grounding as its only tool, and every query it reports must pass the same public-subject gates as the other providers. No private endpoints, token harvesting, arbitrary shell/file/network tools, database-write tool, GitHub/cloud credentials or deployment capability enter app chat. Application code alone validates/persists/applies typed proposals.
+The provider-neutral planner uses the official OpenAI Codex SDK and Claude Agent SDK adapters and a direct Gemini REST adapter. Each request runs on the key `getAiPolicy` chooses:
+- the requester's own key (JOB-061);
+- a trip owner's key shared with them (JOB-063);
+- or the server operator's keys in an operator-sponsored trip.
 
-Trip ownership is not platform-operator authority. General operator-funded planning requires the current entitlement checks; privileged model selection and app prompt-cap exemption require the configured operator **and active trip ownership**. Other entitled members/co-owners remain on `gpt-6.1-sol`, with owner-configurable 1–1000 prompts/UTC day (default 20). Provider account limits still apply. Unsponsored trips do not gain planning/disruption funding simply by creation. [Funding](PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role).
+A user's key travels in a per-request credential context and never reaches other requests. SDK subprocesses receive only an allowlisted environment; Gemini runs in-process with Google Search grounding as its only tool, and every query it reports must pass the same public-subject gates as the other providers. No private endpoints, token harvesting, arbitrary shell/file/network tools, database-write tool, GitHub/cloud credentials or deployment capability enter app chat. Application code alone validates/persists/applies typed proposals.
+
+Trip ownership is not platform-operator authority. General operator-funded planning requires the current entitlement checks; privileged model selection and app prompt-cap exemption require the configured operator **and active trip ownership**. Other entitled members/co-owners remain on `gpt-6.1-sol`, with owner-configurable 1–1000 prompts/UTC day (default 20). Provider account limits still apply. Unsponsored trips never gain operator funding, for planning or disruption checks, simply by creation; there, members use their own or a shared key. [Funding](PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role).
 
 The separate destination-default lookup is an explicit exception for all eligible authenticated creators: public-place-only, tool-free Sol/low, bounded account quota/cache and form suggestions, not planning or auto-creation. [Destination defaults](TRIP_DESTINATION_DEFAULTS.md).
 

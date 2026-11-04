@@ -37,7 +37,7 @@ flowchart LR
 - **Infrastructure as code:** OpenTofu for the Google Cloud project (Autopilot cluster, Artifact Registry, Secret Manager, keyless GitHub deploys, budget alert) and Kustomize for Kubernetes. No service-account keys exist anywhere.
 - **Quality gate:** ESLint, TypeScript, 4,500+ Vitest tests and a PostgreSQL integration suite on every push (`pnpm check`).
 
-More detail: [architecture](docs/ARCHITECTURE.md), [design](docs/DESIGN.md), [decisions](docs/DECISIONS.md), [identity and security](docs/IDENTITY_AND_SECURITY.md), [database](docs/DATABASE.md), [AI](docs/AI_AND_AGENTS.md).
+More detail: the [case study](docs/CASE_STUDY.md) (the why, in one page), the [threat model](docs/THREAT_MODEL.md), [architecture](docs/ARCHITECTURE.md), [design](docs/DESIGN.md), [decisions](docs/DECISIONS.md), [identity and security](docs/IDENTITY_AND_SECURITY.md), [database](docs/DATABASE.md), [AI](docs/AI_AND_AGENTS.md).
 
 ## Run it yourself
 

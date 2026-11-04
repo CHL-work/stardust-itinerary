@@ -58,7 +58,7 @@ The owner asked for this on November 4, 2026: invite people to a trip, with a ch
 
 - No monthly cost cap: it would need per-model prices. The daily prompt limit is the only cap.
 - A sponsor demoted and later promoted again resumes sharing with the members they shared with; owners can turn it off on each member.
-- Shared usage is not yet shown to the sponsor per member (JOB-066, with own-key usage).
+- The sponsor sees how many requests members made on the shared key per provider, but not per member.
 
 ## Rollback
 

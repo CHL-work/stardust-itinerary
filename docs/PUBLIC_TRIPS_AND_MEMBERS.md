@@ -51,6 +51,7 @@ In the app:
 - The AI composer opens as soon as a key is saved.
 - A member with keys gets a model picker listing their providers' models. The choice applies to one request at a time and never changes the trip's settings.
 - In a sponsored trip, the picker's first option stays the free trip AI. In an unsponsored trip, it is the model the server would pick.
+- Settings → AI keys shows the key owner, per provider, how many requests their key paid for today and in the last 30 days, across all trips. It also counts requests by members using the owner's shared key, if any. Only counts are shown, never prompts.
 
 ### Sharing your keys with members
 

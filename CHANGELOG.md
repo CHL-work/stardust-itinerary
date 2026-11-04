@@ -20,6 +20,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
   - Members of unsponsored trips can now use AI with their own key. The AI composer opens once a key is saved, with a per-request picker for the models of the user's providers.
   - Migration `0054_user_ai_credentials.sql`.
   - On GKE the encryption key is a separate `stardust-credential-env` secret that only the web server mounts.
+- **Key usage in Settings (JOB-066):**
+  - Settings → AI keys shows, per provider, how many requests the user's key paid for today and in the last 30 days, and how many came from members using their shared key.
+  - Counts only, from `GET /api/trips/{tripId}/ai/keys` (`usage`).
+- **Case study and threat model:** `docs/CASE_STUDY.md`, `docs/THREAT_MODEL.md` and a draft `docs/PRIVACY.md`.
 - **Guest accounts (JOB-064, D-077):**
   - **Try as guest** (behind `GUEST_MODE_ENABLED`, Cloudflare Turnstile when configured, and rate limits) gives a 24-hour account with a synthetic Tokyo demo trip, AI on the guest's own key only, and a banner saying when everything is deleted.
   - Guests never mix with real trips; database triggers enforce it.
@@ -42,6 +46,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Funding rules documented:** AGENTS.md and D-023, D-024 and D-030 now describe own keys and the Gemini adapter.
 - **API keys instead of subscription logins.** Model calls authenticate with the server operator's provider API keys. Migration `0053_api_key_transport.sql` records the new authentication mode and billing basis for new AI requests.
 - **Allowlisted provider environment.** Provider subprocesses now receive only an allowlisted environment, instead of the whole server environment minus a few keys.
+- **Copy:** the AI card's label and the owner usage heading no longer say "subscription", now that AI runs on API keys.
 - **Deploy workflow:** concurrency now applies to the deploy job only, so a deploy waiting for approval no longer holds back image builds of later pushes.
 - **Own-key requests and quotas:** requests on a user's own key no longer use up a sponsored trip's free daily prompts.
 - **Line-ending-tolerant migrations.** A migration may now differ from its recorded checksum by line endings only, which is how migrations applied from a Windows checkout were recorded.
