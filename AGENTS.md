@@ -12,7 +12,7 @@ These rules apply to every human and AI contributor.
 ## Public repository and the public instance
 
 - **This repository is public.** Never commit secrets, API keys, OAuth credentials, tunnel credentials, traveler data, invitations, receipts, exports, personal names or email addresses. Tests and fixtures use synthetic data only.
-- The public instance runs on GKE Autopilot ([deployment](docs/DEPLOYMENT.md)). Deploys, migrations against it, secret changes, DNS or tunnel changes and infrastructure applies need explicit owner authority. The normal route is the `deploy` workflow's protected `production` environment, which the owner approves.
+- The public instance runs on GKE Autopilot ([deployment](docs/DEPLOYMENT.md)). Every push to `main` deploys it once CI passes, so pushes to `main`, migrations against it, secret changes, DNS or tunnel changes and infrastructure applies need explicit owner authority.
 - Coding agents never hold cloud, database, Cloudflare or secret-store credentials for the public instance. Never read or print secret values; pipe them between tools when an operator task requires it.
 - Never run destructive tests against a database that holds real trips; use a disposable database (`TEST_DATABASE_URL` plus `TEST_DATABASE_CONFIRM_DESTROY`).
 - Never create real trips, events or expenses just to test.

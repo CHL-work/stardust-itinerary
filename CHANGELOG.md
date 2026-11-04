@@ -38,6 +38,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Continuous deployment:** every push to `main` deploys once CI passes. The `production` environment no longer waits for an approval and accepts only `main`; the workflow deploys only CI runs for pushes to this repository, and a manual run deploys only commits on `main`. The deploy script now runs with `bash`, since the fresh repository did not keep its executable bit.
+
 - **Codex lockdown:** planning and disruption checks run Codex without its shell or other local tools; a turn that used one is refused.
 - **AI on by default:** `trip_ai_settings.enabled` now records only whether a trip's owners allow AI; who pays is decided per request (D-075).
   - New trips start with AI on, and owners of unsponsored trips can switch it.

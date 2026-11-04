@@ -1,25 +1,24 @@
 name: Deploy
 
-# Every push to main builds and pushes the container image (tagged with the commit SHA).
-# Deploying is a separate, deliberate step: run this workflow manually ("Run workflow") with the
-# revision to deploy; the deploy job then waits for approval in the protected "production"
-# environment, the only identity that can obtain cluster credentials.
+# Continuous deployment: when CI passes for a push to main, this workflow builds the container image
+# for that commit (tagged with its SHA) and deploys it. Run it manually ("Run workflow" on main) to
+# redeploy, or to roll back to an earlier revision of main. The deploy job runs in the "production"
+# environment, which only main may use; it is the only identity that can obtain cluster credentials.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
       revision:
-        description: Commit SHA to deploy (defaults to the selected branch's head)
+        description: Commit SHA on main to deploy (defaults to the head of main)
         required: false
         type: string
 
 permissions:
   contents: read
   id-token: write
-
-# Concurrency is on the deploy job only: a deploy waiting for approval must not hold back the image
-# builds of later pushes, which are idempotent per commit.
 
 env:
   REGION: asia-northeast1
@@ -28,7 +27,15 @@ env:
 
 jobs:
   image:
-    if: github.repository == 'CHL-work/stardust-itinerary' && github.ref == 'refs/heads/main'
+    # Only a successful CI run for a push to main of this repository deploys. A pull request from a
+    # fork can name its branch "main", so the CI run's event and repository are checked as well.
+    if: >-
+      github.repository == 'CHL-work/stardust-itinerary' && github.ref == 'refs/heads/main' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -37,11 +44,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.revision || github.sha }}
+          ref: ${{ inputs.revision || github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
 
       - name: Resolve revision
         id: revision
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        # Only commits that are on main deploy, so a manual run cannot ship an unmerged commit.
+        run: |
+          git merge-base --is-ancestor HEAD origin/main || { echo "revision is not on main" >&2; exit 1; }
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Authenticate to Google Cloud (image builder)
         uses: google-github-actions/auth@v3
@@ -80,7 +91,6 @@ jobs:
 
   deploy:
     needs: image
-    if: github.event_name == 'workflow_dispatch'
     environment: production
     # One deploy at a time; a newer request waits instead of cancelling one in progress.
     concurrency:
@@ -107,4 +117,4 @@ jobs:
           location: ${{ env.REGION }}
 
       - name: Deploy
-        run: deploy/deploy.sh "${{ needs.image.outputs.revision }}"
+        run: bash deploy/deploy.sh "${{ needs.image.outputs.revision }}"

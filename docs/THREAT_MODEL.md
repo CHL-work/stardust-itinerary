@@ -33,7 +33,7 @@ What could go wrong when strangers can use the public instance, and what stops i
 | **Abusing a shared key** | Only the owner can grant sharing, per member and trip. A grant belongs to the person: it is deleted when the identity in the slot changes or the sponsor stops being an owner. Each use is re-checked against the sponsor's current ownership and keys, limited to the trip's model and daily limit, and capped at 200 a day per sponsor and trip. Every use is recorded with its sponsor | A member, or a leaked sharing link, can use up to that cap of the owner's provider budget each day; owners choose whom to trust |
 | **CSRF or session theft** | Writes require an allowed `Origin`. Session tokens are opaque and hashed. Sessions have a 24-hour rolling window inside a 30-day ceiling | A stolen cookie works until it expires or the member signs out |
 | **Secrets in logs or audit** | Provider failures are reduced to fixed codes. Audit events hold no key material. Undecryptable keys are logged without values | Operator-side log access is trusted |
-| **Supply chain and deploy** | GitHub Actions authenticate to Google with Workload Identity Federation (no keys). Only `main` builds images, and only the approved `production` environment deploys. gitleaks scans every push. The lockfile is authoritative | A malicious dependency update would still need to pass review and CI |
+| **Supply chain and deploy** | GitHub Actions authenticate to Google with Workload Identity Federation (no keys). Only `main` builds images, and only the `production` environment, which accepts only `main`, deploys. Every push to `main` deploys once CI passes; pull requests never deploy, even from a fork branch named `main`. gitleaks scans every push. The lockfile is authoritative | Only the owner can push to `main`. A malicious dependency update would still need to pass review and CI |
 | **Turning the guest purge against real data** | The purge runs with its caller's rights and is executable only by the purge job, which connects as the database administrator and holds no other secret. It reads only schema-qualified catalogs with temporary schemas last, and touches only `public` tables. Guest status is fixed for life by triggers, the purge requires the synthetic guest identity, and a final check rolls back any leftover reference | Someone holding the database administrator password can do anything anyway; that password is mounted only in the database, migration, backup and purge pods |
 | **Losing or leaking data** | Daily backups are verified and age-encrypted, with a 30-day lifecycle. Guests are deleted after 24 hours. Deleted trips keep their records for recovery (D-073) | Restoring from backup is manual |
 
@@ -41,7 +41,7 @@ What could go wrong when strangers can use the public instance, and what stops i
 
 The owner decides when; these are the gates:
 
-1. Deploy a build with JOB-061 to JOB-064. It requires the owner's approval in the `production` environment.
+1. Deploy a build with JOB-061 to JOB-064.
 2. ~~Fix the findings of the independent security review of key sharing and guest accounts.~~ Done (migration 0057; see JOB-065).
 3. Add Turnstile keys (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`) to `stardust-app-env`, then set `GUEST_MODE_ENABLED=true`.
 4. Publish a privacy notice and terms that describe the instance as it is (draft: [privacy](PRIVACY.md)).

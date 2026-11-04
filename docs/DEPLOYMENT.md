@@ -84,15 +84,18 @@ You need `gcloud`, OpenTofu 1.8+, `kubectl` with `gke-gcloud-auth-plugin`, `clou
 
 ## Releases
 
-The [`deploy` workflow](../.github/workflows/deploy.yml) builds and pushes the image, tagged with the commit SHA, on every push to `main`. Deploying is a separate, deliberate step:
+Every push to `main` deploys once CI passes. When CI succeeds for a push to `main`, the [`deploy` workflow](../.github/workflows/deploy.yml):
 
-1. Start the workflow manually (**Actions → Deploy → Run workflow**), optionally with a revision.
-2. The deploy job waits for approval in the protected `production` environment.
-3. It runs [`deploy/deploy.sh`](../deploy/deploy.sh): shared objects and the database first, then a pre-migration backup, the migration job (which must succeed), the web rollout, and a health check through the public URL.
+1. builds and pushes the image, tagged with the commit SHA, unless that image already exists;
+2. runs [`deploy/deploy.sh`](../deploy/deploy.sh) in the `production` environment: shared objects and the database first, then a pre-migration backup, the migration job (which must succeed), the web rollout, and a health check through the public URL.
 
-Through Workload Identity Federation, only `main` can push images and only the `production` environment can obtain cluster credentials. Deploys run one at a time; image builds never wait behind a deploy awaiting approval.
+Through Workload Identity Federation, only `main` can push images and only the `production` environment can obtain cluster credentials. The `production` environment accepts only `main`, and the workflow deploys only CI runs for pushes to `main` of this repository, never a pull request, even one whose branch is named `main`. Deploys run one at a time; a newer one waits for the running one.
+
+To redeploy, run the workflow manually (**Actions → Deploy → Run workflow** on `main`), optionally with a revision. The revision must be a commit on `main`.
 
 **Rollback:** run the workflow (or `deploy/deploy.sh`) with an earlier SHA. Migrations are forward-only; an older release must still work with the newer schema. See [database](DATABASE.md).
+
+On your own instance, add required reviewers to the `production` environment if you want to approve each deploy; the public instance deploys without approval by the owner's choice.
 
 ## Operations
 
