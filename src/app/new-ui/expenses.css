@@ -1,0 +1,1480 @@
+/*
+ * JOB-048 new layout — expenses, approvals and activity. Owned by the expenses area pass.
+ * Every selector starts with :root[data-ui="new"]; see base.css for rules and tokens.
+ *
+ * Scope:
+ * - Expenses page (the page panel that holds .expense-days): heading, TripExpenseSummary,
+ *   payment resume, the EXPENSE day header .expense-day-summary (the today pass owns the
+ *   generic details.expense-day card and chevron), expense rows, repayment rows, editors.
+ * - PersonalExpenseWidget in the Today/Itinerary utility column.
+ * - Approvals page (.approval-review-* cards plus repayment review cards).
+ * - Activity page (Settings → Advanced settings → View activity).
+ *
+ * CSS Modules hash their class names, so module elements are reached through global
+ * ancestors, element structure and data-/aria- attributes.
+ *
+ * Meaning: gold = nonzero personal share and primary action; violet = selection, paid and
+ * repayments; mint/rose = receivable/payable; pending/draft = --pending-soft background,
+ * --pending-ink text and a dashed --pending-line border; zero and void stay neutral.
+ * Every state keeps its text label; colour only supplements it.
+ */
+
+/* ------------------------------------------------------------------------------------------
+ * Expenses page frame
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > .section-heading:first-child {
+  margin-top: 0;
+}
+
+/* The topbar h1 already names the page ("Trip expenses", "Trip activity"): the panel's repeated
+   h2 stays for screen readers only; its eyebrow and buttons stay visible. */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > .section-heading:first-child h2,
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div:first-child h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Without its visible h2 the eyebrow centres on the button row. */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > .section-heading:first-child .eyebrow,
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div:first-child .eyebrow {
+  margin: 0;
+}
+
+/* Help and disclaimer paragraphs keep a readable measure on wide screens. */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section p {
+  max-width: 70ch;
+}
+
+/* Classic hover paints a literal light gold; keep the token fill (base adds the brightness filter). */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > .day-section-heading > .primary-button:hover:not(:disabled) {
+  background: var(--gold-fill);
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > .day-section-heading > .primary-button {
+  font-size: var(--text-sm);
+}
+
+/* "Resume repayment" sits between the summary and the history. */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > button.ghost-button {
+  margin-block: 4px 8px;
+}
+
+/* Wide screens (1100px and up; the Today dashboard splits at 1240px): the personal summary and settlements
+   form a left column and the date groups a right column, so a bill's title and its amount stay
+   within one comfortable row instead of ~850-1000px apart. DOM and reading order are unchanged;
+   the summary's extra height goes into the last (1fr) row so the right column is never pushed. */
+@media (min-width: 1100px) {
+  :root[data-ui="new"] .page-panel:has(> .expense-days) {
+    display: grid;
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto 1fr;
+    align-items: start;
+    column-gap: 32px;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > .section-heading:first-child {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > section {
+    grid-column: 1;
+    grid-row: 2 / -1;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > button.ghost-button {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > .section-heading:not(:first-child) {
+    grid-column: 2;
+    grid-row: 3;
+    margin-top: 4px;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > .expense-days {
+    grid-column: 2;
+    grid-row: 4;
+  }
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Trip expense summary (personal first: my own trip expenses, bills paid by me, net balance)
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section {
+  gap: 16px;
+  margin-block: 4px 8px;
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > header h2 {
+  margin: 0 0 4px;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: normal;
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+
+/* One card per currency: a warm tinted block, not a bordered card inside the page card. */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article {
+  padding: 20px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--gold-soft) 0%, var(--panel-raised) 62%);
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article > span:first-child {
+  color: var(--gold);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article dd {
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article {
+  container: expense-summary-card / inline-size;
+}
+
+/* Narrow card (phones under ~370px): "Bills paid by me" and the balance stack as full-width rows
+   with a divider, instead of two ~120px columns with wrapped labels and five-line descriptions. */
+@container expense-summary-card (max-width: 300px) {
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article > div > div:has(> dl + dl) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article > div > div:has(> dl + dl) > dl + dl {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* Settlement suggestions and the owner-only totals disclosure. */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > :is(section, details) {
+  padding: 16px 20px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > :is(section, details) h3 {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > :is(section, details) ul > li {
+  border-bottom-color: var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "→ pays" connector between two names */
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > :is(section, details) ul > li > span > span {
+  font-size: var(--text-xs);
+}
+
+:root[data-ui="new"] .page-panel:has(> .expense-days) > section > details > summary {
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Expense day header (.expense-day-summary only; the today pass owns the details card/chevron)
+ * Date and counts on the left, personal day total on the right at every width.
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .expense-days > .expense-day > .expense-day-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 12px;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-toggle,
+:root[data-ui="new"] .expense-day-summary .expense-day-toggle > span {
+  min-width: 0;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-toggle > span {
+  gap: 2px;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-toggle > span > strong {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-toggle > span > small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  padding-left: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-total > small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-total > strong {
+  color: var(--ink);
+  font-size: 1.1875rem;
+  font-weight: 750;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+
+:root[data-ui="new"] .expense-day-summary .expense-day-total > strong[data-zero="false"] {
+  color: var(--gold);
+}
+
+/* Day contents: rows separated by dividers instead of cards inside cards. */
+:root[data-ui="new"] .expense-days > .expense-day > .expense-day-body {
+  padding: 0 16px 4px;
+}
+
+:root[data-ui="new"] .expense-days > .expense-day > .expense-day-body > .expense-list {
+  gap: 0;
+  padding-top: 4px;
+}
+
+:root[data-ui="new"] .expense-list > .empty-state {
+  margin: 12px 0;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Expense rows (ExpenseDisplayCard and embedded pending expenses)
+ * Title, linked event and time on the left; the personal share is the large right number.
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .expense-list > article:is([data-expense-status], [data-status]) {
+  min-width: 0;
+  padding: 16px 4px;
+  color: var(--ink);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+:root[data-ui="new"] .expense-list > article:is([data-expense-status], [data-status]):last-child {
+  border-bottom: 0;
+}
+
+/* Draft and pending records are proposals: tinted block with a dashed edge plus their label. */
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="pending"], [data-expense-status="draft"], [data-status="pending"]),
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="pending"], [data-expense-status="draft"], [data-status="pending"]):last-child {
+  margin-block: 8px;
+  padding: 14px;
+  border: 1px dashed var(--pending-line);
+  border-radius: var(--radius-md);
+  background: var(--pending-soft);
+}
+
+/* Status badge row (pending clock / draft pencil / void), top-right. */
+:root[data-ui="new"] .expense-list > article[data-expense-status]:not([data-expense-status="posted"]) > div:first-child {
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status]:not([data-expense-status="posted"]) > div:first-child > span {
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="pending"], [data-expense-status="draft"]) > div:first-child > span {
+  color: var(--pending-ink);
+  border: 1px dashed var(--pending-line);
+  background: color-mix(in srgb, var(--pending-line) 22%, var(--pending-soft));
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status="void"] > div:first-child > span {
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  background: var(--panel-raised);
+}
+
+/* Main grid: the right column is at least as wide as the amount and at most ~40%. */
+:root[data-ui="new"] .expense-list > article[data-expense-status] > div:has(> div > [data-personal-share]) {
+  grid-template-columns: minmax(0, 1fr) minmax(min-content, min(40%, 16rem));
+  align-items: start;
+  gap: 16px;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] h3 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: normal;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > div > div:has(> h3) > :is(p, time) {
+  margin: 2px 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > div > div:has(> h3) > time {
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > div > div:has(> [data-personal-share]) {
+  gap: 2px;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > div > div:has(> [data-personal-share]) > span {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] [data-personal-share] {
+  color: var(--ink);
+  font-size: clamp(1.375rem, 4.2vw, 1.75rem);
+  font-weight: 750;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status]:not([data-expense-status="void"]) [data-personal-share][data-zero="false"] {
+  color: var(--gold);
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status="void"] [data-personal-share] {
+  color: var(--muted);
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > div > div:has(> [data-personal-share]) > small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > div > div:has(> [data-personal-share]) > small > b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Splits: a native disclosure that expands in flow with a 44px summary. */
+:root[data-ui="new"] .expense-list > article[data-expense-status] > details {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > details > summary {
+  display: list-item;
+  width: fit-content;
+  min-height: 44px;
+  padding: 11px 4px 11px 0;
+  color: var(--violet);
+  font-weight: 600;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > details > ul {
+  gap: 6px;
+  margin: 2px 0 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > details > ul > li {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > details > ul > li > strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Not included in totals" note on proposals. */
+:root[data-ui="new"] .expense-list > article[data-expense-status] > p {
+  margin: 6px 0 0;
+  color: var(--pending-ink);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status] > .card-actions {
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Draft/pending review actions (Edit / Approve / Reject): one equal-width, text-only row like the
+   itinerary review row; Approve is the gold primary, Reject keeps rose. A single action is untouched. */
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="draft"], [data-expense-status="pending"]) > .card-actions:has(> button + button) {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 8px;
+}
+
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="draft"], [data-expense-status="pending"]) > .card-actions:has(> button + button) > button {
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 6px;
+  font-size: var(--text-sm);
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="draft"], [data-expense-status="pending"]) > .card-actions:has(> button + button) > button > svg {
+  display: none;
+}
+
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="draft"], [data-expense-status="pending"]) > .card-actions:has(> button + button) > button[data-feedback-action="expense_approve"] {
+  color: var(--on-gold);
+  border-color: transparent !important;
+  background: var(--gold-fill) !important;
+}
+
+:root[data-ui="new"] .expense-list > article:is([data-expense-status="draft"], [data-expense-status="pending"]) > .card-actions:has(> button + button) > button[data-feedback-action="expense_approve"]:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+/* Posted rows have at most one action (Edit): it shares the Splits line when there is room
+   and wraps under it (right-aligned) when there is not. */
+:root[data-ui="new"] .expense-list > article[data-expense-status="posted"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  column-gap: 12px;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status="posted"] > :not(details, .card-actions) {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status="posted"] > details {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .expense-list > article[data-expense-status="posted"] > .card-actions {
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  width: auto;
+  margin-top: 6px;
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Repayment rows (MemberPaymentCard) — in the day list and on the Approvals page
+ * ---------------------------------------------------------------------------------------- */
+
+/* Approvals page: repayment review cards are laid out like the approval cards. */
+:root[data-ui="new"] .page-panel > section:has(> div > article[data-status]) {
+  gap: 12px;
+  margin-block: 8px 24px;
+}
+
+:root[data-ui="new"] .page-panel > section:has(> div > article[data-status]) > h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+:root[data-ui="new"] .page-panel > section > div:has(> article[data-status]) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 16px;
+}
+
+:root[data-ui="new"] .page-panel > section > div > article[data-status] {
+  padding: 20px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+:root[data-ui="new"] .page-panel > section > div > article[data-status="pending"] {
+  border: 1px dashed var(--pending-line);
+  box-shadow: var(--shadow);
+}
+
+/* Shared internals */
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] > p:first-child {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 8px;
+  padding: 2px 10px;
+  color: var(--violet);
+  border-radius: var(--radius-pill);
+  background: var(--violet-soft);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] > div:first-of-type {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] > div:first-of-type > div {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* Repayment amount: a payment, so violet; void stays neutral. */
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] strong:has(> small) {
+  color: var(--violet);
+  font-size: clamp(1.25rem, 4vw, 1.625rem);
+  font-weight: 750;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status="void"] strong:has(> small) {
+  color: var(--muted);
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] strong > small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+/* Status line keeps its text; pending and rejected add colour. */
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] > span {
+  margin: 6px 0 2px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status="pending"] > span {
+  color: var(--pending-ink);
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status="rejected"] > span {
+  color: var(--rose);
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] > details > summary {
+  display: list-item;
+  width: fit-content;
+  min-height: 44px;
+  padding: 11px 4px 11px 0;
+  color: var(--violet);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 22px;
+}
+
+:root[data-ui="new"] :is(.expense-list, .page-panel > section > div) > article[data-status] > div:last-child:not(:empty) {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Add / edit expense dialog
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .expense-payment-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+:root[data-ui="new"] .expense-payment-presets > button {
+  flex: 1 1 9rem;
+  justify-content: center;
+  min-height: 44px;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+/* Base gives .mini-button an !important border/background, so the pressed state needs one too. */
+:root[data-ui="new"] .expense-payment-presets > button[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--violet) !important;
+  background: var(--violet-soft) !important;
+}
+
+:root[data-ui="new"] .expense-payment-presets > button[aria-pressed="true"]::before,
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="group"] > button[aria-pressed="true"]::before {
+  content: "✓";
+  content: "✓" / "";
+  color: var(--violet);
+  font-weight: 800;
+}
+
+:root[data-ui="new"] .expense-editor-fields .private-expense-note {
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* "Shared by" members as 44px chips; the checkbox stays visible next to each name. */
+:root[data-ui="new"] .expense-editor-fields .split-options {
+  gap: 8px;
+}
+
+:root[data-ui="new"] .expense-editor-fields .split-options > .check-field {
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 12px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .expense-editor-fields .split-options > .check-field:has(input:checked) {
+  border-color: var(--violet);
+  background: var(--violet-soft);
+}
+
+/* Split editor (equal / custom amounts) */
+:root[data-ui="new"] .expense-editor-fields > fieldset:has(> [role="group"]) {
+  padding: 12px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset:has(> [role="group"]) > legend {
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="group"] {
+  gap: 8px;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="group"] > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="group"] > button[aria-pressed="true"] {
+  border-color: var(--violet);
+  background: var(--violet-soft);
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset:has(> [role="group"]) > p {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset:has(> [role="group"]) label {
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset:has(> [role="group"]) label small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset:has(> [role="group"]) input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="status"] {
+  margin-top: 4px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="status"] > span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="status"] strong {
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="status"] > p {
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .expense-editor-fields > fieldset > [role="status"][data-balanced="true"] > p {
+  color: var(--mint);
+  font-weight: 650;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Record repayment / review repayment dialogs (the forms with a required confirmation box)
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) {
+  gap: 16px;
+}
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) :is(input:not([type="checkbox"]), select, textarea) {
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) textarea {
+  resize: vertical;
+}
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) label:has(> input[type="checkbox"]) {
+  padding: 12px;
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin: 2px 0 0;
+  accent-color: var(--violet);
+}
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) strong:has(> small) {
+  color: var(--violet);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .modal-panel form:has(> fieldset > label > input[type="checkbox"][required]) strong > small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Personal expense widget (Today / Itinerary utility column)
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) {
+  padding: 20px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) > h3 {
+  margin: 0 0 4px;
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) > div > div > span:first-child {
+  color: var(--gold);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) {
+  container-type: inline-size;
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) dl {
+  gap: 4px 16px;
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) dl > div:first-child {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Wide widget (one-column dashboard): my share across the top, the other two side by side. */
+@container (min-width: 460px) {
+  :root[data-ui="new"] .utility-column > section:has(dd[data-zero]) dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :root[data-ui="new"] .utility-column > section:has(dd[data-zero]) dl > div:is(:first-child, :has(details[open])) {
+    grid-column: 1 / -1;
+  }
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) dd {
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) > div:last-child {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Buttons start at their label width and share the row; when both labels cannot fit on one line,
+   the second wraps to its own full-width row instead of breaking a label inside a 44px button. */
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) > div:last-child > button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) > div:last-child > button:hover {
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) > div:last-child > button[data-feedback-action="expense_open"] {
+  color: var(--on-gold);
+  border-color: transparent;
+  background: var(--gold-fill);
+}
+
+:root[data-ui="new"] .utility-column > section:has(dd[data-zero]) > div:last-child > button[data-feedback-action="expense_open"]:hover {
+  background: var(--gold-fill);
+  filter: brightness(0.95);
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Legacy ledger / cost classes (kept readable if they render)
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .amount-positive {
+  color: var(--mint) !important;
+}
+
+:root[data-ui="new"] .amount-negative {
+  color: var(--rose) !important;
+}
+
+:root[data-ui="new"] :is(.cost-card, .expense-card) {
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+:root[data-ui="new"] .cost-total {
+  font-size: var(--text-2xl);
+  font-weight: 750;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] :is(.cost-row, .ledger-line) {
+  color: var(--muted);
+  border-top-color: var(--line);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] :is(.cost-row, .ledger-line) strong {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .ledger-grid {
+  gap: 16px;
+}
+
+:root[data-ui="new"] .balance-chip {
+  color: var(--muted);
+  border-color: var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .balance-chip strong {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .data-row {
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] :is(.data-row span, .data-row time, .expense-list .data-row small) {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Approvals page (owner only): readable cards, pending first, clear 44px decisions
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .page-panel:has(> .approval-review-list, > section > div > article[data-status]) > .section-heading:first-child {
+  margin-top: 0;
+}
+
+/* One readable queue (pending first, then history) at a comfortable width, instead of a two-column
+   grid whose uneven card heights leave holes and make the order zigzag. The heading and repayment
+   sections share the width so their right edges line up with the cards. */
+:root[data-ui="new"] .page-panel:has(> .approval-review-list, > section > div > article[data-status]) > * {
+  max-width: 46rem;
+}
+
+:root[data-ui="new"] .approval-review-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+:root[data-ui="new"] .approval-review-card {
+  padding: 20px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+/* Waiting for a decision: dashed pending edge, lifted, plus the "Pending" tag. */
+:root[data-ui="new"] .approval-review-card.approval-review-pending {
+  border: 1px dashed var(--pending-line);
+  box-shadow: var(--shadow);
+}
+
+:root[data-ui="new"] .approval-review-card header h3 {
+  margin: 8px 0 4px;
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+:root[data-ui="new"] .approval-review-card h4 {
+  margin: 4px 0;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .approval-review-card p {
+  margin: 8px 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+:root[data-ui="new"] .approval-review-status {
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .approval-review-card .status-tag {
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--panel-raised);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  text-transform: none;
+}
+
+:root[data-ui="new"] .approval-review-card .status-tag.status-pending {
+  color: var(--pending-ink);
+  border: 1px dashed var(--pending-line);
+  background: var(--pending-soft);
+}
+
+:root[data-ui="new"] .approval-review-card .status-tag.status-rejected {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 45%, transparent);
+  background: var(--rose-soft);
+}
+
+/* Event type, privacy and lock state. "Trip-visible" is plain text, shown as an outlined tag. */
+:root[data-ui="new"] .approval-event-badges {
+  gap: 8px;
+  margin: 12px 0;
+  font-size: var(--text-xs);
+}
+
+:root[data-ui="new"] .approval-event-badges > .approval-muted {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  color: var(--muted);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .approval-event-date {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:root[data-ui="new"] :is(.approval-event-location, .approval-transport-point a) {
+  align-items: center;
+  min-height: 44px;
+  color: var(--violet);
+  font-size: var(--text-sm);
+  text-underline-offset: 3px;
+}
+
+:root[data-ui="new"] :is(.approval-event-date, .approval-event-location, .approval-transport-point a) svg {
+  margin-top: 0;
+}
+
+:root[data-ui="new"] .approval-event-times {
+  gap: 4px 24px;
+}
+
+:root[data-ui="new"] .approval-event-times p {
+  gap: 2px;
+  margin: 4px 0;
+}
+
+:root[data-ui="new"] .approval-event-times strong {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] :is(.approval-event-times, .approval-transport-point, .approval-review-meta) time {
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .approval-transport-point {
+  border-left-color: var(--violet);
+}
+
+:root[data-ui="new"] .approval-transport-point > div {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .approval-event-audience {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .approval-event-audience strong {
+  color: var(--ink);
+}
+
+:root[data-ui="new"] .approval-event-notes {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .approval-event-notes p {
+  margin: 4px 0 0;
+}
+
+/* Linked or proposed expense: total and payer, then exact shares. */
+:root[data-ui="new"] .approval-expense-summary {
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .approval-expense-heading small {
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+:root[data-ui="new"] .approval-expense-total {
+  gap: 2px;
+  justify-items: end;
+  text-align: right;
+}
+
+:root[data-ui="new"] .approval-expense-total strong {
+  color: var(--ink);
+  font-size: var(--text-xl);
+  font-weight: 750;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+:root[data-ui="new"] .approval-expense-summary > p {
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .approval-expense-shares {
+  gap: 0;
+  margin-top: 10px;
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .approval-expense-shares > div {
+  padding-block: 6px;
+  border-top: 1px solid var(--line);
+}
+
+:root[data-ui="new"] .approval-expense-shares dt {
+  color: var(--muted);
+}
+
+:root[data-ui="new"] .approval-expense-shares dd {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .approval-review-meta {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+:root[data-ui="new"] .approval-review-meta p {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+}
+
+:root[data-ui="new"] .approval-review-meta strong {
+  color: var(--ink);
+}
+
+:root[data-ui="new"] .approval-muted {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+:root[data-ui="new"] .approval-review-warning {
+  margin: 12px 0;
+  padding: 10px 12px;
+  color: var(--ink);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--gold-soft);
+  font-size: var(--text-sm);
+}
+
+/* Approve (gold, primary) and Reject (rose outline) share one wrapping row. */
+:root[data-ui="new"] .approval-review-card > .dialog-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* 11rem basis: the pair shares a row only when both labels fit on one line with their icons;
+   otherwise each takes a full-width row (no "Approve / request" split inside a 44px button). */
+:root[data-ui="new"] .approval-review-card > .dialog-actions > button {
+  flex: 1 1 11rem;
+  justify-content: center;
+  width: auto;
+  min-height: 44px;
+  font-size: 0.9375rem;
+}
+
+/* History cards ("Approve rejected request"): approval is final, so the reversal is a secondary,
+   label-sized button; gold stays reserved for decisions on pending cards. */
+:root[data-ui="new"] .approval-review-card:not(.approval-review-pending) > .dialog-actions > button {
+  flex: 0 1 auto;
+  max-width: 100%;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  white-space: normal;
+}
+
+:root[data-ui="new"] .approval-review-card:not(.approval-review-pending) > .dialog-actions > button:hover:not(:disabled) {
+  background: var(--panel-raised);
+  filter: none;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Activity page (owner only; Settings → Advanced settings → View activity)
+ * ---------------------------------------------------------------------------------------- */
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div:first-child {
+  margin-bottom: 16px;
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div:has(> article) {
+  gap: 12px;
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article {
+  padding: 16px 20px;
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > header {
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > header > h3 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > header > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > header > small {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > h4 {
+  margin: 0 0 6px;
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > p {
+  margin: 0 0 8px;
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > dl {
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+@media (min-width: 481px) {
+  :root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > dl > div {
+    grid-template-columns: minmax(8rem, 13rem) minmax(0, 1fr);
+  }
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article dt {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article dd {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Phones
+ * ---------------------------------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  /* The expenses page drops its outer card so day groups and rows get the full width. */
+  :root[data-ui="new"] .page-panel:has(> .expense-days) {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article {
+    border: 1px solid var(--line);
+    background: linear-gradient(135deg, var(--gold-soft) 0%, var(--panel) 62%);
+    box-shadow: var(--shadow);
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > section > :is(section, details) {
+    border: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > button.ghost-button {
+    width: 100%;
+  }
+
+  :root[data-ui="new"] .expense-days > .expense-day > .expense-day-body {
+    padding: 0 12px 4px;
+  }
+
+  /* Approvals and Activity drop their outer card too (same spacing as Expenses, no card-in-card):
+     the request and activity cards sit directly on the page. */
+  :root[data-ui="new"] .page-panel:has(> .approval-review-list, > section > div > article[data-status]),
+  :root[data-ui="new"] .page-panel:has(> div > article > header > small > time) {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  :root[data-ui="new"] .approval-review-card,
+  :root[data-ui="new"] .page-panel > section > div > article[data-status] {
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  :root[data-ui="new"] .approval-review-list,
+  :root[data-ui="new"] .page-panel > section > div:has(> article[data-status]) {
+    gap: 12px;
+  }
+
+  /* "Starts" / "Ends" as label-value rows (one line each when it fits) instead of four lines. */
+  :root[data-ui="new"] .approval-event-times {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 12px;
+    margin: 8px 0;
+  }
+
+  :root[data-ui="new"] .approval-event-times > p {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: baseline;
+    gap: 0 12px;
+    margin: 0;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article {
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+}
+
+@media (max-width: 480px) {
+  /* Activity record facts: label and value share a line when they fit, wrapping otherwise. */
+  :root[data-ui="new"] .page-panel:has(> div > article > header > small > time) > div > article > dl > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 8px;
+  }
+}
+
+@media (max-width: 440px) {
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > section > header + div > article,
+  :root[data-ui="new"] .utility-column > section:has(dd[data-zero]) {
+    padding: 16px;
+  }
+
+  :root[data-ui="new"] .page-panel:has(> .expense-days) > section > :is(section, details) {
+    padding: 14px 16px;
+  }
+
+  :root[data-ui="new"] .expense-list > article[data-expense-status] > div:has(> div > [data-personal-share]) {
+    gap: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ui="new"] :is(.expense-payment-presets > button, .expense-editor-fields .split-options > .check-field, .expense-editor-fields > fieldset > [role="group"] > button, .utility-column > section:has(dd[data-zero]) > div:last-child > button) {
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+}

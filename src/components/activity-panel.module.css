@@ -1,0 +1,18 @@
+.panel { min-width: 0; }
+.heading, .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.list { display: grid; gap: 16px; }
+.card { min-width: 0; border: 1px solid var(--line); border-radius: 16px; padding: 20px; background: var(--panel-raised); overflow-wrap: anywhere; font-size: 16px; line-height: 1.65; }
+.card header { display: grid; gap: 5px; }
+.card h3, .card h4, .card p { margin: 0 0 10px; }
+.card h3 { font-size: 17px; }
+.card h4 { font-size: 19px; }
+.card small, .hint, .card dt { color: var(--muted); }
+.card dl { display: grid; gap: 10px; margin: 14px 0; }
+.card dl > div { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 12px; }
+.card dd { margin: 0; }
+.panel button { min-height: 44px; white-space: normal; }
+.panel button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+@media (max-width: 480px) {
+  .card { padding: 16px; }
+  .card dl > div { grid-template-columns: 1fr; gap: 2px; }
+}

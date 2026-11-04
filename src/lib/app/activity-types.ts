@@ -1,0 +1,22 @@
+export const activityCategories = ["event", "expense", "request", "member", "permissions", "calendar", "trip", "ai", "payment", "system"] as const;
+export type ActivityCategory = typeof activityCategories[number];
+export const activityActions = ["created", "updated", "requested", "approved", "rejected", "cancelled", "restored", "removed", "voided", "synced", "failed", "connected", "disconnected", "joined", "disabled", "enabled", "changed"] as const;
+export type ActivityAction = typeof activityActions[number];
+export const activityFields = ["title", "time", "location", "type", "status", "visibility", "audience", "amount", "currency", "payer", "shares", "linkedExpense", "linkedEvent", "notes", "lock"] as const;
+export type ActivityField = typeof activityFields[number];
+export type ActivityTarget = { kind: "itinerary" | "expense" | "request"; id: string };
+export type ActivityEntry = {
+  id: string;
+  category: ActivityCategory;
+  action: ActivityAction;
+  actorName: string | null;
+  createdAt: string;
+  title: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  amount: { amountMinor: number; currency: string } | null;
+  status: "pending" | "approved" | "rejected" | "superseded" | "draft" | "planned" | "cancelled" | "completed" | "posted" | "void" | null;
+  changedFields: ActivityField[];
+  target: ActivityTarget | null;
+  targetState: "available" | "removed" | "unavailable" | "none";
+};

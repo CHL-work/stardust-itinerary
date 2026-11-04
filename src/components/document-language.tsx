@@ -1,0 +1,13 @@
+"use client";
+
+import { useEffect } from "react";
+
+import type { Locale } from "@/lib/i18n";
+
+export function DocumentLanguage({ locale }: { locale: Locale }) {
+  useEffect(() => {
+    document.documentElement.lang = locale === "zh-HK-lihkg" ? "zh-HK" : locale;
+  }, [locale]);
+
+  return null;
+}

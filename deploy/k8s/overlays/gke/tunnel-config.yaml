@@ -1,0 +1,11 @@
+# cloudflared ingress for the public instance. The tunnel ID is not secret (it is the DNS CNAME
+# target); its credentials file is in Secret Manager.
+tunnel: bc50cbc2-ba0c-4934-ad38-fa90db63f9aa
+credentials-file: /etc/cloudflared/credentials/credentials.json
+no-autoupdate: true
+ingress:
+  - hostname: stardust-itinerary.chl-work.com
+    service: http://stardust-web.stardust.svc.cluster.local:80
+  - hostname: stardust-staging.chl-work.com
+    service: http://stardust-web.stardust.svc.cluster.local:80
+  - service: http_status:404

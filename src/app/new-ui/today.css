@@ -1,0 +1,2078 @@
+/*
+ * JOB-048 new layout — Today (overview) + Itinerary + event editor.
+ * Owned by the today area pass. Every selector starts with :root[data-ui="new"]; tokens come from base.css.
+ *
+ * Layout notes:
+ * - .primary-column is an inline-size container ("primary") so the hero card, stay card and timeline
+ *   reflow by the width they actually get. The 340px utility column only joins at ≥1240px, where the
+ *   primary column is still ≥540px wide (at 1100–1239px it would drop under the 480px timeline query).
+ * - Phones: on Today the Next-up card is shown before the stay card (CSS order; the DOM order is unchanged).
+ * - Itinerary: the day chips stay pinned to the top of the viewport (page-scoped, z-index below the
+ *   bottom bar and dialogs; the feedback launcher has scrolled away before the strip pins, so it is
+ *   never covered and stays non-sticky).
+ * - Timeline rows are a 3-column grid (time rail | marker | content) with an optional second grid row for
+ *   the action bar. The marker spans both rows so the connector line runs from dot to dot.
+ * - The weather badge stays in the left rail above the time (DECISIONS D-050).
+ */
+
+/* ------------------------------------------------------------------ */
+/* Dashboard layout                                                    */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .dashboard-grid {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-6);
+  margin-top: var(--space-5);
+}
+
+@media (min-width: 1240px) {
+  :root[data-ui="new"] .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(288px, 340px);
+    gap: 28px;
+  }
+}
+
+:root[data-ui="new"] .primary-column {
+  min-width: 0;
+  container: primary / inline-size;
+}
+
+:root[data-ui="new"] .utility-column {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Placement only (the AI card's internals belong to another pass): one card per row. */
+:root[data-ui="new"] .utility-column > .ai-card {
+  grid-row: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Day chips (Today: selects the day; Itinerary: jumps to the day)      */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .new-day-strip {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: 6px 6px 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+:root[data-ui="new"] .new-day-chip {
+  /* Contains the visually hidden full date so it stays clipped by the scrolling strip. */
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  min-width: 60px;
+  min-height: 56px;
+  padding: 6px 12px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: none;
+  font: inherit;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  scroll-snap-align: center;
+}
+
+:root[data-ui="new"] .new-day-chip:hover:not(.is-selected) {
+  border-color: var(--line-strong);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .new-day-chip-weekday {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+:root[data-ui="new"] .new-day-chip strong {
+  color: inherit;
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Today: gold accent and bold label (the chip also says "Today" in text). */
+:root[data-ui="new"] .new-day-chip.is-today {
+  border: 2px solid var(--gold-fill);
+  padding: 5px 11px;
+}
+
+:root[data-ui="new"] .new-day-chip.is-today .new-day-chip-weekday {
+  color: var(--gold);
+  font-weight: 800;
+}
+
+/* Selected: violet fill with on-violet text. */
+:root[data-ui="new"] .new-day-chip.is-selected {
+  color: var(--on-violet);
+  border-color: var(--violet);
+  background: var(--violet);
+}
+
+:root[data-ui="new"] .new-day-chip.is-selected .new-day-chip-weekday {
+  color: var(--on-violet);
+}
+
+:root[data-ui="new"] .new-day-chip.is-today.is-selected {
+  border-color: var(--violet);
+  box-shadow: inset 0 0 0 2px var(--gold-fill);
+}
+
+/* Itinerary: the jump chips stay reachable while reading a long day (Today's chips scroll normally). */
+:root[data-ui="new"] .primary-column:has(> .itinerary-days) > .new-day-strip {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--page);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+/* Windows High Contrast / forced colors: fills and shadows are dropped, so mark the selection with
+   system colours and do not let the Today chip's thicker border read as "selected". */
+@media (forced-colors: active) {
+  :root[data-ui="new"] .new-day-chip.is-selected {
+    forced-color-adjust: none;
+    color: HighlightText;
+    border: 3px solid Highlight;
+    background: Highlight;
+    padding: 4px 10px;
+  }
+
+  :root[data-ui="new"] .new-day-chip.is-selected :is(.new-day-chip-weekday, strong) {
+    color: HighlightText;
+  }
+
+  :root[data-ui="new"] .new-day-chip.is-today:not(.is-selected) {
+    border-width: 1px;
+    padding: 6px 12px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Overview day header                                                 */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .overview-day-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  min-height: 0;
+  margin: 0 0 var(--space-4);
+}
+
+:root[data-ui="new"] .overview-day-header > div:first-child {
+  min-width: 0;
+}
+
+:root[data-ui="new"] .overview-day-header h2 {
+  margin: 2px 0 0;
+  font-size: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .overview-day-header small {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .overview-day-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* New layout already has day chips; classic retains this accessible date selector. */
+:root[data-ui="new"] .overview-date-picker {
+  display: none;
+}
+
+/* The day chips are visible in the new layout, so the swipe hint is redundant (swiping still works). */
+:root[data-ui="new"] .overview-swipe-hint {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared card surfaces                                                */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] :is(.stay-card, .departure-card, .timeline-card, .calendar-inline) {
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stay (lodging) card                                                 */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .stay-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+}
+
+:root[data-ui="new"] .stay-card h2 {
+  margin: 2px 0 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+:root[data-ui="new"] .stay-links {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .stay-links > a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 10px 12px;
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  text-decoration: none;
+}
+
+:root[data-ui="new"] .stay-links > a:hover {
+  border-color: transparent;
+  background-color: var(--violet-soft);
+}
+
+:root[data-ui="new"] .stay-links > a > svg {
+  color: var(--violet);
+}
+
+:root[data-ui="new"] .stay-links > a > svg:last-child {
+  color: var(--faint);
+}
+
+:root[data-ui="new"] .stay-links span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .stay-links strong {
+  font-size: var(--text-md);
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] :is(.stay-links small, .stay-links p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@container primary (min-width: 560px) {
+  :root[data-ui="new"] .stay-card {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--space-5);
+    padding: var(--space-4) var(--space-5);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Next-up (departure) card: calm, no gradient or glow                 */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .departure-card {
+  position: relative;
+  overflow: visible;
+  padding: var(--space-5) var(--space-4);
+}
+
+:root[data-ui="new"] .departure-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+/* "Next up" label leads; the weather badge (not focusable) sits on the right. */
+:root[data-ui="new"] .departure-topline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  order: -1;
+}
+
+:root[data-ui="new"] .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  color: var(--violet);
+  border-radius: var(--radius-pill);
+  background: var(--violet-soft);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1.3;
+  text-transform: none;
+}
+
+:root[data-ui="new"] .departure-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+:root[data-ui="new"] .departure-main > div:first-child {
+  min-width: 0;
+}
+
+:root[data-ui="new"] .departure-time-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:root[data-ui="new"] .departure-time {
+  margin: 2px 0 var(--space-2);
+  color: var(--ink);
+  font-size: clamp(2rem, 1.4rem + 3.2cqi, 3.25rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+  line-height: 1.1;
+}
+
+:root[data-ui="new"] .planned-time-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-2);
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .planned-time-copy svg {
+  flex: 0 0 auto;
+  color: var(--faint);
+}
+
+:root[data-ui="new"] .planned-time-copy strong {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Destination: one tappable block (opens Google Maps). */
+:root[data-ui="new"] .departure-destination {
+  display: block;
+  max-width: none;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  text-decoration: none;
+}
+
+:root[data-ui="new"] .departure-destination.transport-next-event {
+  max-width: none;
+}
+
+:root[data-ui="new"] .event-map-destination:hover {
+  border-color: transparent;
+  background-color: var(--violet-soft);
+}
+
+:root[data-ui="new"] .departure-destination > span:not(.sr-only) {
+  color: var(--violet);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: normal;
+}
+
+:root[data-ui="new"] .departure-destination h2 {
+  margin: 4px 0 2px;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .departure-destination p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .event-map-destination small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+  color: var(--violet);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .no-next-event {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 0;
+  margin-top: var(--space-4);
+  color: var(--muted);
+}
+
+:root[data-ui="new"] .no-next-event > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--faint);
+}
+
+:root[data-ui="new"] .no-next-event h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+:root[data-ui="new"] .no-next-event p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+@container primary (min-width: 560px) {
+  :root[data-ui="new"] .departure-card {
+    padding: var(--space-6);
+  }
+
+  :root[data-ui="new"] .departure-main {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-6);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Section heading (title + Add event)                                 */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .section-heading.day-section-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+/* Itinerary page: the heading opens the column, right under the trip summary. */
+:root[data-ui="new"] .primary-column > .section-heading:first-child {
+  margin-top: 0;
+}
+
+:root[data-ui="new"] .section-heading.day-section-heading h2 {
+  margin: 2px 0 0;
+  line-height: 1.3;
+}
+
+:root[data-ui="new"] .day-section-heading > .primary-button {
+  justify-self: end;
+  width: auto;
+  max-width: 100%;
+  min-height: 44px;
+  padding-inline: 16px;
+  color: var(--on-gold);
+  background: var(--gold-fill);
+  font-size: var(--text-sm);
+  line-height: 1.3;
+}
+
+:root[data-ui="new"] .day-section-heading > .primary-button:hover:not(:disabled) {
+  background: var(--gold-fill);
+  filter: brightness(0.95);
+}
+
+/* ------------------------------------------------------------------ */
+/* Full-itinerary / back-to-today buttons and weather attribution       */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .full-day-button {
+  width: 100%;
+  min-height: 48px;
+  color: var(--violet);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .full-day-button:hover:not(:disabled) {
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .standalone-day-button {
+  margin-top: var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+:root[data-ui="new"] .weather-attribution {
+  margin: var(--space-2) 2px 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+:root[data-ui="new"] .weather-attribution a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Timeline                                                            */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .timeline-card {
+  overflow: hidden;
+}
+
+:root[data-ui="new"] .timeline-card > .empty-state {
+  margin: var(--space-4);
+}
+
+:root[data-ui="new"] .timeline-row {
+  --row-pad-x: 12px;
+  --row-pad-y: 14px;
+  --rail: 56px;
+  --dot: 24px;
+  --row-bg: var(--panel);
+  display: grid;
+  grid-template-columns: var(--rail) var(--dot) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 0;
+  min-height: 0;
+  padding: var(--row-pad-y) var(--row-pad-x);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+:root[data-ui="new"] .timeline-card > .timeline-row:last-child {
+  border-bottom: 0;
+}
+
+/* Left rail: weather badge (when present) above the start time. */
+:root[data-ui="new"] .timeline-time {
+  display: grid;
+  grid-row: 1;
+  grid-column: 1;
+  align-content: start;
+  justify-items: end;
+  gap: 6px;
+  min-width: 0;
+  text-align: right;
+}
+
+:root[data-ui="new"] .timeline-time time {
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .timeline-time > span:not(.weather-forecast-badge) {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* Marker: dot plus a connector that runs through both grid rows to the next row's dot. */
+:root[data-ui="new"] .timeline-marker {
+  position: relative;
+  display: flex;
+  grid-row: 1 / 3;
+  grid-column: 2;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+:root[data-ui="new"] .timeline-marker::before,
+:root[data-ui="new"] .timeline-marker::after {
+  left: 50%;
+  width: 2px;
+  height: auto;
+  margin-left: -1px;
+  background: var(--line);
+}
+
+:root[data-ui="new"] .timeline-marker::before {
+  top: calc(-1 * var(--row-pad-y));
+  bottom: auto;
+  height: var(--row-pad-y);
+}
+
+:root[data-ui="new"] .timeline-marker::after {
+  top: var(--dot);
+  bottom: calc(-1 * var(--row-pad-y));
+}
+
+:root[data-ui="new"] .timeline-marker span {
+  display: grid;
+  place-items: center;
+  width: var(--dot);
+  height: var(--dot);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: none;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+:root[data-ui="new"] .state-next .timeline-marker span {
+  color: var(--on-violet);
+  border-color: var(--violet);
+  background: var(--violet);
+  box-shadow: 0 0 0 4px var(--violet-soft);
+}
+
+:root[data-ui="new"] .timeline-row.state-next {
+  background: transparent;
+  box-shadow: inset 3px 0 0 var(--violet);
+}
+
+/* Content column */
+:root[data-ui="new"] .timeline-content {
+  display: flex;
+  flex-wrap: wrap;
+  grid-row: 1;
+  grid-column: 3;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+:root[data-ui="new"] .timeline-event-main {
+  display: flex;
+  flex: 1 1 15rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .timeline-event-link {
+  display: block;
+  width: auto;
+  min-width: 0;
+  margin: -6px -8px;
+  padding: 6px 8px;
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+}
+
+:root[data-ui="new"] .timeline-event-main > .timeline-event-link {
+  width: auto;
+}
+
+:root[data-ui="new"] .timeline-event-link:hover {
+  border-color: transparent;
+  background-color: var(--panel-raised);
+}
+
+:root[data-ui="new"] .timeline-row h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 650;
+  letter-spacing: normal;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .timeline-row p {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .timeline-row p > svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  color: var(--faint);
+}
+
+:root[data-ui="new"] .timeline-content small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* Departure / Arrival label on transport rows */
+:root[data-ui="new"] .transport-endpoint-label {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 1px 8px;
+  color: var(--violet);
+  border-radius: var(--radius-pill);
+  background: var(--violet-soft);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1.5;
+  text-transform: none;
+}
+
+:root[data-ui="new"] .transport-timeline-point > .transport-endpoint-label {
+  display: inline-flex;
+  margin-bottom: 4px;
+}
+
+/* Transport endpoint blocks (pending departure/arrival rows; legacy route layout) */
+:root[data-ui="new"] .transport-route {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+:root[data-ui="new"] .transport-route-arrow {
+  color: var(--faint);
+}
+
+:root[data-ui="new"] .transport-endpoint {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  text-decoration: none;
+}
+
+:root[data-ui="new"] .transport-endpoint:hover {
+  border-color: transparent;
+  background: var(--violet-soft);
+}
+
+:root[data-ui="new"] .transport-endpoint-empty {
+  border: 1px dashed var(--line-strong);
+  opacity: 1;
+}
+
+:root[data-ui="new"] .transport-endpoint strong {
+  font-size: var(--text-md);
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] :is(.transport-endpoint time, .transport-endpoint small) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+/* Cancelled: muted plus its explicit label (never colour alone). */
+:root[data-ui="new"] .timeline-row.state-complete {
+  --row-bg: var(--panel-raised);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .timeline-row.state-complete h3,
+:root[data-ui="new"] .timeline-row.state-complete .timeline-time time {
+  color: var(--muted);
+}
+
+:root[data-ui="new"] .cancelled-event-label {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 2px 10px;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .private-event-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: var(--space-2);
+  padding: 1px 8px;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--panel-raised);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  line-height: 1.5;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+
+/* Action bar: one horizontal wrapping row of 44px buttons in the second grid row. */
+:root[data-ui="new"] .timeline-row > .card-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  grid-row: 2;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-3);
+  /* Hides the connector behind the bar when it spans the marker column. */
+  box-shadow: 0 0 0 4px var(--row-bg);
+  background: var(--row-bg);
+}
+
+/* Viewers get an empty action container; it should not add a blank band. */
+:root[data-ui="new"] .timeline-row > .card-actions:empty {
+  display: none;
+}
+
+:root[data-ui="new"] .timeline-row > .card-actions > :is(button, a) {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  white-space: normal;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* Live signals (disruption badge) */
+:root[data-ui="new"] .event-live-signals {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+:root[data-ui="new"] .disruption-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 56px;
+  max-width: 9rem;
+  min-height: 48px;
+  padding: 6px 10px;
+  color: var(--gold);
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--gold-soft);
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .disruption-badge.severity-critical {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 50%, transparent);
+  background: var(--rose-soft);
+}
+
+:root[data-ui="new"] .disruption-badge small,
+:root[data-ui="new"] .timeline-content .disruption-badge small {
+  display: block;
+  margin: 0;
+  color: inherit;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .disruption-badge:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+/* Weather badge (rail and hero card) */
+:root[data-ui="new"] .weather-forecast-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  opacity: 1;
+}
+
+:root[data-ui="new"] .weather-forecast-badge small {
+  margin: 0;
+  color: inherit;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+:root[data-ui="new"] .weather-forecast-condition {
+  gap: 4px;
+}
+
+:root[data-ui="new"] .weather-forecast-glyph {
+  color: var(--ink);
+}
+
+:root[data-ui="new"] .weather-forecast-probability {
+  gap: 2px;
+  color: var(--muted);
+}
+
+:root[data-ui="new"] .weather-forecast-copy {
+  gap: 1px;
+  max-width: 22ch;
+}
+
+:root[data-ui="new"] .weather-forecast-copy small:not(:first-child) {
+  overflow: visible;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+/* Stale forecast: dashed outline, full contrast (the label and aria-label carry the meaning). */
+:root[data-ui="new"] .weather-forecast-badge.is-stale {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  opacity: 1;
+}
+
+:root[data-ui="new"] .timeline-time > .weather-forecast-badge {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px 2px;
+}
+
+:root[data-ui="new"] .timeline-time > .weather-forecast-badge .weather-forecast-condition {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1px 3px;
+}
+
+:root[data-ui="new"] .timeline-time > .weather-forecast-badge .weather-forecast-glyph > svg {
+  width: 18px;
+  height: 18px;
+}
+
+:root[data-ui="new"] .timeline-time > .weather-forecast-badge .weather-forecast-probability {
+  font-size: var(--text-xs);
+}
+
+:root[data-ui="new"] .timeline-time > .weather-forecast-badge .weather-forecast-probability svg {
+  width: 10px;
+  height: 10px;
+}
+
+:root[data-ui="new"] .timeline-time > .weather-forecast-badge .weather-forecast-copy {
+  max-width: 100%;
+  text-align: center;
+}
+
+/* Pending rows: dashed pending outline on a pending fill, inset so columns stay aligned. */
+:root[data-ui="new"] .pending-timeline-row {
+  --pending-inset: 6px;
+  --row-bg: var(--pending-soft);
+  margin: 6px var(--pending-inset);
+  padding-inline: calc(var(--row-pad-x) - var(--pending-inset) - 1px);
+  border: 1px dashed var(--pending-line);
+  border-radius: var(--radius-md);
+  background: var(--pending-soft);
+  box-shadow: none;
+}
+
+:root[data-ui="new"] .timeline-card > .pending-timeline-row:last-child {
+  border-bottom: 1px dashed var(--pending-line);
+}
+
+:root[data-ui="new"] .pending-timeline-row .timeline-marker::before,
+:root[data-ui="new"] .pending-timeline-row .timeline-marker::after {
+  display: none;
+}
+
+:root[data-ui="new"] .pending-timeline-row .timeline-marker span {
+  color: var(--pending-ink);
+  border: 1px dashed var(--pending-line);
+  background: var(--panel);
+}
+
+:root[data-ui="new"] .pending-timeline-row .timeline-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+:root[data-ui="new"] .pending-timeline-row .timeline-content :is(p, small) {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+:root[data-ui="new"] .pending-timeline-row .pending-itinerary-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+:root[data-ui="new"] .pending-timeline-row .status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1.45;
+  text-transform: none;
+}
+
+:root[data-ui="new"] .pending-timeline-row .status-pending {
+  color: var(--pending-ink);
+  border: 1px dashed var(--pending-line);
+  background: var(--panel);
+  font-size: var(--text-xs);
+}
+
+:root[data-ui="new"] .pending-timeline-row .pending-itinerary-notes {
+  display: block;
+  color: var(--ink);
+}
+
+:root[data-ui="new"] .pending-timeline-row .timeline-content .pending-itinerary-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--pending-ink);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .pending-timeline-row .pending-itinerary-warning svg {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  color: inherit;
+}
+
+:root[data-ui="new"] .pending-timeline-row .transport-endpoint {
+  background: var(--panel);
+}
+
+/* Review row: ONE equal-width, non-wrapping row (Edit / Approve / Reject); a missing action leaves no gap. */
+:root[data-ui="new"] .pending-timeline-row > .pending-review-actions {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-2);
+}
+
+:root[data-ui="new"] .pending-timeline-row > .pending-review-actions > button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 6px;
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* Personal Calendar rows (visible only to the connected member) */
+:root[data-ui="new"] .timeline-row[data-calendar-event-id] .timeline-marker span {
+  color: var(--violet);
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+  background: var(--violet-soft);
+}
+
+:root[data-ui="new"] .timeline-row[data-calendar-event-id] .timeline-content {
+  display: block;
+}
+
+:root[data-ui="new"] .timeline-row[data-calendar-event-id] .timeline-content > span {
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .timeline-row[data-calendar-event-id] .timeline-content > h3 {
+  margin-top: 2px;
+}
+
+/* Wider primary column: roomier rows; actions align with the content column. */
+@container primary (min-width: 480px) {
+  :root[data-ui="new"] .timeline-row {
+    --row-pad-x: 20px;
+    --row-pad-y: 16px;
+    --rail: 76px;
+    --dot: 28px;
+    column-gap: 12px;
+  }
+
+  :root[data-ui="new"] .timeline-time time {
+    font-size: var(--text-md);
+  }
+
+  :root[data-ui="new"] .timeline-row > .card-actions {
+    grid-column: 3 / -1;
+  }
+
+  :root[data-ui="new"] .pending-timeline-row {
+    --pending-inset: 8px;
+  }
+
+  :root[data-ui="new"] .pending-timeline-row > .pending-review-actions {
+    max-width: 30rem;
+  }
+}
+
+/* Day map block (Today and inside an Itinerary day): spacing/fit only, plus the 13px text floor. */
+:root[data-ui="new"] .primary-column > [data-feedback-private] {
+  margin: 0 0 var(--space-4);
+}
+
+:root[data-ui="new"] .expense-day-body > [data-feedback-private] {
+  margin: var(--space-3) 0 var(--space-3);
+}
+
+:root[data-ui="new"] :is(.primary-column, .expense-day-body) > [data-feedback-private] :is(p, summary, [id$="-selection"]) {
+  font-size: var(--text-xs);
+}
+
+/* Disruption detail (inside a modal) */
+:root[data-ui="new"] .disruption-detail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+:root[data-ui="new"] .disruption-detail-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: var(--gold);
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--gold-soft);
+}
+
+:root[data-ui="new"] .disruption-detail-icon.severity-critical {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 50%, transparent);
+  background: var(--rose-soft);
+}
+
+:root[data-ui="new"] .disruption-detail h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+:root[data-ui="new"] .disruption-detail p {
+  margin: 0 0 var(--space-2);
+  color: var(--ink);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .disruption-detail small {
+  display: block;
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+:root[data-ui="new"] .disruption-detail details {
+  margin: 0 0 var(--space-2);
+}
+
+:root[data-ui="new"] .disruption-detail summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--violet);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .disruption-sources {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+:root[data-ui="new"] .disruption-sources strong {
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .disruption-sources a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--violet);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .disruption-sources a:hover {
+  background: var(--violet-soft);
+}
+
+:root[data-ui="new"] .disruption-detail .policy-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------------ */
+/* Day accordions (Itinerary and Expenses share this generic look)      */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] :is(.itinerary-days, .expense-days) {
+  display: grid;
+  gap: var(--space-3);
+}
+
+:root[data-ui="new"] .expense-day {
+  overflow: hidden;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+:root[data-ui="new"] .expense-day.itinerary-day {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+/* Nested inside a page panel (Expenses): a filled block rather than a card-in-card border. */
+:root[data-ui="new"] .page-panel .expense-day {
+  border-color: transparent;
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .expense-day[data-day-date] {
+  scroll-margin-top: var(--space-4);
+}
+
+/* Itinerary jumps (entry, chips, Calendar/Activity links) land below the pinned day chips (70px + gap). */
+:root[data-ui="new"] .primary-column:has(> .new-day-strip) > .itinerary-days :is(details[data-day-date], article) {
+  scroll-margin-top: 84px;
+}
+
+:root[data-ui="new"] .expense-day > summary {
+  min-height: 60px;
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+:root[data-ui="new"] .expense-day > summary::-webkit-details-marker {
+  display: none;
+}
+
+:root[data-ui="new"] .expense-day > summary:hover {
+  background: color-mix(in srgb, var(--violet-soft) 55%, transparent);
+}
+
+/* The outline is drawn inside so the card's rounded clipping cannot cut it off. */
+:root[data-ui="new"] .expense-day > summary:focus-visible {
+  outline-offset: -3px;
+  border-radius: inherit;
+}
+
+/* Itinerary heading: date/counts on the left, count on the right, one row at every width.
+   (Expense headings keep their own two-column grid, .expense-day-summary.) */
+:root[data-ui="new"] .expense-day > summary:not(.expense-day-summary) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+:root[data-ui="new"] .expense-day-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+:root[data-ui="new"] .expense-day-toggle > span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .expense-day-toggle strong {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .expense-day-toggle small {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .expense-day-toggle > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: none;
+}
+
+:root[data-ui="new"] .expense-day[open] .expense-day-toggle > svg {
+  transform: rotate(90deg);
+}
+
+:root[data-ui="new"] .expense-day-total {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* The count keeps its natural width (up to half the row) so short labels never break mid-phrase. */
+:root[data-ui="new"] .itinerary-day > summary > .expense-day-toggle {
+  flex: 1 1 0;
+}
+
+:root[data-ui="new"] .itinerary-day .expense-day-total {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  padding-left: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: normal;
+}
+
+:root[data-ui="new"] .itinerary-day .expense-day-total[data-zero="false"] {
+  color: var(--ink);
+}
+
+/* Today: gold border and a gold-tinted heading; the heading also says "Today" in text. */
+:root[data-ui="new"] .expense-day.is-current-day {
+  border: 2px solid var(--gold-fill);
+}
+
+:root[data-ui="new"] .expense-day.is-current-day > summary {
+  background: var(--gold-soft);
+}
+
+:root[data-ui="new"] .expense-day.is-current-day .expense-day-toggle > svg {
+  color: var(--gold);
+}
+
+:root[data-ui="new"] .expense-day-body {
+  padding: 0 var(--space-4) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+/* The day's timeline sits flush inside the day card (no card-in-card). */
+:root[data-ui="new"] .itinerary-day .expense-day-body > .timeline-card {
+  margin: var(--space-3) calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+:root[data-ui="new"] .itinerary-day .expense-day-body > .timeline-card:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ui="new"] .expense-day-toggle > svg {
+    transition: transform 160ms ease;
+  }
+
+  :root[data-ui="new"] :is(.stay-links > a, .event-map-destination, .timeline-event-link, .transport-endpoint, .expense-day > summary, .full-day-button) {
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Google Calendar panel (Itinerary and utility column)                */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .calendar-inline {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+}
+
+:root[data-ui="new"] .calendar-summary {
+  margin-top: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+:root[data-ui="new"] .calendar-inline h2 {
+  margin: 2px 0 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+:root[data-ui="new"] .calendar-inline > p {
+  margin: 0;
+}
+
+:root[data-ui="new"] .calendar-inline > .mini-button {
+  justify-self: start;
+}
+
+:root[data-ui="new"] .calendar-inline-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+:root[data-ui="new"] .calendar-inline-heading > div:first-child {
+  min-width: 0;
+}
+
+:root[data-ui="new"] .calendar-inline-heading .dialog-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+:root[data-ui="new"] .calendar-summary .calendar-inline-heading {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+:root[data-ui="new"] .calendar-conflicts {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--gold-soft);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .calendar-conflict {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-1);
+  color: var(--ink);
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--gold) 25%, transparent);
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .calendar-conflict:hover {
+  text-decoration: underline;
+}
+
+:root[data-ui="new"] .calendar-conflict span {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .calendar-conflict small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] :is(.calendar-clear, .calendar-more) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .calendar-event-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+:root[data-ui="new"] .calendar-event {
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .calendar-event span:not(.status-tag) {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* ------------------------------------------------------------------ */
+/* Event editor (form.form-grid inside .modal-panel)                    */
+/* ------------------------------------------------------------------ */
+
+:root[data-ui="new"] .modal-panel .form-grid textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+:root[data-ui="new"] .form-grid label small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .form-grid fieldset > legend {
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+/* Start / end / duration: two columns in the dialog, one column on phones. */
+:root[data-ui="new"] .event-time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+:root[data-ui="new"] .event-time-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .event-time-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+:root[data-ui="new"] .event-time-heading label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:root[data-ui="new"] .event-time-now {
+  flex: 0 0 auto;
+  min-width: 56px;
+  min-height: 44px;
+  font-size: var(--text-sm);
+}
+
+:root[data-ui="new"] .event-time-fields input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+:root[data-ui="new"] .event-time-duration {
+  align-content: start;
+}
+
+:root[data-ui="new"] .event-time-hint {
+  align-self: center;
+  margin: 0;
+}
+
+/* Transport endpoints: grouped like the other fieldsets. */
+:root[data-ui="new"] .transport-endpoint-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+:root[data-ui="new"] .transport-endpoint-fields > p {
+  margin: 0;
+}
+
+/* Checkboxes: whole label is a 44px target. */
+:root[data-ui="new"] .form-grid .check-field {
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .form-grid .check-field input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+:root[data-ui="new"] .form-grid .check-field svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+:root[data-ui="new"] .privacy-field {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+:root[data-ui="new"] :is(.privacy-field .muted-copy, .private-expense-note) {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+}
+
+:root[data-ui="new"] .privacy-field .muted-copy svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+:root[data-ui="new"] .private-viewer-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-5);
+  padding-top: 0;
+}
+
+:root[data-ui="new"] .owner-lock-field {
+  align-items: flex-start;
+}
+
+:root[data-ui="new"] .form-grid .owner-lock-field input {
+  margin-top: 2px;
+}
+
+:root[data-ui="new"] .owner-lock-field span {
+  display: grid;
+  gap: 2px;
+}
+
+:root[data-ui="new"] .owner-lock-field strong {
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+
+:root[data-ui="new"] .owner-lock-field small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Editor feedback: errors in rose, participant notes as a neutral block. */
+:root[data-ui="new"] .form-grid .private-expense-note[role="alert"] {
+  padding: 10px 12px;
+  color: var(--rose);
+  border: 1px solid color-mix(in srgb, var(--rose) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--rose-soft);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+:root[data-ui="new"] .form-grid .private-expense-note[role="status"] {
+  padding: 10px 12px;
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* Optional linked expense: a filled disclosure with a drawn chevron. */
+:root[data-ui="new"] .event-expense-details {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+}
+
+:root[data-ui="new"] .event-expense-details > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px var(--space-3);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+
+:root[data-ui="new"] .event-expense-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+:root[data-ui="new"] .event-expense-details > summary::after {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  content: "";
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+}
+
+:root[data-ui="new"] .event-expense-details[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+:root[data-ui="new"] .event-expense-details > summary > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+:root[data-ui="new"] .event-expense-details > summary small {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+:root[data-ui="new"] .event-expense-details > summary:focus-visible {
+  outline-offset: -3px;
+}
+
+:root[data-ui="new"] .event-expense-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+:root[data-ui="new"] .event-expense-fields > :first-child {
+  margin-top: var(--space-4);
+}
+
+:root[data-ui="new"] .event-expense-fields .split-field {
+  background: var(--panel);
+}
+
+:root[data-ui="new"] .linked-expense-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+:root[data-ui="new"] .linked-expense-list > strong {
+  width: 100%;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:root[data-ui="new"] .linked-expense-list > .mini-button {
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  white-space: normal;
+}
+
+/* Calendar import dialog (CSS module): token-styled fields by ancestor, low specificity on purpose. */
+:root[data-ui="new"] :where(.modal-panel > form:not(.form-grid)) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+:root[data-ui="new"] :where(.modal-panel > form:not(.form-grid)) :where(fieldset) {
+  border-color: var(--line);
+}
+
+/* ------------------------------------------------------------------ */
+/* Phone (≤760px viewport)                                             */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 760px) {
+  :root[data-ui="new"] .dashboard-grid {
+    margin-top: var(--space-4);
+  }
+
+  /* Chips bleed to the screen edges; the main column gutter is max(16px, safe area). */
+  :root[data-ui="new"] .new-day-strip {
+    margin-right: calc(-1 * max(16px, env(safe-area-inset-right)));
+    margin-left: calc(-1 * max(16px, env(safe-area-inset-left)));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-left: max(16px, env(safe-area-inset-left));
+    scroll-padding-inline: 16px;
+    scrollbar-width: none;
+  }
+
+  :root[data-ui="new"] .new-day-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* On phones the chips replace the previous/next buttons (swiping also works). */
+  :root[data-ui="new"] .overview-day-buttons {
+    display: none;
+  }
+
+  :root[data-ui="new"] .overview-day-header {
+    margin-bottom: var(--space-3);
+  }
+
+  :root[data-ui="new"] .timeline-row h3 {
+    font-size: var(--text-md);
+  }
+
+  :root[data-ui="new"] .calendar-inline {
+    padding: var(--space-4);
+  }
+
+  /* Today: Next up (countdown + destination) comes before the stay card so it is visible without
+     scrolling. Flex margins do not collapse, so the gaps are set to match the block layout. */
+  :root[data-ui="new"] .primary-column:has(> .departure-card) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  :root[data-ui="new"] .primary-column:has(> .departure-card) > :is(.new-day-strip, .overview-day-header) {
+    order: -2;
+  }
+
+  :root[data-ui="new"] .primary-column > .departure-card {
+    order: -1;
+    margin-bottom: var(--space-4);
+    padding: var(--space-4);
+  }
+
+  :root[data-ui="new"] .primary-column:has(> .departure-card) > .stay-card {
+    margin-bottom: 0;
+  }
+
+  :root[data-ui="new"] .departure-main {
+    row-gap: var(--space-3);
+    margin-top: var(--space-3);
+  }
+
+  /* Compact stay card: with a single hotel the link itself names it, so the "1 hotel" count is dropped. */
+  :root[data-ui="new"] .stay-card {
+    row-gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+  }
+
+  :root[data-ui="new"] .stay-card:has(.stay-links > a:only-child) h2 {
+    display: none;
+  }
+
+  :root[data-ui="new"] .stay-links > a {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+
+  /* Event action bars: one row of equal-width 44px buttons; a long label breaks inside its button
+     instead of pushing the next button onto a second row. The review row keeps its own grid. */
+  :root[data-ui="new"] .timeline-row > .card-actions:not(.pending-review-actions) {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  :root[data-ui="new"] .timeline-row > .card-actions:not(.pending-review-actions) > :is(button, a) {
+    flex: 1 1 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 4px 8px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  :root[data-ui="new"]:lang(ja) .timeline-row > .card-actions:not(.pending-review-actions) > :is(button, a) {
+    word-break: auto-phrase;
+  }
+
+  /* Cancel reads differently from Edit beside it (the label still says what it does). */
+  :root[data-ui="new"] .timeline-row:not(.state-complete) > .card-actions > [data-feedback-action="event_cancel"] {
+    color: var(--rose);
+  }
+
+  /* Itinerary day headings already end with the count ("… · 5 events"); the right-hand copy only
+     squeezed the date. Expense headings keep their right-hand day total. */
+  :root[data-ui="new"] .itinerary-days details[data-day-date] > summary > .expense-day-total {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  :root[data-ui="new"] .timeline-row > .card-actions:not(.pending-review-actions) > :is(button, a) > svg {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  :root[data-ui="new"] :is(.event-time-fields, .transport-endpoint-fields, .event-expense-fields) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root[data-ui="new"] :is(.transport-endpoint-fields, .event-expense-fields) > * {
+    grid-column: 1;
+  }
+}

@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# The public instance on GKE Autopilot. Secrets are mounted from Google Secret Manager through the
+# GKE Secret Manager add-on; infrastructure (cluster, registry, secrets, identities) is in infra/.
+resources:
+  - ../../base
+  - secret-provider-classes.yaml
+images:
+  - name: stardust-itinerary
+    newName: asia-northeast1-docker.pkg.dev/stardust-itinerary-live/stardust/stardust-itinerary
+    newTag: latest
+configMapGenerator:
+  - name: stardust-tunnel-config
+    namespace: stardust
+    files:
+      - config.yaml=tunnel-config.yaml
+  - name: stardust-backup-config
+    namespace: stardust
+    literals:
+      - STARDUST_DB_HOST=stardust-db
+      - STARDUST_BACKUP_GCS_BUCKET=stardust-itinerary-live-backups
+      - STARDUST_BACKUP_AGE_RECIPIENT=age1x5qt2jcrsz0qnqqs92n3yjf3n9rrvaya2z9qx2m8weu0fa57mv8sjqwlpl
+generatorOptions:
+  disableNameSuffixHash: false
+patches:
+  - path: patches/web-secrets.yaml
+  - path: patches/workers-secrets.yaml
+  - path: patches/db-secrets.yaml
+  - path: patches/tunnel-secrets.yaml

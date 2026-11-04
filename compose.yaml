@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: stardust
+      POSTGRES_USER: stardust
+      POSTGRES_PASSWORD: stardust
+    ports:
+      - "5432:5432"
+    volumes:
+      - stardust-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stardust -d stardust"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://stardust:stardust@postgres:5432/stardust
+      APP_BASE_URL: http://localhost:8080
+      DEFAULT_LOCALE: zh-HK-lihkg
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["app"]
+
+volumes:
+  stardust-postgres:

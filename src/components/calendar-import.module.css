@@ -1,0 +1,18 @@
+.calendarRow { background: rgba(142, 124, 224, 0.05); }
+.personal { display: inline-flex; align-items: center; gap: 6px; color: var(--violet); font-size: 13px; line-height: 1.5; }
+.hint { color: var(--muted); margin: 6px 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.form { display: grid; gap: 16px; min-width: 0; }
+.form label { display: grid; gap: 6px; min-width: 0; }
+.form input, .form select { min-height: 44px; width: 100%; min-width: 0; font-size: 16px; }
+.form button, .form summary, .calendarRow button, .calendarRow a { min-height: 44px; }
+.form fieldset { display: grid; gap: 12px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.source { padding: 12px; background: var(--panel-raised); border-radius: 10px; overflow-wrap: anywhere; }
+.source h3 { margin: 0 0 8px; }
+.check { display: flex !important; gap: 10px !important; align-items: flex-start; font-size: 15px; line-height: 1.6; }
+.check input { flex: 0 0 22px; width: 22px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.form summary { cursor: pointer; align-content: center; }
+.form summary:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
+.suggestion { padding: 12px; background: var(--panel-raised); border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+.suggestion ul { padding-left: 20px; }
+.error { color: var(--rose); font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }

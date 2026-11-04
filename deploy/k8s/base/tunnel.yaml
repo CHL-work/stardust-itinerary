@@ -1,0 +1,68 @@
+# Cloudflare Tunnel: outbound-only connection from the cluster to Cloudflare's edge, so no public
+# load balancer or IP is needed. The ingress rules (hostnames) live in the stardust-tunnel-config
+# ConfigMap, which each overlay provides; the tunnel credentials come from the stardust-tunnel secret.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stardust-tunnel
+  labels:
+    app.kubernetes.io/component: tunnel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: stardust-itinerary
+      app.kubernetes.io/component: tunnel
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: stardust-itinerary
+        app.kubernetes.io/component: tunnel
+    spec:
+      serviceAccountName: stardust-tunnel
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.10.7
+          args: ["tunnel", "--config", "/etc/cloudflared/config/config.yaml", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "run"]
+          ports:
+            - name: metrics
+              containerPort: 2000
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared/config
+              readOnly: true
+            - name: credentials
+              mountPath: /etc/cloudflared/credentials
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: stardust-tunnel-config
+        - name: credentials
+          secret:
+            secretName: stardust-tunnel

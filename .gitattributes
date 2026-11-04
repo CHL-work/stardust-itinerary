@@ -1,0 +1,8 @@
+# Store text with LF in the repository. Shell scripts, container files and migrations must also
+# be LF in working trees: CRLF breaks /bin/sh, and migration checksums are taken over file bytes.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+deploy/** text eol=lf
+infra/** text eol=lf
+database/migrations/*.sql text eol=lf

@@ -1,0 +1,148 @@
+# The Next.js web server. Stateless: provider credentials are API keys, so replicas can scale.
+apiVersion: v1
+kind: Service
+metadata:
+  name: stardust-web
+  labels:
+    app.kubernetes.io/component: web
+spec:
+  selector:
+    app.kubernetes.io/name: stardust-itinerary
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stardust-web
+  labels:
+    app.kubernetes.io/component: web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: stardust-itinerary
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: stardust-itinerary
+        app.kubernetes.io/component: web
+    spec:
+      serviceAccountName: stardust-web
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: stardust-itinerary
+          args: ["web"]
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: STARDUST_ENV_DIR
+              value: /var/run/stardust/env
+            - name: STARDUST_MAP_CACHE_DIR
+              value: /var/cache/stardust/day-map
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=1024
+            - name: TMPDIR
+              value: /tmp
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1536Mi
+              ephemeral-storage: 2Gi
+            limits:
+              memory: 2Gi
+              ephemeral-storage: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: app-env
+              mountPath: /var/run/stardust/env/app
+              readOnly: true
+            - name: ai-env
+              mountPath: /var/run/stardust/env/ai
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: home
+              mountPath: /home/stardust
+            - name: cache
+              mountPath: /var/cache/stardust
+            - name: next-cache
+              mountPath: /app/.next/standalone/.next/cache
+      volumes:
+        - name: app-env
+          secret:
+            secretName: stardust-app-env
+        - name: ai-env
+          secret:
+            secretName: stardust-ai-env
+            optional: true
+        - name: tmp
+          emptyDir: {}
+        - name: home
+          emptyDir: {}
+        - name: cache
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 512Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stardust-web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stardust-web
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75

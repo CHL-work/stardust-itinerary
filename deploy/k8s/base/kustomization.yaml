@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Generic Kubernetes base. Secrets come from ordinary Kubernetes Secrets (see README.md);
+# overlays/gke replaces them with Google Secret Manager volumes.
+namespace: stardust
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: stardust
+    includeSelectors: false
+resources:
+  - namespace.yaml
+  - serviceaccounts.yaml
+  - postgres.yaml
+  - web.yaml
+  - tunnel.yaml
+  - cronjobs.yaml
+  - migrate.yaml
+  - networkpolicies.yaml
+# Workloads use the image name "stardust-itinerary"; each overlay maps it to a registry and tag.

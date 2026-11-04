@@ -1,0 +1,23 @@
+# Builds the container image on Cloud Build from a clean source export (see deploy/README.md):
+#   gcloud builds submit <source-dir> --config=deploy/cloudbuild.yaml \
+#     --substitutions=_REVISION=<git-sha> \
+#     --service-account=projects/<project>/serviceAccounts/image-builder@<project>.iam.gserviceaccount.com \
+#     --gcs-source-staging-dir=gs://<project>-build-sources/source
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - --build-arg=STARDUST_BUILD_VERSION=${_REVISION}
+      - --tag=${_IMAGE}:${_REVISION}
+      - .
+images:
+  - ${_IMAGE}:${_REVISION}
+substitutions:
+  _IMAGE: asia-northeast1-docker.pkg.dev/stardust-itinerary-live/stardust/stardust-itinerary
+  _REVISION: manual
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
+timeout: 2400s

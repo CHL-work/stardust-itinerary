@@ -1,0 +1,68 @@
+.feedbackSpace { padding-right: 56px; }
+
+.advanced {
+  grid-column: 1 / -1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+}
+
+.advanced > summary,
+.group > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 16px 20px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.advanced > summary::-webkit-details-marker,
+.group > summary::-webkit-details-marker { display: none; }
+.advanced > summary > svg,
+.group > summary > svg { flex: 0 0 auto; transition: transform 120ms ease; }
+.advanced[open] > summary > svg,
+.group[open] > summary > svg { transform: rotate(90deg); }
+.advanced > summary:focus-visible,
+.group > summary:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; border-radius: 12px; }
+.advanced > summary strong { display: block; font-size: 18px; }
+.advanced > summary small { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+.body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0 20px 20px;
+}
+
+.body > * { min-width: 0; }
+.body button { min-height: 44px; }
+.body :global(.settings-card) label { font-size: 14px; line-height: 1.5; }
+.group { grid-column: 1 / -1; min-width: 0; border: 1px solid var(--line); border-radius: 14px; }
+.group > summary { font-weight: 700; }
+.groupBody { padding: 0 16px 16px; min-width: 0; }
+.groupBody p { font-size: 16px; line-height: 1.6; overflow-wrap: anywhere; }
+.groupBody :global(.request-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.groupBody :global(.metric-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.groupBody :global(.request-card),
+.groupBody :global(.metric-card) { min-width: 0; overflow-wrap: anywhere; }
+.groupBody :global(.metric-card) strong { font-size: 24px; }
+.groupBody :global(.permission-toggle) { min-height: 44px; }
+.groupBody :global(.permission-toggle) input { flex: 0 0 auto; }
+
+@media (max-width: 700px) {
+  .body { grid-template-columns: minmax(0, 1fr); padding: 0 12px 12px; }
+  .advanced > summary, .group > summary { padding: 14px 12px; }
+  .groupBody { padding: 0 12px 12px; }
+  .groupBody :global(.request-grid),
+  .groupBody :global(.metric-grid) { grid-template-columns: minmax(0, 1fr); }
+  .groupBody input, .groupBody select { font-size: 16px; min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advanced > summary > svg, .group > summary > svg { transition: none; }
+}

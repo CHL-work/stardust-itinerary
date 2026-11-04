@@ -1,0 +1,237 @@
+# Background work. The disruption monitor wakes every 5 minutes (PostgreSQL holds the real
+# 30-minute due gate); the feedback worker runs hourly; the encrypted backup runs daily.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: stardust-disruption
+  labels:
+    app.kubernetes.io/component: disruption
+spec:
+  schedule: "*/5 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: stardust-itinerary
+            app.kubernetes.io/component: disruption
+        spec:
+          serviceAccountName: stardust-worker
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: disruption
+              image: stardust-itinerary
+              args: ["disruption"]
+              env:
+                - name: STARDUST_ENV_DIR
+                  value: /var/run/stardust/env
+                - name: TMPDIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 768Mi
+                limits:
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: app-env
+                  mountPath: /var/run/stardust/env/app
+                  readOnly: true
+                - name: ai-env
+                  mountPath: /var/run/stardust/env/ai
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+                - name: home
+                  mountPath: /home/stardust
+          volumes:
+            - name: app-env
+              secret:
+                secretName: stardust-app-env
+            - name: ai-env
+              secret:
+                secretName: stardust-ai-env
+                optional: true
+            - name: tmp
+              emptyDir: {}
+            - name: home
+              emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: stardust-feedback
+  labels:
+    app.kubernetes.io/component: feedback
+spec:
+  schedule: "17 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: stardust-itinerary
+            app.kubernetes.io/component: feedback
+        spec:
+          serviceAccountName: stardust-worker
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: feedback
+              image: stardust-itinerary
+              args: ["feedback"]
+              env:
+                - name: STARDUST_ENV_DIR
+                  value: /var/run/stardust/env
+                - name: TMPDIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 768Mi
+                limits:
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: app-env
+                  mountPath: /var/run/stardust/env/app
+                  readOnly: true
+                - name: ai-env
+                  mountPath: /var/run/stardust/env/ai
+                  readOnly: true
+                - name: feedback-env
+                  mountPath: /var/run/stardust/env/feedback
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+                - name: home
+                  mountPath: /home/stardust
+          volumes:
+            - name: app-env
+              secret:
+                secretName: stardust-app-env
+            - name: ai-env
+              secret:
+                secretName: stardust-ai-env
+                optional: true
+            - name: feedback-env
+              secret:
+                secretName: stardust-feedback-env
+                optional: true
+            - name: tmp
+              emptyDir: {}
+            - name: home
+              emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: stardust-backup
+  labels:
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "30 18 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: stardust-itinerary
+            app.kubernetes.io/component: backup
+        spec:
+          serviceAccountName: stardust-backup
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: stardust-itinerary
+              args: ["backup", "--label=scheduled"]
+              envFrom:
+                - configMapRef:
+                    name: stardust-backup-config
+              env:
+                - name: STARDUST_DB_ADMIN_PASSWORD_FILE
+                  value: /var/run/stardust/db/password
+                - name: TMPDIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                  ephemeral-storage: 2Gi
+                limits:
+                  memory: 1Gi
+                  ephemeral-storage: 4Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: db-admin
+                  mountPath: /var/run/stardust/db
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: db-admin
+              secret:
+                secretName: stardust-db-admin
+                items:
+                  - key: password
+                    path: password
+            - name: tmp
+              emptyDir:
+                sizeLimit: 4Gi

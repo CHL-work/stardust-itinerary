@@ -1,0 +1,42 @@
+/* Root-layout entry: anchored to the page origin, so it scrolls away. */
+.launcher { position: absolute; z-index: 60; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #d5ad58; border-radius: 14px; background: #352d49; color: #ffdd88; box-shadow: 0 3px 14px #0005; cursor: pointer; }
+.launcher:hover { background: #4c3b58; }
+.dialog { width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 36px); padding: 22px; border: 1px solid #77658f; border-radius: 20px; background: #211a31; color: #f8f3ff; overflow: auto; overscroll-behavior: contain; }
+.dialog::backdrop { background: #080512bd; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.header h2 { font-size: 1.3rem; margin: 0; }
+.header button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; }
+.dialog button, .dialog select, .dialog input, .dialog textarea { font: inherit; }
+.dialog button { min-height: 44px; border: 1px solid #8b78a9; border-radius: 10px; background: #423450; color: #fff; padding: 10px 16px; cursor: pointer; }
+.fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 14px; }
+.fields > label:not(.check) { display: grid; gap: 7px; font-weight: 600; }
+.fields input:not([type=checkbox]), .fields select, .fields textarea { width: 100%; box-sizing: border-box; padding: 11px; border: 1px solid #82718f; border-radius: 9px; background: #151020; color: #fff; font-size: 16px; }
+.fields textarea { resize: vertical; line-height: 1.5; min-height: 150px; }
+.fields textarea::placeholder { color: #b7aabe; }
+.check { display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; cursor: pointer; }
+.check input { flex-shrink: 0; width: 20px; height: 20px; margin-top: 2px; accent-color: #ffd77d; }
+.help { font-size: .85rem; line-height: 1.5; color: #c8bdd5; margin: -6px 0 4px; }
+.preview, .history { border: 1px solid #5c4c6b; border-radius: 10px; padding: 12px; font-size: .9rem; }
+.preview summary, .history summary { cursor: pointer; min-height: 24px; }
+.preview ol { padding-left: 22px; max-height: 190px; overflow: auto; line-height: 1.7; }
+.preview time { color: #ecd59f; font-variant-numeric: tabular-nums; }
+.dialog .send { margin-top: 18px; width: 100%; font-weight: 700; color: #241927; background: #ffda7c; }
+.dialog button:disabled { opacity: .6; cursor: wait; }
+.notice { padding: 12px; border: 1px solid #dfb366; background: #684e222f; border-radius: 9px; line-height: 1.5; }
+.success { border-left: 3px solid #8ed6ab; padding: 8px 14px; margin-bottom: 20px; }
+.success code { overflow-wrap: anywhere; font-size: .8rem; }
+.history { margin-top: 20px; }
+.history ul { padding-left: 18px; }
+.history li { margin: 12px 0; overflow-wrap: anywhere; }
+.history small { display: block; color: #c5b6d5; margin-top: 4px; }
+.dialog a { color: #ffdf8c; }
+.operations { padding: 16px; border: 1px solid #665270; border-radius: 12px; }
+.operations > summary { cursor: pointer; font-weight: 600; min-height: 28px; }
+.operations p { line-height: 1.6; }
+.operations button { min-height: 44px; padding: 8px 14px; border: 1px solid #89719b; border-radius: 9px; background: #3d3049; color: #fff; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 14px; }
+.metrics dt { font-size: .85rem; color: #c7bcd0; }
+.metrics dd { margin: 4px 0 0; color: #ffda85; font-size: 1.1rem; }
+.operatorReport { border-top: 1px solid #655471; padding: 12px 0; overflow-wrap: anywhere; }
+.operatorReport summary { cursor: pointer; }
+@media (max-width: 600px) { .dialog { padding: 16px; } .header h2 { font-size: 1.15rem; } }

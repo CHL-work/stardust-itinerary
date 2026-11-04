@@ -1,0 +1,74 @@
+.ai-readable-text {
+  min-width: 0;
+  max-width: 72ch;
+  color: var(--ink, #f7f3ff);
+  font-size: 1rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.ai-reply .ai-readable-text > p,
+.ai-message .ai-readable-text > p {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+}
+
+.ai-reply .ai-readable-text > p + p,
+.ai-message .ai-readable-text > p + p {
+  margin-top: 1em;
+}
+
+.ai-card .ai-reply {
+  min-width: 0;
+  padding: 16px;
+}
+
+.ai-card .ai-reply > .ai-memory-usage {
+  font-size: .8125rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ai-card .ai-reply .ai-source-list {
+  gap: 8px;
+  font-size: .875rem;
+  line-height: 1.6;
+}
+
+.ai-card .ai-reply .ai-source-list a,
+.ai-conversation-page .ai-message-sources a {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 36px;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .ai-readable-text {
+    font-size: 1.0625rem;
+  }
+
+  .ai-card .ai-input textarea {
+    min-height: 120px;
+    padding-right: 64px;
+    color: var(--ink, #f7f3ff);
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+
+  .ai-card .ai-input button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .ai-card .ai-reply .ai-source-list a,
+  .ai-conversation-page .ai-message-sources a {
+    min-height: 44px;
+  }
+}

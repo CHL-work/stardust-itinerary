@@ -1,0 +1,7 @@
+interface:
+  display_name: "Stardust Job Runner"
+  short_description: "Safely select and execute one approved job"
+  default_prompt: "Use $stardust-job-runner to select the next authorized Stardust Itinerary job and explain why it is eligible."
+
+policy:
+  allow_implicit_invocation: true

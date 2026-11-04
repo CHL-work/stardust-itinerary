@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: stardust_test_ci
+          POSTGRES_USER: stardust
+          POSTGRES_PASSWORD: stardust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stardust -d stardust_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify application
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          TEST_DATABASE_URL: postgresql://stardust:stardust@localhost:5432/stardust_test_ci
+          TEST_DATABASE_CONFIRM_DESTROY: stardust_test_ci
+        run: pnpm check
+
+      - name: Verify portable PostgreSQL dump and restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_id="$(docker ps --filter ancestor=postgres:17-alpine --format '{{.ID}}' | head -n 1)"
+          test -n "$container_id"
+          docker exec "$container_id" dropdb --if-exists -U stardust stardust_restore
+          docker exec "$container_id" createdb -U stardust stardust_restore
+          docker exec "$container_id" pg_dump \
+            --format=plain --no-owner --no-privileges \
+            -U stardust -f /tmp/stardust.sql stardust_test_ci
+          docker exec "$container_id" psql \
+            -v ON_ERROR_STOP=1 -U stardust -d stardust_restore \
+            -f /tmp/stardust.sql
+          table_count="$(docker exec "$container_id" psql \
+            -Atqc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'" \
+            -U stardust -d stardust_restore)"
+          test "$table_count" -ge 15

@@ -1,0 +1,27 @@
+# Dependencies and Next.js output
+node_modules/
+.next/
+out/
+coverage/
+public/vendor/maplibre/
+
+# Local configuration and secrets
+.local/
+__pycache__/
+.env
+.env.local
+.env.*.local
+!.env.example
+database/fixtures/local-*.sql
+database/fixtures/local-*.ts
+
+# Tooling and operating system files
+.tmp-validator-deps/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
