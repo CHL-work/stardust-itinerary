@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Codex } from "@openai/codex-sdk";
 import { query as claudeQuery } from "@anthropic-ai/claude-agent-sdk";
+import { lockedDownCodexConfig } from "@/lib/ai/codex-lockdown";
 import { withOperatorAiCredential } from "@/lib/ai/credential-context";
 import { generateWithGemini, geminiEndpoint } from "@/lib/ai/gemini";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
@@ -22,7 +23,7 @@ async function openai(): Promise<string> {
   if (!process.env.CODEX_API_KEY && !process.env.OPENAI_API_KEY) return "skipped (no key)";
   const workDirectory = await mkdtemp(join(tmpdir(), "stardust-smoke-"));
   try {
-    const thread = new Codex({ env: providerEnvironment(), config: { features: { shell_tool: false, unified_exec: false }, mcp_servers: {} } })
+    const thread = new Codex({ env: providerEnvironment(), config: lockedDownCodexConfig })
       .startThread({ model: models.openai, modelReasoningEffort: "low", sandboxMode: "read-only", workingDirectory: workDirectory,
         skipGitRepoCheck: true, networkAccessEnabled: false, webSearchMode: "disabled", approvalPolicy: "never" });
     const turn = await thread.run(prompt, { outputSchema: schema, signal: AbortSignal.timeout(120_000) });

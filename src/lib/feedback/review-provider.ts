@@ -3,6 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { Codex } from "@openai/codex-sdk";
 import { z } from "zod";
+import { lockedDownCodexFeatures } from "@/lib/ai/codex-lockdown";
 import { feedbackProviderEnvironment } from "@/lib/ai/provider-environment";
 import { FEEDBACK_MODEL, FEEDBACK_EFFORT, reviewOutputSchema, validateReviewOutput,
   type KnownFeedbackIssue, type ReviewReport, type ReviewResult } from "./review-contract";
@@ -52,8 +53,8 @@ export const reviewFeedback: FeedbackReviewer = async (reports, known) => {
     try { config = await readFile(configPath, "utf8"); }
     catch (error) { if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw new Error("provider_unavailable"); }
     const codex = new Codex({ env: feedbackProviderEnvironment(), config: {
-      features: { shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false, view_image: false,
-        memories: false, shell_snapshot: false, remote_plugin: false, plugins: false, skill_mcp_dependency_install: false },
+      // The same tool lockdown as in-app turns (codex-lockdown.ts): the reviewer reads user-written text.
+      features: { ...lockedDownCodexFeatures },
       // Do not erase an MCP transport then recreate only enabled=false: the
       // installed CLI validates command/url even for a disabled server. Disable
       // every discovered entry while retaining its existing transport locally.

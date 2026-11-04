@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Codex, type Usage } from "@openai/codex-sdk";
 import { z } from "zod";
+import { lockedDownCodexFeatures } from "@/lib/ai/codex-lockdown";
 import { AiCredentialContextMissingError, requireAiCredential } from "@/lib/ai/credential-context";
 import type { Locale } from "@/lib/i18n";
 import type { DestinationDefaults } from "@/lib/app/trip-destination-contract";
@@ -45,8 +46,8 @@ DESTINATION_JSON
 ${JSON.stringify(destination.normalize("NFKC").trim().replace(/\s+/gu, " "))}`;
 }
 
-/** Resolve only the release's pinned native package, never a PATH/global CLI. */
-async function destinationCodexBinary(): Promise<string> {
+/** Resolve only the release's pinned native package, never a PATH/global CLI. Also used by tests. */
+export async function destinationCodexBinary(): Promise<string> {
   const sdkManifest = await realpath(join(process.cwd(), "node_modules", "@openai", "codex-sdk", "package.json"));
   const sdk = JSON.parse(await readFile(sdkManifest, "utf8"));
   if (sdk.version !== pinnedCodexVersion) throw new TripDestinationProviderError("PROVIDER_UNAVAILABLE");
@@ -111,12 +112,8 @@ const lookupInstructions = "You are a tool-free geography classifier. Follow onl
 function isolatedConfiguration(instructionFile: string) {
   return { forced_login_method: "api", model_provider: "openai", developer_instructions: lookupInstructions,
     model_instructions_file: instructionFile, personality: "none", project_doc_max_bytes: 0,
-    features: { shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false, memories: false,
-      shell_snapshot: false, remote_plugin: false, plugins: false, skill_mcp_dependency_install: false,
-      request_permissions_tool: false, view_image: false, browser_use: false, browser_use_external: false,
-      browser_use_full_cdp_access: false, computer_use: false, in_app_browser: false, in_app_chat: false,
-      in_app_local_automation: false, image_generation: false, workspace_dependencies: false, skill_search: false,
-      goals: false, sleep_tool: false, auth_elicitation: false, tool_suggest: false, tool_call_mcp_elicitation: false },
+    // The shared tool lockdown (codex-lockdown.ts), which also turns off code mode.
+    features: { ...lockedDownCodexFeatures, request_permissions_tool: false },
     mcp_servers: {}, apps: {}, hooks: {}, notify: [], agents: { enabled: false },
     skills: { bundled: { enabled: false }, include_instructions: false },
     history: { persistence: "none" },

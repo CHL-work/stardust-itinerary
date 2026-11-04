@@ -3,16 +3,39 @@ import type { Codex, ThreadItem } from "@openai/codex-sdk";
 type CodexConfig = NonNullable<NonNullable<ConstructorParameters<typeof Codex>[0]>["config"]>;
 
 /**
- * Codex configuration for in-app model turns: no shell, exec, apps, agents, hooks, memories,
- * image viewer, MCP servers or persisted history. The read-only sandbox alone still lets a shell
- * read local files (including mounted secret files), so the shell itself must be off.
+ * Every Codex feature that gives a model a capability beyond reasoning, answering and (when a
+ * thread allows it) web search. Several are on by default in the pinned CLI, so each is turned off
+ * explicitly. `codex-lockdown.test.ts` runs the installed CLI's `features list` with these overrides
+ * and fails when a new default-on feature appears, so a CLI upgrade gets reviewed here.
+ */
+export const disabledCodexFeatures = [
+  // Shell, exec and their helpers: a read-only sandbox still lets a shell read mounted secret files.
+  "shell_tool", "unified_exec", "unified_exec_tty", "shell_snapshot",
+  // Browsers and computer use can open local files and pages.
+  "browser_use", "browser_use_external", "browser_use_full_cdp_access", "browser_annotation_api", "computer_use",
+  "in_app_browser", "in_app_chat", "in_app_local_automation", "in_app_dictation", "in_app_voice", "in_app_updates",
+  // Connectors, plugins, skills and other tool sources.
+  "apps", "plugins", "plugin_sharing", "remote_plugin", "skill_search", "skill_mcp_dependency_install", "tool_suggest",
+  "tool_call_mcp_elicitation", "workspace_dependencies",
+  // Agents, hooks, memory, images and other side effects.
+  "multi_agent", "multi_agent_v2", "hooks", "memories", "view_image", "image_generation", "code_mode_host", "goals",
+  "sleep_tool", "auth_elicitation",
+] as const;
+
+/** `features` overrides that turn every listed feature off; spread into other Codex configurations. */
+export const lockedDownCodexFeatures: Readonly<Record<string, boolean>> =
+  Object.fromEntries(disabledCodexFeatures.map((feature) => [feature, false]));
+
+/**
+ * Codex configuration for in-app model turns: no shell, exec, code mode, browser, computer use,
+ * connectors, plugins, skills, agents, hooks, memories, image tools, MCP servers or persisted history.
  */
 export const lockedDownCodexConfig: CodexConfig = {
-  features: {
-    shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false,
-    view_image: false, memories: false, shell_snapshot: false,
-  },
-  mcp_servers: {}, hooks: {}, notify: [], history: { persistence: "none" },
+  features: { ...lockedDownCodexFeatures },
+  mcp_servers: {}, apps: {}, hooks: {}, notify: [], agents: { enabled: false },
+  skills: { bundled: { enabled: false }, include_instructions: false },
+  history: { persistence: "none" },
+  analytics: { enabled: false },
 };
 
 /** True when a finished turn used anything beyond reasoning, the answer and (if allowed) web search. */
