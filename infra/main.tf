@@ -9,10 +9,11 @@ locals {
 
   # Secret Manager secret -> Kubernetes service accounts allowed to mount it. Only the web server
   # decrypts users' stored AI keys, so only it mounts CREDENTIAL_ENCRYPTION_KEY. Only the feedback
-  # worker holds the GitHub token for the private feedback repository.
+  # publisher (stardust-feedback) holds the GitHub token for the private feedback repository, and it
+  # runs no model; the reviewer runs as stardust-worker.
   secrets = {
     "stardust-app-env"            = ["stardust-web", "stardust-worker", "stardust-feedback", "stardust-migrate"]
-    "stardust-ai-env"             = ["stardust-web", "stardust-worker", "stardust-feedback"]
+    "stardust-ai-env"             = ["stardust-web", "stardust-worker"]
     "stardust-credential-env"     = ["stardust-web"]
     "stardust-feedback-env"       = ["stardust-feedback"]
     "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup", "stardust-guest-purge"]
@@ -111,6 +112,12 @@ resource "google_artifact_registry_repository" "images" {
   repository_id = "stardust"
   format        = "DOCKER"
   description   = "Stardust Itinerary container images"
+
+  # A pushed tag (the commit SHA) can never be moved to another image, so a deploy by tag is a deploy
+  # of exactly what CI built for that commit.
+  docker_config {
+    immutable_tags = true
+  }
 
   cleanup_policy_dry_run = false
   cleanup_policies {
@@ -263,8 +270,15 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.ref"                 = "assertion.ref"
     "attribute.environment"         = "assertion.environment"
   }
-  # Only workflows in this repository, owned by this account, can exchange tokens at all.
-  attribute_condition = "assertion.repository == '${var.github_repository}' && assertion.repository_owner_id == '${var.github_repository_owner_id}'"
+  # Only the deploy workflow as it is on main, in this repository owned by this account, and only
+  # for its own triggers can exchange tokens at all. No other workflow (CI, a future pull request
+  # workflow) or event gets cloud credentials, whatever its branch or environment.
+  attribute_condition = join(" && ", [
+    "assertion.repository == '${var.github_repository}'",
+    "assertion.repository_owner_id == '${var.github_repository_owner_id}'",
+    "assertion.job_workflow_ref == '${var.github_repository}/.github/workflows/deploy.yml@refs/heads/main'",
+    "assertion.event_name in ['workflow_run', 'workflow_dispatch']",
+  ])
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }

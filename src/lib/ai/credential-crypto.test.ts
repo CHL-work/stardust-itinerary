@@ -77,8 +77,17 @@ describe("AI credential encryption", () => {
       `2:${current}`, // reuses the current key
       `2:${previous},1:${previous}`, // reuses a key
       `2${previous}`, `0:${previous}`, `x:${previous}`, `2:${previous.slice(1)}`, `2:${previous},`, // malformed entries
+      `:${previous}`, // an older key always names its version
     ]) expect(credentialEncryptionConfigured({ ...base, CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: ring }), ring.slice(0, 3)).toBe(false);
     expect(credentialEncryptionConfigured({ ...base, CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: `2:${previous}`, AUTH_SECRET: previous })).toBe(false);
+    // Another spelling of the same 32 bytes (the unused low bits of the last character) is refused,
+    // so neither a reused key nor AUTH_SECRET slips past a text comparison.
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const respelled = `${current.slice(0, 42)}${alphabet[alphabet.indexOf(current[42]!) ^ 1]}=`;
+    expect(Buffer.from(respelled, "base64").equals(Buffer.from(current, "base64"))).toBe(true);
+    expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: respelled })).toBe(false);
+    expect(credentialEncryptionConfigured({ ...base, CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: `2:${respelled}` })).toBe(false);
+    expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: current, AUTH_SECRET: respelled })).toBe(false);
     for (const version of ["0", "-1", "1.5", "32768", "v2", "01"]) {
       expect(credentialEncryptionConfigured({ CREDENTIAL_ENCRYPTION_KEY: current, CREDENTIAL_ENCRYPTION_KEY_VERSION: version }), version).toBe(false);
     }

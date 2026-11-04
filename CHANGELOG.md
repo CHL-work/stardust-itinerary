@@ -65,6 +65,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Security
 
+- **Deploys after a second review:** an automatic deploy needs the newest commit of `main` (checked in both jobs), so re-running an older CI run never rolls production back. Workload Identity accepts tokens only from `deploy.yml` on `main` for its own triggers, Artifact Registry tags are immutable, and the workflows' actions are pinned to commit SHAs.
+- **Feedback token away from the model:** publishing is now its own `stardust-feedback-publish` CronJob with the token and the database, and no model or AI keys; the reviewer job no longer mounts the token. The publisher accepts only `visibility: private`, not `internal`.
+- **Key ring strictness:** an older key always names its version, keys must be canonical base64, and reuse is checked on the decoded bytes. Re-encryption also opens the keys already on the current version, so a key replaced without raising its version is reported instead of passing silently.
+- **Funding by policy, not elimination:** Calendar lookups use the operator's keys only when the policy says the operator pays.
+- **AI load cap:** at most `STARDUST_AI_MAX_CONCURRENT` (default 4) AI requests run at once per web server; more get 429 with `Retry-After`. The web pod requests 1 GiB.
 - **Codex tool lockdown, completed:** the pinned Codex CLI turns on code mode, browser and computer use, plugins, skills, goals, agent collaboration, image generation and other tools by default, and the shared lockdown turned off only the shell, exec, apps, agents, hooks, memories and the image viewer. A probe of a locked-down turn in production listed a code-execution tool, `apply_patch`, goal, agent and MCP-resource tools (it found no way to read files). Every in-app turn, the feedback reviewer, the destination lookup and the provider smoke now turn all of those off, and a test runs the installed CLI's `features list` with the lockdown and fails if any feature outside a reviewed harmless list is on.
 
 - **Hardening from an independent review of key sharing and guest accounts (migration `0057_guest_hardening.sql`):**

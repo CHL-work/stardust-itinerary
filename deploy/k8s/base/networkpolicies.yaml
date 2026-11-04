@@ -43,7 +43,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/component
                 operator: In
-                values: ["web", "disruption", "feedback", "migrate", "backup", "guest-purge"]
+                values: ["web", "disruption", "feedback", "feedback-publish", "migrate", "backup", "guest-purge"]
       ports:
         - port: 5432
           protocol: TCP
@@ -57,7 +57,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/component
         operator: In
-        values: ["web", "disruption", "feedback", "migrate", "tunnel"]
+        values: ["web", "disruption", "feedback", "feedback-publish", "migrate", "tunnel"]
   policyTypes: ["Egress"]
   egress:
     - to:

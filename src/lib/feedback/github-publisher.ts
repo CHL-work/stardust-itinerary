@@ -84,7 +84,8 @@ export async function verifyPrivateFeedbackRepository(target: FeedbackTarget, re
     const value = row as Record<string, unknown>;
     if (typeof value.full_name !== "string" || value.full_name.toLowerCase() !== repository.toLowerCase()
       || !feedbackRepository(value.full_name)) return { state: "refused", errorCode: "response_invalid" };
-    if (value.private !== true || value.visibility === "public") return { state: "refused", errorCode: "repository_public" };
+    // "internal" repositories are visible to a whole enterprise, so only "private" counts.
+    if (value.private !== true || value.visibility !== "private") return { state: "refused", errorCode: "repository_public" };
     if (value.has_issues !== true || value.archived === true || value.disabled === true) return { state: "refused", errorCode: "issues_unavailable" };
     return { state: "private", repository: value.full_name };
   } catch { return { state: "refused", errorCode: "delivery_uncertain" }; }

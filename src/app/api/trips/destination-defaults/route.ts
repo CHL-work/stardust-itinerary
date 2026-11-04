@@ -4,6 +4,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/app/http";
 import { AppInvalidInputError, assertNotGuest } from "@/lib/app/repository";
 import { runTripDestinationLookup } from "@/lib/app/trip-destination-service";
+import { withAiRequestSlot } from "@/lib/ai/concurrency";
 import { accountCookieName, verifyAccountOnboarding } from "@/lib/auth/account-session";
 import { getAuthConfig } from "@/lib/auth/config";
 import { SessionUnavailableError } from "@/lib/auth/errors";
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     // The lookup runs on the operator's keys; guests cannot create trips to use it for (JOB-064).
     if ("issuer" in principal) assertNotGuest(principal, "look up destinations");
     const input = lookupInput.parse(await readInput(request));
-    const result = await runTripDestinationLookup(pool, config, principal, input);
+    const result = await withAiRequestSlot(() => runTripDestinationLookup(pool, config, principal, input));
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store, private" } });
   } catch (error) {
     const result = apiError(error);

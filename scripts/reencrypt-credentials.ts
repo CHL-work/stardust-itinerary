@@ -7,7 +7,7 @@ import { reencryptAiCredentials } from "../src/lib/ai/credentials";
  * CREDENTIAL_ENCRYPTION_KEY, using CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS to open the old ones. Run it
  * where the web server's secrets are mounted, for example
  * `kubectl -n stardust exec deploy/stardust-web -- /app/deploy/container/entrypoint.sh credential-reencrypt`.
- * Prints counts only, and exits non-zero while any key remains under an older version.
+ * Prints counts only, and exits non-zero while any key remains under an older version or does not open.
  */
 export async function reencryptCredentialsMain() {
   if (process.argv.length > 2) throw new Error("reencrypt_arguments_invalid");
@@ -19,7 +19,7 @@ export async function reencryptCredentialsMain() {
   try {
     const result = await reencryptAiCredentials(pool);
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    if (result.remaining > 0) process.exitCode = 1;
+    if (result.remaining > 0 || result.unreadable > 0) process.exitCode = 1;
   } finally { await pool.end(); }
 }
 

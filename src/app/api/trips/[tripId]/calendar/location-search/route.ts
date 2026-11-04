@@ -6,6 +6,7 @@ import { requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 import { calendarLocationSearchInput } from "@/lib/calendar/location-search-types";
 import { readCalendarLocationSearch, searchCalendarLocation } from "@/lib/calendar/location-search";
+import { withAiRequestSlot } from "@/lib/ai/concurrency";
 import { calendarPrivateHeaders, calendarImportHttpError, calendarWrongTrip, readCalendarImportJson } from "@/lib/calendar/import-http";
 
 export const maxDuration = 95;
@@ -15,7 +16,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const session = await requireAuthenticatedSession(request, config); assertNotGuest(session, "use Google Calendar");
     const { tripId } = await params; if (tripId !== session.tripId) return calendarWrongTrip();
     const input = calendarLocationSearchInput.parse(await readCalendarImportJson(request));
-    return NextResponse.json(await searchCalendarLocation(getPool(config), config, session, input), { headers: calendarPrivateHeaders });
+    return NextResponse.json(await withAiRequestSlot(() => searchCalendarLocation(getPool(config), config, session, input)),
+      { headers: calendarPrivateHeaders });
   } catch (error) { return calendarImportHttpError(error); }
 }
 export async function GET(request: NextRequest, { params }: { params: Promise<{ tripId: string }> }) {

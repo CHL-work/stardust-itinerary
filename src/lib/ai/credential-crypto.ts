@@ -31,11 +31,18 @@ const VERSION_FORMAT = /^[1-9][0-9]{0,4}$/u;
 
 type KeyRing = { version: number; current: Buffer; previous: ReadonlyMap<number, Buffer> };
 
-function keyVersion(raw: string | undefined): number {
-  const value = raw?.trim() || "1";
+function keyVersion(raw: string): number {
+  const value = raw.trim();
   const version = VERSION_FORMAT.test(value) ? Number(value) : Number.NaN;
   if (!Number.isSafeInteger(version) || version > MAX_KEY_VERSION) throw new CredentialEncryptionUnavailableError();
   return version;
+}
+
+/** The 32 key bytes, only from canonical base64, so one key has exactly one accepted spelling. */
+function decodedKey(value: string): Buffer | null {
+  if (!KEY_FORMAT.test(value)) return null;
+  const bytes = Buffer.from(value, "base64");
+  return bytes.length === 32 && bytes.toString("base64") === value ? bytes : null;
 }
 
 /**
@@ -44,15 +51,21 @@ function keyVersion(raw: string | undefined): number {
  */
 function keyRing(env: Record<string, string | undefined>): KeyRing {
   const authSecret = env.AUTH_SECRET?.trim();
+  // Compared as bytes too, in case AUTH_SECRET is another spelling of the same 32 bytes.
+  const authBytes = authSecret && KEY_FORMAT.test(authSecret) ? Buffer.from(authSecret, "base64").toString("hex") : null;
   const seen = new Set<string>();
   const key = (raw: string | undefined): Buffer => {
-    const value = raw?.trim();
+    const value = raw?.trim() ?? "";
+    const bytes = decodedKey(value);
     // A dedicated secret: reusing AUTH_SECRET would let one leaked value both forge sessions and open keys.
-    if (!value || !KEY_FORMAT.test(value) || value === authSecret || seen.has(value)) throw new CredentialEncryptionUnavailableError();
-    seen.add(value);
-    return Buffer.from(value, "base64");
+    if (!bytes || value === authSecret || bytes.toString("hex") === authBytes || seen.has(bytes.toString("hex"))) {
+      throw new CredentialEncryptionUnavailableError();
+    }
+    seen.add(bytes.toString("hex"));
+    return bytes;
   };
-  const version = keyVersion(env.CREDENTIAL_ENCRYPTION_KEY_VERSION);
+  // Only the current key's version may be left out (a single-key setup is version 1).
+  const version = keyVersion(env.CREDENTIAL_ENCRYPTION_KEY_VERSION?.trim() || "1");
   const current = key(env.CREDENTIAL_ENCRYPTION_KEY);
   const previous = new Map<number, Buffer>();
   const listed = env.CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS?.trim();

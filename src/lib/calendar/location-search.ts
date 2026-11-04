@@ -87,7 +87,7 @@ export async function searchCalendarLocation(pool: Pool, config: AuthConfig, ses
     await client.query(`INSERT INTO ai_request_events (trip_id,ai_request_id,sequence,event_type,payload)
       VALUES ($1,$2,1,'calendar.location.started',$3::jsonb)`,
     [session.tripId,id,JSON.stringify({ publicSubject: subject, locale: input.locale, consent: true, model: policy.model })]);
-    return { kind: "start" as const, model: policy.model,
+    return { kind: "start" as const, model: policy.model, credentialSource: policy.credentialSource,
       credential: userCredential && (policy.credentialSource === "own" || policy.credentialSource === "shared")
         ? { source: policy.credentialSource, provider: profile.provider, ...userCredential } : null };
   });
@@ -100,7 +100,10 @@ export async function searchCalendarLocation(pool: Pool, config: AuthConfig, ses
   try {
     directory = await mkdtemp(join(tmpdir(), "stardust-calendar-location-"));
     const lookup = () => runCalendarLocationProvider({ subject, model: admission.model, workDirectory: directory!, abortController: controller });
-    const work = admission.credential ? withUserAiCredential(admission.credential, lookup) : withOperatorAiCredential(lookup);
+    // Funding follows the policy's choice, never elimination: only an operator-funded lookup uses the operator's keys.
+    const work = admission.credentialSource === "operator" ? withOperatorAiCredential(lookup)
+      : admission.credential ? withUserAiCredential(admission.credential, lookup)
+        : Promise.reject(new Error("A user-funded Calendar lookup has no key."));
     provider = await Promise.race([work, new Promise<never>((_, reject) => {
       timer = setTimeout(() => { controller.abort(); reject(new Error("CALENDAR_LOCATION_TIMEOUT")); }, BUDGET_MS);
     })]);

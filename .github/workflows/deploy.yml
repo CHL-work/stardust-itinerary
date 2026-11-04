@@ -4,6 +4,7 @@ name: Deploy
 # for that commit (tagged with its SHA) and deploys it. Run it manually ("Run workflow" on main) to
 # redeploy, or to roll back to an earlier revision of main. The deploy job runs in the "production"
 # environment, which only main may use; it is the only identity that can obtain cluster credentials.
+# Actions are pinned to commit SHAs: tags can be moved, and these steps hold cloud credentials.
 on:
   workflow_run:
     workflows: [CI]
@@ -40,47 +41,62 @@ jobs:
     timeout-minutes: 30
     outputs:
       revision: ${{ steps.revision.outputs.sha }}
+      current: ${{ steps.revision.outputs.current }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.revision || github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - name: Resolve revision
         id: revision
-        # Only commits that are on main deploy, so a manual run cannot ship an unmerged commit.
+        env:
+          EVENT: ${{ github.event_name }}
+        # Only commits on main deploy, so a manual run cannot ship an unmerged commit. An automatic
+        # deploy also needs the newest commit of main: re-running an older CI run must never roll
+        # production back (roll back with a manual run instead).
         run: |
           git merge-base --is-ancestor HEAD origin/main || { echo "revision is not on main" >&2; exit 1; }
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          sha="$(git rev-parse HEAD)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = "workflow_run" ] && [ "$sha" != "$(git rev-parse origin/main)" ]; then
+            echo "::notice::$sha is no longer the head of main; this automatic deploy is skipped"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Authenticate to Google Cloud (image builder)
-        uses: google-github-actions/auth@v3
+        if: steps.revision.outputs.current == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: image-builder@stardust-itinerary-live.iam.gserviceaccount.com
 
       - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v3
+        if: steps.revision.outputs.current == 'true'
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
 
       - name: Skip when the image already exists
         id: existing
+        if: steps.revision.outputs.current == 'true'
         run: |
           if gcloud artifacts docker images describe "$IMAGE:${{ steps.revision.outputs.sha }}" >/dev/null 2>&1; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Docker Buildx
-        if: steps.existing.outputs.found != 'true'
-        uses: docker/setup-buildx-action@v4
+        if: steps.revision.outputs.current == 'true' && steps.existing.outputs.found != 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Configure Artifact Registry
-        if: steps.existing.outputs.found != 'true'
+        if: steps.revision.outputs.current == 'true' && steps.existing.outputs.found != 'true'
         run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
 
       - name: Build and push
-        if: steps.existing.outputs.found != 'true'
-        uses: docker/build-push-action@v7
+        if: steps.revision.outputs.current == 'true' && steps.existing.outputs.found != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           push: true
@@ -91,6 +107,7 @@ jobs:
 
   deploy:
     needs: image
+    if: needs.image.outputs.current == 'true'
     environment: production
     # One deploy at a time; a newer request waits instead of cancelling one in progress.
     concurrency:
@@ -100,21 +117,42 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ needs.image.outputs.revision }}
 
+      # Checked again here: "Re-run failed jobs" reuses the image job's old outputs, and a newer
+      # commit may have landed while this deploy waited its turn.
+      - name: Confirm the revision is still the head of main
+        id: current
+        env:
+          EVENT: ${{ github.event_name }}
+          REVISION: ${{ needs.image.outputs.revision }}
+        run: |
+          head="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$EVENT" = "workflow_run" ] && [ "$head" != "$REVISION" ]; then
+            echo "::notice::$REVISION is no longer the head of main; this automatic deploy is skipped"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Authenticate to Google Cloud (deployer)
-        uses: google-github-actions/auth@v3
+        if: steps.current.outputs.deploy == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: github-deployer@stardust-itinerary-live.iam.gserviceaccount.com
 
       - name: Get cluster credentials
-        uses: google-github-actions/get-gke-credentials@v3
+        if: steps.current.outputs.deploy == 'true'
+        uses: google-github-actions/get-gke-credentials@3da1e46a907576cefaa90c484278bb5b259dd395 # v3
         with:
           cluster_name: stardust
           location: ${{ env.REGION }}
 
       - name: Deploy
-        run: bash deploy/deploy.sh "${{ needs.image.outputs.revision }}"
+        if: steps.current.outputs.deploy == 'true'
+        env:
+          REVISION: ${{ needs.image.outputs.revision }}
+        run: bash deploy/deploy.sh "$REVISION"

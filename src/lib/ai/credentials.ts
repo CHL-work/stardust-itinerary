@@ -206,7 +206,9 @@ export type AiCredentialReencryption = { currentVersion: number; reencrypted: nu
  * Key rotation: re-seal every saved key that is not under the current encryption key. Rows are
  * locked in small batches and skipped when a request holds them, so a concurrent save is never
  * overwritten; a row that no longer opens is left in place, counted, and treated as absent, and its
- * owner adds the key again. `updated_at` is the owner's last change, so it stays. Counts only.
+ * owner adds the key again. `updated_at` is the owner's last change, so it stays. Rows already under
+ * the current version are opened too: a key replaced without raising its version would otherwise
+ * make every saved key unreadable while this reported nothing to do. Counts only.
  */
 export async function reencryptAiCredentials(
   pool: Pool, env: Record<string, string | undefined> = process.env, batchSize = 100,
@@ -242,9 +244,27 @@ export async function reencryptAiCredentials(
     reencrypted += batch.moved;
     if (batch.fetched < batchSize) break;
   }
+  let unreadableCurrent = 0;
+  let after: { userId: string; provider: string } | null = null;
+  for (;;) {
+    const rows: { rows: { user_id: string; provider: AiCredentialProvider; ciphertext: Buffer; nonce: Buffer; key_version: number }[] } = await pool.query(
+      `SELECT user_id, provider, ciphertext, nonce, key_version FROM user_ai_credentials
+        WHERE key_version = $1 AND ($2::uuid IS NULL OR (user_id, provider) > ($2::uuid, $3::text))
+        ORDER BY user_id, provider LIMIT $4`, [currentVersion, after?.userId ?? null, after?.provider ?? "", batchSize]);
+    for (const row of rows.rows) {
+      try {
+        openCredential({ ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version }, { userId: row.user_id, provider: row.provider }, env);
+      } catch {
+        unreadableCurrent += 1;
+      }
+    }
+    if (rows.rows.length < batchSize) break;
+    const last = rows.rows[rows.rows.length - 1]!;
+    after = { userId: last.user_id, provider: last.provider };
+  }
   const remaining = await pool.query<{ count: string }>(
     "SELECT count(*)::text AS count FROM user_ai_credentials WHERE key_version <> $1", [currentVersion]);
-  return { currentVersion, reencrypted, unreadable: unreadableRows.size, remaining: Number(remaining.rows[0]?.count ?? 0) };
+  return { currentVersion, reencrypted, unreadable: unreadableRows.size + unreadableCurrent, remaining: Number(remaining.rows[0]?.count ?? 0) };
 }
 
 /** Providers the user holds keys for, without decrypting anything. */

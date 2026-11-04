@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { withAiRequestSlot } from "@/lib/ai/concurrency";
 import { runAiPlanner } from "@/lib/ai/planner";
 import { prepareAiImages, readAiRequestJson } from "@/lib/ai/image-input";
 import { AiConversationChangedError } from "@/lib/ai/conversation";
@@ -39,8 +40,9 @@ export async function POST(
     if (body.images?.length) assertNotGuest(session, "attach pictures");
     if (body.conversationId === undefined) throw new AiConversationChangedError();
     const images = await prepareAiImages(body.images);
-    const result = await runAiPlanner(getPool(config), session, body.prompt, body.model, body.locale,
-      body.clientRequestId, body.conversationId, ...(images.length ? [images] as const : []));
+    // Provider CLIs run in this pod: past the per-process cap, refuse with a retry delay (429).
+    const result = await withAiRequestSlot(() => runAiPlanner(getPool(config), session, body.prompt, body.model, body.locale,
+      body.clientRequestId, body.conversationId, ...(images.length ? [images] as const : [])));
     return NextResponse.json(result, {
       headers: { ...noStoreHeaders, "x-request-id": requestId },
     });

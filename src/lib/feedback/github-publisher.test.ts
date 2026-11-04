@@ -79,6 +79,8 @@ describe("private feedback repository", () => {
     [{ ...privateRepository, private: false, visibility: "public" }, "repository_public"],
     [{ ...privateRepository, visibility: "public" }, "repository_public"],
     [{ ...privateRepository, private: undefined }, "repository_public"],
+    [{ ...privateRepository, visibility: "internal" }, "repository_public"],
+    [{ ...privateRepository, visibility: undefined }, "repository_public"],
     [{ ...privateRepository, has_issues: false }, "issues_unavailable"],
     [{ ...privateRepository, archived: true }, "issues_unavailable"],
     [{ ...privateRepository, full_name: "evil/stardust-feedback" }, "response_invalid"],

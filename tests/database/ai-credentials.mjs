@@ -74,6 +74,9 @@ async function testCredentialReencryption(pool) {
   }
   assert.equal(after.find((candidate) => candidate.user_id === rows[3].userId).key_version, 1, "an unreadable key is left in place");
   assert.deepEqual(await reencryptAiCredentials(pool, rotated), { currentVersion: 2, reencrypted: 0, unreadable: 1, remaining: 1 }, "a second run has nothing to move");
+  // A key replaced without raising its version cannot open anything; the check says so instead of reporting nothing to do.
+  const replacedInPlace = { CREDENTIAL_ENCRYPTION_KEY: randomBytes(32).toString("base64"), CREDENTIAL_ENCRYPTION_KEY_VERSION: "2" };
+  assert.deepEqual(await reencryptAiCredentials(pool, replacedInPlace, 2), { currentVersion: 2, reencrypted: 0, unreadable: 4, remaining: 1 });
   await assert.rejects(reencryptAiCredentials(pool, {}), { name: "CREDENTIAL_ENCRYPTION_UNAVAILABLE" });
   await pool.query("DELETE FROM app_users WHERE id = ANY($1::uuid[])", [userIds]);
 }

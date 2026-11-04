@@ -10,7 +10,7 @@ vi.mock("@/lib/app/trip-authorization", () => ({ lockCurrentTripActor: mocks.aut
 vi.mock("@/lib/ai/conversation", () => ({ assertBoundUserAiIdle: mocks.idle, CALENDAR_LOCATION_ACTIVE_WINDOW_MINUTES: 2 }));
 vi.mock("@/lib/app/repository", async (original) => {
   const actual = await original<typeof import("@/lib/app/repository")>();
-  return { ...actual, getAiPolicy: mocks.policy, getMemberPermissions: mocks.permissions,
+  return { ...actual, getAiPolicy: async (...args: unknown[]) => ({ credentialSource: "operator", ...(await mocks.policy(...args)) }), getMemberPermissions: mocks.permissions,
     inTransaction: async (_pool: unknown, action: (client: unknown) => unknown) => action({ query: mocks.query }) };
 });
 vi.mock("./location-search-provider", async (original) => ({ ...await original<typeof import("./location-search-provider")>(), runCalendarLocationProvider: mocks.provider }));
