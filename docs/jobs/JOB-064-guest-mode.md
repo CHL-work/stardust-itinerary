@@ -91,7 +91,7 @@ The JOB-063 findings are recorded there.
 ## Not in this job
 
 - **Self-service account deletion** for Google accounts needs its own design, because D-073 keeps trip records. It is a follow-up job.
-- **Turning on guest mode or public sign-up on the public instance:** owner decisions after the JOB-065 review.
+- **Turning on guest mode or public sign-up on the public instance:** owner decisions after the JOB-065 review. Both were turned on at the owner's request on 4 November 2026.
   - Guest mode needs `GUEST_MODE_ENABLED=true` and Turnstile keys in `stardust-app-env`.
   - Public sign-up needs `PUBLIC_SIGNUP_ENABLED=true`.
 - **Feedback for guests:** the in-app feedback widget still appears for them. Submitting is refused with a clear message.

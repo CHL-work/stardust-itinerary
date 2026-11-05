@@ -29,11 +29,11 @@ Before strangers can use the public instance (public sign-up or guest mode), its
 - **Privacy notice:** finished and published. The sign-in page links it through `PRIVACY_NOTICE_URL`. It also says how the public instance may be used, in place of separate terms.
 - **Key ring:** `CREDENTIAL_ENCRYPTION_KEY_VERSION` and `CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS` (read-only older keys). `credential-reencrypt` re-seals every stored key under the current version, then the old key is removed ([procedure](../DEPLOYMENT.md#rotating-the-encryption-key)). The public instance's key was rotated to version 2 this way.
 - **Explicit funding context:** the code that decides who pays enters `withOperatorAiCredential` or `withUserAiCredential`. Provider adapters throw outside one, and the operator-funded destination lookup refuses a user's context.
-- **Launch gates:** the owner asked for guest mode on 4 November 2026. Turnstile keys and `GUEST_MODE_ENABLED=true` were added, and the guest purge was fixed to reach DNS on GKE. Public sign-up stays an owner decision.
+- **Launch gates:** the owner asked for guest mode on 4 November 2026. Turnstile keys and `GUEST_MODE_ENABLED=true` were added, and the guest purge was fixed to reach DNS on GKE. The owner turned public sign-up on the same day (`PUBLIC_SIGNUP_ENABLED=true`, D-080). Google OAuth verification is still open.
 
 ## Out of scope
 
-- Turning on `PUBLIC_SIGNUP_ENABLED` or `GUEST_MODE_ENABLED` on the public instance. Those are owner decisions; the owner turned guest mode on.
+- Turning on `PUBLIC_SIGNUP_ENABLED` or `GUEST_MODE_ENABLED` on the public instance. Those are owner decisions; the owner turned both on.
 - Google OAuth verification, which is a separate owner decision.
 - Terms of service text, which needs the owner's own terms.
 

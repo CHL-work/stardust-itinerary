@@ -26,7 +26,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Case study and threat model:** `docs/CASE_STUDY.md` and `docs/THREAT_MODEL.md`.
 - **Privacy notice (JOB-065):** `docs/PRIVACY.md` describes what the public instance stores and shares, how long it keeps it, and how the instance may be used. The sign-in page links it when `PRIVACY_NOTICE_URL` is set (https only).
 - **Encryption-key rotation (JOB-065):** users' saved AI keys use a key ring: `CREDENTIAL_ENCRYPTION_KEY_VERSION` names the current key and `CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS` lists older ones for reading only. The `credential-reencrypt` container mode re-seals every stored key under the current version and prints counts only.
-- **Private feedback repository (JOB-066):** issue filing targets `STARDUST_FEEDBACK_REPOSITORY`, and the publisher refuses to deliver unless GitHub reports that repository private. On GKE the token and repository are a separate `stardust-feedback-env` secret, readable only by the feedback job's own `stardust-feedback` service account.
+- **Private feedback repository (JOB-066):** issue filing targets `STARDUST_FEEDBACK_REPOSITORY`, and the publisher refuses to deliver unless GitHub reports that repository private. On GKE the token and repository are a separate `stardust-feedback-env` secret, readable only by the publishing job's own `stardust-feedback` service account.
 - **Guest accounts (JOB-064, D-077):**
   - **Try as guest** (behind `GUEST_MODE_ENABLED`, Cloudflare Turnstile when configured, and rate limits) gives a 24-hour account with a synthetic Tokyo demo trip, AI on the guest's own key only, and a banner saying when everything is deleted.
   - Guests never mix with real trips; database triggers enforce it.

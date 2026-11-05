@@ -2,13 +2,23 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-080: Public sign-up on the public instance (accepted November 4, 2026)
+
+After the JOB-065 review, and with guest mode already on, the owner turned on public sign-up (`PUBLIC_SIGNUP_ENABLED=true`).
+
+- **Who can join:** anyone with a Google account can sign in and create their own trips. Signing in still opens no one else's trip without an invitation.
+- **Who pays:** new accounts use AI with their own keys (D-075). Operator keys pay only in trips the operator sponsors, and for the destination lookup when creating a trip, at most ten a day per account. `STARDUST_DESTINATION_LOOKUP=operator` would keep that lookup for the operator alone.
+- **Unchanged:**
+  - The Google OAuth app stays unverified (D-074). Calendar consent shows Google's warning, and at most 100 users can grant Calendar access.
+  - Account deletion is not self-service yet; the [privacy notice](PRIVACY.md) says to ask the operator.
+
 ## D-079: Feedback issues only in a verified private repository (accepted November 4, 2026)
 
 Reviewed feedback summaries quote what users reported, so they are never filed in the public source repository.
 
 - **Configured target:** `STARDUST_FEEDBACK_REPOSITORY` names the repository instead of a constant in code. Migration 0058 removes the public repository from the receipt checks.
 - **Checked every run:** before the first delivery, the publisher asks GitHub whether the repository is private, not archived and taking issues. Otherwise it refuses, and queued issues wait.
-- **Least privilege:** a fine-grained token for that repository only (Issues: read and write), in its own secret that only the feedback job's service account can read.
+- **Least privilege:** a fine-grained token for that repository only (Issues: read and write), in its own secret that only the publishing job's service account can read. The job that runs the reviewer model never holds it.
 
 ## D-078: Continuous deployment for the public instance (accepted November 4, 2026)
 
@@ -50,7 +60,7 @@ The owner wants people to try the public instance without signing in, with guest
 - Limits use Cloudflare's client address.
 - Guests get smaller allowances and no pictures.
 
-Public sign-up with Google already exists behind `PUBLIC_SIGNUP_ENABLED`. Turning either mode on for the public instance is an owner decision after the JOB-065 review.
+Public sign-up with Google exists behind `PUBLIC_SIGNUP_ENABLED`. After the JOB-065 review the owner turned both modes on for the public instance (D-080).
 
 ## D-076: Trip owners can share their own AI keys with chosen members (accepted November 4, 2026)
 
@@ -91,9 +101,9 @@ Sharing an owner's key with trip members is D-076.
 
 ## D-074: Google sign-in in production, unverified, signup still gated (accepted November 4, 2026)
 
-The public instance's Google OAuth app is published from Testing to In production. Invitees no longer have to be registered as test users, and new Calendar tokens are not subject to the Testing-mode 7-day expiry. Public signup stays off.
+The public instance's Google OAuth app is published from Testing to In production. Invitees no longer have to be registered as test users, and new Calendar tokens are not subject to the Testing-mode 7-day expiry. Public sign-up was decided separately (D-080).
 
-The app stays unverified. Calendar consent shows Google's warning, and sensitive-scope grants are capped at 100 users until Google verification, which needs a separate decision. Stardust's own invitation and membership gates and `PUBLIC_SIGNUP_ENABLED=false` are unchanged. Self-hosted deployments make their own OAuth publishing choice.
+The app stays unverified. Calendar consent shows Google's warning, and sensitive-scope grants are capped at 100 users until Google verification, which needs a separate decision. Stardust's own invitation and membership gates are unchanged. Self-hosted deployments make their own OAuth publishing choice.
 
 ## D-073: Deleting a trip removes it for members and keeps its records (accepted November 4, 2026)
 

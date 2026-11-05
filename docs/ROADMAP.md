@@ -18,9 +18,9 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-061 | Bring-your-own API keys | In review: Settings → AI keys, encrypted storage, per-request isolation, own-key funding, AI on in every trip, and fixes from a security review. Usage display moves to JOB-066 |
 | JOB-062 | Gemini models (`gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.5-flash-lite`) with Google Search grounding | Done |
 | JOB-063 | Trip-owner key sharing | In review: invite and join-link checkboxes, per-member switches, shared-key funding with the trip model and daily limit |
-| JOB-064 | Guest mode and public sign-up | In review: guest accounts with the 24-hour purge, behind `GUEST_MODE_ENABLED`. Public sign-up already exists behind `PUBLIC_SIGNUP_ENABLED`; self-service account deletion is still to come |
-| JOB-065 | Public-launch security and privacy review | Done: [threat model](THREAT_MODEL.md), the published [privacy notice](PRIVACY.md), reviews of each public surface, encryption-key rotation and explicit funding contexts. Guest mode is on; public sign-up stays an owner decision |
-| JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | In progress: [case study](CASE_STUDY.md) and key usage in Settings are done; the private feedback repository is still to come |
+| JOB-064 | Guest mode and public sign-up | In review: guest accounts with the 24-hour purge, behind `GUEST_MODE_ENABLED`, and public sign-up behind `PUBLIC_SIGNUP_ENABLED`; both are on for the public instance. Self-service account deletion is still to come |
+| JOB-065 | Public-launch security and privacy review | Done: [threat model](THREAT_MODEL.md), the published [privacy notice](PRIVACY.md), reviews of each public surface, encryption-key rotation and explicit funding contexts. Guest mode and public sign-up are on |
+| JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 
 ## Planned work in more detail
 
