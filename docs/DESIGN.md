@@ -78,7 +78,7 @@ Apply rechecks revisions, authorization, current trip dates, audiences and parti
 
 ## 7. Maps, weather and disruptions
 
-- **Map:** explicit-load MapLibre/OpenStreetMap raster, numbered stops and arrowed connections; compact mode icons/times and Directions links. Public geocoding/routing is bounded, cached and best-effort, not guaranteed live timing. Private places are not publicly queried/routed; unknown stays unknown. No silent paid Google or LLM fallback. [Contract](DAILY_MAP.md).
+- **Map:** MapLibre/OpenStreetMap raster that loads when opened, numbered stops and arrowed connections; compact mode icons/times and Directions links. Public geocoding/routing is bounded, cached and best-effort, not guaranteed live timing. Private places are included unless the viewer turns them off, and their lookups are never cached (D-081); unknown stays unknown. No silent paid Google or LLM fallback. [Contract](DAILY_MAP.md).
 - **Weather:** deterministic Open-Meteo next-seven-day forecasts, 30-minute freshness; icons/probability above each matching endpoint time, with attribution. Approximate trip-area fallback is labeled; private exact locations are not sent.
 - **Disruptions:** backend Sol/medium, not page-open calls: current local-day events every 30 minutes by default; other eligible future events once per rolling day. Official/direct/material evidence is required. Device receipts suppress unchanged phone warnings; closed-app delivery is not implemented. [Confidence](DISRUPTION_CONFIDENCE.md) · [communications](COMMUNICATIONS.md).
 

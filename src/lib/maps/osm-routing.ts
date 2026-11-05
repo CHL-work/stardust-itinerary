@@ -7,7 +7,8 @@ import { osmCacheDirectory } from "@/lib/maps/osm-cache-path";
 
 export type OsmRoutingConfig = { endpoint: string; cacheDir: string };
 export type OsmRouteMode = "walking" | "driving";
-type Options = { config: OsmRoutingConfig; signal: AbortSignal; fetch?: typeof fetch; allowLookup?: () => boolean };
+/** `persist: false` reads the shared cache but never writes to it (legs touching a private stop). */
+type Options = { config: OsmRoutingConfig; signal: AbortSignal; fetch?: typeof fetch; allowLookup?: () => boolean; persist?: boolean };
 
 export function getOsmRoutingConfig(env: Readonly<Record<string, string | undefined>> = process.env): OsmRoutingConfig | null {
   if (env.STARDUST_MAP_ROUTER === "off") return null;
@@ -76,6 +77,7 @@ export class OsmRouteResolver {
     // failures as negative geographic evidence.
     const data = await osmProviderData(response, signal, true);
     const estimate = osrmEstimate(data);
+    if (options.persist === false) return estimate;
     const now = this.now();
     for (const [existingKey, entry] of Object.entries(cache)) if (entry.expiresAt <= now) delete cache[existingKey];
     const entries = Object.entries(cache).sort((a, b) => a[1].expiresAt - b[1].expiresAt);

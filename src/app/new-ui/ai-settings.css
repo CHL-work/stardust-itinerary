@@ -507,6 +507,14 @@
   box-shadow: none;
 }
 
+/* Phone quick AI sheet (D-082): the dialog is the card, so the card adds no frame of its own. */
+:root[data-ui="new"] .quick-ai-sheet .ai-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* Keep the field right under the heading/model: the context footnote follows the form. */
 :root[data-ui="new"] .ai-history-composer .ai-card > .ai-memory-notice {
   order: 1;

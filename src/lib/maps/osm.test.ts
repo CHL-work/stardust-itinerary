@@ -71,6 +71,24 @@ describe("saved OSM map locations", () => {
     for (const name of ["青空一番館", "青空一号館"]) expect(photonCoordinate({ features: [feature(name)] }, "青空一館")).toBeNull();
   });
 
+  it("accepts a saved \"venue, street, city, region postcode\" place confirmed by postcode or by city and state", () => {
+    const hotel = feature("Example Harbour Hotel", { osm_value: "hotel", housenumber: "12", street: "300 North", city: "Example City", state: "Example State", country: "Exampleland", postcode: "12345" });
+    expect(photonCoordinate({ features: [hotel] }, "Example Harbour Hotel, 12 West 300 North, Example City, Example State, 12345, Exampleland")).toEqual({ lat: 35, lng: 139 });
+    expect(photonCoordinate({ features: [hotel] }, "Example Harbour Hotel, 12 W 300 N, Example City, ES 12345, Exampleland")).toEqual({ lat: 35, lng: 139 });
+    expect(photonCoordinate({ features: [{ ...hotel, properties: { ...hotel.properties, postcode: undefined } }] }, "Example Harbour Hotel, 12 West 300 North, Example City, Example State")).toEqual({ lat: 35, lng: 139 });
+  });
+
+  it("keeps the exact venue name and real geographic confirmation for saved addresses", () => {
+    const hotel = feature("Example Harbour Hotel", { osm_value: "hotel", street: "300 North", city: "Example City", state: "Example State", country: "Exampleland", postcode: "12345" });
+    for (const query of [
+      "Example Harbour Hotel, 12 West 300 North, Other City, Other State, 67890, Exampleland",
+      "Example Harbour Hotel, 12 West 300 North, Example City, Exampleland",
+      "Example Harbour Hotel Annex, 12 West 300 North, Example City, Example State, 12345",
+      "Example Harbour, 12 West 300 North, Example City, Example State, 12345",
+    ]) expect(photonCoordinate({ features: [hotel] }, query)).toBeNull();
+    expect(photonCoordinate({ features: [hotel, { ...hotel, geometry: { type: "Point", coordinates: [140, 36] } }] }, "Example Harbour Hotel, 12 West 300 North, Example City, Example State, 12345")).toBeNull();
+  });
+
   it("still leaves multilingual aliases and provider-missing geographic evidence unresolved", () => {
     expect(photonCoordinate({ features: [feature("Храм Сенсодзи 金龍山 浅草寺", { osm_key: "amenity", osm_value: "place_of_worship", city: "台東区" })] }, "浅草寺 東京")).toBeNull();
     expect(photonCoordinate({ features: [feature("架空店舗 秋葉原支店", { city: "千代田区" })] }, "架空店舗 秋葉原店")).toBeNull();
@@ -90,6 +108,15 @@ describe("bounded durable public venue lookup", () => {
     expect(url.origin).toBe("https://photon.komoot.io"); expect(url.searchParams.get("limit")).toBe("2");
     expect(request).toMatchObject({ redirect: "error", cache: "no-store", headers: { "User-Agent": expect.stringContaining("StardustItinerary/") } });
     expect(await readdir(options.config.cacheDir)).toEqual(["public-venues-v1.json"]);
+  });
+
+  it("reads but never writes the shared cache for a private stop's lookup", async () => {
+    const options = await context(); const fetcher = vi.fn().mockImplementation(async () => reply());
+    expect(await new OsmVenueResolver().resolve("Synthetic Museum Tokyo", { ...options, fetch: fetcher, persist: false })).toEqual({ lat: 35, lng: 139 });
+    expect(await readdir(options.config.cacheDir)).toEqual([]);
+    await new OsmVenueResolver().resolve("Synthetic Museum Tokyo", { ...options, fetch: fetcher });
+    expect(await new OsmVenueResolver().resolve("Synthetic Museum Tokyo", { ...options, fetch: fetcher, persist: false, allowLookup: () => false })).toEqual({ lat: 35, lng: 139 });
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it("caches a genuine negative and never repeats it just because a new request started", async () => {

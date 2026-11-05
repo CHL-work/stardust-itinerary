@@ -21,6 +21,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-064 | Guest mode and public sign-up | In review: guest accounts with the 24-hour purge, behind `GUEST_MODE_ENABLED`, and public sign-up behind `PUBLIC_SIGNUP_ENABLED`; both are on for the public instance. Self-service account deletion is still to come |
 | JOB-065 | Public-launch security and privacy review | Done: [threat model](THREAT_MODEL.md), the published [privacy notice](PRIVACY.md), reviews of each public surface, encryption-key rotation and explicit funding contexts. Guest mode and public sign-up are on |
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
+| JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 
 ## Planned work in more detail
 
@@ -65,3 +66,11 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 - **Own-key usage:** in Settings, each key's owner sees their usage per provider (moved from JOB-061).
 - **Feedback issues** go to a private repository, never this public one, because reports can contain user text (done: the publisher confirms the repository is private before each run).
 - **Usage:** each key owner sees requests per provider, including members using a shared key.
+
+### JOB-067: phone AI button and day-map fixes
+
+Requested by the owner on 4 November 2026 ([job](jobs/JOB-067-phone-ai-and-day-map.md)).
+
+- **Ask the trip AI** on phones: the bottom-right button opens the quick AI composer (D-082).
+- **Quick answers expire** after ten idle minutes, and the next quick question starts a new conversation (D-082).
+- **Day map:** loads when opened; private places are included unless the viewer turns them off, and saved "venue, street, city" addresses match (D-081).

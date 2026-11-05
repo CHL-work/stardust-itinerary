@@ -63,7 +63,7 @@ New-layout-only presentational components (all in `src/components/new-ui/`; each
 | `OverviewDayStrip` | Horizontal day chips on Overview; selectors with `aria-pressed` | Selects the same Overview day state as the classic date selector and swipe |
 | `ItineraryDayJump` | Day chips on Itinerary (nothing for trips with fewer than two days); one-shot jump buttons, today marked `aria-current="date"`, pinned at the top while the page scrolls | `revealItineraryDay` opens that date's existing disclosure, scrolls it below the strip and focuses its summary heading |
 | `NewBottomNav` | Phone bottom bar, in place of the hidden classic `.bottom-nav`, with the labels Today/Itinerary/Expenses/AI/Approvals/Settings and an approvals count badge for owners; no horizontal scrolling | Existing section ids and `approvalPendingCount` |
-| `QuickAddButton` | Phone "Add event" pill on Today/Itinerary (needs `canEditItinerary`) or "Add expense" pill on Expenses (needs `canEditExpenses`); a 56px icon-only circle at 420px and narrower | Opens the same existing event or expense editor; absent without the permission |
+| `QuickAiButton` | Phone "Ask the trip AI" pill on Today, Itinerary and Expenses; a 56px icon-only circle at 420px and narrower | Opens the quick AI composer in a sheet (D-082); absent when the trip's owners turned AI off |
 
 The classic trip picker's fixed placeholder progress bar is hidden in the new layout because the trip summary bar shows real progress. All page-level Add event / Add expense actions remain.
 
@@ -79,7 +79,7 @@ These invariants hold in both layouts and must not be changed by layout work:
 - Pending event cards keep one equal-width Edit/Approve/Reject row.
 - Expense cards lead with the viewer's personal share. Color meanings are unchanged (gold primary/today/personal spend, violet selection/paid, mint/rose receivable/payable) and text is always present.
 - 44px targets and 16px phone inputs.
-- The day map loads only after an explicit **Load map** action ([daily map](DAILY_MAP.md)).
+- The day map loads when its disclosure is opened, never merely by opening a date ([daily map](DAILY_MAP.md), D-081).
 - The feedback launcher stays absolute at the page's top-right and scrolls away; headers that share its row keep the reserved right padding so it never covers a control (on classic phones it sits in the brand row above the topbar, so the topbar uses that space for the toggle). The pinned Itinerary chip strip is page-scoped and does not change this ([feedback](FEEDBACK.md)).
 - The offline view appears only after a network or 5xx failure, never after 401/403.
 
@@ -90,7 +90,7 @@ These invariants hold in both layouts and must not be changed by layout work:
 | `src/lib/ui-mode.ts`, `src/lib/ui-mode-store.ts` | Mode constants, normalization, bootstrap script, store and hook |
 | `src/app/layout.tsx` | Inline bootstrap, `suppressHydrationWarning`, `UiModeSync`, stylesheet imports after `globals.css` |
 | `src/components/new-ui/ui-mode-toggle.tsx` | `UiModeToggle` and `UiModeSettingsCard` (both layouts) |
-| `src/components/new-ui/new-navigation.tsx` | `NewBottomNav`, `QuickAddButton` (new layout only) |
+| `src/components/new-ui/new-navigation.tsx` | `NewBottomNav`, `QuickAiButton` (new layout only) |
 | `src/components/new-ui/trip-overview-bar.tsx` | `TripOverviewBar`, `OverviewDayStrip`, `ItineraryDayJump`, `tripProgress` (new layout only) |
 | `src/components/new-ui/ui-mode-sync.tsx` | React-hoisted `theme-color` meta tags for the chosen layout and `<html data-ui>` recovery |
 | `src/lib/app/ui-refresh-i18n.ts` | Four-locale copy for the toggle, Settings card, bottom bar, day chips, trip bar and previous/next trip |
@@ -155,4 +155,4 @@ The offline snapshot format, service worker and cache names are unchanged. The c
 
 Adopted where they fit: horizontal day chips; a trip header card with real progress and member avatars; calmer time-first timeline cards; a bottom tab bar with short labels and a badge; one primary add button on phones; clearer expense rows.
 
-Deliberately skipped: a desktop split list-and-map view (the day map is a per-day disclosure with explicit loading), route optimization (conflicts with fixed times and approvals), recommended-places and booking tabs (Stardust is not a marketplace), a compact/detailed toggle, an undo snackbar, live cursors, and photos or scraped place descriptions.
+Deliberately skipped: a desktop split list-and-map view (the day map is a per-day disclosure that loads when opened), route optimization (conflicts with fixed times and approvals), recommended-places and booking tabs (Stardust is not a marketplace), a compact/detailed toggle, an undo snackbar, live cursors, and photos or scraped place descriptions.

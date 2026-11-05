@@ -2,6 +2,22 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-082: Phone AI button and quick answers that expire (accepted November 4, 2026)
+
+The owner asked for the phone's bottom-right plus button to open AI instead, and for the AI's last answer to go away after ten minutes and start a new chat (JOB-067).
+
+- **Phone button:** on Today, Itinerary and Expenses, the bottom-right button opens the quick AI composer as a sheet. It is hidden when the trip's owners turned AI off. Add event and Add expense stay at the top of their pages.
+- **Ten minutes:** the quick composer (the AI card and the sheet) hides an answer once it is ten minutes old and nothing is running. The next quick question first starts a new conversation, as **New conversation** does; the earlier one stays in AI history. The AI tab, where a conversation is chosen explicitly, is unchanged.
+
+## D-081: The day map loads when opened and includes private places (accepted November 4, 2026)
+
+The owner asked for **Show day map** to show the map without another click, and for private places to be included unless the viewer turns them off. A private hotel with an address but no saved coordinates could not appear on the map at all (JOB-067).
+
+- **Loading:** opening a day map requests it at once. Opening a date alone still requests nothing.
+- **Private places:** included by default; the browser remembers a viewer's choice to turn them off. An included private stop uses its saved coordinates, or else its place text alone goes to the place lookup, and legs touching it are routed. Titles, dates, notes and people are never sent, and these lookups are never written to the shared cache.
+- **Matching version 4:** saved "venue, street, city, region postcode" text matches when the whole venue name before the first comma equals the result's name and the result's postcode, or its city and state, appear as later parts.
+- This replaces the explicit-load and private-place rules of the October 7, 2026 MapLibre/OSM decision. The [privacy notice](PRIVACY.md) now lists the map and weather services.
+
 ## D-080: Public sign-up on the public instance (accepted November 4, 2026)
 
 After the JOB-065 review, and with guest mode already on, the owner turned on public sign-up (`PUBLIC_SIGNUP_ENABLED=true`).
@@ -150,7 +166,7 @@ The document-top-right report launcher scrolls away; no sticky/global toolbar re
 
 ## October 7, 2026: MapLibre/OSM selected
 
-MapLibre with OpenStreetMap raster supersedes the Google-default/setup-blocked design. Explicit-load public Photon/FOSSGIS geocoding/routing is bounded/cached best-effort with no API credits; compact icons/times appear on arrowed connections beside Directions links. No duplicate stop list is needed. Private places are not publicly queried/routed; unknown pins/times remain unknown and connectors are not road geometry. No LLM or silent metered fallback.
+MapLibre with OpenStreetMap raster supersedes the Google-default/setup-blocked design. Explicit-load public Photon/FOSSGIS geocoding/routing is bounded/cached best-effort with no API credits; compact icons/times appear on arrowed connections beside Directions links. No duplicate stop list is needed. Private places are not publicly queried/routed; unknown pins/times remain unknown and connectors are not road geometry. No LLM or silent metered fallback. D-081 later made the map load when opened and included private places by default.
 
 Only the server-verified operator is exempt from rolling map request quotas; concurrency/provider bounds remain. Renderer retries reuse results rather than spend another lookup; an unresolved venue cannot hide the basemap. No fuzzy different-branch substitution. [Map contract](DAILY_MAP.md).
 

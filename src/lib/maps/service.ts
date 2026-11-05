@@ -74,20 +74,22 @@ async function osmResponse(stops: DayMapStop[], options: {
   for (const [index, stop] of stops.entries()) {
     const input = osmLocationInput(stop); if (!input) continue;
     if ("coordinate" in input) { resolved[index] = { ...stop, coordinate: input.coordinate, resolution: "located" }; continue; }
-    // Private inclusion permits local plotting of saved coordinates, never
-    // transmission of a private address to a public community service/cache.
-    if (stop.visibility !== "trip" || !options.config || !isPublicVenueQuery(input.query)) continue;
+    // A private stop is here only because its viewer chose to include private
+    // places (the default, D-081). Its place text alone may be looked up, but
+    // never written to the shared cache.
+    if (!options.config || !isPublicVenueQuery(input.query)) continue;
     const existing = jobs.get(input.query);
     if (existing) { existing.push(index); continue; }
     if (jobs.size >= LIMITS.queries) { resolved[index].resolution = "limit"; continue; }
     jobs.set(input.query, [index]);
   }
   let lookups = 0;
+  const shared = (indices: number[]) => indices.some((index) => stops[index].visibility === "trip");
   const results = new Map<string, MapCoordinate | null>();
   for (const [query, indices] of jobs) {
     if (options.signal.aborted) break;
     try {
-      const coordinate = await withMapAbort(resolveOsmLocation(query, { ...options, config: options.config!, allowLookup: () => ++lookups <= 6 }), options.signal);
+      const coordinate = await withMapAbort(resolveOsmLocation(query, { ...options, config: options.config!, allowLookup: () => ++lookups <= 6, persist: shared(indices) }), options.signal);
       results.set(query, coordinate);
       if (coordinate) for (const index of indices) resolved[index] = { ...resolved[index], coordinate, resolution: "located" };
     } catch (error) {
@@ -100,7 +102,7 @@ async function osmResponse(stops: DayMapStop[], options: {
   // another explicit source, not an invented shortened/transliterated query.
   const alternateJobs = new Map<string, number[]>();
   for (const [index, stop] of stops.entries()) {
-    if (resolved[index].coordinate || stop.visibility !== "trip" || !options.config) continue;
+    if (resolved[index].coordinate || !options.config) continue;
     const alternate = osmLocationInput({ locationName: stop.locationName, mapUrl: null });
     if (!alternate || !("query" in alternate) || !isPublicVenueQuery(alternate.query)) continue;
     if (results.has(alternate.query)) {
@@ -117,7 +119,7 @@ async function osmResponse(stops: DayMapStop[], options: {
   for (const [query, indices] of alternateJobs) {
     if (options.signal.aborted) break;
     try {
-      const coordinate = await withMapAbort(resolveOsmLocation(query, { ...options, config: options.config!, allowLookup: () => ++lookups <= 6 }), options.signal);
+      const coordinate = await withMapAbort(resolveOsmLocation(query, { ...options, config: options.config!, allowLookup: () => ++lookups <= 6, persist: shared(indices) }), options.signal);
       if (coordinate) for (const index of indices) resolved[index] = { ...resolved[index], coordinate, resolution: "located" };
     } catch (error) {
       if (error instanceof OsmLookupLimit) for (const index of indices) resolved[index].resolution = "limit";
@@ -127,7 +129,7 @@ async function osmResponse(stops: DayMapStop[], options: {
   const legs: DayMapLeg[] = [];
   for (let index = 0; index + 1 < resolved.length && index < 24 && !options.signal.aborted; index++) {
     const from = resolved[index], to = resolved[index + 1];
-    if (!options.routingConfig || from.visibility !== "trip" || to.visibility !== "trip" || !from.coordinate || !to.coordinate) continue;
+    if (!options.routingConfig || !from.coordinate || !to.coordinate) continue;
     if ([from, to].some((stop) => stop.locationName && !isPublicVenueQuery(stop.locationName))) continue;
     const leg: DayMapLeg = { fromKey: from.key, toKey: to.key };
     for (const mode of ["walking", "driving"] as const) {
@@ -135,6 +137,7 @@ async function osmResponse(stops: DayMapStop[], options: {
       try {
         const estimate = await withMapAbort(resolveOsmRoute(from.coordinate, to.coordinate, mode, {
           config: options.routingConfig, signal: options.signal, fetch: options.fetch, allowLookup: () => ++routeLookups <= 8,
+          persist: from.visibility === "trip" && to.visibility === "trip",
         }), options.signal);
         if (estimate && (mode !== "walking" || estimate.seconds <= 5 * 3600)) leg[mode] = estimate;
       } catch { /* A missing mode stays unknown, not a guessed speed. */ }

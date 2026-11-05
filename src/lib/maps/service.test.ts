@@ -65,21 +65,31 @@ describe("daily map orchestration", () => {
     expect(mocks.osm).not.toHaveBeenCalled(); expect(mocks.route).not.toHaveBeenCalled(); expect(loadOverview).toHaveBeenCalledTimes(2);
   });
 
-  it("never sends or caches private text or private route pairs even when inclusion is explicit", async () => {
+  it("looks up and routes included private stops without caching them, and never sends private wording or titles", async () => {
     const loadOverview = vi.fn().mockResolvedValue(overview([
-      item({ id: "public", locationName: "35,139" }), item({ id: "private-coordinate", visibility: "private", locationName: "35.1,139.1" }),
-      item({ id: "private-text", visibility: "private", locationName: "Secret private address" }),
+      item({ id: "public", locationName: "35,139", startsAt: "2026-09-27T09:00:00Z" }),
+      item({ id: "private-coordinate", visibility: "private", locationName: "35.1,139.1", startsAt: "2026-09-27T10:00:00Z" }),
+      item({ id: "private-venue", visibility: "private", locationName: "Synthetic Harbour Hotel, 1 Example Street, Example City", startsAt: "2026-09-27T11:00:00Z" }),
+      item({ id: "private-text", visibility: "private", locationName: "Secret private address", startsAt: "2026-09-27T12:00:00Z" }),
     ]));
     const result = await generateDayMap({ userId: randomUUID(), input: { ...input, includePrivate: true }, loadOverview }, { now: () => testNow });
-    expect(result.stops).toHaveLength(3); expect(result.stops.filter((stop) => stop.coordinate)).toHaveLength(2);
-    expect(mocks.osm).not.toHaveBeenCalled(); expect(mocks.route).not.toHaveBeenCalled(); expect(result.legs).toEqual([]);
+    expect(result.stops).toHaveLength(4); expect(result.stops.filter((stop) => stop.coordinate)).toHaveLength(3);
+    expect(mocks.osm.mock.calls.map((call) => [call[0], call[1].persist])).toEqual([["Synthetic Harbour Hotel, 1 Example Street, Example City", false]]);
+    expect(mocks.route).toHaveBeenCalledTimes(4); expect(mocks.route.mock.calls.every((call) => call[3].persist === false)).toBe(true);
+    expect(result.legs?.map((leg) => [leg.fromKey, leg.toKey])).toEqual([["public:event", "private-coordinate:event"], ["private-coordinate:event", "private-venue:event"]]);
+    expect(JSON.stringify([mocks.osm.mock.calls, mocks.route.mock.calls])).not.toContain("PRIVATE BOOKING TITLE");
+  });
+
+  it("leaves private stops out of every lookup when the viewer turns them off", async () => {
+    const result = await run(overview([item({ id: "private-venue", visibility: "private", locationName: "Synthetic Harbour Hotel, Example City" })]), { includePrivate: false });
+    expect(result.stops).toEqual([]); expect(mocks.osm).not.toHaveBeenCalled(); expect(mocks.route).not.toHaveBeenCalled();
   });
 
   it("binds walk/drive estimates only to consecutive known public endpoints without transit guesses", async () => {
     const loadOverview = vi.fn().mockResolvedValue(overview([item({ id: "a", locationName: "35,139" }), item({ id: "b", locationName: "35.1,139.1" }), item({ id: "c", locationName: null }), item({ id: "d", locationName: "35.2,139.2" })]));
     const result = await generateDayMap({ userId: randomUUID(), input, loadOverview }, { now: () => testNow });
     expect(result.legs).toEqual([{ fromKey: "a:event", toKey: "b:event", walking: { seconds: 120, meters: 1000 }, driving: { seconds: 120, meters: 1000 } }]);
-    expect(mocks.route).toHaveBeenCalledTimes(2);
+    expect(mocks.route).toHaveBeenCalledTimes(2); expect(mocks.route.mock.calls.every((call) => call[3].persist === true)).toBe(true);
     expect(JSON.stringify(mocks.route.mock.calls)).not.toContain("PRIVATE BOOKING TITLE");
   });
 

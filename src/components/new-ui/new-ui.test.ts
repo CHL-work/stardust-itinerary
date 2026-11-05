@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { Bot, CalendarDays, Check, ReceiptText, Route, Settings } from "lucide-react";
 
-import { NewBottomNavView, QuickAddButtonView } from "@/components/new-ui/new-navigation";
+import { NewBottomNavView, QuickAiButton, QuickAiButtonView } from "@/components/new-ui/new-navigation";
 import { DayStripView, revealItineraryDay, TripOverviewBarView, tripProgress } from "@/components/new-ui/trip-overview-bar";
 import { UiModeSettingsCardView, UiModeToggleButton } from "@/components/new-ui/ui-mode-toggle";
 import { TripAdjacentNav } from "@/components/trip-adjacent-nav";
@@ -93,14 +93,20 @@ describe("new bottom navigation", () => {
     expect(navigate.mock.calls.flat()).toEqual(["today", "itinerary", "expenses", "ai", "requests", "settings"]);
   });
 
-  it("maps quick add kinds to allowlisted feedback actions", () => {
-    const add = vi.fn();
-    expect(renderToStaticMarkup(createElement(QuickAddButtonView, { kind: "event", label: "Add event", add }))).toContain('data-feedback-action="event_open"');
-    const expense = renderToStaticMarkup(createElement(QuickAddButtonView, { kind: "expense", label: "Add expense", add, disabled: true }));
-    expect(expense).toContain('data-feedback-action="expense_open"');
-    expect(expense).toContain('disabled=""');
-    QuickAddButtonView({ kind: "event", label: "Add event", add }).props.onClick();
-    expect(add).toHaveBeenCalledTimes(1);
+  it("opens the quick AI composer from the phone button with an allowlisted feedback action", () => {
+    const open = vi.fn();
+    const html = renderToStaticMarkup(createElement(QuickAiButtonView, { label: "Ask the trip AI", open }));
+    expect(html).toContain('data-feedback-action="dialog_open"'); expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('data-quick-add="ai"'); expect(html).toContain("Ask the trip AI"); expect(html).not.toContain("Add event");
+    QuickAiButtonView({ label: "Ask the trip AI", open }).props.onClick();
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the AI button on Today, Itinerary and Expenses only, and only while AI is on", () => {
+    const render = (section: string, available = true) => renderToStaticMarkup(createElement(QuickAiButton, { section, available, label: "Ask the trip AI", open: vi.fn() }));
+    for (const section of ["today", "itinerary", "expenses"]) expect(render(section)).toContain('data-quick-add="ai"');
+    for (const section of ["ai", "requests", "settings", "activity"]) expect(render(section)).toBe("");
+    expect(render("today", false)).toBe("");
   });
 });
 

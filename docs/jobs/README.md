@@ -13,3 +13,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-064 | Guest mode and public sign-up | review |
 | JOB-065 | Public-launch security and privacy review | done |
 | JOB-066 | Showcase documentation and operations polish | done |
+| JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | done |

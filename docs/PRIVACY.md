@@ -39,6 +39,10 @@ If you run your own instance, adapt this notice to your hosting and contact deta
 
   Their own terms apply to what they keep.
 - **Google** receives what is needed for sign-in and, if you connect it, Calendar.
+- **Map services,** when you open a day map:
+  - the Photon place lookup (run by Komoot) receives the place names of that day's stops, and the FOSSGIS route service the coordinates between them. Private places are included unless you turn them off on the map. Event titles, notes and people are never sent;
+  - your browser loads the map images from OpenStreetMap, which sees the area you view.
+- **Open-Meteo** receives the coordinates of trip places for weather forecasts; for private events, only the trip's destination.
 - **GitHub** stores the private feedback issues described above.
 - **The operator** can access the database to run and recover the service.
 

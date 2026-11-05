@@ -11,7 +11,7 @@ Source map and safe verification guide. Runtime topology is in [architecture](AR
 - Bring-your-own provider keys, encrypted at rest and isolated per request (JOB-061). Trip owners can share them with chosen members (JOB-063).
 - Default-off 24-hour guest accounts with a synthetic demo trip, isolated from real trips and permanently purged (JOB-064).
 - Optional per-member Calendar export/import with duplicate receipts; silent passive refresh and deterministic conflicts.
-- Explicit-load MapLibre/OSM day map, deterministic weather, backend qualified disruptions and bounded read-only public offline itinerary.
+- MapLibre/OSM day map that loads when opened, deterministic weather, backend qualified disruptions and bounded read-only public offline itinerary.
 - New default/classic optional UI, four locales, Advanced settings, owner Activity and private feedback with a separate issue-only pipeline.
 - Destination Auto defaults (time zone/currency suggestions) for eligible trip creators.
 

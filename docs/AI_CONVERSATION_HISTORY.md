@@ -20,7 +20,7 @@ The **AI** tab is available to owners and members on desktop and phones. It list
 
 Browsing a previous conversation does not switch the live request, cancel it or call a provider. **Continue conversation** explicitly makes that conversation current and uses its existing token-budgeted tail/checkpoint for subsequent questions. **New conversation** archives the current conversation and starts with fresh context. These actions clear the unsent composer text; neither deletes audit history. Conversation changes wait for the same user's running request to finish, including work in another trip. Other users remain independent.
 
-The Overview/Itinerary AI card remains a quick composer with a link to the full history. AI history stays online-only: no prompts or answers are stored in localStorage, IndexedDB, service-worker caches or the offline itinerary snapshot.
+The Overview/Itinerary AI card remains a quick composer with a link to the full history; on phones, the bottom-right **Ask the trip AI** button opens it as a sheet on Today, Itinerary and Expenses. The quick composer hides an answer once it is ten minutes old and nothing is running, and the next quick question first starts a new conversation, as **New conversation** does (D-082). The earlier conversation stays in history, and the AI tab's composer is unaffected. AI history stays online-only: no prompts or answers are stored in localStorage, IndexedDB, service-worker caches or the offline itinerary snapshot.
 
 ## Persistence and security
 

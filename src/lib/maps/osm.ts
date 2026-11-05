@@ -1,5 +1,5 @@
-// Server-only public-venue resolver. No trip, member, title, date or private
-// location is accepted by the durable cache. OSM tiles load in the browser.
+// Server-only venue resolver. No trip, member, title, date or private location
+// is written to the durable cache. OSM tiles load in the browser.
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -9,6 +9,8 @@ import { mapLocationInput, MapProviderUnavailable, withMapAbort } from "@/lib/ma
 import { osmCacheDirectory } from "@/lib/maps/osm-cache-path";
 
 export type OsmMapsConfig = { endpoint: string; cacheDir: string };
+/** `persist: false` reads the shared cache but never writes to it (private stops). */
+export type OsmLookupOptions = { config: OsmMapsConfig; signal: AbortSignal; fetch?: typeof fetch; allowLookup?: () => boolean; persist?: boolean };
 export type OsmRouteEstimate = { seconds: number; meters: number };
 export type OsmLocation = { coordinate: MapCoordinate } | { query: string };
 export class OsmLookupLimit extends Error {}
@@ -117,6 +119,7 @@ function matchingPhotonFeature(value: unknown, query: string): MapCoordinate | n
   const detailedAddress = street.length >= 2 && queryIdentity.includes(street)
     || house.length > 0 && queryIdentity.includes(house) && normalized(field("locality")).length >= 2 && queryIdentity.includes(normalized(field("locality")));
   if (!queryIdentity.includes(nameIdentity) || (!queryIdentity.startsWith(nameIdentity) && !detailedAddress)) return null;
+  if (savedAddressConfirms(query, nameIdentity, field)) return point(geometry.coordinates[1], geometry.coordinates[0]);
   const address = [...new Set(["country", "state", "city", "district", "locality", "street", "housenumber"].map(field).filter(Boolean))];
   const geography = normalized([address.join(""), [...address].reverse().join(""), field("postcode")].join(" "));
   const queryParts = query.normalize("NFKC").split(/[\s,，、]+/u).filter(Boolean);
@@ -131,6 +134,27 @@ function matchingPhotonFeature(value: unknown, query: string): MapCoordinate | n
   const terms = queryParts.map(normalized).filter(Boolean);
   if (!terms.length || !terms.every((term) => candidate.includes(term))) return null;
   return point(geometry.coordinates[1], geometry.coordinates[0]);
+}
+
+/**
+ * Saved places often read "Venue, street address, city, region postcode, country".
+ * The whole venue name before the first comma must equal the feature's name, and
+ * a later part must confirm where it is: the feature's postcode, or its city
+ * together with its state. Street spellings differ between sources (for example
+ * "12 West 300 North" against "300 North"), so streets are not compared.
+ */
+function savedAddressConfirms(query: string, nameIdentity: string, field: (key: string) => string): boolean {
+  const parts = query.normalize("NFKC").split(/[,，、]/u).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 3 || identity(parts[0]) !== nameIdentity) return false;
+  const later = parts.slice(1).map((part) => {
+    const tokens = part.split(/\s+/u).map(normalized).filter(Boolean);
+    return { whole: normalized(part), tokens: [...tokens, ...tokens.slice(1).map((token, index) => tokens[index] + token)] };
+  });
+  const postcode = normalized(field("postcode"));
+  if (postcode.length >= 4 && later.some((part) => part.whole === postcode || part.tokens.includes(postcode))) return true;
+  const city = normalized(field("city")), state = normalized(field("state"));
+  const named = (value: string) => value.length >= 2 && later.some((part) => part.whole === value);
+  return named(city) && named(state) && city !== state;
 }
 
 export async function osmProviderData(response: Response, signal: AbortSignal, allowBadRequest = false): Promise<unknown> {
@@ -152,7 +176,7 @@ export async function osmProviderData(response: Response, signal: AbortSignal, a
 }
 
 function cacheKey(endpoint: string, query: string): string {
-  return createHash("sha256").update(JSON.stringify(["photon-venue-v3", endpoint, query.normalize("NFKC").trim()])).digest("hex");
+  return createHash("sha256").update(JSON.stringify(["photon-venue-v4", endpoint, query.normalize("NFKC").trim()])).digest("hex");
 }
 
 export function validOsmEstimate(value: unknown): value is OsmRouteEstimate {
@@ -205,14 +229,14 @@ export class OsmVenueResolver {
   private lastStart = -Infinity;
   constructor(private readonly now: () => number = Date.now) {}
 
-  resolve(query: string, options: { config: OsmMapsConfig; signal: AbortSignal; fetch?: typeof fetch; allowLookup?: () => boolean }): Promise<MapCoordinate | null> {
+  resolve(query: string, options: OsmLookupOptions): Promise<MapCoordinate | null> {
     if (!isPublicVenueQuery(query)) return Promise.resolve(null);
     const work = this.queue.then(() => this.lookup(query, options));
     this.queue = work.catch(() => {});
     return withMapAbort(work, options.signal);
   }
 
-  private async lookup(query: string, options: { config: OsmMapsConfig; signal: AbortSignal; fetch?: typeof fetch; allowLookup?: () => boolean }): Promise<MapCoordinate | null> {
+  private async lookup(query: string, options: OsmLookupOptions): Promise<MapCoordinate | null> {
     if (options.signal.aborted) throw new MapProviderUnavailable();
     const ioSignal = () => AbortSignal.any([options.signal, AbortSignal.timeout(1500)]);
     const cache = await withMapAbort(readOsmCache(options.config.cacheDir, ioSignal()), options.signal);
@@ -232,6 +256,8 @@ export class OsmVenueResolver {
     const data = await osmProviderData(response, signal);
     if (!Array.isArray(record(data)?.features)) throw new MapProviderUnavailable();
     const coordinate = photonCoordinate(data, query);
+    // A private stop's place text never enters the shared cache.
+    if (options.persist === false) return coordinate;
     const now = this.now();
     for (const [existingKey, entry] of Object.entries(cache)) if (entry.expiresAt <= now) delete cache[existingKey];
     const entries = Object.entries(cache).sort((a, b) => a[1].expiresAt - b[1].expiresAt);
@@ -243,6 +269,6 @@ export class OsmVenueResolver {
 }
 
 const publicVenues = new OsmVenueResolver();
-export function resolveOsmLocation(query: string, options: { config: OsmMapsConfig; signal: AbortSignal; fetch?: typeof fetch; allowLookup?: () => boolean }): Promise<MapCoordinate | null> {
+export function resolveOsmLocation(query: string, options: OsmLookupOptions): Promise<MapCoordinate | null> {
   return publicVenues.resolve(query, options);
 }

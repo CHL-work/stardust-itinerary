@@ -7,6 +7,7 @@ import type { DayMapStop } from "@/lib/maps/day-stops";
 import { createDayMapLoader, dayMapDirectionsLink, dayMapResponseMatches, groupDayMapMarkers, visibleDayMapStops, type DayMapFailure, type DayMapResponse, type DayMapLeg, type LocatedDayMapStop } from "@/lib/maps/client";
 import { projectMapPoint, type MapPointPosition } from "@/lib/maps/geometry";
 import { dayMapMessages } from "@/lib/maps/i18n";
+import { readIncludePrivatePlaces, saveIncludePrivatePlaces } from "@/lib/maps/private-places-preference";
 import { DayEventLiveMap } from "./day-event-live-map";
 import { dayMapStopTime, dayMapTravelModes, dayMapTravelTime, dayMapTravelDistance, dayMapCompactTime } from "./day-event-map-presentation";
 import styles from "./day-event-map.module.css";
@@ -178,12 +179,12 @@ export function DayEventMapPanel({ id, date, timeZone, locale, stops, includePri
   </section>;
 }
 
-/** Parent keys this by trip/member/day/locale/projection, discarding consent and data at context changes. */
+/** Parent keys this by trip/member/day/locale/projection, discarding data at context changes. */
 export function DayEventMap({ tripId, tripDayId, date, timeZone, locale, stops }: DayEventMapProps) {
   const id = useId();
   const copy = dayMapMessages(locale);
   const [open, setOpen] = useState(false);
-  const [includePrivate, setIncludePrivate] = useState(false);
+  const [includePrivate, setIncludePrivate] = useState(true);
   const [busy, setBusy] = useState(false);
   const [response, setResponse] = useState<DayMapResponse | null>(null);
   const [failure, setFailure] = useState<DayMapFailure | null>(null);
@@ -212,20 +213,30 @@ export function DayEventMap({ tripId, tripDayId, date, timeZone, locale, stops }
   }, [response, selectedLegKey, selectedKey, displayWidth]);
 
   const clearMap = () => { loader.cancel(); setResponse(null); setFailure(null); setBusy(false); setSelectedKey(null); setSelectedLegKey(null); };
-  const toggle = () => { clearMap(); if (open) setIncludePrivate(false); setOpen(!open); };
-  const changePrivate = (value: boolean) => { clearMap(); setIncludePrivate(value); };
-  const load = () => {
-    if (!open || busy || visibleStops.length === 0) return;
-    void loader.load({ tripId, tripDayId, includePrivate, locale }, {
+  // Explicit values, not state from this render: opening and the private
+  // choice both request the map in the same event.
+  const request = (include: boolean) => {
+    const requested = visibleDayMapStops(stops, include);
+    if (requested.length === 0) return;
+    void loader.load({ tripId, tripDayId, includePrivate: include, locale }, {
       start: () => { setBusy(true); setFailure(null); setResponse(null); },
       success: result => {
-        if (result.status === "ready" && !dayMapResponseMatches(result, visibleStops)) { setFailure("changed"); return; }
+        if (result.status === "ready" && !dayMapResponseMatches(result, requested)) { setFailure("changed"); return; }
         setResponse(result);
       },
       failure: kind => { setResponse(null); setFailure(kind); },
       complete: () => setBusy(false),
     });
   };
+  // Opening the map loads it at once (D-081); closing discards it.
+  const toggle = () => {
+    clearMap();
+    if (open) { setOpen(false); return; }
+    const include = readIncludePrivatePlaces();
+    setIncludePrivate(include); setOpen(true); request(include);
+  };
+  const changePrivate = (value: boolean) => { clearMap(); setIncludePrivate(value); saveIncludePrivatePlaces(value); if (open) request(value); };
+  const load = () => { if (open && !busy) request(includePrivate); };
 
   return <div className={styles.root} data-feedback-private>
     <button type="button" className={styles.disclosure} aria-expanded={open} aria-controls={id} onClick={toggle}><MapPin size={18} aria-hidden="true" /><span>{open ? copy.hide : copy.show}</span><ChevronDown size={18} aria-hidden="true" className={open ? styles.expanded : undefined} /></button>

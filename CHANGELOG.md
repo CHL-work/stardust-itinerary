@@ -6,6 +6,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Ask AI on phones (JOB-067, D-082):** the bottom-right button on Today, Itinerary and Expenses opens the quick AI composer as a sheet, in place of Add event and Add expense, which stay at the top of each page.
 - Public repository with fresh history under the MIT license. Earlier development (JOB-001 to JOB-057) lives in a private archive.
 - **Hosting:**
   - One container image (Dockerfile, `deploy/container/entrypoint.sh`) running the web server, background workers, migrations, encrypted backups and a provider smoke check.
@@ -41,6 +42,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Quick AI answers expire (JOB-067, D-082):** the quick composer hides an answer after ten idle minutes, and the next quick question starts a new conversation. AI history and the AI tab are unchanged.
+- **Day map (JOB-067, D-081):**
+  - **Show day map** loads the map at once.
+  - Private places are included unless the viewer turns them off, and the browser remembers that choice. Included private places are looked up and routed like other stops, without titles, notes or people, and never cached.
+  - Matching version 4 accepts saved "venue, street, city, region postcode" text, confirmed by postcode or by city and state.
+  - The privacy notice lists the map and weather services.
 - **Explicit funding context:** every AI provider call runs inside a credential context entered by the code that decided who pays (the planner, Calendar lookup, destination lookup, disruption and feedback workers, provider smoke). Outside one, the provider adapters throw instead of falling back to the operator's keys, and the operator-funded destination lookup refuses a user's context.
 - **Feedback issue hash:** the stored payload hash no longer names a repository, since the target is configured and checked at delivery. No issue had been queued on the public instance.
 - **Continuous deployment:** every push to `main` deploys once CI passes. The `production` environment no longer waits for an approval and accepts only `main`; the workflow deploys only CI runs for pushes to this repository, and a manual run deploys only commits on `main`. The deploy script now runs with `bash`, since the fresh repository did not keep its executable bit.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, type LucideIcon } from "lucide-react";
+import { Sparkles, type LucideIcon } from "lucide-react";
 
 import { uiRefreshMessages, type UiRefreshCopy } from "@/lib/app/ui-refresh-i18n";
 import { formatMessage, type Locale } from "@/lib/i18n";
@@ -47,24 +47,19 @@ export function NewBottomNav<T extends string>(props: Parameters<typeof NewBotto
   return useUiMode() === "new" ? <NewBottomNavView {...props} /> : null;
 }
 
-export function QuickAddButtonView({ kind, label, add, disabled = false }: {
-  kind: "event" | "expense"; label: string; add: () => void; disabled?: boolean;
-}) {
-  return <button type="button" className="new-quick-add" data-quick-add={kind} disabled={disabled}
-    data-feedback-action={kind === "event" ? "event_open" : "expense_open"} onClick={add}>
-    <Plus size={20} aria-hidden="true" />
+export function QuickAiButtonView({ label, open }: { label: string; open: () => void }) {
+  return <button type="button" className="new-quick-add" data-quick-add="ai" aria-haspopup="dialog"
+    data-feedback-action="dialog_open" onClick={open}>
+    <Sparkles size={20} aria-hidden="true" />
     <span>{label}</span>
   </button>;
 }
 
-/** Phone shortcut for the page's main add action. Absent when the member lacks that permission. */
-export function QuickAddButton({ section, busy, addEvent, addExpense, eventLabel, expenseLabel }: {
-  section: string; busy: boolean;
-  addEvent?: () => void; addExpense?: () => void; eventLabel: string; expenseLabel: string;
+/** Phone shortcut to the quick AI composer (D-082). Absent when the trip's owners turned AI off. */
+export function QuickAiButton({ section, available, label, open }: {
+  section: string; available: boolean; label: string; open: () => void;
 }) {
   const mode = useUiMode();
-  if (mode !== "new") return null;
-  if ((section === "today" || section === "itinerary") && addEvent) return <QuickAddButtonView kind="event" label={eventLabel} add={addEvent} disabled={busy} />;
-  if (section === "expenses" && addExpense) return <QuickAddButtonView kind="expense" label={expenseLabel} add={addExpense} disabled={busy} />;
-  return null;
+  if (mode !== "new" || !available || !["today", "itinerary", "expenses"].includes(section)) return null;
+  return <QuickAiButtonView label={label} open={open} />;
 }

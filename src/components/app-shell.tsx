@@ -108,7 +108,7 @@ import { aiHistoryMessages } from "@/lib/ai/history-i18n";
 import { aiRequestDeliveryTimeoutMs } from "@/lib/ai/request-budget";
 import { aiImageMessages, type AiImageMessages } from "@/lib/ai/image-i18n";
 import { LocaleSwitcher } from "@/components/locale-switcher";
-import { NewBottomNav, QuickAddButton } from "@/components/new-ui/new-navigation";
+import { NewBottomNav, QuickAiButton } from "@/components/new-ui/new-navigation";
 import { ItineraryDayJump, OverviewDayStrip, TripOverviewBar } from "@/components/new-ui/trip-overview-bar";
 import { TripAdjacentNav } from "@/components/trip-adjacent-nav";
 import { TripDeletionCard, TripDeletionReview } from "@/components/trip-deletion-controls";
@@ -140,6 +140,7 @@ import {
 import { addMinutesToWallTime, minutesBetweenWallTimes } from "@/lib/app/wall-time";
 import { withStableSession } from "@/lib/auth/client-session";
 import { createAiRequestRecoveryClient, watchAiRequestRecovery, type AiRecoveryState, type AiRequestRecoveryClient } from "@/lib/ai/request-recovery-client";
+import { AI_QUICK_REPLY_TTL_MS, aiQuickReplyAt, aiQuickReplyExpired } from "@/lib/ai/quick-reply";
 import type { AiPlannerResult, AiRequestRecoveryResponse } from "@/lib/ai/request-recovery-types";
 import {
   parsePendingCalendarSync,
@@ -953,7 +954,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const [calendarConfirmation, setCalendarConfirmation] = useState<CalendarSyncConfirmation | null>(null);
   const [calendarOpeningUrl, setCalendarOpeningUrl] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
-  const [aiRecovery, setAiRecovery] = useState<{ scope: string; value: AiRecoveryState } | null>(null);
+  const [aiRecovery, setAiRecovery] = useState<{ scope: string; value: AiRecoveryState; observedAt: number } | null>(null);
+  const [aiClock, setAiClock] = useState(() => Date.now());
+  const [quickAiScope, setQuickAiScope] = useState<string | null>(null);
   const aiRecoveryClient = useRef<AiRequestRecoveryClient | null>(null);
   const [aiConversationResetOpen, setAiConversationResetOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_OWNER_MODEL);
@@ -1088,6 +1091,12 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const aiReply = aiRecoveryReply(aiState, messages, aiImageMessages(locale), { locale, timeZone: overview?.trip.timeZone ?? "UTC", isOwner: overview?.session.isOwner ?? false });
   const aiSources = aiState.result?.webSearch.sources.slice(0, 5) ?? [];
   const aiMemory = aiState.result?.memory ?? null;
+  // The quick composer forgets an idle answer after ten minutes, and the next
+  // quick question starts a new conversation (D-082). History keeps everything.
+  const aiObservedAt = aiRecovery?.scope === aiScope ? aiRecovery.observedAt : null;
+  const aiQuickReplyGone = aiQuickReplyExpired(aiState, aiObservedAt, Math.max(aiClock, aiObservedAt ?? 0));
+  const aiQuickReplyTime = aiThinking || aiQuickReplyGone ? null : aiQuickReplyAt(aiState, aiObservedAt);
+  const quickAiOpen = quickAiScope !== null && quickAiScope === aiScope;
   const aiHistoryCopy = aiHistoryMessages(locale);
   const instructionsCopy = aiInstructionsMessages(locale);
   const aiImages = useAiImageDraft(aiScope);
@@ -1119,7 +1128,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       changed: (value) => {
         const status = value.error && typeof value.error === "object" && "status" in value.error ? value.error.status : null;
         if (status === 401 || status === 403) clearAiImages();
-        setAiRecovery({ scope: aiScope, value });
+        setAiRecovery({ scope: aiScope, value, observedAt: Date.now() });
       },
       completed: () => {
         setAiPrompt("");
@@ -1138,6 +1147,20 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       if (aiRecoveryClient.current === client) aiRecoveryClient.current = null;
     };
   }, [aiScope, aiTripId, refresh, clearAiImages]);
+
+  useEffect(() => {
+    if (aiQuickReplyTime === null) return;
+    const tick = () => setAiClock(Date.now());
+    const timer = window.setTimeout(tick, Math.max(0, aiQuickReplyTime + AI_QUICK_REPLY_TTL_MS - Date.now()) + 250);
+    // Phone browsers pause timers in the background; check again on return.
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
+    };
+  }, [aiQuickReplyTime]);
 
   const loadApprovalHistory = useCallback(async (mode: "reset" | "more" = "reset") => {
     if (!overview?.session.isOwner) return;
@@ -2650,6 +2673,29 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     }
   };
 
+  // A quick question after ten idle minutes goes to a new conversation (D-082).
+  const askQuickAi = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!overview || !aiQuickReplyGone) { await askAi(event); return; }
+    if (!aiPrompt.trim() || busy || aiThinking || aiImages.preparing) return;
+    const client = aiRecoveryClient.current;
+    let conversationId: string | null = null;
+    setBusy(true);
+    try {
+      const result = await jsonRequest<{ conversationId: string }>(`/api/trips/${overview.trip.id}/ai/conversation`, {
+        method: "POST", body: JSON.stringify({ action: "new" }),
+      });
+      // A late response from another trip must not reset its new controller.
+      if (client && client === aiRecoveryClient.current) { client.reset(); conversationId = result.conversationId; }
+    } catch (error) {
+      setNotice(error instanceof JsonRequestError && error.status === 409 ? messages.aiConversationBusy : messages.aiConversationResetFailed);
+      void aiRecoveryClient.current?.check(true);
+    } finally {
+      setBusy(false);
+    }
+    if (conversationId) await askAi(event, conversationId);
+  };
+
   const updateModel = async (model: string) => {
     if (!overview?.ai.canSelectModel) return;
     setSelectedModel(model);
@@ -2977,6 +3023,14 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     createdByMemberId: overview.session.memberId, visibility: "trip", viewerMemberIds: [],
   });
 
+  const quickAiCard = (inSheet: boolean) => <AiCard locale={locale} overview={overview} messages={messages} prompt={aiPrompt} setPrompt={setAiPrompt}
+    reply={aiQuickReplyGone ? null : aiReply} sources={aiQuickReplyGone ? [] : aiSources} memory={aiQuickReplyGone ? null : aiMemory}
+    busy={busy || aiThinking || aiState.activeConversationId === undefined} thinking={aiThinking} statusText={aiStatusText}
+    selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice} submit={askQuickAi}
+    newConversation={() => setAiConversationResetOpen(true)} openHistory={() => { setQuickAiScope(null); setSection("ai"); }}
+    historyLabel={aiHistoryCopy.viewHistory} imagePicker={overview.session.isGuest ? undefined : { ...aiImages, locale }}
+    heading={!inSheet} autoFocus={inSheet && (aiQuickReplyGone || !aiReply)} />;
+
   return (
     <div className="app-shell">
       <DocumentLanguage locale={locale} />
@@ -3066,7 +3120,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
               {(section === "today" ? overviewTimelinePoints : itineraryTimelinePoints).some((point) => point.weather) ? <p className="weather-attribution"><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">{messages.weatherAttribution}</a></p> : null}
               {section === "itinerary" ? <GoogleCalendarPanel overview={overview} locale={locale} messages={messages} state={calendarState} busy={calendarBusy} refresh={() => void loadCalendar()} syncAll={() => requestCalendarSync("all")} openItineraryItem={revealItineraryItem} /> : null}
             </section>
-            <aside className="utility-column"><AiCard locale={locale} overview={overview} messages={messages} prompt={aiPrompt} setPrompt={setAiPrompt} reply={aiReply} sources={aiSources} memory={aiMemory} busy={busy || aiThinking || aiState.activeConversationId === undefined} thinking={aiThinking} statusText={aiStatusText} selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice} submit={askAi} newConversation={() => setAiConversationResetOpen(true)} openHistory={() => setSection("ai")} historyLabel={aiHistoryCopy.viewHistory} imagePicker={overview.session.isGuest ? undefined : { ...aiImages, locale }} /><PersonalExpenseWidget overview={overview} locale={locale} openExpenses={() => setSection("expenses")} addExpense={overview.permissions.canEditExpenses ? () => openExpense() : undefined} />{section === "today" && !overview.session.isGuest ? <GoogleCalendarPanel compact dateFilter={selectedOverviewDay?.date} overview={overview} locale={locale} messages={messages} state={calendarState} busy={calendarBusy} refresh={() => void loadCalendar()} syncAll={() => requestCalendarSync("all")} openItineraryItem={revealItineraryItem} /> : null}</aside>
+            <aside className="utility-column">{quickAiCard(false)}<PersonalExpenseWidget overview={overview} locale={locale} openExpenses={() => setSection("expenses")} addExpense={overview.permissions.canEditExpenses ? () => openExpense() : undefined} />{section === "today" && !overview.session.isGuest ? <GoogleCalendarPanel compact dateFilter={selectedOverviewDay?.date} overview={overview} locale={locale} messages={messages} state={calendarState} busy={calendarBusy} refresh={() => void loadCalendar()} syncAll={() => requestCalendarSync("all")} openItineraryItem={revealItineraryItem} /> : null}</aside>
           </div>
         )}
 
@@ -3236,9 +3290,11 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
 
       <nav className="bottom-nav" aria-label="Mobile navigation">{navItems.map(({ id, label, icon: Icon }) => <button data-feedback-action="navigate" className={section === id || (section === "activity" && id === "settings") ? "bottom-item is-active" : "bottom-item"} key={id} onClick={() => setSection(id)}><Icon size={20} /><span>{label.replace(/ \(.*/, "")}</span></button>)}</nav>
       <NewBottomNav items={navItems} section={section} navigate={setSection} pendingCount={overview.approvalPendingCount} locale={locale} />
-      <QuickAddButton section={section} busy={busy} eventLabel={messages.addPlanItem} expenseLabel={expensePageCopy.add}
-        addEvent={overview.permissions.canEditItinerary ? () => openEvent("new", section === "today" ? selectedOverviewDay?.date : undefined) : undefined}
-        addExpense={overview.permissions.canEditExpenses ? () => openExpense() : undefined} />
+      {/* `enabled` stays false until the viewer has a key; `keyRequired` means the owners allow AI and the sheet explains the key. */}
+      <QuickAiButton section={section} available={overview.ai.enabled || overview.ai.keyRequired === true} label={messages.askAi} open={() => setQuickAiScope(aiScope)} />
+      {quickAiOpen && section !== "ai" ? <Modal title={messages.askAi} closeLabel={messages.cancelButton} close={() => setQuickAiScope(null)}>
+        <div className="quick-ai-sheet">{quickAiCard(true)}</div>
+      </Modal> : null}
 
       {overview.session.isOwner && !activityAccessLost && activityDetail?.scope === memberAdminScope && <Modal title={activityMessages(locale).requestDetail} closeLabel={messages.cancelButton} close={() => setActivityDetail(null)}>
         <ApprovalRequestCards requests={[activityDetail.request]} locale={locale} messages={messages} timeZone={overview.trip.timeZone} busy={busy} readOnly review={() => undefined} />
@@ -3889,7 +3945,7 @@ export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: 
   return ai.hostSubscriptionEnabled === false ? messages.aiUnavailable : null;
 }
 
-export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, setModel, ownKeyChoice = "", setOwnKeyChoice, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale }: {
+export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, setModel, ownKeyChoice = "", setOwnKeyChoice, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale, heading = true, autoFocus = false }: {
   overview: Overview;
   messages: Messages;
   prompt: string;
@@ -3911,6 +3967,9 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
   imagePicker?: Omit<AiImagePickerProps, "disabled">;
   readOnly?: boolean;
   locale?: Locale;
+  /** False inside a dialog that already shows the title. */
+  heading?: boolean;
+  autoFocus?: boolean;
 }) {
   const keysCopy = aiKeysMessages(locale ?? imagePicker?.locale ?? "en");
   const access = ownKeyAccess(overview.ai);
@@ -3939,7 +3998,7 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
   return (
     <section className="ai-card">
       <div className="ai-card-heading">
-        <div className="ai-card-title"><div className="card-icon violet"><Bot size={21} /></div><div><p className="eyebrow">{messages.aiPlannerLabel}</p><h2>{messages.askAi}</h2></div></div>
+        {heading ? <div className="ai-card-title"><div className="card-icon violet"><Bot size={21} /></div><div><p className="eyebrow">{messages.aiPlannerLabel}</p><h2>{messages.askAi}</h2></div></div> : null}
         {newConversation ? <button data-feedback-action="ai_new" type="button" className="ai-conversation-button" disabled={busy} onClick={newConversation}><Plus size={14} /> {messages.newAiConversation}</button> : null}
       </div>
       {overview.ai.canSelectModel ? <select data-feedback-action="settings_save" className="model-select" value={selectedModel} disabled={busy} onChange={(event) => void setModel(event.target.value)}>{ownerModels.map((model) => <option key={model}>{model}</option>)}</select> : null}
@@ -3947,7 +4006,7 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
       {quotaNote}
       <p className="ai-memory-notice">{messages.aiMemoryNotice}</p>
       {openHistory ? <button data-feedback-action="navigate" type="button" className="ghost-button" onClick={openHistory}>{historyLabel}<ChevronRight size={16} /></button> : null}
-      <form data-feedback-action="ai_submit" onSubmit={submit}><label className="ai-input"><span className="sr-only">{messages.askAi}</span><textarea required maxLength={AI_PROMPT_MAX_CHARACTERS} disabled={busy || !overview.ai.enabled} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={messages.aiPlaceholder} rows={4} /><button disabled={busy || !overview.ai.enabled || !prompt.trim() || imagePicker?.preparing} aria-label={messages.sendAiPrompt}><Sparkles size={17} /></button></label>
+      <form data-feedback-action="ai_submit" onSubmit={submit}><label className="ai-input"><span className="sr-only">{messages.askAi}</span><textarea required autoFocus={autoFocus} maxLength={AI_PROMPT_MAX_CHARACTERS} disabled={busy || !overview.ai.enabled} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={messages.aiPlaceholder} rows={4} /><button disabled={busy || !overview.ai.enabled || !prompt.trim() || imagePicker?.preparing} aria-label={messages.sendAiPrompt}><Sparkles size={17} /></button></label>
         {imagePicker ? <AiImagePicker {...imagePicker} disabled={busy || !overview.ai.enabled} /> : null}
       </form>
       {thinking ? <p className="ai-thinking" role="status" aria-live="polite"><Sparkles size={16} /> {statusText ?? messages.aiThinking}</p> : reply ? <div className="ai-reply"><AiReadableText text={reply} />{sources.length ? <div className="ai-source-list"><strong>{messages.aiResearchSources}</strong>{sources.map((source, index) => <a href={source} target="_blank" rel="noreferrer" key={source}>{index + 1}. {sourceHost(source)}</a>)}</div> : null}{memory ? <p className="ai-memory-usage" role="status">{formatMessage(messages.aiMemoryUsage, { count: memory.previousTurnsUsed, tokens: memory.tokenEstimate, budget: memory.tokenBudget })}{memory.truncated ? <span>{messages.aiMemoryTruncated}</span> : null}</p> : null}</div> : <p className="disabled-note">{idleMessage}</p>}

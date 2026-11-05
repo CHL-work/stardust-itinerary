@@ -2,8 +2,8 @@ import type { Locale } from "@/lib/i18n";
 
 const en = {
   show: "Show day map", hide: "Hide day map", title: "Day map", load: "Load map", loading: "Loading map…", cancel: "Cancel loading", reload: "Reload map",
-  disclosure: "Loading sends selected public place names and route coordinates to the configured place/route services. Your browser requests the viewed map area from OpenStreetMap. Personal notes are not sent. Private places are excluded by default.",
-  privateConsent: "Include private places", privateHint: "Including private places allows their saved coordinates on the map and shares the viewed area with the tile service. Private names are not sent to public lookup services. Place links or Directions send the chosen place or pair to Google only when clicked. Changing this choice clears the map; load again to apply it.",
+  disclosure: "Opening the map sends the place names for this day and the coordinates between its stops to the configured place and route services. Event titles, notes and people are not sent. Your browser loads the viewed map area from OpenStreetMap. Private places are included unless you turn them off.",
+  privateConsent: "Include private places", privateHint: "Private places use their saved coordinates or a lookup of their place name, and route estimates use their coordinates. Their titles and notes are not sent, and their lookups are not kept in the shared map cache. Place links or Directions send the chosen place or pair to Google only when clicked. Turning this off removes private places from the map and from those lookups, and this browser remembers the choice.",
   calendarHint: "Personal Calendar events are not mapped unless imported into the trip.",
   fixMap: "Fix the map", routingCredit: "Routing: FOSSGIS / OSRM", cachedEstimates: "Times are cached estimates, not live traffic.", transitUnavailable: "Transit times are not available here.",
   image: "Map with numbered daily stops", stop: "Stop", pan: "Scroll the map to see every estimate", interactiveMap: "Interactive day map. Use arrow keys to pan and plus or minus to zoom.", zoomIn: "Zoom in", zoomOut: "Zoom out", allStops: "All stops", tilesUnavailable: "Some map tiles could not load. You can reload the map; the itinerary is unchanged.",
@@ -24,8 +24,8 @@ const en = {
 export type DayMapCopy = { [Key in keyof typeof en]: string };
 const zh: DayMapCopy = {
   show: "顯示當日地圖", hide: "收起當日地圖", title: "當日地圖", load: "載入地圖", loading: "正在載入地圖…", cancel: "取消載入", reload: "重新載入地圖",
-  disclosure: "載入時會將所選公開地點名稱及路段座標傳送至已設定的地點／路線服務，瀏覽器亦會向 OpenStreetMap 請求所見範圍的地圖。不會傳送個人備註，預設不包括私人地點。",
-  privateConsent: "包括私人地點", privateHint: "包括私人地點後，地圖會使用其已儲存座標，圖磚服務亦會收到瀏覽範圍。私人地點名稱不會傳送至公共地點查詢服務。只有按下地點連結或「路線」才會將所選地點或兩個地點傳送至 Google。更改選項會清除地圖，請重新載入以套用。",
+  disclosure: "開啟地圖時，會將當日的地點名稱及各地點之間的座標傳送至已設定的地點及路線服務，不會傳送活動標題、備註或成員資料。瀏覽器會向 OpenStreetMap 載入所見範圍的地圖。除非你取消選項，否則會包括私人地點。",
+  privateConsent: "包括私人地點", privateHint: "私人地點會使用已儲存的座標或以地點名稱查詢，路線估算亦會使用其座標；其標題及備註不會傳送，查詢結果亦不會存入共用地圖快取。只有按下地點連結或「路線」才會將所選地點或兩個地點傳送至 Google。取消此選項後，私人地點不會顯示在地圖，亦不會用於上述查詢，此瀏覽器會記住你的選擇。",
   calendarHint: "私人日曆活動須先匯入行程，才會顯示在地圖。",
   fixMap: "修正地圖", routingCredit: "路線：FOSSGIS / OSRM", cachedEstimates: "時間為已快取的估算，並非即時交通情況。", transitUnavailable: "此處未提供公共交通時間。",
   image: "標示當日活動號碼的地圖", stop: "活動", pan: "滑動地圖查看所有時間估算", interactiveMap: "互動當日地圖。使用方向鍵移動，加號或減號縮放。", zoomIn: "放大", zoomOut: "縮小", allStops: "所有地點", tilesUnavailable: "部分圖磚未能載入，你可以重新載入地圖。行程沒有更改。",
@@ -45,8 +45,8 @@ const zh: DayMapCopy = {
 };
 const ja: DayMapCopy = {
   show: "この日の地図を表示", hide: "この日の地図を閉じる", title: "この日の地図", load: "地図を読み込む", loading: "地図を読み込み中…", cancel: "読み込みを中止", reload: "地図を再読み込み",
-  disclosure: "読み込み時に、選択した公開の場所名と経路の座標を設定済みの場所・経路サービスへ送信します。ブラウザーは表示範囲の地図を OpenStreetMap に要求します。個人のメモは送信しません。非公開の場所は初期状態では含みません。",
-  privateConsent: "非公開の場所も含める", privateHint: "非公開の場所は保存済み座標で表示し、表示範囲をタイルサービスへ送信します。非公開の場所名は公開の場所検索サービスへ送りません。場所のリンクや「経路」を押したときだけ、選択した場所または2地点を Google へ送信します。変更すると地図を消去します。再読み込みして適用してください。",
+  disclosure: "地図を開くと、この日の場所名と各地点間の座標を設定済みの場所・経路サービスへ送信します。予定のタイトル、メモ、メンバーの情報は送信しません。ブラウザーは表示範囲の地図を OpenStreetMap から読み込みます。非公開の場所は、オフにしない限り含めます。",
+  privateConsent: "非公開の場所も含める", privateHint: "非公開の場所は保存済みの座標、または場所名の検索で表示し、経路の目安にもその座標を使います。タイトルやメモは送信せず、検索結果は共有の地図キャッシュに保存しません。場所のリンクや「経路」を押したときだけ、選択した場所または2地点を Google へ送信します。オフにすると、非公開の場所は地図にも検索にも使わず、このブラウザーがその選択を記憶します。",
   calendarHint: "個人カレンダーの予定は、旅程に取り込むまで地図に表示しません。",
   fixMap: "地図を修正", routingCredit: "経路：FOSSGIS / OSRM", cachedEstimates: "所要時間は保存済みの目安で、リアルタイムの交通状況ではありません。", transitUnavailable: "公共交通の所要時間は未対応です。",
   image: "この日の予定を番号で示す地図", stop: "予定", pan: "地図をスクロールしてすべての目安を確認", interactiveMap: "操作できる日別地図。矢印キーで移動、プラス・マイナスで拡大縮小できます。", zoomIn: "拡大", zoomOut: "縮小", allStops: "全地点", tilesUnavailable: "一部の地図タイルを読み込めませんでした。地図を再読み込みできます。旅程は変更されていません。",

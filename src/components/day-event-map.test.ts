@@ -5,6 +5,7 @@ import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DayEventMap, DayEventMapPanel, dayMapAttributionHeight, dayMapCalloutLayout, dayMapCompactTime, dayMapConnector, dayMapDisplayLegs, dayMapStopTime, dayMapTravelDistance, dayMapTravelModes, dayMapTravelTime, type DisplayMapLeg } from "./day-event-map";
 import { dayMapMessages } from "@/lib/maps/i18n";
+import { readIncludePrivatePlaces, saveIncludePrivatePlaces } from "@/lib/maps/private-places-preference";
 import { dayMapResponseMatches, visibleDayMapStops, type DayMapResponse } from "@/lib/maps/client";
 import { chooseMapViewport } from "@/lib/maps/geometry";
 import type { DayMapStop } from "@/lib/maps/day-stops";
@@ -229,18 +230,51 @@ describe("journey projection and collision-safe cards", () => {
 });
 
 describe("actual map UI request handlers", () => {
-  it("clears consent-sensitive image, selection and request generation synchronously", () => {
-    const bindings = { loader: { cancel: vi.fn() }, setResponse: vi.fn(), setFailure: vi.fn(), setBusy: vi.fn(), setSelectedKey: vi.fn(), setSelectedLegKey: vi.fn(), setIncludePrivate: vi.fn(), setOpen: vi.fn(), open: true };
+  function handlers(overrides: Record<string, unknown> = {}) {
+    const bindings = { loader: { cancel: vi.fn(), load: vi.fn() }, setResponse: vi.fn(), setFailure: vi.fn(), setBusy: vi.fn(), setSelectedKey: vi.fn(), setSelectedLegKey: vi.fn(), setIncludePrivate: vi.fn(), setOpen: vi.fn(),
+      open: false, busy: false, includePrivate: true, stops: [stop, privateStop], tripId: "synthetic-trip", tripDayId: "synthetic-day", locale: "en",
+      visibleDayMapStops, dayMapResponseMatches, readIncludePrivatePlaces: vi.fn(() => true), saveIncludePrivatePlaces: vi.fn(), ...overrides };
     const clearMap = closure<() => void>("clearMap", bindings);
-    closure<(value: boolean) => void>("changePrivate", { ...bindings, clearMap })(true);
-    expect(bindings.loader.cancel).toHaveBeenCalledOnce(); expect(bindings.setResponse).toHaveBeenCalledWith(null); expect(bindings.setSelectedKey).toHaveBeenCalledWith(null); expect(bindings.setSelectedLegKey).toHaveBeenCalledWith(null); expect(bindings.setBusy).toHaveBeenCalledWith(false); expect(bindings.setIncludePrivate).toHaveBeenCalledWith(true);
-    closure<() => void>("toggle", { ...bindings, clearMap })(); expect(bindings.setIncludePrivate).toHaveBeenLastCalledWith(false); expect(bindings.setOpen).toHaveBeenCalledWith(false);
+    const request = closure<(include: boolean) => void>("request", bindings);
+    const all = { ...bindings, clearMap, request };
+    return { bindings, toggle: closure<() => void>("toggle", all), changePrivate: closure<(value: boolean) => void>("changePrivate", all), load: closure<() => void>("load", all) };
+  }
+  it("opens straight into a map request that includes private places by default", () => {
+    const { bindings, toggle } = handlers(); toggle();
+    expect(bindings.setOpen).toHaveBeenCalledWith(true); expect(bindings.setIncludePrivate).toHaveBeenCalledWith(true); expect(bindings.loader.load).toHaveBeenCalledOnce();
+    expect(bindings.loader.load.mock.calls[0][0]).toEqual({ tripId: "synthetic-trip", tripDayId: "synthetic-day", includePrivate: true, locale: "en" });
   });
-  it("only explicit load starts a request and stale or access-denied results never paint", () => {
-    const bindings = { open: false, busy: false, visibleStops: visibleDayMapStops([stop, privateStop], false), loader: { load: vi.fn() }, tripId: "synthetic-trip", tripDayId: "synthetic-day", includePrivate: false, locale: "en", setBusy: vi.fn(), setFailure: vi.fn(), setResponse: vi.fn(), dayMapResponseMatches };
-    closure<() => void>("load", bindings)(); expect(bindings.loader.load).not.toHaveBeenCalled();
-    bindings.open = true; closure<() => void>("load", bindings)(); expect(bindings.loader.load.mock.calls[0][0]).toEqual({ tripId: "synthetic-trip", tripDayId: "synthetic-day", includePrivate: false, locale: "en" });
+  it("keeps a remembered choice to leave private places out and requests nothing for an empty day", () => {
+    const { bindings, toggle } = handlers({ readIncludePrivatePlaces: vi.fn(() => false), stops: [privateStop] }); toggle();
+    expect(bindings.setIncludePrivate).toHaveBeenCalledWith(false); expect(bindings.setOpen).toHaveBeenCalledWith(true); expect(bindings.loader.load).not.toHaveBeenCalled();
+  });
+  it("closing cancels and discards the map without a request", () => {
+    const { bindings, toggle } = handlers({ open: true }); toggle();
+    expect(bindings.loader.cancel).toHaveBeenCalledOnce(); expect(bindings.setResponse).toHaveBeenCalledWith(null); expect(bindings.setOpen).toHaveBeenCalledWith(false); expect(bindings.loader.load).not.toHaveBeenCalled();
+  });
+  it("clears the map synchronously, remembers the private choice and reloads at once", () => {
+    const { bindings, changePrivate } = handlers({ open: true }); changePrivate(false);
+    expect(bindings.loader.cancel).toHaveBeenCalledOnce(); expect(bindings.setResponse).toHaveBeenCalledWith(null); expect(bindings.setSelectedKey).toHaveBeenCalledWith(null); expect(bindings.setSelectedLegKey).toHaveBeenCalledWith(null); expect(bindings.setBusy).toHaveBeenCalledWith(false);
+    expect(bindings.setIncludePrivate).toHaveBeenCalledWith(false); expect(bindings.saveIncludePrivatePlaces).toHaveBeenCalledWith(false);
+    expect(bindings.loader.load.mock.calls[0][0]).toEqual({ tripId: "synthetic-trip", tripDayId: "synthetic-day", includePrivate: false, locale: "en" });
+  });
+  it("reloads with the current choice only while open, and stale or access-denied results never paint", () => {
+    const closed = handlers({ includePrivate: false }); closed.load(); expect(closed.bindings.loader.load).not.toHaveBeenCalled();
+    const { bindings, load } = handlers({ open: true, includePrivate: false }); load();
+    expect(bindings.loader.load.mock.calls[0][0]).toEqual({ tripId: "synthetic-trip", tripDayId: "synthetic-day", includePrivate: false, locale: "en" });
     const events = bindings.loader.load.mock.calls[0][1]; events.start(); expect(bindings.setResponse).toHaveBeenCalledWith(null); events.success(ready); expect(bindings.setFailure).toHaveBeenLastCalledWith("changed");
     events.failure("access"); expect(bindings.setResponse).toHaveBeenLastCalledWith(null); expect(bindings.setFailure).toHaveBeenLastCalledWith("access");
+  });
+  it("stores only the private-places choice, never map data", () => {
+    const preference = readFileSync("src/lib/maps/private-places-preference.ts", "utf8");
+    expect(preference.match(/\.(?:setItem|getItem|removeItem)\(/gu)).toHaveLength(3); expect(preference).not.toMatch(/sessionStorage|indexedDB|JSON\.stringify|response|stops/u);
+  });
+  it("reads and saves the private choice defensively", () => {
+    expect(readIncludePrivatePlaces(null)).toBe(true); expect(readIncludePrivatePlaces({ getItem: () => null })).toBe(true); expect(readIncludePrivatePlaces({ getItem: () => "off" })).toBe(false);
+    expect(readIncludePrivatePlaces({ getItem: () => { throw new Error("blocked"); } })).toBe(true);
+    const storage = { setItem: vi.fn(), removeItem: vi.fn() };
+    saveIncludePrivatePlaces(false, storage); expect(storage.setItem).toHaveBeenCalledWith("stardust.day-map.include-private", "off");
+    saveIncludePrivatePlaces(true, storage); expect(storage.removeItem).toHaveBeenCalledWith("stardust.day-map.include-private");
+    expect(() => saveIncludePrivatePlaces(false, { setItem: () => { throw new Error("full"); }, removeItem: vi.fn() })).not.toThrow();
   });
 });
