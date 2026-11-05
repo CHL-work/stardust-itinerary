@@ -22,7 +22,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-065 | Public-launch security and privacy review | Done: [threat model](THREAT_MODEL.md), the published [privacy notice](PRIVACY.md), reviews of each public surface, encryption-key rotation and explicit funding contexts. Guest mode and public sign-up are on |
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
-| JOB-068 | Daily off-site copy of the database in Neon | In review: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
+| JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
 
 ## Planned work in more detail
 

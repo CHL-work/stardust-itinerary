@@ -1,7 +1,7 @@
 ---
 id: JOB-068
 title: Daily off-site copy of the database in Neon
-status: review
+status: done
 priority: P1
 depends_on: []
 claimant: CHL-work
@@ -70,7 +70,7 @@ An idle compute is suspended after 5 minutes. Going over a limit suspends the co
   - a too-small budget and a failing restore left every verified copy in place, and left no partial copy;
   - an unset URL did nothing.
 - **Against Neon before deploying:** two synthetic runs from a workstation into the real project under a test prefix, which the production job ignores. Both passed with TLS certificate checks and channel binding, on PostgreSQL 17.11, and the test copies were then removed.
-- **After the deploy:** a manual run on the public instance (pending).
+- **After the deploy:** a manual run on the public instance restored and verified every table in under a minute, and the Neon console lists the new copy.
 
 ## Rollback
 
