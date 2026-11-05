@@ -2,6 +2,12 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 5, 2026 off-site copy
+
+- [Neon plans](https://neon.com/docs/introduction/plans) (page updated 4 November 2026) and [the 1 GB free-plan announcement](https://neon.com/blog/neon-free-plan-1-gb-per-project) (2 October 2026): per project, 1 GB of storage, 100 CU-hours a month, 5 GB of public network transfer, a 6-hour restore window, scale to zero after 5 minutes; usage over a limit suspends the compute or fails writes, and deletes nothing. These are dated planning figures, not promises.
+- [PostgreSQL `pg_export_snapshot` and snapshot synchronization](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-SNAPSHOT-SYNCHRONIZATION) and [`pg_dump --snapshot`](https://www.postgresql.org/docs/current/app-pgdump.html): the dump and the row counts read the same snapshot.
+- [libpq `sslrootcert=system`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT): certificate checks against the system's trusted roots.
+
 ## October 28, 2026 destination defaults review
 
 - [Official Codex SDK](https://developers.openai.com/codex/sdk/) and [authentication](https://developers.openai.com/codex/auth/): reviewed the documented SDK authentication used by the destination lookup. The implementation is pinned to SDK 0.165.0 and passes the lookup subprocess no API-key or base-URL overrides. This is a narrow lookup, not a new auth product or connector.

@@ -80,6 +80,8 @@ Real dumps are private data and are never committed, attached to issues or place
 
 Backup frequency, retention and storage location are deployment choices ([self-hosting](SELF_HOSTING.md), [deployment](DEPLOYMENT.md)). Restoring a dump replaces every write made after it; never restore an old dump over newer user writes as a routine rollback.
 
+The optional off-site copy (`scripts/db/offsite-copy.mjs`, D-083) applies this contract every day: it dumps one read-only snapshot, restores it into a fresh database on another server in a single transaction, and compares every table's row count with that snapshot before marking the copy verified. It is a readable database, not an encrypted file, so treat its connection string like the administrator password.
+
 ### Restoring a deleted trip
 
 There is no in-app undelete. A database operator can reopen a deleted trip in one transaction; members come back with exactly the status they had before deletion:

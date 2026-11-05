@@ -21,9 +21,9 @@ Up to 20 people share one trip: day-by-day events, private events visible only t
   - There are no service-account keys. Nodes, workloads and GitHub Actions authenticate with Workload Identity.
   - Secret Manager secrets are mounted as files, and each workload may read only its own. The key that decrypts users' AI keys is mounted only in the web server.
   - Pods run as non-root with read-only file systems and no Kubernetes token.
-  - NetworkPolicies block the metadata server, and give the guest-purge job only the database and DNS.
+  - NetworkPolicies block the metadata server, give the guest-purge job only the database and DNS, and the off-site copy only the database, DNS and PostgreSQL's port.
   - Traffic arrives through an outbound-only Cloudflare Tunnel: no load balancer, no public IP.
-  - PostgreSQL 17 runs in the cluster, with daily age-encrypted, verified backups.
+  - PostgreSQL 17 runs in the cluster, with daily age-encrypted, verified backups, and a daily copy outside Google Cloud, in a Neon free-plan project, that is restored and checked table by table.
 - **Release:** every push to `main` builds an image, after CI runs lint, typecheck, about 4,700 unit tests, a database suite on real PostgreSQL, a production build, a smoke test and gitleaks. When CI passes, the image is built and deployed without manual steps. The deploy takes a pre-migration backup, runs migrations as a job that must succeed, then rolls out.
 
 **Moving production without losing writes:** the instance moved from a single VM to GKE.

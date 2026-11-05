@@ -79,6 +79,15 @@ docker compose run --rm -v "$PWD/backups:/var/backups/stardust" \
 
 Keep the matching age private key somewhere other than this machine. [Database](DATABASE.md) describes restore rules.
 
+An off-site copy restores the database into a second PostgreSQL server every time it runs, checks every table's row count and keeps the newest three copies (a free plan is enough for a small instance). Put `STARDUST_OFFSITE_DATABASE_URL=postgresql://...` (a direct URL whose role can create databases) in a private `offsite.env` file, then run this from a daily timer:
+
+```bash
+set -a; . ./offsite.env; set +a
+docker compose run --rm -e STARDUST_OFFSITE_DATABASE_URL migrate offsite-copy
+```
+
+[Deployment](DEPLOYMENT.md#operations) describes its log lines and settings.
+
 ## Putting it on the internet
 
 Put an HTTPS reverse proxy or a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) in front of port 3100. Then:

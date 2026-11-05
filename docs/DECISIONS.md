@@ -2,6 +2,16 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-083: A daily off-site copy in Neon (accepted November 5, 2026)
+
+The owner asked for the database to be backed up in Neon, within its free plan. The daily backups were age-encrypted dumps in a bucket of the same Google Cloud project, so losing the project, for example after an unpaid free trial, would lose them too (JOB-068).
+
+- **What:** a daily job restores one consistent snapshot into a dedicated Neon free-plan project as a dated database, checks every table's row count against the snapshot, and keeps the newest three verified copies. A failed run never drops the newest verified copy.
+- **A database, not a file:** each run proves that the dump restores, and the copy can be used directly. Unlike the encrypted backups, it is readable by whoever holds its connection string or the operator's Neon login. It holds sessions only as hashes, and users' AI keys and Calendar tokens only as ciphertext under keys it never receives.
+- **Free plan:** the compute is fixed at 0.25 CU, which a daily run keeps awake for a few minutes, and the job keeps all copies within 500 MB of the plan's 1 GB per project.
+- **Least privilege:** the connection string is its own secret, mounted only by the copy job. That job reaches only the database, DNS and PostgreSQL's port on public addresses, over TLS with certificates checked.
+- The encrypted Cloud Storage backups are unchanged. The [privacy notice](PRIVACY.md) now lists Neon.
+
 ## D-082: Phone AI button and quick answers that expire (accepted November 4, 2026)
 
 The owner asked for the phone's bottom-right plus button to open AI instead, and for the AI's last answer to go away after ten minutes and start a new chat (JOB-067).

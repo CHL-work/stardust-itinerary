@@ -10,13 +10,15 @@ locals {
   # Secret Manager secret -> Kubernetes service accounts allowed to mount it. Only the web server
   # decrypts users' stored AI keys, so only it mounts CREDENTIAL_ENCRYPTION_KEY. Only the feedback
   # publisher (stardust-feedback) holds the GitHub token for the private feedback repository, and it
-  # runs no model; the reviewer runs as stardust-worker.
+  # runs no model; the reviewer runs as stardust-worker. Only the off-site copy job holds the
+  # off-site database's connection string (D-083).
   secrets = {
     "stardust-app-env"            = ["stardust-web", "stardust-worker", "stardust-feedback", "stardust-migrate"]
     "stardust-ai-env"             = ["stardust-web", "stardust-worker"]
     "stardust-credential-env"     = ["stardust-web"]
     "stardust-feedback-env"       = ["stardust-feedback"]
-    "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup", "stardust-guest-purge"]
+    "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup", "stardust-offsite-copy", "stardust-guest-purge"]
+    "stardust-offsite-env"        = ["stardust-offsite-copy"]
     "stardust-tunnel-credentials" = ["stardust-tunnel"]
   }
   secret_grants = merge([

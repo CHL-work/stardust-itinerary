@@ -16,7 +16,7 @@ import pg from "pg";
 
 const labelPattern = /^[a-z][a-z0-9-]{0,31}$/u;
 
-function run(command, args, env) {
+export function run(command, args, env) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { env, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";

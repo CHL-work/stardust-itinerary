@@ -13,7 +13,7 @@ if [ -d "$env_dir" ]; then
   done
 fi
 
-# Migration and backup jobs receive only the administrator password file; build their direct URL.
+# Migration, backup and off-site copy jobs receive the administrator password file; build their direct URL.
 if [ -n "${STARDUST_DB_ADMIN_PASSWORD_FILE:-}" ] && [ -z "${DATABASE_DIRECT_URL:-}" ]; then
   admin_password="$(cat "$STARDUST_DB_ADMIN_PASSWORD_FILE")"
   case "$admin_password" in
@@ -45,6 +45,10 @@ case "$mode" in
   backup)
     # shellcheck disable=SC2086
     exec node $env_flags scripts/db/backup.mjs "$@" ;;
+  offsite-copy)
+    # Daily copy into a second PostgreSQL server (D-083); does nothing without STARDUST_OFFSITE_DATABASE_URL.
+    # shellcheck disable=SC2086
+    exec node $env_flags scripts/db/offsite-copy.mjs "$@" ;;
   provider-smoke)
     # shellcheck disable=SC2086
     exec node $env_flags --import tsx scripts/provider-smoke.ts "$@" ;;
@@ -72,6 +76,6 @@ case "$mode" in
       sleep 300
     done ;;
   *)
-    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|credential-reencrypt|migrate|backup|scheduler|provider-smoke" >&2
+    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|credential-reencrypt|migrate|backup|offsite-copy|scheduler|provider-smoke" >&2
     exit 64 ;;
 esac

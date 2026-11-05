@@ -43,7 +43,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/component
                 operator: In
-                values: ["web", "disruption", "feedback", "feedback-publish", "migrate", "backup", "guest-purge"]
+                values: ["web", "disruption", "feedback", "feedback-publish", "migrate", "backup", "offsite-copy", "guest-purge"]
       ports:
         - port: 5432
           protocol: TCP
@@ -131,4 +131,50 @@ spec:
         - port: 53
           protocol: UDP
         - port: 53
+          protocol: TCP
+---
+# The off-site copy reaches the database, DNS and PostgreSQL's port on public addresses only: no
+# cluster-internal services, no metadata server and no other ports.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: offsite-copy-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: offsite-copy
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: db
+      ports:
+        - port: 5432
+          protocol: TCP
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+        - ipBlock:
+            cidr: 169.254.20.10/32
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+              - 100.64.0.0/10
+      ports:
+        - port: 5432
           protocol: TCP

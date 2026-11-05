@@ -1,5 +1,6 @@
 # Background work. The disruption monitor wakes every 5 minutes (PostgreSQL holds the real
-# 30-minute due gate); the feedback worker runs hourly; the encrypted backup runs daily.
+# 30-minute due gate); the feedback worker runs hourly; the encrypted backup and the off-site copy
+# run daily.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -312,6 +313,92 @@ spec:
             - name: tmp
               emptyDir:
                 sizeLimit: 4Gi
+---
+# Daily off-site copy (D-083): restores the database into a second PostgreSQL server as a dated,
+# row-count-verified database and keeps the newest copies. It does nothing until the
+# stardust-offsite-env secret provides STARDUST_OFFSITE_DATABASE_URL.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: stardust-offsite-copy
+  labels:
+    app.kubernetes.io/component: offsite-copy
+spec:
+  schedule: "0 19 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: stardust-itinerary
+            app.kubernetes.io/component: offsite-copy
+        spec:
+          # Its own identity: the administrator password plus the off-site connection, nothing else.
+          serviceAccountName: stardust-offsite-copy
+          enableServiceLinks: false
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: offsite-copy
+              image: stardust-itinerary
+              args: ["offsite-copy"]
+              env:
+                - name: STARDUST_ENV_DIR
+                  value: /var/run/stardust/env
+                - name: STARDUST_DB_ADMIN_PASSWORD_FILE
+                  value: /var/run/stardust/db/password
+                - name: TMPDIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                  ephemeral-storage: 1Gi
+                limits:
+                  memory: 512Mi
+                  ephemeral-storage: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: db-admin
+                  mountPath: /var/run/stardust/db
+                  readOnly: true
+                - name: offsite-env
+                  mountPath: /var/run/stardust/env/offsite
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: db-admin
+              secret:
+                secretName: stardust-db-admin
+                items:
+                  - key: password
+                    path: password
+            - name: offsite-env
+              secret:
+                secretName: stardust-offsite-env
+                optional: true
+            - name: tmp
+              emptyDir:
+                sizeLimit: 2Gi
 ---
 # Hourly: permanently delete guest accounts whose 24 hours are over (JOB-064). Needs only the
 # database: no AI keys, no internet (see the guest-purge-egress NetworkPolicy).

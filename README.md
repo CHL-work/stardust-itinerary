@@ -29,6 +29,7 @@ flowchart LR
   web -->|API keys from Secret Manager| ai[OpenAI · Anthropic · Gemini]
   jobs --> ai
   jobs -->|age-encrypted dumps| gcs[(Cloud Storage)]
+  jobs -->|daily verified copy| offsite[(Neon PostgreSQL)]
 ```
 
 - **App:** Next.js 16 (App Router), React 19, TypeScript, Zod. One container image runs the web server, the workers, migrations and backups.

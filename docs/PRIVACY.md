@@ -1,12 +1,13 @@
 # Privacy notice
 
-This notice covers the public instance at <https://stardust-itinerary.chl-work.com>, which the project's maintainer runs as a personal project (the operator). It describes what the software stores and shares. Last updated 4 November 2026.
+This notice covers the public instance at <https://stardust-itinerary.chl-work.com>, which the project's maintainer runs as a personal project (the operator). It describes what the software stores and shares. Last updated 5 November 2026.
 
 If you run your own instance, adapt this notice to your hosting and contact details, and link it with `PRIVACY_NOTICE_URL` (see [deployment](DEPLOYMENT.md)).
 
 ## Where it runs
 
 - **Google Cloud,** in Tokyo (`asia-northeast1`), hosts the service, its database and its encrypted backups.
+- **Neon,** a PostgreSQL service, keeps a daily copy of the database in Singapore, outside Google Cloud, so the service can be recovered if Google Cloud is unavailable.
 - **Cloudflare** carries every connection to the instance. For guests, it also runs the Turnstile check.
 
 ## What is stored
@@ -51,6 +52,7 @@ If you run your own instance, adapt this notice to your hosting and contact deta
 - **Guest accounts and their trips:** permanently deleted 24 hours after they start.
 - **Sessions:** expire after 24 hours without use, and after 30 days at most.
 - **Backups:** encrypted, and kept for 30 days.
+- **Daily copies at Neon:** the three newest are kept, so data deleted here is gone from them within four days.
 - **Everything else** stays until you or a trip owner remove it, or the operator deletes it on request.
 
 ## Your choices

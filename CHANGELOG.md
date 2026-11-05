@@ -6,6 +6,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Daily off-site copy (JOB-068, D-083):** `scripts/db/offsite-copy.mjs`, the `offsite-copy` container mode and the `stardust-offsite-copy` CronJob restore one snapshot of the database into a second PostgreSQL server each day as a dated database, compare every table's row count with the snapshot, and keep the newest three within a storage budget (`STARDUST_OFFSITE_KEEP`, `STARDUST_OFFSITE_MAX_MB`). On GKE the connection is a separate `stardust-offsite-env` secret, mounted only by that job, whose network policy allows only the database, DNS and port 5432. The public instance uses a Neon free-plan project.
 - **Ask AI on phones (JOB-067, D-082):** the bottom-right button on Today, Itinerary and Expenses opens the quick AI composer as a sheet, in place of Add event and Add expense, which stay at the top of each page.
 - Public repository with fresh history under the MIT license. Earlier development (JOB-001 to JOB-057) lives in a private archive.
 - **Hosting:**
@@ -42,6 +43,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Privacy notice (JOB-068):** lists Neon, which keeps the daily copies of the database, and how long they are kept.
 - **Quick AI answers expire (JOB-067, D-082):** the quick composer hides an answer after ten idle minutes, and the next quick question starts a new conversation. AI history and the AI tab are unchanged.
 - **Day map (JOB-067, D-081):**
   - **Show day map** loads the map at once.
