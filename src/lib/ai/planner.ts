@@ -95,6 +95,7 @@ import {
   type PlannerResearchContext,
 } from "@/lib/ai/prompt";
 import { extractLinkedUrls, fetchLinkedPages } from "@/lib/ai/linked-pages";
+import { isPlatformOperator } from "@/lib/auth/operator-access";
 import { instantDateInTimeZone, requestedRelativeDate } from "@/lib/ai/relative-date";
 import type { Locale } from "@/lib/i18n";
 import {
@@ -1134,8 +1135,11 @@ export async function runAiPlanner(
       "ai_key_required", currentPolicy.model);
     }
     await assertBoundUserAiIdle(client, session.userId);
-    // An own-key request is paid by the requester, so it may be about anything (JOB-070).
-    if (offTopicDecision.offTopic && images.length === 0 && currentPolicy.credentialSource !== "own") {
+    // Paid by the requester (JOB-070, JOB-072): their own key, or the server's keys when the platform
+    // operator, who pays for those, is asking. Such a request may be about anything.
+    const requesterPays = currentPolicy.credentialSource === "own"
+      || (currentPolicy.credentialSource === "operator" && await isPlatformOperator(client, session.userId));
+    if (offTopicDecision.offTopic && images.length === 0 && !requesterPays) {
       setupFailureStage = "off_topic_recording";
       const message = offTopicReply(
         locale,
@@ -1254,8 +1258,8 @@ export async function runAiPlanner(
         truncated: memory.truncated,
       })],
     );
-    // Own-key requests add new items the requester could add by hand; pictures always go to review.
-    const directAdd = currentPolicy.credentialSource === "own" && images.length === 0
+    // A request the requester pays for adds the new items they could add by hand, from pictures too.
+    const directAdd = requesterPays
       ? await ownKeyDirectAddScope(client, session) : { events: false, expenses: false };
     return {
       kind: "planning" as const,
@@ -1265,6 +1269,7 @@ export async function runAiPlanner(
       aiInstructions,
       userCredential,
       directAdd,
+      requesterPays,
     };
   }).catch(async (error: unknown) => {
     if (error instanceof AiPolicyDeniedError) {
@@ -1316,7 +1321,7 @@ export async function runAiPlanner(
   if (setup.kind === "replay") return setup.recovery;
   if (setup.kind === "off_topic") return setup.response;
 
-  const { policy, conversationMemory, aiInstructions, planningDraft, userCredential, directAdd } = setup;
+  const { policy, conversationMemory, aiInstructions, planningDraft, userCredential, directAdd, requesterPays } = setup;
   // Every provider call below (planning, pictures, research, venue hours) runs on the same key:
   // the requester's own when the policy chose it, otherwise the server operator's.
   const continuePlanning = async (): Promise<AiPlannerResult | AiRequestRecoveryResponse> => {
@@ -1366,7 +1371,7 @@ export async function runAiPlanner(
       } finally { clearTimeout(timeout); }
     }
     let ownKey: OwnKeyPlanning | null = null;
-    if (policy.credentialSource === "own") {
+    if (requesterPays) {
       // Links the inspector treats as private (signed or secret-bearing) stay redacted and unread.
       const urls = extractLinkedUrls(originalPrompt).filter((url) => !reservationSecrets.privateUrls.some((secret) => url.href.includes(secret) || secret.includes(url.href)));
       const linkedPages = urls.length ? await fetchLinkedPages(urls) : [];
@@ -2555,7 +2560,8 @@ export async function runAiPlanner(
         const proposal = await createChangeRequestWithClient(client, session, session.tripId, changeInputs[0], randomUUID());
         let changeStatus: "approved" | "pending" = "pending";
         let entityId: string | null = null;
-        if (images.length === 0 && session.role === "owner" && changeInputs[0].operation !== "create") {
+        // A request the owner pays for applies with pictures too (JOB-072).
+        if ((images.length === 0 || requesterPays) && session.role === "owner" && changeInputs[0].operation !== "create") {
           const applied = await reviewChangeRequestWithClient(
             client, session, session.tripId, proposal.id, "approve", "Applied directly by owner",
           );

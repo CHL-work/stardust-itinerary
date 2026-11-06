@@ -337,6 +337,8 @@ type Overview = {
   ai: {
     enabled: boolean; ownerDefaultModel: string; effectiveModel: string;
     canSelectModel?: boolean; hostSubscriptionEnabled?: boolean;
+    /** The platform operator's own AI, on the server's keys they pay for (JOB-072). */
+    operatorOwnAi?: boolean;
     /** Providers the signed-in user holds their own API key for (JOB-061). */
     ownKeyProviders?: string[];
     /** A trip owner's AI keys shared with the user (JOB-063): who shares them and which model runs. */
@@ -3938,7 +3940,8 @@ export function ownKeyAccess(ai: Overview["ai"]) {
 
 /**
  * How AI is paid for this viewer when it is not the operator's usual sponsorship: their own key, a
- * trip owner's shared key (JOB-063), or neither. Null means the sponsored-trip copy applies.
+ * trip owner's shared key (JOB-063), the operator's own use of the server's keys (JOB-072), or
+ * neither. Null means the sponsored-trip copy applies.
  */
 export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy): string | null {
   if (ai.keyRequired) return keysCopy.keyRequired;
@@ -3949,6 +3952,7 @@ export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: 
   if (ai.enabled && ai.sharedKey) {
     return formatMessage(keysCopy.sharedAccess, { owner: ai.sharedKey.sponsorName, model: ai.sharedKey.model, limit: ai.memberDailyLimit });
   }
+  if (ai.enabled && ai.operatorOwnAi) return keysCopy.operatorAccess;
   return ai.hostSubscriptionEnabled === false ? messages.aiUnavailable : null;
 }
 

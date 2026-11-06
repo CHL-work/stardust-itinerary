@@ -1242,6 +1242,9 @@ async function readAppOverviewSnapshot(
   };
   const canSelectAiModel = session.role === "owner"
     && (!settings.entitlement_available || await isPlatformOperator(client, session.userId));
+  // The platform operator's own AI in a sponsored trip runs on the server's keys, which they pay for (JOB-072).
+  const operatorOwnAi = Boolean(settings.host_subscription_enabled) && session.role === "owner"
+    && (settings.entitlement_available ? canSelectAiModel : await isPlatformOperator(client, session.userId));
   // Only which providers the viewer holds a key for, never anything about the keys (JOB-061).
   const ownKeyProviders = await aiCredentialProviders(client, session.userId);
   // An owner's keys shared with the viewer (JOB-063): who shares them and which model runs.
@@ -1495,6 +1498,7 @@ async function readAppOverviewSnapshot(
       keyRequired: settings.enabled && !settings.host_subscription_enabled && ownKeyProviders.size === 0 && sharedKey === null && freeAi === null,
       freeAi,
       canSelectModel: canSelectAiModel,
+      operatorOwnAi,
       ownerDefaultModel: settings.owner_default_model,
       effectiveModel: freeAi ? freeAi.model : canSelectAiModel ? settings.owner_default_model : MEMBER_MODEL,
       memberDailyLimit: settings.member_daily_limit,
@@ -3583,7 +3587,7 @@ export async function applyPermittedChangeRequestWithClient(
 }
 
 /**
- * Own-key AI (JOB-070): which new items an own-key AI request may add at once. Exactly what the
+ * AI the requester pays for (JOB-070, JOB-072): which new items such a request may add at once. Exactly what the
  * requester could add by hand without approval: everything for an owner; for a member, events with
  * direct itinerary permission and expenses with direct expense permission.
  */
@@ -3597,11 +3601,10 @@ export async function ownKeyDirectAddScope(client: Queryable, session: Authentic
 }
 
 /**
- * Own-key AI (JOB-070): add an event or expense that the requester's own-key AI request just proposed,
+ * AI the requester pays for (JOB-070, JOB-072): add an event or expense that such a request just proposed,
  * when the requester could have added the same item by hand. An owner approves it through the
  * ordinary review; a member needs the same direct permission as for a manual change, including for
- * a linked expense. Anything else, including edits, deletions and every request with pictures,
- * stays pending. Never throws for an ineligible request; it simply stays pending.
+ * a linked expense. Anything else, including edits and deletions, stays pending. Never throws for an ineligible request; it simply stays pending.
  */
 export async function applyOwnKeyAiCreateWithClient(
   client: PoolClient, session: AuthenticatedSession, tripId: string, requestId: string,

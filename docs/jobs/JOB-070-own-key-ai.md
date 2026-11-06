@@ -25,7 +25,7 @@ Decision: [D-085](../DECISIONS.md#d-085-own-key-ai-requests-read-links-take-any-
 
 ## Delivered
 
-Only for requests paid by the requester's own key; shared-key and operator-funded requests are unchanged.
+Only for requests paid by the requester's own key; shared-key and operator-funded requests are unchanged. [JOB-072](JOB-072-operator-own-ai.md) later applied the same rules to the platform operator's own requests on the server's keys, and to new items from pictures.
 
 1. **Linked pages** (`src/lib/ai/linked-pages.ts`). Up to three http(s) links in the request are read by the server and given to the model as untrusted `LINKED_PAGES_JSON`: title, description, structured event or place data from JSON-LD, and readable text. The guards:
    - ports 80 and 443 only;

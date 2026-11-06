@@ -2,6 +2,14 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-087: The operator's own AI requests count as paid by the requester (accepted November 6, 2026)
+
+JOB-070 loosened the AI only on a user's own key. The owner runs this server and plans on its keys, so their own requests kept every limit and the link they pasted went unread (JOB-072).
+
+- **Who pays:** the requester pays when a request runs on their own key, or on the server's keys when the requester is the platform operator, who pays for those keys. Other owners and members on the server's keys, and shared-key and free requests, keep every limit.
+- **Pictures:** on a request the requester pays for, items from pictures are added at once, and an owner's picture-based edits apply directly. D-085 kept pictures in review. But the requester supplied the picture and could add the same items by hand, and they asked not to approve their own requests. Other requests keep picture review.
+- **What stays:** privacy for other members, validation, review of edits to pending items and of deletions, and review for members who need approval.
+
 ## D-086: Free guest AI on keyless free models (accepted November 6, 2026)
 
 The owner wanted guests to use the AI for free, with a model from 2026 that is not too weak, and pointed at an open-source project that gets free tokens (JOB-071).

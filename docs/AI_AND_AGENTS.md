@@ -43,16 +43,16 @@ The model returns zero to 20 typed proposal envelopes. Multi-proposal batches ar
 
 Preflight parses the complete batch before its first write. Harmless aliases and lossless explicit-offset normalization are allowed; unknown IDs, impossible dates, ambiguous participants and unsupported privacy fail closed. Completion rechecks current role/membership/trip range/revisions after provider I/O; no database lock remains held during external calls.
 
-Every AI create remains pending even for owners, except in a request paid by the requester's own key (below). Image-derived changes and pending-event AI edits always require owner review. Validated text-only owner canonical-event update/cancel/restore may still follow the existing fast path; do not claim that broader all-edits-pending or editor approval has shipped.
+Every AI create remains pending even for owners, except in a request the requester pays for (below). Image-derived changes and pending-event AI edits require owner review, except image-derived creates and owner edits in a request the requester pays for. Validated text-only owner canonical-event update/cancel/restore may still follow the existing fast path; do not claim that broader all-edits-pending or editor approval has shipped.
 
-**Own-key requests (JOB-070, D-085).** When the requester's own key pays, the request is theirs to direct:
+**Requests the requester pays for (JOB-070, D-085; JOB-072, D-087).** When the requester's own key pays, or the server's keys pay for the platform operator's own request, the request is theirs to direct:
 
 - **Any topic:** the deterministic off-topic gate is skipped, and the model is told to help with anything, answering non-trip questions in message without proposals.
 - **Linked pages:** the server reads up to three public pages linked in the request (`src/lib/ai/linked-pages.ts`) and supplies their title, description, structured event or place data (JSON-LD) and text as untrusted `LINKED_PAGES_JSON`.
   - It never reaches anything but the public internet: http(s) on ports 80 and 443 only, every resolved address public, the connection pinned to the checked address, and redirects re-checked.
   - Limits: 8 seconds, 1.5 MB, and HTML or text only.
   - Links that the reservation-secret inspector treats as private stay redacted and unread.
-- **New items added directly:** a validated AI create is added at once when the requester could add the same item by hand. That means always for an owner, through the ordinary owner review; and for a member with direct itinerary (or expense) permission and no required approval, including for a linked expense. Requests with pictures, edits and deletions keep their usual review, and so do shared-key and operator-funded requests.
+- **New items added directly:** a validated AI create is added at once when the requester could add the same item by hand. That means always for an owner, through the ordinary owner review; and for a member with direct itinerary (or expense) permission and no required approval, including for a linked expense. New items from pictures are added the same way, and an owner's picture-based edits apply directly. Edits of pending items and deletions keep their usual review, and so do shared-key requests and other requests on the server's keys.
 
 **Free guest AI (JOB-071, D-086).** With `GUEST_FREE_AI_ENABLED=true`, a guest without a key plans on keyless free models through Kilo's AI Gateway, which documents unauthenticated access to its `:free` models.
 

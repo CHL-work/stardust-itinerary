@@ -23,6 +23,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 | JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
+| JOB-072 | The operator's own AI requests follow the own-key rules, pictures included | Done: the operator's requests on the server's keys read links, take any topic and add new items at once, from pictures too (D-087) |
 | JOB-071 | Free guest AI on keyless free models | Done: guests without a key get a few planning requests a day on a free 2026 model through Kilo's AI Gateway, without search (D-086) |
 | JOB-070 | Own-key AI requests that read links, take any topic and add new items directly | Done: on the requester's own key the AI reads pasted public links, answers anything, and adds new events and expenses they could add by hand (D-085) |
 | JOB-069 | Admin page, account suspension, a daily sign-up cap, and users' keys sealed by Cloud KMS | Done: the operator sees accounts and counts, never content, can suspend accounts and cap sign-ups; only the web server may use the KMS key that seals users' keys (D-084) |
@@ -85,6 +86,12 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 
 - **Daily copy:** the `stardust-offsite-copy` job restores the database into a Neon free-plan project as a dated database, checks every table's row count, and keeps the newest three (D-083).
 - **Free plan:** a 0.25 CU compute awake a few minutes a day, and all copies within 500 MB of the 1 GB of storage.
+
+### JOB-072: the operator's own AI
+
+Requested by the owner on 6 November 2026 ([job](jobs/JOB-072-operator-own-ai.md)).
+
+- **Paid by the requester:** the platform operator's requests on the server's keys follow the own-key rules, and pictures no longer force review on any request the requester pays for (D-087).
 
 ### JOB-071: free guest AI
 

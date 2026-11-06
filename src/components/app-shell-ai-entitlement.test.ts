@@ -29,6 +29,12 @@ describe("host AI subscription is separate from trip ownership", () => {
     const html = render({ canSelectModel: true, hostSubscriptionEnabled: true }, false);
     expect(html).toContain("model-select"); expect(html).toContain(messages.en.aiOwnerPolicy);
   });
+  it.each(locales)("tells the platform operator, in %s, that their own AI reads links and adds at once (JOB-072)", (locale) => {
+    const html = render({ canSelectModel: true, hostSubscriptionEnabled: true, operatorOwnAi: true }, true, locale);
+    expect(html).toContain(aiKeysMessages(locale).operatorAccess.replaceAll("'", "&#x27;"));
+    expect(html).not.toContain(messages[locale].aiOwnerPolicy);
+    expect(html).toContain("model-select");
+  });
   it.each(locales)("asks for the user's own key in an unsponsored trip with clear %s copy", (locale) => {
     const html = render({ enabled: false, canSelectModel: false, hostSubscriptionEnabled: false, keyRequired: true }, true, locale);
     expect(html).toContain(aiKeysMessages(locale).keyRequired.replaceAll("'", "&#x27;"));

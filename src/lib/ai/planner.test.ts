@@ -41,6 +41,10 @@ const mocks = vi.hoisted(() => ({
   freeModel: vi.fn(),
   codexOptions: undefined as unknown,
   readAiCredentialSecret: vi.fn(),
+  isPlatformOperator: vi.fn(async () => false),
+  fetchLinkedPages: vi.fn(async (urls: readonly URL[]) => urls.map((url) => ({ url: url.href, finalUrl: url.href,
+    title: "Synthetic meetup", description: null, text: "Synthetic meetup page.",
+    structuredData: JSON.stringify([{ type: "Event", name: "Synthetic meetup", startDate: "2030-01-02T17:00:00.000-07:00" }]) }))),
   runVenueHoursResearch: vi.fn(),
   runPublicResearch: vi.fn(),
   extractAiImageFacts: vi.fn(),
@@ -74,6 +78,10 @@ vi.mock("@/lib/ai/free-model", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/ai/free-model")>(), generateWithFreeModel: mocks.freeModel,
 }));
 vi.mock("@/lib/ai/credentials", () => ({ readAiCredentialSecret: mocks.readAiCredentialSecret }));
+vi.mock("@/lib/auth/operator-access", () => ({ isPlatformOperator: mocks.isPlatformOperator }));
+vi.mock("@/lib/ai/linked-pages", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/ai/linked-pages")>(), fetchLinkedPages: mocks.fetchLinkedPages,
+}));
 
 vi.mock("@/lib/app/repository", () => {
   class AppConflictError extends Error {}
@@ -1977,7 +1985,7 @@ describe("AI planner live-search and approval policy", () => {
     mocks.runCodex.mockResolvedValue({ finalResponse: JSON.stringify({ message: "Here is a sort function.", proposals: [], sources: [] }), items: [], usage: null });
     const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Write me a Python function to sort a linked list", "gpt-6.1-terra");
     expect(mocks.runCodex).toHaveBeenCalledTimes(1);
-    expect(mocks.runCodex.mock.calls[0]![0]).toContain("This request is paid by the requester's own provider key. Help with whatever they ask");
+    expect(mocks.runCodex.mock.calls[0]![0]).toContain("The requester pays for this request. Help with whatever they ask");
     expect(result).toMatchObject({ message: "Here is a sort function.", proposalCount: 0 });
   });
 
@@ -1999,6 +2007,74 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.applyOwnKeyAiCreate).not.toHaveBeenCalled();
     expect(result).toMatchObject({ changeStatus: "pending" });
     expect(mocks.runCodex.mock.calls.at(-1)![0]).toContain("Every AI-created itinerary event requires explicit owner approval");
+  });
+
+  it("treats the platform operator's own request on the server's keys as paid by the requester (JOB-072)", async () => {
+    mocks.isPlatformOperator.mockResolvedValueOnce(true);
+    queuePublicResearchPlanner("gpt-6.1-sol");
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, researchPrompt);
+    expect(mocks.isPlatformOperator).toHaveBeenCalledWith(expect.anything(), ownerSession.userId);
+    expect(mocks.ownKeyDirectAddScope).toHaveBeenCalledTimes(1);
+    expect(mocks.applyOwnKeyAiCreate).toHaveBeenCalledWith(expect.anything(), ownerSession, ownerSession.tripId, "proposal-1");
+    expect(result).toMatchObject({ proposalCount: 1, changeStatus: "approved", entityId: "own-key-entity" });
+    expect(mocks.runCodex.mock.calls.at(-1)![0]).toContain("the server adds every validated AI-created itinerary event at once");
+    expect(mocks.readAiCredentialSecret).not.toHaveBeenCalled();
+    const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
+    expect(requestInsert?.[1]?.at(-1)).toBe("operator");
+  });
+
+  it("reads a linked page and takes any topic for the platform operator on the server's keys (JOB-072)", async () => {
+    mocks.isPlatformOperator.mockResolvedValue(true);
+    try {
+      mocks.runCodex.mockResolvedValue({ finalResponse: JSON.stringify({ message: "Read it.", proposals: [], sources: [] }), items: [], usage: null });
+      await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "What is this event? https://events.example/synthetic-meetup", "gpt-6.1-sol");
+      expect(mocks.fetchLinkedPages).toHaveBeenCalledWith([new URL("https://events.example/synthetic-meetup")]);
+      const prompt = String(mocks.runCodex.mock.calls[0]![0]);
+      expect(prompt).toContain("LINKED_PAGES_JSON\n[");
+      expect(prompt).toContain("Synthetic meetup");
+      expect(prompt).toContain("The requester pays for this request. Help with whatever they ask");
+      const linksEvent = mocks.query.mock.calls.find(([sql]) => String(sql).includes("'links.read'"));
+      expect(JSON.parse(String(linksEvent?.[1]?.[3]))).toMatchObject({ linked: 1, read: 1, errors: [] });
+      mocks.runCodex.mockClear();
+      await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Write me a Python function to sort a linked list", "gpt-6.1-sol");
+      expect(mocks.runCodex).toHaveBeenCalledTimes(1);
+    } finally {
+      mocks.isPlatformOperator.mockResolvedValue(false);
+    }
+  });
+
+  it("reads no links for an owner on the server's keys who is not the platform operator (JOB-072)", async () => {
+    mocks.runCodex.mockResolvedValue({ finalResponse: JSON.stringify({ message: "Send the details.", proposals: [], sources: [] }), items: [], usage: null });
+    await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "What is this event? https://events.example/synthetic-meetup", "gpt-6.1-sol");
+    expect(mocks.isPlatformOperator).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchLinkedPages).not.toHaveBeenCalled();
+    expect(String(mocks.runCodex.mock.calls[0]![0])).not.toContain("LINKED_PAGES_JSON");
+  });
+
+  it("adds new items from pictures directly when the requester pays (JOB-072)", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "gpt-6.1-sol", usedToday: 0, limit: null, credentialSource: "own" });
+    mocks.readAiCredentialSecret.mockResolvedValue({ apiKey: "user-own-key", vertex: null });
+    mocks.runCodex.mockResolvedValue(reservationReply(reservationPatch()));
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession,
+      "Create the private hotel event and expense from this picture, shared with Guest. I paid.", "gpt-6.1-sol", "en",
+      imageSubmissionKey, conversationMemory.conversationId, [preparedPicture]);
+    expect(mocks.ownKeyDirectAddScope).toHaveBeenCalledTimes(1);
+    expect(mocks.applyOwnKeyAiCreate).toHaveBeenCalledWith(expect.anything(), ownerSession, ownerSession.tripId, "proposal-1");
+    expect(result).toMatchObject({ changeStatus: "approved", entityId: "own-key-entity" });
+  });
+
+  it("applies the operator's picture-based edit directly on the server's keys (JOB-072)", async () => {
+    mocks.isPlatformOperator.mockResolvedValueOnce(true);
+    mocks.runCodex.mockResolvedValue({
+      finalResponse: plannerOutput({ message: "Updated.", action: "update",
+        entityId: context.itinerary[0]!.id, baseRevision: 2,
+        patchJson: JSON.stringify({ notes: "Meeting point from the picture: lobby." }), reason: "Read from supplied picture", sources: [] }),
+      items: [], usage: { input_tokens: 30, output_tokens: 10, cached_input_tokens: 5 },
+    });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession,
+      "Update the existing tea event note from this picture.", "gpt-6.1-sol", "en", imageSubmissionKey, conversationMemory.conversationId, [preparedPicture]);
+    expect(mocks.applyPermittedChangeRequest).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ changeStatus: "approved" });
   });
 
   it("turns a free model's nested patches into the planner's patchJson strings (JOB-071)", () => {

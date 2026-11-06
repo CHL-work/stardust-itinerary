@@ -93,6 +93,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **The operator's own AI (JOB-072, D-087):** the platform operator's requests on the server's keys now follow the own-key rules, as JOB-070 intended for anyone paying for their own AI: they read pasted public links, take any topic and add new events and expenses at once. On a request the requester pays for, items and owner edits from pictures no longer wait for approval either. The operator's AI card says so in one line.
+
 - **Place lookups at most once a second:** the day map's place lookup could start a request 999 ms after the previous one, because a timer may fire a millisecond early by the wall clock; it now waits until a full second has passed.
 
 - **Guest purge on GKE:** its network policy now allows DNS through NodeLocal DNSCache (`169.254.20.10`) and the metadata address, which the first scheduled run could not reach.
