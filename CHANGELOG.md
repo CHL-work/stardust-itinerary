@@ -84,6 +84,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **Place lookups at most once a second:** the day map's place lookup could start a request 999 ms after the previous one, because a timer may fire a millisecond early by the wall clock; it now waits until a full second has passed.
+
 - **Guest purge on GKE:** its network policy now allows DNS through NodeLocal DNSCache (`169.254.20.10`) and the metadata address, which the first scheduled run could not reach.
 
 ### Security

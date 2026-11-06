@@ -243,8 +243,10 @@ export class OsmVenueResolver {
     const key = cacheKey(options.config.endpoint, query); const cached = cache[key];
     if (cached && cached.expiresAt > this.now()) return cached.coordinate;
     if (options.allowLookup && !options.allowLookup()) throw new OsmLookupLimit();
-    const delay = Math.max(0, this.lastStart + 1000 - this.now());
-    if (delay) await withMapAbort(new Promise<void>((done) => { const timer = setTimeout(done, delay); options.signal.addEventListener("abort", () => clearTimeout(timer), { once: true }); }), options.signal);
+    // A timer may fire a millisecond early by this clock, so wait until a full second has passed.
+    for (let delay = this.lastStart + 1000 - this.now(); delay > 0; delay = this.lastStart + 1000 - this.now()) {
+      await withMapAbort(new Promise<void>((done) => { const timer = setTimeout(done, delay); options.signal.addEventListener("abort", () => clearTimeout(timer), { once: true }); }), options.signal);
+    }
     if (options.signal.aborted) throw new MapProviderUnavailable();
     this.lastStart = this.now();
     const signal = AbortSignal.any([options.signal, AbortSignal.timeout(3000)]);
