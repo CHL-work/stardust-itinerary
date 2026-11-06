@@ -100,6 +100,13 @@ Decision: [D-084](../DECISIONS.md#d-084-an-admin-page-suspension-a-sign-up-cap-a
 - **`pnpm check`:** lint, typecheck, unit tests, database tests, build and smoke.
 - **Against the real key, from a workstation, before the deny policy:** a synthetic secret sealed and opened, and opening it under another account's binding was refused (`decrypt_400`). After the deny policy, the project owner's own account gets `encrypt_403`.
 
+- **After the deploy on 6 November 2026:**
+  - Migration 0059 ran, and the cap starts at 50.
+  - `credential-reencrypt` ran in the web pod with the KMS settings next to the local key, then again with the KMS settings only. Both times its synthetic round trip passed, and there were no saved keys to move.
+  - The secret versions that held the local key are disabled.
+  - KMS Data Access logs show each Encrypt and Decrypt by `stardust-credentials` on behalf of the web server's Kubernetes identity.
+  - Signed out, `/admin` returns 404 and `/api/admin/status` returns 401.
+
 ## Rollback
 
 - **Code:** revert the commits. Migration 0059 only adds columns, tables and indexes. Older code ignores them, except that KMS-sealed keys cannot be opened without the KMS code.
