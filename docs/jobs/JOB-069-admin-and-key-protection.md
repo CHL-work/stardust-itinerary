@@ -76,7 +76,7 @@ Decision: [D-084](../DECISIONS.md#d-084-an-admin-page-suspension-a-sign-up-cap-a
    - New keys go to KMS (`src/lib/ai/credential-kms.ts`) with the same user-and-provider binding as before, and CRC32C checks on every request and response.
    - The web server acts as a dedicated service account. It gets its Kubernetes identity's token from the metadata server, which only the web pod may reach.
    - An IAM deny policy refuses KMS encryption and decryption to every other principal, project owners included. Data Access audit logs record every use.
-   - `credential-reencrypt` moves keys saved under the local ring into KMS, then opens each KMS-sealed key once to prove that the server can.
+   - `credential-reencrypt` first seals and opens a synthetic value, then moves keys saved under the local ring into KMS, and opens each KMS-sealed key once to prove that the server can.
    - Settings tells users which protection applies, and advises a dedicated, spend-limited key. Self-hosted instances keep the local ring unless they configure KMS.
 6. **Infrastructure** (`infra/main.tf`): the key ring and key (software protection, yearly rotation), the `stardust-credentials` service account and its two grants, the deny policy, and KMS Data Access logging. The GKE overlay adds the `web-metadata-egress` NetworkPolicy.
 7. **Docs:** [privacy notice](../PRIVACY.md), [threat model](../THREAT_MODEL.md), [identity and security](../IDENTITY_AND_SECURITY.md), [database](../DATABASE.md), [deployment](../DEPLOYMENT.md), [self-hosting](../SELF_HOSTING.md), [public trips and members](../PUBLIC_TRIPS_AND_MEMBERS.md), the architecture and implementation maps, decisions, roadmap, sources and the changelog.

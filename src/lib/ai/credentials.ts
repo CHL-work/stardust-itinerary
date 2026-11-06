@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 
@@ -268,14 +269,19 @@ export type AiCredentialReencryption = {
 };
 
 /**
- * With Cloud KMS configured (JOB-069): move every key still under the local ring into KMS, then open
- * every KMS-sealed key once, to prove that this server's identity can still use the KMS key. Each of
- * those checks is a decryption that KMS logs, like any other use. Same locking and counting rules as
- * the local rotation below.
+ * With Cloud KMS configured (JOB-069): seal and open a synthetic value, move every key still under the
+ * local ring into KMS, then open every KMS-sealed key once, to prove that this server's identity can
+ * use the KMS key. Each of those checks is a use that KMS logs, like any other. Same locking and
+ * counting rules as the local rotation below.
  */
 async function moveAiCredentialsToKms(
   pool: Pool, kms: KmsSettings, env: Record<string, string | undefined>, batchSize: number,
 ): Promise<AiCredentialReencryption> {
+  // Prove that this server can use the key before moving anything, even when no key is saved yet:
+  // a synthetic value bound to no real account must come back unchanged.
+  const probe = `stardust-kms-probe-${randomUUID()}`;
+  const probeData = credentialAssociatedData("00000000-0000-4000-8000-000000000000", "openai");
+  if (await kmsOpen(await kmsSeal(probe, probeData, kms), probeData, kms) !== probe) throw new CredentialEncryptionUnavailableError();
   const unreadableRows = new Set<string>();
   let reencrypted = 0;
   for (;;) {

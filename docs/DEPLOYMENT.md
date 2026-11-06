@@ -144,7 +144,7 @@ Backups taken before the rotation still hold ciphertexts under the old key. Keep
 To move an instance's saved keys from the local ring to KMS:
 
 1. Add a `stardust-credential-env` version with `CREDENTIAL_KMS_KEY` and `CREDENTIAL_KMS_SERVICE_ACCOUNT` next to the existing `CREDENTIAL_ENCRYPTION_KEY`, then `kubectl -n stardust rollout restart deploy/stardust-web`. New keys are now sealed by KMS, and old ones still open with the ring.
-2. `kubectl -n stardust exec deploy/stardust-web -- /app/deploy/container/entrypoint.sh credential-reencrypt`. It moves every ring-sealed key into KMS, then opens every KMS-sealed key once to prove that the server can. It prints counts only, and exits non-zero while a key is left under the ring or does not open.
+2. `kubectl -n stardust exec deploy/stardust-web -- /app/deploy/container/entrypoint.sh credential-reencrypt`. It first seals and opens a synthetic value, which proves that the server can use the key even before any key is saved. It then moves every ring-sealed key into KMS, and opens every KMS-sealed key once. It prints counts only, and exits non-zero while a key is left under the ring or does not open.
 3. Add a version with only the two KMS settings, restart the web server, and run step 2 again.
 4. Disable the old secret versions. Backups and off-site copies taken before the move still hold ring ciphertexts for up to 30 days. Destroying the old versions makes those unreadable for good: a restore from such a backup then needs users to add their keys again, but nobody can open them.
 
