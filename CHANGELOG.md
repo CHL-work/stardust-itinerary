@@ -97,6 +97,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **Codex web search, disruption checks and OpenAI-model planning (JOB-074, D-089):** since Codex 0.147 every tool runs through the CLI's code-mode host, which the lockdown had turned off. No Codex turn could search the web, the disruption monitor failed every run, and OpenAI-model planning failed. The host stays on now, with code mode and every other disabled feature still off. The monitor reports its own disallowed-tool check as `DISRUPTION_PROVIDER_TOOL` instead of a provider sign-in failure.
+
 - **The operator's own AI (JOB-072, D-087):** the platform operator's requests on the server's keys now follow the own-key rules, as JOB-070 intended for anyone paying for their own AI: they read pasted public links, take any topic and add new events and expenses at once. On a request the requester pays for, items and owner edits from pictures no longer wait for approval either. The operator's AI card says so in one line.
 
 - **Place lookups at most once a second:** the day map's place lookup could start a request 999 ms after the previous one, because a timer may fire a millisecond early by the wall clock; it now waits until a full second has passed.

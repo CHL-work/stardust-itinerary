@@ -5,6 +5,7 @@ import { disruptionMonitorInternals, runDueDisruptionMonitors } from "@/lib/disr
 import {
   DisruptionProviderCleanupError,
   DisruptionProviderInvocationError,
+  DisruptionProviderToolError,
 } from "@/lib/disruptions/provider";
 import type { DisruptionAlert, DisruptionProvider } from "@/lib/disruptions/types";
 
@@ -748,5 +749,14 @@ describe("due disruption monitor", () => {
       new Error("untagged internal failure"),
       new AbortController().signal,
     )).toEqual({ code: "DISRUPTION_PROVIDER_ERROR", retryable: false });
+    // Its own disallowed-tool check is never reported as a provider sign-in failure (JOB-074).
+    expect(disruptionMonitorInternals.classifyProviderFailure(
+      new DisruptionProviderToolError(),
+      new AbortController().signal,
+    )).toEqual({ code: "DISRUPTION_PROVIDER_TOOL", retryable: false });
+    expect(disruptionMonitorInternals.classifyProviderFailure(
+      new DisruptionProviderInvocationError(Object.assign(new Error("Forbidden"), { status: 403 })),
+      new AbortController().signal,
+    )).toEqual({ code: "DISRUPTION_PROVIDER_AUTH", retryable: false });
   });
 });

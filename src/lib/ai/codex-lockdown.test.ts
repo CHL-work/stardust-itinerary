@@ -19,6 +19,9 @@ const harmlessDefaultFeatures = new Set([
   "guardian_approval", "guardian_reuse_parent_compaction", "incremental_tools", "instant_interrupt",
   "mcp_oauth_refresh_coordination", "mentions_v2", "prediction_preserve_parent_tools", "reasoning_effort_override",
   "secret_auth_storage", "system_proxy_fallback", "ultrafast_mode", "unbounded_connection_retries", "write_stdin_approval",
+  // The transport for every tool since Codex 0.147; with it off a session fails closed and cannot even search.
+  // Its V8 isolate has no file, network, process or environment API (D-089).
+  "code_mode_host",
   // This CLI reports unified exec as on whatever the override says. It runs commands only through the
   // shell tool, which is off: a probe of a locked-down turn on 4 November 2026 found no command tool.
   "unified_exec",
@@ -45,6 +48,9 @@ describe("Codex lockdown for in-app model turns", () => {
       plugins: false, remote_plugin: false, skill_search: false, image_generation: false });
     expect(lockedDownCodexConfig).toMatchObject({ mcp_servers: {}, apps: {}, hooks: {}, notify: [], agents: { enabled: false },
       skills: { bundled: { enabled: false } }, history: { persistence: "none" } });
+    // Code mode stays off for the model; only its host stays on, as the tool transport (D-089).
+    expect(lockedDownCodexConfig.features).toMatchObject({ code_mode: false, code_mode_only: false });
+    expect(lockedDownCodexConfig.features).not.toHaveProperty("code_mode_host");
   });
 
   it("leaves only harmless features on in the installed CLI, for in-app turns and the feedback reviewer", async () => {

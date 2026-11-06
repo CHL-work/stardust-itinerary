@@ -20,3 +20,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-071 | Free guest AI on keyless free models | done |
 | JOB-072 | The operator's own AI requests follow the own-key rules, pictures included | done |
 | JOB-073 | Brief UI copy, with a few "?" buttons for details | done |
+| JOB-074 | Codex web search again, with the code-mode host on | done |

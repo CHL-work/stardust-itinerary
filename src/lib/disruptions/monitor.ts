@@ -9,6 +9,7 @@ import {
   DISRUPTION_MODEL,
   DisruptionProviderCleanupError,
   DisruptionProviderInvocationError,
+  DisruptionProviderToolError,
   DISRUPTION_TIMEOUT_MS,
 } from "@/lib/disruptions/provider";
 import {
@@ -120,6 +121,7 @@ type ProviderFailureClassification = {
     | "DISRUPTION_PROVIDER_CONFIGURATION"
     | "DISRUPTION_PROVIDER_ERROR"
     | "DISRUPTION_PROVIDER_RATE_LIMIT"
+    | "DISRUPTION_PROVIDER_TOOL"
     | "DISRUPTION_PROVIDER_TIMEOUT"
     | "DISRUPTION_PROVIDER_UNAVAILABLE";
   retryable: boolean;
@@ -133,6 +135,10 @@ function providerFailureProperty(error: unknown, key: string): unknown {
 function classifyProviderFailure(error: unknown, signal: AbortSignal): ProviderFailureClassification {
   if (error instanceof DisruptionProviderCleanupError) {
     return { code: "DISRUPTION_PROVIDER_CLEANUP", retryable: false };
+  }
+  // Checked by type before any message matching: its text must never read as a provider sign-in failure.
+  if (error instanceof DisruptionProviderToolError) {
+    return { code: "DISRUPTION_PROVIDER_TOOL", retryable: false };
   }
   const invocationError = error instanceof DisruptionProviderInvocationError;
   const providerError = invocationError ? error.providerError : error;

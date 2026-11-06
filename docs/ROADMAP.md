@@ -23,6 +23,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 | JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
+| JOB-074 | Codex web search again, with the code-mode host on | Done: disruption checks and OpenAI-model planning search again; the host stays on with code mode off (D-089) |
 | JOB-073 | Brief UI copy, with a few "?" buttons for details | Done: shorter notes, warnings and errors in every language, and details behind three "?" buttons (D-088) |
 | JOB-072 | The operator's own AI requests follow the own-key rules, pictures included | Done: the operator's requests on the server's keys read links, take any topic and add new items at once, from pictures too (D-087) |
 | JOB-071 | Free guest AI on keyless free models | Done: guests without a key get a few planning requests a day on a free 2026 model through Kilo's AI Gateway, without search (D-086) |
@@ -87,6 +88,12 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 
 - **Daily copy:** the `stardust-offsite-copy` job restores the database into a Neon free-plan project as a dated database, checks every table's row count, and keeps the newest three (D-083).
 - **Free plan:** a 0.25 CU compute awake a few minutes a day, and all copies within 500 MB of the 1 GB of storage.
+
+### JOB-074: Codex web search again
+
+Requested by the owner on 6 November 2026 ([job](jobs/JOB-074-codex-code-mode-host.md)).
+
+- **Tools through the code-mode host:** the lockdown keeps the host on and code mode off, so Codex turns can search and the disruption monitor runs again (D-089).
 
 ### JOB-073: brief UI copy
 

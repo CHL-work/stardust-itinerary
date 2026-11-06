@@ -112,7 +112,7 @@ const lookupInstructions = "You are a tool-free geography classifier. Follow onl
 function isolatedConfiguration(instructionFile: string) {
   return { forced_login_method: "api", model_provider: "openai", developer_instructions: lookupInstructions,
     model_instructions_file: instructionFile, personality: "none", project_doc_max_bytes: 0,
-    // The shared tool lockdown (codex-lockdown.ts), which also turns off code mode.
+    // The shared tool lockdown (codex-lockdown.ts): code mode off, its host on as the tool transport (D-089).
     features: { ...lockedDownCodexFeatures, request_permissions_tool: false },
     mcp_servers: {}, apps: {}, hooks: {}, notify: [], agents: { enabled: false },
     skills: { bundled: { enabled: false }, include_instructions: false },

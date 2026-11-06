@@ -18,8 +18,13 @@ export const disabledCodexFeatures = [
   "apps", "plugins", "plugin_sharing", "remote_plugin", "skill_search", "skill_mcp_dependency_install", "tool_suggest",
   "tool_call_mcp_elicitation", "workspace_dependencies",
   // Agents, hooks, memory, images and other side effects.
-  "multi_agent", "multi_agent_v2", "hooks", "memories", "view_image", "image_generation", "code_mode_host", "goals",
+  "multi_agent", "multi_agent_v2", "hooks", "memories", "view_image", "image_generation", "goals",
   "sleep_tool", "auth_elicitation",
+  // Code mode as a model-facing feature stays off. Its host, `code_mode_host`, stays on: since Codex 0.147 every
+  // tool, web search included, runs through `codex-code-mode-host`, and with the host off each session fails
+  // closed, so no turn could search (D-089). The host runs model-written JavaScript in a bare V8 isolate with no
+  // file, network, process or environment API, so it reaches only the tools left on here.
+  "code_mode", "code_mode_only",
 ] as const;
 
 /** `features` overrides that turn every listed feature off; spread into other Codex configurations. */
@@ -29,6 +34,7 @@ export const lockedDownCodexFeatures: Readonly<Record<string, boolean>> =
 /**
  * Codex configuration for in-app model turns: no shell, exec, code mode, browser, computer use,
  * connectors, plugins, skills, agents, hooks, memories, image tools, MCP servers or persisted history.
+ * Only the code-mode host stays on, as the transport for the tools a thread allows, such as web search (D-089).
  */
 export const lockedDownCodexConfig: CodexConfig = {
   features: { ...lockedDownCodexFeatures },

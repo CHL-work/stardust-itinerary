@@ -2,6 +2,15 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-089: The Codex code-mode host stays on as the tool transport (accepted November 6, 2026)
+
+Since Codex 0.147 the CLI runs every tool, web search included, through its code-mode host. The lockdown had turned the host off, so each session failed closed: no Codex turn could search, and the disruption monitor and OpenAI-model planning failed (JOB-074).
+
+- **Host on, code mode off:** `code_mode_host` stays at its default, on. `code_mode` and `code_mode_only` are off, and so is every other disabled feature: shell, exec, browsers, computer use, connectors, plugins, skills, agents, hooks, memories, images and history.
+- **Why it is acceptable:** the host runs model-written JavaScript in a bare V8 isolate with no file, network, process or environment API, so it reaches only the tools left on. On the production image the model could search the web but could not read a canary file.
+- **Residual risk:** the host is a separate process outside Codex's OS sandbox, and it inherits Codex's environment, which holds the provider key. An escape from the V8 isolate could therefore use that key. Secrets are not otherwise in that environment: `providerEnvironment` passes only runtime variables and the provider's own key.
+- **Not chosen:** calling the Responses API directly would avoid the host, but it would replace the Codex transport the planner, research and the monitor share. Re-check this when the CLI changes; the lockdown test reads the installed CLI's own feature report.
+
 ## D-088: Brief UI copy, with details behind a few help buttons (accepted November 6, 2026)
 
 The owner found the UI wordy and its warnings unread (JOB-073).

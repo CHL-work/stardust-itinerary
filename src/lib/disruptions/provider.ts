@@ -23,6 +23,14 @@ export class DisruptionProviderInvocationError extends Error {
   }
 }
 
+/** A disruption turn used something beyond reasoning, its answer and web search; never retried. */
+export class DisruptionProviderToolError extends Error {
+  constructor() {
+    super("A disruption check used a tool outside its allowlist.");
+    this.name = "DisruptionProviderToolError";
+  }
+}
+
 export class DisruptionProviderCleanupError extends Error {
   constructor() {
     super("The disruption provider workspace could not be cleaned up.");
@@ -56,9 +64,7 @@ export function createCodexDisruptionProvider(): DisruptionProvider {
         } catch (error) {
           throw new DisruptionProviderInvocationError(error);
         }
-        if (usedForbiddenCodexItem(turn.items, { webSearch: true })) {
-          throw new DisruptionProviderInvocationError(new Error("A disruption check used a forbidden tool."));
-        }
+        if (usedForbiddenCodexItem(turn.items, { webSearch: true })) throw new DisruptionProviderToolError();
         const webSearchItems = turn.items.filter((item) => item.type === "web_search");
         return {
           rawOutput: turn.finalResponse,

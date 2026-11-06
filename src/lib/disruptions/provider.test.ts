@@ -45,6 +45,7 @@ import {
   DISRUPTION_MODEL,
   DisruptionProviderCleanupError,
   DisruptionProviderInvocationError,
+  DisruptionProviderToolError,
   DISRUPTION_TIMEOUT_MS,
 } from "@/lib/disruptions/provider";
 import { withOperatorAiCredential } from "@/lib/ai/credential-context";
@@ -104,6 +105,20 @@ describe("Codex disruption provider", () => {
       name: DisruptionProviderInvocationError.name,
       providerError,
     });
+  });
+
+  it.each([
+    ["a command", { id: "cmd-1", type: "command_execution", command: "cat /var/run/stardust/env/ai/ai.env" }],
+    ["a Codex error notice, as when the code-mode host was off", { id: "item_0", type: "error", message: "Code Mode is unavailable because code-mode host is disabled." }],
+  ])("refuses a turn containing %s with its own tool error, not a sign-in failure (JOB-074)", async (_label, item) => {
+    mocks.run.mockResolvedValue({ finalResponse: '{"alerts":[]}', usage: null, items: [item, { id: "msg-1", type: "agent_message", text: "{}" }] });
+    const failure = createCodexDisruptionProvider().check({
+      prompt: "check",
+      outputSchema: { type: "object" },
+      signal: AbortSignal.timeout(DISRUPTION_TIMEOUT_MS),
+    });
+    await expect(failure).rejects.toBeInstanceOf(DisruptionProviderToolError);
+    await expect(failure).rejects.not.toBeInstanceOf(DisruptionProviderInvocationError);
   });
 
   it("makes a standalone workspace cleanup failure terminal and distinguishable", async () => {
