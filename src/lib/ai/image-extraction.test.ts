@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import { ownerModels, ownerModelRegistry, type OwnerModel } from "@/lib/app/types";
-const sdkModels = ownerModels.filter((model) => ownerModelRegistry[model].provider !== "google");
+import { selectableOwnerModels, ownerModelRegistry, type OwnerModel } from "@/lib/app/types";
+const sdkModels = selectableOwnerModels.filter((model) => ownerModelRegistry[model].provider !== "google");
 import { AI_IMAGE_FACTS_MAX_CHARACTERS, AI_IMAGE_MAX_BYTES, AI_IMAGE_MAX_COUNT, AI_IMAGE_MAX_EDGE } from "@/lib/ai/image-types";
 import type { PreparedAiImage } from "@/lib/ai/image-server-types";
 import type { Locale } from "@/lib/i18n";
@@ -182,7 +182,7 @@ describe("bounded picture extraction", () => {
     expect(result).toMatchObject({ inputTokens: 420, outputTokens: 90, cachedInputTokens: 20 });
   });
 
-  it.each(ownerModels)("preserves the selected registered model %s instead of falling back", async (model) => {
+  it.each(selectableOwnerModels)("preserves the selected registered model %s instead of falling back", async (model) => {
     await extractAiImageFacts(input(model));
     const profile = ownerModelRegistry[model];
     if (profile.provider === "openai") {

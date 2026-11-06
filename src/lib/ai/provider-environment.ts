@@ -19,6 +19,8 @@ export function providerEnvironment(source: Record<string, string | undefined> =
   const allowed = Object.fromEntries(Object.entries(source).filter((entry): entry is [string, string] => entry[1] !== undefined
     && (runtimeVariable.test(entry[0]) || providerVariable.test(entry[0]))));
   if (credential.source === "operator") return allowed;
+  // A free guest request (JOB-071) never starts a keyed provider; refuse rather than run keyless.
+  if (credential.source === "free") throw new Error("A free guest AI request cannot start a keyed provider.");
   for (const key of Object.keys(allowed)) if (operatorScoped.test(key)) delete allowed[key];
   return { ...allowed, ...userCredentialEnvironment(credential) };
 }

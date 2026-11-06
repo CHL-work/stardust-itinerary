@@ -54,6 +54,12 @@ Every AI create remains pending even for owners, except in a request paid by the
   - Links that the reservation-secret inspector treats as private stay redacted and unread.
 - **New items added directly:** a validated AI create is added at once when the requester could add the same item by hand. That means always for an owner, through the ordinary owner review; and for a member with direct itinerary (or expense) permission and no required approval, including for a linked expense. Requests with pictures, edits and deletions keep their usual review, and so do shared-key and operator-funded requests.
 
+**Free guest AI (JOB-071, D-086).** With `GUEST_FREE_AI_ENABLED=true`, a guest without a key plans on keyless free models through Kilo's AI Gateway, which documents unauthenticated access to its `:free` models.
+
+- **How it runs:** `src/lib/ai/free-model.ts` calls the gateway's chat completions with the planner's schema, no key and an honest Stardust user agent, inside the separate free credential context that every keyed adapter refuses. The `guest-free` model slot is never offered for selection.
+- **What it can do:** planning only. There is no search, research or venue-hours lookup, and guests cannot attach pictures. Free models return each proposal's patch as a nested object, which the planner turns into `patchJson` before the usual validation, and an unusable answer gets one more try.
+- **Limits:** per guest per UTC day (default 10), and for the whole instance per hour (default 60, under the gateway's 200 per address) and per day (default 500). Requests are recorded with `credential_source = 'free'`.
+
 The topic limit protects the operator's or a sponsor's money; privacy rules for other members, the output schema and the funding rules still apply in full.
 
 Pending trip-visible event creates are readable by active trip members. Private creates follow selected audiences plus the narrow owner proposal-review exception, not a canonical privacy bypass. Pending expenses are visible only to active requester/payer/split participants/owner reviewer and stay outside totals. Authorized editors may edit visible pending events; only the creator changes audience, and cross-editor modification forces owner review. Linked expenses are preserved by `update_pending`. [Pending edits](AI_PENDING_EVENT_EDITS.md).

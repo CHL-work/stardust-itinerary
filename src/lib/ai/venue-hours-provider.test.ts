@@ -2,7 +2,7 @@ import { lockedDownCodexConfig } from "@/lib/ai/codex-lockdown";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ownerModelRegistry, ownerModels, type OwnerModel } from "@/lib/app/types";
+import { ownerModelRegistry, selectableOwnerModels, type OwnerModel } from "@/lib/app/types";
 
 const mocks = vi.hoisted(() => ({
   codex: vi.fn(), startThread: vi.fn(), run: vi.fn(), claudeQuery: vi.fn(), close: vi.fn(), gemini: vi.fn(),
@@ -172,7 +172,7 @@ describe("isolated venue-hours provider", () => {
     await expect(gate(hookInput, undefined, { signal: new AbortController().signal })).resolves.toMatchObject({ hookSpecificOutput: { permissionDecision: "deny" } });
   });
 
-  it.each(ownerModels)("retains registered model and effort for %s without fallback", async (model) => {
+  it.each(selectableOwnerModels)("retains registered model and effort for %s without fallback", async (model) => {
     await runVenueHoursResearch(input(model));
     const profile = ownerModelRegistry[model];
     if (profile.provider === "openai") {

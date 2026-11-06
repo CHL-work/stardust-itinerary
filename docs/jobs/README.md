@@ -17,3 +17,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-068 | Daily off-site copy of the database in Neon | done |
 | JOB-069 | Admin page, account suspension, a daily sign-up cap, and keys sealed by Cloud KMS | done |
 | JOB-070 | Own-key AI requests that read links, take any topic and add new items directly | done |
+| JOB-071 | Free guest AI on keyless free models | done |

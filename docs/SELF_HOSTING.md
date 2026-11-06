@@ -21,6 +21,7 @@ Edit `.env`:
 | --- | --- |
 | `AUTH_SECRET` | output of `openssl rand -base64 32` |
 | `CREDENTIAL_ENCRYPTION_KEY` | another, different `openssl rand -base64 32`. It encrypts the API keys users save in Settings, and Compose gives it only to the web service. Keep a copy: without it, saved keys cannot be decrypted. To rotate it, see [rotation](DEPLOYMENT.md#rotating-the-encryption-key); with Compose, run the re-encryption with `docker compose exec web /app/deploy/container/entrypoint.sh credential-reencrypt` |
+| `GUEST_FREE_AI_ENABLED` | optional, with guest mode: `true` lets guests without a key plan on keyless free models through Kilo's AI Gateway, within the caps in `.env.example`. Free models may keep what guests send, and guests are told so |
 | `CREDENTIAL_KMS_KEY`, `CREDENTIAL_KMS_SERVICE_ACCOUNT` | optional, on a Google Cloud machine: seal saved keys with a Cloud KMS key instead, so no encryption key sits on the host ([keys in Cloud KMS](DEPLOYMENT.md#users-keys-in-cloud-kms)). Settings tells users which protection applies. Elsewhere leave them empty |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` (hex keeps it URL-safe) |
 | `OWNER_GOOGLE_EMAIL` | your Google email; you become the platform operator |

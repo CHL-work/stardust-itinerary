@@ -69,6 +69,8 @@ export async function searchCalendarLocation(pool: Pool, config: AuthConfig, ses
     const policy = await getAiPolicy(client, session, undefined, { serializeMemberQuota: true });
     await assertBoundUserAiIdle(client, session.userId);
     const profile = ownerModelRegistry[policy.model];
+    // The free guest model has no search tool; Calendar lookups need a keyed provider.
+    if (profile.provider === "kilo") throw new AppForbiddenError("Calendar venue lookup needs an AI key.");
     // The requester's own key, or a trip owner's shared key (JOB-063), read server-side only.
     const keyOwnerId = policy.credentialSource === "own" ? session.userId
       : policy.credentialSource === "shared" ? policy.sponsor?.userId ?? null : null;

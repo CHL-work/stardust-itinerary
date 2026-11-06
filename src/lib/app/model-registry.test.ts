@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_OWNER_MODEL,
+  GUEST_FREE_MODEL,
   MEMBER_MODEL,
   ownerModelRegistry,
   ownerModels,
+  selectableOwnerModels,
 } from "@/lib/app/types";
 import { aiRequestSchema, aiSettingsSchema } from "@/lib/app/validation";
 
@@ -36,8 +38,16 @@ describe("owner AI model registry", () => {
     expect(ownerModelRegistry["claude-fable-5-1"].effort).toBe("low");
   });
 
+  it("never offers the free guest slot for selection, while the planner can run it (JOB-071)", () => {
+    expect([...ownerModels]).toEqual([...selectableOwnerModels, GUEST_FREE_MODEL]);
+    expect(selectableOwnerModels).not.toContain(GUEST_FREE_MODEL);
+    expect(ownerModelRegistry[GUEST_FREE_MODEL]).toEqual({ provider: "kilo", transport: "kilo_gateway", authenticationMode: "anonymous" });
+    expect(aiRequestSchema.safeParse({ prompt: "Plan dinner", model: GUEST_FREE_MODEL }).success).toBe(false);
+    expect(aiSettingsSchema.safeParse({ ownerDefaultModel: GUEST_FREE_MODEL }).success).toBe(false);
+  });
+
   it("offers exactly the newest model of each family and rejects the replaced ids", () => {
-    expect([...ownerModels]).toEqual([
+    expect([...selectableOwnerModels]).toEqual([
       "gpt-6.1-sol", "gpt-6-astra", "gpt-6.1-terra", "gpt-6-luna",
       "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1",
       "gemini-4-argon", "gemini-3.8-flash", "gemini-3.5-flash-lite",

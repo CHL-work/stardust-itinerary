@@ -74,6 +74,8 @@ export async function runCalendarLocationProvider(input: CalendarLocationProvide
   const abort = () => { if (input.abortController.signal.aborted) throw new Error("CALENDAR_LOCATION_ABORTED"); };
   abort();
   const profile = ownerModelRegistry[input.model];
+  // The free guest model has no search tool, so it can never run a venue lookup.
+  if (profile.provider === "kilo") throw new Error("Calendar venue lookup needs a keyed AI provider.");
   const prompt = buildCalendarLocationPrompt(subject);
   if (profile.provider === "openai") {
     const codex = new Codex({ env: providerEnvironment(), config: lockedDownCodexConfig });

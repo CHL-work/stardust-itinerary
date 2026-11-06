@@ -127,7 +127,7 @@ import {
 } from "@/lib/app/timeline";
 import {
   DEFAULT_OWNER_MODEL,
-  ownerModels,
+  selectableOwnerModels,
   type ApprovalHistoryPage,
   type ApprovalRequest,
   type DisruptionReasonCode,
@@ -343,6 +343,8 @@ type Overview = {
     sharedKey?: { sponsorName: string; model: string } | null;
     /** AI is allowed here, but only with the user's own key, and they have none. */
     keyRequired?: boolean;
+    /** Free guest AI (JOB-071): the free model's name and the guest's requests left today. */
+    freeAi?: { model: string; limit: number; remainingToday: number } | null;
     memberDailyLimit: number; usedToday: number; remainingToday: number | null;
   };
   liveOperations: null | {
@@ -3234,7 +3236,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <div className={advancedStyles.body}>
           <article className="settings-card"><h2>{messages.aiAccess}</h2>
             <p>{aiFundingNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : formatMessage(messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit }))}</p>
-            {overview.ai.canSelectModel ? <label>{messages.aiOwnerDefaultModel}<select data-feedback-action="settings_save" value={selectedModel} disabled={busy} onChange={(event) => void updateModel(event.target.value)}>{ownerModels.map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
+            {overview.ai.canSelectModel ? <label>{messages.aiOwnerDefaultModel}<select data-feedback-action="settings_save" value={selectedModel} disabled={busy} onChange={(event) => void updateModel(event.target.value)}>{selectableOwnerModels.map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
             {!overview.ai.canSelectModel && overview.session.isOwner && overview.ai.hostSubscriptionEnabled === false && ownKeysToShare ? <label>{keysCopy.sharedModelLabel}<select data-feedback-action="settings_save" value={overview.ai.ownerDefaultModel} disabled={busy} onChange={(event) => void updateSharedModel(event.target.value)}>{[...new Set([overview.ai.ownerDefaultModel, ...ownKeyModels(overview.ai.ownKeyProviders ?? [])])].map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
             {overview.session.isOwner ? <form className="inline-settings-form" data-feedback-action="settings_save" onSubmit={saveMemberDailyLimit}><label>{messages.aiMemberPromptsPerDay}<input type="number" min="1" max="1000" step="1" required value={memberDailyLimit} onChange={(event) => setMemberDailyLimit(event.target.value)} /></label><button data-feedback-action="settings_save" className="primary-button fit-button" disabled={busy}>{messages.saveAiLimit}</button></form> : overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <div className="quota-meter"><span style={{ width: `${Math.min(100, (overview.ai.usedToday / overview.ai.memberDailyLimit) * 100)}%` }} /></div> : null}
             {overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <strong>{overview.ai.canSelectModel ? formatMessage(messages.aiOwnerSummary, { limit: overview.ai.memberDailyLimit }) : formatMessage(messages.aiMemberRemaining, { remaining: overview.ai.remainingToday ?? 0 })}</strong> : null}
@@ -3940,6 +3942,9 @@ export function ownKeyAccess(ai: Overview["ai"]) {
  */
 export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy): string | null {
   if (ai.keyRequired) return keysCopy.keyRequired;
+  if (ai.enabled && ai.freeAi) {
+    return formatMessage(keysCopy.freeAccess, { model: ai.freeAi.model, remaining: ai.freeAi.remainingToday, limit: ai.freeAi.limit });
+  }
   if (ai.enabled && ownKeyAccess(ai).ownKeyOnly) return keysCopy.ownKeyAccess;
   if (ai.enabled && ai.sharedKey) {
     return formatMessage(keysCopy.sharedAccess, { owner: ai.sharedKey.sponsorName, model: ai.sharedKey.model, limit: ai.memberDailyLimit });
@@ -4003,7 +4008,7 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
         {heading ? <div className="ai-card-title"><div className="card-icon violet"><Bot size={21} /></div><div><p className="eyebrow">{messages.aiPlannerLabel}</p><h2>{messages.askAi}</h2></div></div> : null}
         {newConversation ? <button data-feedback-action="ai_new" type="button" className="ai-conversation-button" disabled={busy} onClick={newConversation}><Plus size={14} /> {messages.newAiConversation}</button> : null}
       </div>
-      {overview.ai.canSelectModel ? <select data-feedback-action="settings_save" className="model-select" value={selectedModel} disabled={busy} onChange={(event) => void setModel(event.target.value)}>{ownerModels.map((model) => <option key={model}>{model}</option>)}</select> : null}
+      {overview.ai.canSelectModel ? <select data-feedback-action="settings_save" className="model-select" value={selectedModel} disabled={busy} onChange={(event) => void setModel(event.target.value)}>{selectableOwnerModels.map((model) => <option key={model}>{model}</option>)}</select> : null}
       {ownKeySelect}
       {quotaNote}
       <p className="ai-memory-notice">{messages.aiMemoryNotice}</p>

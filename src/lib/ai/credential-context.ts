@@ -12,11 +12,14 @@ import type { AiCredentialProvider } from "@/lib/ai/credential-crypto";
  * - `withUserAiCredential`: one user's own or shared key. Provider adapters see only that key, and
  *   SDK state lives in a fresh per-request directory, so two users' requests never share a key or a
  *   provider profile.
+ * - `withFreeAiCredential`: no key at all, for free guest AI on keyless free models (JOB-071). Only
+ *   the free-model adapter accepts it, and every keyed adapter refuses it.
  * Outside any context, provider adapters refuse to run (`requireAiCredential`): a code path that
  * forgot to choose never falls back to the operator's keys.
  */
 export type AiCredential =
   | { source: "operator" }
+  | { source: "free" }
   | {
       source: "own" | "shared";
       provider: AiCredentialProvider;
@@ -78,6 +81,11 @@ export async function withUserAiCredential<T>(
     await rm(stateDirectory, { recursive: true, force: true, maxRetries: 3 })
       .catch(() => console.warn("A per-request AI provider directory could not be removed"));
   }
+}
+
+/** Run `work` keylessly on the free guest model. The caller is the code that decided nobody pays (JOB-071). */
+export function withFreeAiCredential<T>(work: () => T): T {
+  return storage.run({ source: "free" }, work);
 }
 
 /** Run `work` on the server operator's keys. The caller is the code that decided the operator pays. */

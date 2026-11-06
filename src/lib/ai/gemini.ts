@@ -33,6 +33,8 @@ export function geminiEndpointFor(apiKey: string | undefined, project?: string |
  */
 export function geminiEndpoint(env: Record<string, string | undefined> = process.env): GeminiEndpoint | null {
   const credential = requireAiCredential();
+  // A free guest request (JOB-071) holds no Gemini key.
+  if (credential.source === "free") return null;
   if (credential.source !== "operator") {
     return credential.provider === "google"
       ? geminiEndpointFor(credential.apiKey, credential.vertex?.project, credential.vertex?.location) : null;

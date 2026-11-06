@@ -58,7 +58,7 @@ export function aiProviderFailureMessage(failure: { errorCode?: string | null; p
   const parsed = parseAiProviderFailureDetails(failure.providerFailure);
   const details = parsed?.code === code ? parsed : null;
   const provider = details?.provider === "anthropic" ? "Anthropic (Claude)" : details?.provider === "openai" ? "OpenAI"
-    : details?.provider === "google" ? "Google (Gemini)" : copy.provider;
+    : details?.provider === "google" ? "Google (Gemini)" : details?.provider === "kilo" ? "Kilo (free guest AI)" : copy.provider;
   const reason = formatMessage(copy[code as keyof FailureCopy], { provider });
   let reset: string | null = null;
   if (code === "AI_PROVIDER_RATE_LIMITED" && details?.retryAt) {

@@ -2,8 +2,8 @@ import type { Pool } from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthenticatedSession } from "@/lib/auth/repository";
-import { ownerModels, ownerModelRegistry } from "@/lib/app/types";
-const sdkModels = ownerModels.filter((model) => ownerModelRegistry[model].provider !== "google");
+import { selectableOwnerModels, ownerModelRegistry } from "@/lib/app/types";
+const sdkModels = selectableOwnerModels.filter((model) => ownerModelRegistry[model].provider !== "google");
 import type { PreparedAiImage } from "@/lib/ai/image-server-types";
 import { VENUE_HOURS_BUDGET_MS } from "@/lib/ai/venue-hours";
 import { PUBLIC_RESEARCH_BUDGET_MS } from "@/lib/ai/public-research";
@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   runCodex: vi.fn(),
   gemini: vi.fn(),
+  freeModel: vi.fn(),
   codexOptions: undefined as unknown,
   readAiCredentialSecret: vi.fn(),
   runVenueHoursResearch: vi.fn(),
@@ -69,6 +70,9 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 });
 
 vi.mock("@/lib/ai/gemini", () => ({ generateWithGemini: mocks.gemini }));
+vi.mock("@/lib/ai/free-model", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/ai/free-model")>(), generateWithFreeModel: mocks.freeModel,
+}));
 vi.mock("@/lib/ai/credentials", () => ({ readAiCredentialSecret: mocks.readAiCredentialSecret }));
 
 vi.mock("@/lib/app/repository", () => {
@@ -162,6 +166,7 @@ import { AiConversationBusyError } from "@/lib/ai/conversation";
 import { aiRequestPayloadHash } from "@/lib/ai/request-recovery";
 import {
   blocksLivePlaceSearchForPrivacy,
+  freeOutputAsPlannerJson,
   requiresLivePlaceSearch,
   runAiPlanner,
 } from "@/lib/ai/planner";
@@ -359,7 +364,7 @@ function researchContextFromPrompt(prompt: unknown) {
   return JSON.parse(serialized!);
 }
 
-function queuePublicResearchPlanner(model: typeof ownerModels[number], final = publicResearchFinal(), initial = publicResearchInitial()) {
+function queuePublicResearchPlanner(model: typeof selectableOwnerModels[number], final = publicResearchFinal(), initial = publicResearchInitial()) {
   const turns = [initial, final];
   if (ownerModelRegistry[model].provider === "anthropic") {
     mocks.claudeQuery.mockReset();
@@ -1994,6 +1999,35 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.applyOwnKeyAiCreate).not.toHaveBeenCalled();
     expect(result).toMatchObject({ changeStatus: "pending" });
     expect(mocks.runCodex.mock.calls.at(-1)![0]).toContain("Every AI-created itinerary event requires explicit owner approval");
+  });
+
+  it("turns a free model's nested patches into the planner's patchJson strings (JOB-071)", () => {
+    const raw = JSON.stringify({ message: "Added.", continuesDraft: false, researchRequests: [], sources: [], memoryCheckpoint: null,
+      proposals: [{ entityType: "itinerary_item", action: "create", entityId: null, baseRevision: null, reason: "Dinner",
+        patch: { tripDayId: "day-2", title: "Synthetic dinner", startsAt: "2030-01-02T10:00:00Z" } }] });
+    const converted = JSON.parse(freeOutputAsPlannerJson(raw));
+    expect(converted.proposals[0]).not.toHaveProperty("patch");
+    expect(JSON.parse(converted.proposals[0].patchJson)).toEqual({ tripDayId: "day-2", title: "Synthetic dinner", startsAt: "2030-01-02T10:00:00Z" });
+    expect(JSON.parse(freeOutputAsPlannerJson(JSON.stringify({ message: "No change.", proposals: [] })))).toEqual({ message: "No change.", proposals: [] });
+    expect(() => freeOutputAsPlannerJson("not json")).toThrow();
+  });
+
+  it("runs free guest AI on the free gateway only, keyless, with no search or research (JOB-071)", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 2, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValue({ text: JSON.stringify({ message: "A free plan.", proposals: [], sources: [] }),
+      model: "vendor/free-model:free", inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Find a ramen place near the hotel tonight");
+    expect(mocks.freeModel).toHaveBeenCalledTimes(1);
+    expect(mocks.runCodex).not.toHaveBeenCalled();
+    expect(mocks.gemini).not.toHaveBeenCalled();
+    expect(mocks.claudeQuery).not.toHaveBeenCalled();
+    expect(mocks.runPublicResearch).not.toHaveBeenCalled();
+    expect(mocks.readAiCredentialSecret).not.toHaveBeenCalled();
+    expect(researchContextFromPrompt(mocks.freeModel.mock.calls[0]![0].prompt)).toMatchObject({ phase: "disabled", outcome: "free_model" });
+    expect(result).toMatchObject({ message: "A free plan.", model: "guest-free", webSearch: { performed: false } });
+    const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
+    expect(requestInsert?.[1]?.slice(8, 11)).toEqual(["kilo", "kilo_gateway", "anonymous"]);
+    expect(requestInsert?.[1]?.at(-1)).toBe("free");
   });
 
   it("runs an own-key request on that user's key only, in a private provider directory", async () => {

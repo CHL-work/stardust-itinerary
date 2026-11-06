@@ -12,6 +12,7 @@ A mobile-first, AI-assisted planner for group trips: one shared itinerary, priva
 - **AI that proposes, never decides.** Chat in any of the four languages, paste a picture of a booking or a link to an event page. The model drafts typed proposals (events, expenses, edits) backed by live web research where needed. Application code validates, authorizes and stores them as pending items for review. On your own key it also adds the new items you could add yourself, straight away.
 - **Calendar, maps and weather.** Optional Google Calendar import and conflict hints, numbered day maps on OpenStreetMap, Open-Meteo forecasts per stop, and background checks for official disruption notices.
 - **Works on a phone, even offline.** A read-only offline copy of the public itinerary, resumable AI requests and swipeable days.
+- **Try it as a guest, AI included.** A guest account gets a demo trip and a few free AI planning requests a day on a free model, no key or sign-up needed.
 - **Your key stays yours.** Bring your own OpenAI, Anthropic or Gemini key. On the public instance it is sealed by Cloud KMS, under a deny policy that leaves only the web server, not even the site's operator, able to use the KMS key. The operator's admin page shows accounts and usage counts, never trip contents, prompts or keys.
 
 ## How it is built

@@ -17,7 +17,7 @@ import styles from "./admin-console.module.css";
 type Phase = "loading" | "ready" | "failed";
 type DetailState = AdminAccountDetail | "loading" | "failed";
 
-const providerNames: Record<string, string> = { openai: "OpenAI", anthropic: "Anthropic", google: "Gemini" };
+const providerNames: Record<string, string> = { openai: "OpenAI", anthropic: "Anthropic", google: "Gemini", kilo: "Kilo (free)" };
 const filters: { value: AdminAccountFilter; label: keyof AdminCopy }[] = [
   { value: "all", label: "filterAll" }, { value: "google", label: "filterGoogle" },
   { value: "guest", label: "filterGuest" }, { value: "suspended", label: "filterSuspended" },
@@ -49,7 +49,7 @@ function useFormatters(locale: Locale) {
 type Formatters = ReturnType<typeof useFormatters>;
 
 function aiLine(template: string, counts: AdminAiCounts, f: Formatters): string {
-  return formatMessage(template, { own: f.n(counts.own), shared: f.n(counts.shared), operator: f.n(counts.operator) });
+  return formatMessage(template, { own: f.n(counts.own), shared: f.n(counts.shared), operator: f.n(counts.operator), free: f.n(counts.free) });
 }
 
 export function AdminConsole({ locale }: { locale: Locale }) {
@@ -195,7 +195,7 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
 
 function OverviewView({ copy, f, overview }: { copy: AdminCopy; f: Formatters; overview: AdminOverview }) {
   const ai = overview.ai;
-  const total = (counts: AdminAiCounts) => counts.own + counts.shared + counts.operator;
+  const total = (counts: AdminAiCounts) => counts.own + counts.shared + counts.operator + counts.free;
   return <>
     <div className={styles.stats}>
       <Stat label={copy.accounts} value={f.n(overview.accounts.google)} detail={formatMessage(copy.newWeek, { count: f.n(overview.accounts.new7d) })} />
@@ -214,6 +214,7 @@ function OverviewView({ copy, f, overview }: { copy: AdminCopy; f: Formatters; o
           <dt>{copy.paidOwn}</dt><dd>{f.n(ai.week.own)}</dd>
           <dt>{copy.paidShared}</dt><dd>{f.n(ai.week.shared)}</dd>
           <dt>{copy.paidOperator}</dt><dd>{f.n(ai.week.operator)}</dd>
+          <dt>{copy.paidFree}</dt><dd>{f.n(ai.week.free)}</dd>
           <dt>{copy.aiRefused}</dt><dd>{f.n(ai.refusedWeek)}</dd>
           <dt>{copy.aiFailed}</dt><dd>{f.n(ai.failedWeek)}</dd>
         </dl>

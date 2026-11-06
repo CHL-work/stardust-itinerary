@@ -5,7 +5,7 @@ import { isSupportedLedgerCurrency } from "@/lib/app/supported-currencies";
 import { tripDateErrors, validTripDate } from "@/lib/app/trip-date-range";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 
-import { ownerModels } from "@/lib/app/types";
+import { selectableOwnerModels } from "@/lib/app/types";
 import { locales } from "@/lib/i18n";
 
 export const expenseSplitAmountsSchema = z.array(z.object({
@@ -103,7 +103,7 @@ export const aiRequestSchema = z.object({
     data: z.string().min(1).max(2_796_204),
   })).max(3).optional(),
   prompt: z.string().trim().min(1).max(8000),
-  model: z.enum(ownerModels).optional(),
+  model: z.enum(selectableOwnerModels).optional(),
   locale: z.enum(locales).optional(),
   clientRequestId: z.uuid().optional(),
   conversationId: z.uuid().nullable().optional(),
@@ -118,7 +118,7 @@ export const aiConversationActionSchema = z.discriminatedUnion("action", [
 
 export const aiSettingsSchema = z.object({
   enabled: z.boolean().optional(),
-  ownerDefaultModel: z.enum(ownerModels).optional(),
+  ownerDefaultModel: z.enum(selectableOwnerModels).optional(),
   memberDailyLimit: z.number().int().min(1).max(1000).optional(),
 }).refine((input) => Object.values(input).some((value) => value !== undefined), {
   message: "Submit at least one AI setting.",

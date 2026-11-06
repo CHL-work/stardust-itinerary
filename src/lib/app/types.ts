@@ -6,7 +6,8 @@ export type { EventWeatherTargetRole } from "@/lib/weather/domain";
 export const DEFAULT_OWNER_MODEL = "gpt-6.1-sol" as const;
 export const MEMBER_MODEL = "gpt-6.1-sol" as const;
 
-export const ownerModels = [
+/** Models a person can choose: owners in a sponsored trip, and anyone on their own key. */
+export const selectableOwnerModels = [
   DEFAULT_OWNER_MODEL,
   "gpt-6-astra",
   "gpt-6.1-terra",
@@ -20,7 +21,17 @@ export const ownerModels = [
   "gemini-3.5-flash-lite",
 ] as const;
 
+/**
+ * Free guest AI (JOB-071): a slot, never chosen by anyone, that the funding policy gives guests
+ * without a key. It runs on keyless free models through Kilo's AI Gateway (`src/lib/ai/free-model.ts`).
+ */
+export const GUEST_FREE_MODEL = "guest-free" as const;
+
+/** Every model the planner can run, including the guest slot. Never offer this list for selection. */
+export const ownerModels = [...selectableOwnerModels, GUEST_FREE_MODEL] as const;
+
 export type OwnerModel = (typeof ownerModels)[number];
+export type SelectableOwnerModel = (typeof selectableOwnerModels)[number];
 
 type OpenAiOwnerModelProfile = Readonly<{
   provider: "openai";
@@ -42,7 +53,15 @@ type GoogleOwnerModelProfile = Readonly<{
   authenticationMode: "api_key";
 }>;
 
-export type OwnerModelProfile = OpenAiOwnerModelProfile | AnthropicOwnerModelProfile | GoogleOwnerModelProfile;
+type FreeGuestModelProfile = Readonly<{
+  provider: "kilo";
+  transport: "kilo_gateway";
+  authenticationMode: "anonymous";
+}>;
+
+export type OwnerModelProfile = OpenAiOwnerModelProfile | AnthropicOwnerModelProfile | GoogleOwnerModelProfile | FreeGuestModelProfile;
+/** Providers that users and the operator hold keys for. */
+export type KeyedModelProvider = Exclude<OwnerModelProfile["provider"], "kilo">;
 
 export const ownerModelRegistry = {
   "gpt-6.1-sol": {
@@ -108,6 +127,11 @@ export const ownerModelRegistry = {
     transport: "gemini_api",
     authenticationMode: "api_key",
   },
+  [GUEST_FREE_MODEL]: {
+    provider: "kilo",
+    transport: "kilo_gateway",
+    authenticationMode: "anonymous",
+  },
 } as const satisfies Record<OwnerModel, OwnerModelProfile>;
 
 /** The model used with a user's own key when they have not chosen one: a capable, moderately priced tier. */
@@ -115,7 +139,7 @@ export const providerDefaultModels = {
   openai: "gpt-6.1-sol",
   anthropic: "claude-sonnet-5-5",
   google: "gemini-3.8-flash",
-} as const satisfies Record<OwnerModelProfile["provider"], OwnerModel>;
+} as const satisfies Record<KeyedModelProvider, OwnerModel>;
 
 /** The legacy marker is retained only to fence read-only archived chats. */
 export type AiConversationPurpose = "trip" | "preferences";

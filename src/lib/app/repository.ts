@@ -7,9 +7,11 @@ import { isPlatformOperator } from "@/lib/auth/operator-access";
 import { lockCurrentTripActor, requireAnotherBoundOwner } from "@/lib/app/trip-authorization";
 import { aiKeyProviderOrder, ownKeyModel } from "@/lib/ai/own-key-model";
 import { isGuestSession } from "@/lib/auth/guest-identity";
+import { freeModelLabel, guestFreeAiSettings } from "@/lib/ai/free-model";
 import { revokeAiKeyGrants } from "@/lib/app/ai-key-grants";
 import {
   DEFAULT_OWNER_MODEL,
+  GUEST_FREE_MODEL,
   MEMBER_MODEL,
   type ApprovalHistoryPage,
   type ApprovalRequest,
@@ -1246,6 +1248,18 @@ async function readAppOverviewSnapshot(
   const sharedGrant = await usableAiKeyGrant(client, session.tripId, session.memberId);
   const sharedModel = sharedGrant ? ownKeyModel(undefined, settings.owner_default_model, sharedGrant.providers, false) : null;
   const sharedKey = sharedGrant && sharedModel ? { sponsorName: sharedGrant.sponsorName, model: sharedModel } : null;
+  // Free guest AI (JOB-071): a guest without a key sees the free model and what is left today.
+  const freeSettings = isGuestSession(session) ? guestFreeAiSettings() : null;
+  const freeAi = freeSettings?.enabled && settings.enabled && !settings.host_subscription_enabled && ownKeyProviders.size === 0
+    ? await (async () => {
+      const usage = await client.query<{ used: number }>(
+        `SELECT count(*)::int AS used FROM ai_requests
+          WHERE actor_user_id = $1 AND credential_source = 'free' AND status <> 'rejected'
+            AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, [session.userId]);
+      const usedFree = usage.rows[0]?.used ?? 0;
+      return { model: freeModelLabel(freeSettings.models[0]!), limit: freeSettings.perGuestDaily,
+        remainingToday: Math.max(0, freeSettings.perGuestDaily - usedFree) };
+    })() : null;
   const memberKeyGrants = session.role === "owner" ? await aiKeyGrantsForTrip(client, session.tripId) : new Map();
   const used = Number(quotaResult.rows[0]?.used ?? 0);
   const permissionRows = new Map(permissionResult.rows.map((row) => [row.member_id, row]));
@@ -1474,17 +1488,18 @@ async function readAppOverviewSnapshot(
     ai: {
       // Mirrors getAiPolicy: the operator pays only in sponsored trips; elsewhere the viewer's own key
       // or an owner's shared key does.
-      enabled: settings.enabled && (settings.host_subscription_enabled || ownKeyProviders.size > 0 || sharedKey !== null),
+      enabled: settings.enabled && (settings.host_subscription_enabled || ownKeyProviders.size > 0 || sharedKey !== null || freeAi !== null),
       hostSubscriptionEnabled: settings.host_subscription_enabled,
       ownKeyProviders: aiKeyProviderOrder.filter((provider) => ownKeyProviders.has(provider)),
       sharedKey,
-      keyRequired: settings.enabled && !settings.host_subscription_enabled && ownKeyProviders.size === 0 && sharedKey === null,
+      keyRequired: settings.enabled && !settings.host_subscription_enabled && ownKeyProviders.size === 0 && sharedKey === null && freeAi === null,
+      freeAi,
       canSelectModel: canSelectAiModel,
       ownerDefaultModel: settings.owner_default_model,
-      effectiveModel: canSelectAiModel ? settings.owner_default_model : MEMBER_MODEL,
+      effectiveModel: freeAi ? freeAi.model : canSelectAiModel ? settings.owner_default_model : MEMBER_MODEL,
       memberDailyLimit: settings.member_daily_limit,
       usedToday: used,
-      remainingToday: canSelectAiModel ? null : Math.max(0, settings.member_daily_limit - used),
+      remainingToday: freeAi ? freeAi.remainingToday : canSelectAiModel ? null : Math.max(0, settings.member_daily_limit - used),
     },
     liveOperations: session.role === "owner" ? {
       weather: latestWeatherRunResult?.rows[0]
@@ -3960,10 +3975,11 @@ export const SHARED_KEY_DAILY_LIMIT = 200;
 export type AiPolicy = {
   enabled: boolean; model: OwnerModel; usedToday: number; limit: number | null;
   /**
-   * Whose key pays: the server operator's, the requester's own (JOB-061), or a trip owner's key
-   * shared with the requester (JOB-063), in which case `sponsor` names that owner.
+   * Whose key pays: the server operator's, the requester's own (JOB-061), a trip owner's key
+   * shared with the requester (JOB-063), in which case `sponsor` names that owner, or nobody's:
+   * free guest AI on a keyless free model (JOB-071).
    */
-  credentialSource: "operator" | "own" | "shared";
+  credentialSource: "operator" | "own" | "shared" | "free";
   sponsor?: { memberId: string; userId: string };
 };
 
@@ -4044,6 +4060,38 @@ export async function getAiPolicy(
     }
     return { enabled: true, model: sharedModel, usedToday, limit: row.member_daily_limit, credentialSource: "shared",
       sponsor: { memberId: grant.sponsorMemberId, userId: grant.sponsorUserId } };
+  }
+  // Free guest AI (JOB-071, D-086): a guest without a key gets a few requests a day on a keyless free
+  // model, within instance-wide hourly and daily caps that stay inside the free gateway's limit.
+  if (row && !row.sponsored && isGuestSession(session)) {
+    const free = guestFreeAiSettings();
+    if (free.enabled) {
+      if (!row.enabled) throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", GUEST_FREE_MODEL);
+      // One lock serializes free requests, so the caps hold exactly.
+      if (options.serializeMemberQuota) await client.query("SELECT pg_advisory_xact_lock(hashtextextended('stardust-guest-free-ai', 0))");
+      const usage = await client.query<{ mine: number; hour: number; day: number }>(
+        `SELECT count(*) FILTER (WHERE actor_user_id = $1
+                  AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::int AS mine,
+                count(*) FILTER (WHERE created_at >= CURRENT_TIMESTAMP - interval '1 hour')::int AS hour,
+                count(*) FILTER (WHERE created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::int AS day
+           FROM ai_requests request
+          WHERE request.credential_source = 'free' AND request.status <> 'rejected'
+            AND request.created_at >= CURRENT_TIMESTAMP - interval '1 day'`,
+        [session.userId],
+      );
+      const used = usage.rows[0] ?? { mine: 0, hour: 0, day: 0 };
+      if (used.mine >= free.perGuestDaily) {
+        throw new AiPolicyDeniedError(
+          `You have used today's ${free.perGuestDaily} free guest AI requests. Add your own key in Settings → AI keys for more.`,
+          "daily_limit_reached", GUEST_FREE_MODEL,
+        );
+      }
+      if (used.hour >= free.hourly || used.day >= free.daily) {
+        throw new AiPolicyDeniedError("Free guest AI is busy right now. Try again later, or add your own key in Settings → AI keys.",
+          "daily_limit_reached", GUEST_FREE_MODEL);
+      }
+      return { enabled: true, model: GUEST_FREE_MODEL, usedToday: used.mine, limit: free.perGuestDaily, credentialSource: "free" };
+    }
   }
   const privileged = session.role === "owner" && (!row?.migrated || await isPlatformOperator(client, session.userId));
   if (!privileged) await serializeQuota();

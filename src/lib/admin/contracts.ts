@@ -21,8 +21,8 @@ export const adminSuspensionSchema = z.strictObject({ suspended: z.boolean() });
 /** null removes the cap; 0 pauses new public sign-ups. */
 export const adminSignupLimitSchema = z.strictObject({ dailyLimit: z.number().int().min(0).max(100_000).nullable() });
 
-/** Who paid for AI requests: the requester's own key, a trip owner's shared key, or the operator. */
-export type AdminAiCounts = { own: number; shared: number; operator: number };
+/** Who paid for AI requests: the requester's own key, a trip owner's shared key, the operator, or nobody (free guest AI). */
+export type AdminAiCounts = { own: number; shared: number; operator: number; free: number };
 
 export type AdminDay = {
   day: string; signups: number; guests: number; trips: number; ai: number; aiRefused: number; refused: number;

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ownerModelRegistry, ownerModels, type OwnerModel } from "@/lib/app/types";
+import { ownerModelRegistry, selectableOwnerModels, type OwnerModel } from "@/lib/app/types";
 import { publicResearchQuery, type PublicResearchFact } from "@/lib/ai/public-research";
 import type { VenueHoursEvidence } from "@/lib/ai/venue-hours-evidence";
 import type { PublishedPriceQuote } from "@/lib/ai/price-evidence";
@@ -326,7 +326,7 @@ describe("isolated same-model public research", () => {
     expect(prompt).not.toContain(value.workDirectory);
     expect(prompt).not.toContain(value.model);
   });
-  it.each(ownerModels)("keeps %s, returns assessed facts and uses no alternative model", async (model) => {
+  it.each(selectableOwnerModels)("keeps %s, returns assessed facts and uses no alternative model", async (model) => {
     const result = await runPublicResearch(input(model));
     expect(result.facts).toEqual([fact]);
     expect(result.webSearchQueries).toEqual([query]);

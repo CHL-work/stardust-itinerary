@@ -33,8 +33,8 @@ function operatorEmail(): string {
 
 const TODAY_START = "date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'";
 
-function counts(row: { own: number; shared: number; operator: number } | undefined): AdminAiCounts {
-  return { own: row?.own ?? 0, shared: row?.shared ?? 0, operator: row?.operator ?? 0 };
+function counts(row: Partial<AdminAiCounts> | undefined): AdminAiCounts {
+  return { own: row?.own ?? 0, shared: row?.shared ?? 0, operator: row?.operator ?? 0, free: row?.free ?? 0 };
 }
 
 export async function adminOverview(pool: Pool, session: AuthenticatedSession): Promise<AdminOverview> {
@@ -58,7 +58,7 @@ export async function adminOverview(pool: Pool, session: AuthenticatedSession): 
               count(*) FILTER (WHERE created_at >= CURRENT_TIMESTAMP - interval '7 days')::int AS "created7d"
          FROM trips WHERE guest_expires_at IS NULL`);
     // Requests from before JOB-061 have no credential source; the operator paid for all of them.
-    const ai = await client.query<{ source: "own" | "shared" | "operator"; today: number; week: number; month: number; refused: number; failed: number }>(
+    const ai = await client.query<{ source: "own" | "shared" | "operator" | "free"; today: number; week: number; month: number; refused: number; failed: number }>(
       `SELECT COALESCE(credential_source, 'operator') AS source,
               count(*) FILTER (WHERE status <> 'rejected' AND created_at >= ${TODAY_START})::int AS today,
               count(*) FILTER (WHERE status <> 'rejected' AND created_at >= CURRENT_TIMESTAMP - interval '7 days')::int AS week,
@@ -68,7 +68,7 @@ export async function adminOverview(pool: Pool, session: AuthenticatedSession): 
          FROM ai_requests WHERE created_at >= CURRENT_TIMESTAMP - interval '30 days'
         GROUP BY 1`);
     const window = (key: "today" | "week" | "month") => counts(Object.fromEntries(
-      (["own", "shared", "operator"] as const).map((source) => [source, ai.rows.find((row) => row.source === source)?.[key] ?? 0]),
+      (["own", "shared", "operator", "free"] as const).map((source) => [source, ai.rows.find((row) => row.source === source)?.[key] ?? 0]),
     ) as AdminAiCounts);
     const providers = await client.query<{ provider: string; count: number }>(
       `SELECT provider, count(*)::int AS count FROM ai_requests
@@ -121,7 +121,7 @@ export async function adminOverview(pool: Pool, session: AuthenticatedSession): 
 type AccountRow = {
   id: string; display_name: string; email: string | null; created_at: Date; last_active_at: Date | null; suspended_at: Date | null;
   guest_expires_at: Date | null; is_operator: boolean; trips_owned: number; trips_joined: number; keys: string[];
-  ai_own: number; ai_shared: number; ai_operator: number; refused_week: number; total?: string;
+  ai_own: number; ai_shared: number; ai_operator: number; ai_free: number; refused_week: number; total?: string;
 };
 
 /** One row per account; `$1` is the operator's email (or an empty string), for `is_operator`. */
@@ -140,6 +140,8 @@ const ACCOUNT_SELECT = `
          (SELECT count(*) FROM ai_requests request WHERE request.actor_user_id = account.id AND request.status <> 'rejected'
            AND request.created_at >= CURRENT_TIMESTAMP - interval '7 days'
            AND COALESCE(request.credential_source, 'operator') = 'operator')::int AS ai_operator,
+         (SELECT count(*) FROM ai_requests request WHERE request.actor_user_id = account.id AND request.status <> 'rejected'
+           AND request.created_at >= CURRENT_TIMESTAMP - interval '7 days' AND request.credential_source = 'free')::int AS ai_free,
          COALESCE((SELECT sum(counter.count) FROM platform_daily_counts counter WHERE counter.user_id = account.id
            AND counter.metric LIKE 'rate_limited:%' AND counter.day >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date - 6), 0)::int AS refused_week`;
 const ACCOUNT_FROM = `
@@ -157,7 +159,7 @@ function account(row: AccountRow): AdminAccount {
     lastActiveAt: row.last_active_at?.toISOString() ?? null, suspendedAt: row.suspended_at?.toISOString() ?? null,
     guestExpiresAt: row.guest_expires_at?.toISOString() ?? null, isOperator: row.is_operator === true,
     tripsOwned: row.trips_owned, tripsJoined: row.trips_joined, keys: row.keys,
-    aiWeek: { own: row.ai_own, shared: row.ai_shared, operator: row.ai_operator }, refusedWeek: row.refused_week,
+    aiWeek: { own: row.ai_own, shared: row.ai_shared, operator: row.ai_operator, free: row.ai_free }, refusedWeek: row.refused_week,
   };
 }
 
@@ -209,7 +211,7 @@ export async function adminAccountDetail(pool: Pool, session: AuthenticatedSessi
               (SELECT count(*) FROM itinerary_items item WHERE item.trip_id = trip.id)::int AS events
          FROM trip_members member JOIN trips trip ON trip.id = member.trip_id
         WHERE member.user_id = $1 ORDER BY trip.created_at DESC LIMIT 50`, [userId]);
-    const days = await client.query<{ day: string; own: number; shared: number; operator: number; ai_refused: number; refused: number; trips_created: number }>(
+    const days = await client.query<{ day: string; own: number; shared: number; operator: number; free: number; ai_refused: number; refused: number; trips_created: number }>(
       `WITH days AS (
          SELECT day::date AS day, day::date::timestamp AT TIME ZONE 'UTC' AS starts, (day::date + 1)::timestamp AT TIME ZONE 'UTC' AS ends
            FROM generate_series((CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date - 29, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date, interval '1 day') AS day
@@ -218,6 +220,7 @@ export async function adminAccountDetail(pool: Pool, session: AuthenticatedSessi
                 count(request.id) FILTER (WHERE request.status <> 'rejected' AND request.credential_source = 'own')::int AS own,
                 count(request.id) FILTER (WHERE request.status <> 'rejected' AND request.credential_source = 'shared')::int AS shared,
                 count(request.id) FILTER (WHERE request.status <> 'rejected' AND COALESCE(request.credential_source, 'operator') = 'operator')::int AS operator,
+                count(request.id) FILTER (WHERE request.status <> 'rejected' AND request.credential_source = 'free')::int AS free,
                 count(request.id) FILTER (WHERE request.status = 'rejected')::int AS ai_refused,
                 COALESCE((SELECT sum(counter.count) FROM platform_daily_counts counter
                            WHERE counter.user_id = $1 AND counter.metric LIKE 'rate_limited:%' AND counter.day = days.day), 0)::int AS refused,
@@ -228,8 +231,8 @@ export async function adminAccountDetail(pool: Pool, session: AuthenticatedSessi
                 AND request.created_at >= days.starts AND request.created_at < days.ends
           GROUP BY days.day, days.starts, days.ends
        )
-       SELECT day, own, shared, operator, ai_refused, refused, trips_created FROM activity
-        WHERE own + shared + operator + ai_refused + refused + trips_created > 0
+       SELECT day, own, shared, operator, free, ai_refused, refused, trips_created FROM activity
+        WHERE own + shared + operator + free + ai_refused + refused + trips_created > 0
         ORDER BY sort_day DESC`, [userId]);
     const actions = await client.query<{ created_at: Date; entity_type: string; action: string }>(
       `SELECT audit.created_at, audit.entity_type, audit.action
@@ -244,7 +247,7 @@ export async function adminAccountDetail(pool: Pool, session: AuthenticatedSessi
         lastSeenAt: row.last_seen_at.toISOString(), state: row.state })),
       trips: trips.rows.map((row) => ({ role: row.role, status: row.status, guest: row.guest, deleted: row.deleted,
         createdAt: row.created_at.toISOString(), members: row.members, events: row.events })),
-      days: days.rows.map((row) => ({ day: row.day, ai: { own: row.own, shared: row.shared, operator: row.operator },
+      days: days.rows.map((row) => ({ day: row.day, ai: { own: row.own, shared: row.shared, operator: row.operator, free: row.free },
         aiRefused: row.ai_refused, refused: row.refused, tripsCreated: row.trips_created })),
       recentActions: actions.rows.map((row) => ({ at: row.created_at.toISOString(), entity: row.entity_type, action: row.action })),
       operatorActions: operatorActions.rows.map((row) => ({ at: row.created_at.toISOString(), action: row.action })),

@@ -2,6 +2,23 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-086: Free guest AI on keyless free models (accepted November 6, 2026)
+
+The owner wanted guests to use the AI for free, with a model from 2026 that is not too weak, and pointed at an open-source project that gets free tokens (JOB-071).
+
+- **Not that project's main method:** it gets free tokens by posing as another app's command-line tool to use that app's keyless free tier, by farming accounts on consumer coding apps (with automatic check-ins and solved captchas), and through a relay holding a shared key. Those break the services' terms, so a public site cannot rely on them.
+- **Its one clean method:** Kilo's AI Gateway documents unauthenticated access to its `:free` models, 200 requests an hour per address. Stardust uses that, identifying itself honestly. On 6 November 2026 the free models were 2026 releases, led by NVIDIA Nemotron 3.5 Super, which supports JSON schema output.
+- **Considered instead:**
+  - OpenAI's free tokens for sharing data: the best model, but data is used for training and Hong Kong is unsupported.
+  - The Gemini free tier: Hong Kong is unsupported, the caps are small, and data is reviewed.
+  - Z.ai's free GLM-4.7-Flash and Cloudflare Workers AI: either would need a new account or token.
+- **Bounded:**
+  - only guests use it;
+  - planning only, with no search or research;
+  - 10 requests per guest a day, and 60 an hour and 500 a day for the instance;
+  - a separate keyless credential context that no keyed adapter accepts;
+  - a note to guests that free models may keep what they send.
+
 ## D-085: Own-key AI requests read links, take any topic and add new items (accepted November 6, 2026)
 
 The owner pasted an event link and the AI could not read it, then would only draft the event for approval. Because users pay with their own keys, the owner asked for the guardrails to loosen (JOB-070).

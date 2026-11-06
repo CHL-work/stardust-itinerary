@@ -2,6 +2,18 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 6, 2026 free guest AI
+
+Retrieved on 6 November 2026 for JOB-071 (D-086):
+
+- [Kilo AI Gateway authentication](https://kilo.ai/docs/gateway/authentication): "The gateway allows unauthenticated access for free models only", at 200 requests an hour per IP address.
+- The gateway's model list (`/api/v1/models`, read the same day): six `:free` models, all released in 2026. NVIDIA Nemotron 3.5 Super and dots.3 note support `response_format` and structured outputs.
+- The evaluated alternatives were OpenAI's data-sharing tokens, the Gemini free tier, Z.ai's free GLM-4.7-Flash, Cloudflare Workers AI and OpenRouter's free models. Each provider's own pricing, rate-limit and terms pages were read the same day.
+- Live checks with synthetic prompts:
+  - a schema-valid reply from Nemotron 3.5 Super with no key;
+  - free models writing escaped JSON inside a string unreliably, but a nested patch object reliably;
+  - a local build creating a valid pending event in 35 seconds.
+
 ## November 6, 2026 admin page and Cloud KMS
 
 Retrieved on 6 November 2026 for JOB-069 (D-084):

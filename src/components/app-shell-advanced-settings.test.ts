@@ -12,7 +12,7 @@ import { memberManagementMessages } from "@/lib/app/member-management-i18n";
 import { aiFundingNote, ownKeyAccess } from "@/components/app-shell";
 import { aiKeysMessages } from "@/lib/ai/keys-i18n";
 import { ownKeyModels } from "@/lib/ai/own-key-model";
-import { ownerModels } from "@/lib/app/types";
+import { selectableOwnerModels } from "@/lib/app/types";
 import { feedbackActions } from "@/lib/feedback/contracts";
 import { formatMessage, locales, messages, type Locale } from "@/lib/i18n";
 
@@ -59,7 +59,7 @@ function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectMod
     ChevronRight, RefreshCw, ActivitySettingsEntry,
     FeedbackOperations: () => null,
     AdminEntry: () => null,
-    advancedRequestStatus, formatMessage, ownerModels, busy: options.busy ?? false, selectedModel: "gpt-6.1-sol",
+    advancedRequestStatus, formatMessage, selectableOwnerModels, busy: options.busy ?? false, selectedModel: "gpt-6.1-sol",
     memberDailyLimit: "20", setMemberDailyLimit: vi.fn(), updateModel: vi.fn(), saveMemberDailyLimit,
     tripSettings: { destinationName: "Synthetic city", timeZone: "Asia/Tokyo", maxMembers: "10", endsOn: "2030-04-05" },
     setTripSettings: vi.fn(), maximumTripEndDate: () => "2030-04-30", saveTripSettings: vi.fn(),

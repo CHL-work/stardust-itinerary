@@ -16,6 +16,7 @@ import { testPrivateFeedbackRepository } from "./feedback-repository.mjs";
 import { testGuestAccounts } from "./guest-accounts.mjs";
 import { testPlatformAdmin } from "./platform-admin.mjs";
 import { testOwnKeyAi } from "./own-key-ai.mjs";
+import { testGuestFreeAi } from "./guest-free-ai.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
 import { testCustomExpenseSplits } from "./custom-expense-splits.mjs";
@@ -7314,6 +7315,7 @@ test(
       await testPrivateFeedbackRepository(appPool,connectionString);
       await testPlatformAdmin(appPool,connectionString);
       await testOwnKeyAi(appPool,connectionString);
+      await testGuestFreeAi(appPool,connectionString);
 
     } finally {
       await appPool.end();

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ownerModels, type OwnerModel } from "@/lib/app/types";
+import { selectableOwnerModels, type OwnerModel } from "@/lib/app/types";
 const mocks = vi.hoisted(() => ({ codex: vi.fn(), start: vi.fn(), run: vi.fn(), claude: vi.fn(), close: vi.fn(), gemini: vi.fn() }));
 vi.mock("@openai/codex-sdk", () => ({ Codex: class {
   constructor(options: unknown) { mocks.codex(options); }
@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 
 describe("isolated Calendar public venue lookup", () => {
-  it.each(ownerModels)("supports registered %s with observed search and structured evidence", async (model) => {
+  it.each(selectableOwnerModels)("supports registered %s with observed search and structured evidence", async (model) => {
     expect((await runCalendarLocationProvider(input(model))).evidence).toEqual(evidence);
   });
   it("grounds Gemini in search only and refuses unrelated or excessive reported queries", async () => {

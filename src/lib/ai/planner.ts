@@ -9,9 +9,10 @@ import { query as claudeQuery, type SDKResultSuccess } from "@anthropic-ai/claud
 import { Codex } from "@openai/codex-sdk";
 import { codexSearchQueries } from "@/lib/ai/codex-web-search";
 import { lockedDownCodexConfig, usedForbiddenCodexItem } from "@/lib/ai/codex-lockdown";
-import { withOperatorAiCredential, withUserAiCredential } from "@/lib/ai/credential-context";
+import { withFreeAiCredential, withOperatorAiCredential, withUserAiCredential } from "@/lib/ai/credential-context";
 import { readAiCredentialSecret } from "@/lib/ai/credentials";
 import { generateWithGemini } from "@/lib/ai/gemini";
+import { generateWithFreeModel } from "@/lib/ai/free-model";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { AiProviderFailureError, aiProviderFailureDetails, createClaudeProviderFailureTracker } from "@/lib/ai/provider-failure";
 import { aiRequestWorkBudgetMs } from "@/lib/ai/request-budget";
@@ -221,9 +222,9 @@ type PlannerOutput = {
 type ProviderTurn = {
   output: PlannerOutput;
   effectiveModel: string;
-  provider: "anthropic" | "openai" | "google";
-  transport: "claude_agent_sdk" | "codex_sdk" | "gemini_api";
-  authenticationMode: "api_key";
+  provider: "anthropic" | "openai" | "google" | "kilo";
+  transport: "claude_agent_sdk" | "codex_sdk" | "gemini_api" | "kilo_gateway";
+  authenticationMode: "api_key" | "anonymous";
   inputTokens: number | null;
   outputTokens: number | null;
   cachedInputTokens: number | null;
@@ -327,6 +328,55 @@ function parseMemoryCheckpoint(value: unknown): PlannerOutput["memoryCheckpoint"
     decisions: parseStringList(record.decisions, 12, 500),
     openQuestions: parseStringList(record.openQuestions, 12, 500),
   };
+}
+
+/**
+ * Free guest AI (JOB-071): free models cannot reliably write a JSON object escaped inside a string,
+ * so they return each proposal's patch as a nested object ("patch"), which is turned back into the
+ * planner's patchJson string before the usual parsing and validation.
+ */
+const freeOutputSchema = {
+  ...outputSchema,
+  properties: {
+    ...outputSchema.properties,
+    proposals: {
+      ...outputSchema.properties.proposals,
+      items: {
+        ...proposalOutputSchema,
+        properties: {
+          entityType: proposalOutputSchema.properties.entityType,
+          action: proposalOutputSchema.properties.action,
+          entityId: proposalOutputSchema.properties.entityId,
+          baseRevision: proposalOutputSchema.properties.baseRevision,
+          patch: { type: "object" },
+          reason: proposalOutputSchema.properties.reason,
+        },
+        required: ["entityType", "action", "entityId", "baseRevision", "patch", "reason"],
+      },
+    },
+  },
+} as const;
+
+const FREE_PATCH_FORMAT_NOTE = "\n\nRESPONSE FORMAT FOR THIS MODEL: give each proposal's patch as the JSON object itself in the field \"patch\", instead of a patchJson string. The same patch fields and rules apply.";
+
+/** A free model's answer, with every nested patch turned into the planner's patchJson string. */
+export function freeOutputAsPlannerJson(raw: string): string {
+  const value: unknown = JSON.parse(raw);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return raw;
+  const record = value as Record<string, unknown>;
+  if (Array.isArray(record.proposals)) {
+    record.proposals = record.proposals.map((proposal: unknown) => {
+      if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) return proposal;
+      const { patch, ...rest } = proposal as Record<string, unknown>;
+      return patch && typeof patch === "object" && !Array.isArray(patch) ? { ...rest, patchJson: JSON.stringify(patch) } : proposal;
+    });
+  }
+  return JSON.stringify(record);
+}
+
+/** For diagnostics and tests: the planner's output schema and parser. */
+export function plannerOutputContract(): { schema: typeof outputSchema; parse: (raw: string) => unknown } {
+  return { schema: outputSchema, parse: parseOutput };
 }
 
 function parseOutput(raw: string): PlannerOutput {
@@ -833,6 +883,59 @@ async function runGeminiTurn(
   };
 }
 
+/**
+ * Free guest AI (JOB-071): one planner turn on a keyless free model through Kilo's gateway, with the
+ * planner's schema enforced. No tools, no search and no research: guests get planning only.
+ */
+async function runFreeTurn(
+  model: OwnerModel,
+  prompt: string,
+  context: unknown,
+  _workDirectory: string,
+  locale: Locale,
+  recentConversation: readonly AiConversationTurn[],
+  conversationCheckpoint: AiConversationCheckpoint | null,
+  aiInstructions: string,
+  _liveWebSearchEnabled: boolean,
+  liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
+): Promise<ProviderTurn> {
+  if (ownerModelRegistry[model].provider !== "kilo") throw new Error(`Model ${model} is not configured for the free gateway.`);
+  const turnPrompt = plannerPrompt(
+    prompt,
+    context,
+    locale,
+    recentConversation,
+    false,
+    liveWebSearchPrivacyBlockReason ?? false,
+    conversationCheckpoint,
+    aiInstructions,
+    control.draft ?? null,
+    control.research ?? null,
+    null,
+  ) + (control.repair ? `\n\n${timestampRepairInstructions(control.repair)}` : "") + FREE_PATCH_FORMAT_NOTE;
+  let result: Awaited<ReturnType<typeof generateWithFreeModel>> | null = null;
+  let output: PlannerOutput | null = null;
+  // One more try when the answer still cannot be used; free models vary from run to run.
+  for (let attempt = 0; attempt < 2 && !output; attempt += 1) {
+    result = await generateWithFreeModel({ prompt: turnPrompt, responseJsonSchema: freeOutputSchema, signal: control.abortController.signal });
+    try { output = parseOutput(freeOutputAsPlannerJson(result.text)); } catch { /* try once more */ }
+  }
+  if (!output || !result) throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "kilo" });
+  return {
+    output,
+    effectiveModel: result.model,
+    provider: "kilo",
+    transport: "kilo_gateway",
+    authenticationMode: "anonymous",
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+    cachedInputTokens: result.cachedInputTokens,
+    webSearchQueries: [],
+    sourceUrls: [],
+  };
+}
+
 async function recordAiPolicyDenial(
   pool: Pool,
   session: AuthenticatedSession,
@@ -1021,8 +1124,9 @@ export async function runAiPlanner(
     // and lives only in this request's memory. The member never receives a shared key.
     const keyOwnerId = currentPolicy.credentialSource === "own" ? session.userId
       : currentPolicy.credentialSource === "shared" ? currentPolicy.sponsor?.userId ?? null : null;
-    const userCredential = keyOwnerId
-      ? await readAiCredentialSecret(client, keyOwnerId, ownerModelRegistry[currentPolicy.model].provider) : null;
+    const keyProvider = ownerModelRegistry[currentPolicy.model].provider;
+    const userCredential = keyOwnerId && keyProvider !== "kilo"
+      ? await readAiCredentialSecret(client, keyOwnerId, keyProvider) : null;
     if ((currentPolicy.credentialSource === "own" || currentPolicy.credentialSource === "shared") && !userCredential) {
       throw new AiPolicyDeniedError(currentPolicy.credentialSource === "shared"
         ? "The trip owner's shared AI key is no longer available. Ask them to add it again."
@@ -1404,12 +1508,14 @@ export async function runAiPlanner(
           : aiInstructions.instructions.trim()
             ? "private_ai_instructions"
             : null;
+    // Free guest AI (JOB-071) has no search tool and no research round.
+    const freeLane = policy.credentialSource === "free";
     const livePlaceSearchRequired = livePlaceSearchRequested
-      && liveWebSearchPrivacyBlockReason === null;
+      && liveWebSearchPrivacyBlockReason === null && !freeLane;
     const automaticPrivacyBlocked = reservationSecrets.detected || blocksLivePlaceSearchForPrivacy(evidencePrompt)
       || blocksLivePlaceSearchForPrivacy(aiInstructions.instructions)
       || /\bprivate\b|私人|私密|非公開|プライベート/iu.test(`${evidencePrompt}\n${aiInstructions.instructions}`);
-    let researchContext: PlannerResearchContext = {
+    let researchContext: PlannerResearchContext = freeLane ? { phase: "disabled", outcome: "free_model", facts: [] } : {
       phase: liveSearchIntent === "disabled" ? "disabled" : "available",
       outcome: liveSearchIntent === "disabled" ? "user_disabled" : automaticPrivacyBlocked ? "privacy_limited" : "not_needed_yet",
       facts: [],
@@ -1456,7 +1562,8 @@ export async function runAiPlanner(
       try {
         if (started + workBudget <= Date.now()) throw new AiPlannerTimeoutError();
         const provider = ownerModelRegistry[policy.model].provider;
-        const runProviderTurn = provider === "anthropic" ? runClaudeTurn : provider === "google" ? runGeminiTurn : runCodexTurn;
+        const runProviderTurn = provider === "anthropic" ? runClaudeTurn : provider === "google" ? runGeminiTurn
+          : provider === "kilo" ? runFreeTurn : runCodexTurn;
         const providerPromise = runProviderTurn(
           policy.model, prompt, context, workDirectory, locale, conversationMemory.turns,
           conversationMemory.checkpoint, aiInstructions.instructions,
@@ -1792,6 +1899,10 @@ export async function runAiPlanner(
             if (error instanceof ZodError) {
               throw new IndexedPatchValidationError(index, proposal.entityType, error);
             }
+            // A patch that is not JSON at all is unusable model output, not a server fault.
+            if (error instanceof SyntaxError) {
+              throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: ownerModelRegistry[policy.model].provider });
+            }
             throw error;
           }
           if (proposal.action !== "create") {
@@ -1841,6 +1952,9 @@ export async function runAiPlanner(
         } catch (error) {
           if (error instanceof ZodError) {
             throw new IndexedPatchValidationError(index, proposal.entityType, error);
+          }
+          if (error instanceof SyntaxError) {
+            throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: ownerModelRegistry[policy.model].provider });
           }
           throw error;
         }
@@ -2169,14 +2283,14 @@ export async function runAiPlanner(
         }
       }
       const fallbackCandidates = hoursCandidates.filter((candidate) => !reused.has(candidate.key));
-      const targets = liveSearchIntent === "disabled" || hoursPrivacyBlocked || remaining < VENUE_HOURS_MIN_BUDGET_MS
+      const targets = freeLane || liveSearchIntent === "disabled" || hoursPrivacyBlocked || remaining < VENUE_HOURS_MIN_BUDGET_MS
         ? [] : fallbackCandidates.filter((candidate) => safeVenueHoursTarget(candidate, memberNames))
           .slice(0, VENUE_HOURS_MAX_TARGETS).map((candidate) => ({
             key: candidate.key, venueName: candidate.venueName, date: candidate.date!, timeZone: candidate.timeZone,
           }));
       let hoursEvidence: unknown = [];
       let hoursSearchPerformed = false;
-      let hoursOutcome = targets.length ? "unverified" : liveSearchIntent === "disabled" ? "user_disabled"
+      let hoursOutcome = targets.length ? "unverified" : freeLane ? "free_model" : liveSearchIntent === "disabled" ? "user_disabled"
         : hoursPrivacyBlocked ? "privacy_blocked" : !fallbackCandidates.length ? "reused"
           : remaining < VENUE_HOURS_MIN_BUDGET_MS ? "budget_exhausted" : "not_public_or_timed";
       if (reused.size) {
@@ -2260,7 +2374,8 @@ export async function runAiPlanner(
       const researchedKeys = new Set(targets.map((target) => target.key));
       const unverifiedReasons = new Map<string, VenueHoursUnverifiedReason>();
       for (const candidate of fallbackCandidates) {
-        const reason: VenueHoursUnverifiedReason = liveSearchIntent === "disabled" ? "user_disabled"
+        // Free guest AI has no web search at all (JOB-071).
+        const reason: VenueHoursUnverifiedReason = freeLane ? "missing_search" : liveSearchIntent === "disabled" ? "user_disabled"
           : hoursPrivacyBlocked || !candidate.public ? "privacy_blocked"
             : !safeVenueHoursTarget(candidate, memberNames) ? "not_public_or_timed"
               : remaining < VENUE_HOURS_MIN_BUDGET_MS || hoursOutcome === "budget_exhausted" ? "budget_exhausted"
@@ -2486,8 +2601,11 @@ export async function runAiPlanner(
   }
   };
   if (policy.credentialSource === "operator") return withOperatorAiCredential(continuePlanning);
+  // Free guest AI (JOB-071) runs keyless, in its own context; it can never reach anyone's keys.
+  if (policy.credentialSource === "free") return withFreeAiCredential(continuePlanning);
   // Setup refuses own- and shared-key requests without a readable key; never fall back to the operator.
-  if (!userCredential) throw new Error("A user-funded AI request has no key.");
-  return withUserAiCredential({ source: policy.credentialSource, provider: ownerModelRegistry[policy.model].provider, ...userCredential },
+  const keyedProvider = ownerModelRegistry[policy.model].provider;
+  if (!userCredential || keyedProvider === "kilo") throw new Error("A user-funded AI request has no key.");
+  return withUserAiCredential({ source: policy.credentialSource, provider: keyedProvider, ...userCredential },
     continuePlanning);
 }

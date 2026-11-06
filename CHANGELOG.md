@@ -6,6 +6,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Free guest AI (JOB-071, D-086):** with `GUEST_FREE_AI_ENABLED=true`, guests without a key plan on keyless free models through Kilo's AI Gateway, by default NVIDIA Nemotron 3.5 Super with dots.3 note as a fallback. It is limited to 10 requests per guest a day and instance-wide hourly and daily caps, and has no search, research or pictures. The AI card shows the free model, the requests left, and that free models may keep what guests send. A new funding source `free` arrives with migration 0060.
+
 - **Own-key AI (JOB-070, D-085):** on the requester's own key, the trip AI:
   - reads up to three public pages linked in the request, such as an event page's name, time, venue and address;
   - answers questions on any topic;
