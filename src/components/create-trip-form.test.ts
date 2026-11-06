@@ -10,7 +10,7 @@ const optionsByLocale = Object.fromEntries(locales.map((locale) => [locale,getTr
 const defaults = {now:"2030-01-01T00:00:00Z",optionsByLocale,authenticated:true,signupEnabled:false,lookupEntitled:true};
 
 describe("account trip creation form",() => {
-  it.each(locales)("renders local-language identity and non-sponsored AI disclosure for %s",(locale) => {
+  it.each(locales)("renders local-language identity, with the AI lookup disclosure behind a help button, for %s",(locale) => {
     const html = renderToStaticMarkup(createElement(CreateTripForm,{...defaults,locale}));
     expect(html).toContain(createTripCopy(locale).title);
     expect(html).toContain(createTripCopy(locale).intro);
@@ -27,7 +27,8 @@ describe("account trip creation form",() => {
     expect(html).toContain('value="JPY" selected=""');
     expect(html).toContain(createTripCopy(locale).auto);
     expect(html).toContain(createTripCopy(locale).find);
-    expect(html).toContain(createTripCopy(locale).aiDisclosure);
+    expect(html.match(/<span id="[^"]+" popover="auto" role="note"[^>]*>([^<]*)<\/span>/u)?.[1]).toBe(createTripCopy(locale).aiDisclosure);
+    expect(html).not.toContain(`<small>${createTripCopy(locale).aiDisclosure}`);
     expect(html).toMatch(/<details><summary class="auth-secondary">[^<]+<\/summary><label>[^<]+<select[^>]*name="timeZone"/u);
     expect(html).toContain('aria-disabled="true"');
     expect(html).toContain('role="status" aria-live="polite"');

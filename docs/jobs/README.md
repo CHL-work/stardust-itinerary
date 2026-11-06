@@ -21,3 +21,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-072 | The operator's own AI requests follow the own-key rules, pictures included | done |
 | JOB-073 | Brief UI copy, with a few "?" buttons for details | done |
 | JOB-074 | Codex web search again, with the code-mode host on | done |
+| JOB-075 | Expense summary notes behind its "?" help, and the copy JOB-073 missed | done |

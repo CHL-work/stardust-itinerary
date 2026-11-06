@@ -70,7 +70,7 @@ export function GuestSignIn({ siteKey }: { siteKey: string | null }) {
   };
 
   return <div className="auth-guest">
-    <p>No account? Try a demo trip as a guest. It is deleted after 24 hours, and AI works with your own API key.</p>
+    <p>No account? Try a demo trip as a guest. It is deleted after 24 hours.</p>
     {siteKey ? <div ref={widget} className="auth-turnstile" /> : null}
     <button type="button" className="auth-secondary" disabled={starting || (siteKey !== null && token === null)} onClick={() => void start()}>
       {starting ? "Starting your demo trip…" : "Try as guest"}

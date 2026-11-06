@@ -45,3 +45,7 @@ Decision: [D-088](../DECISIONS.md#d-088-brief-ui-copy-with-details-behind-a-few-
 ## Rollback
 
 Revert the commit. There is no migration.
+
+## Follow-up
+
+This review read only the `*i18n.ts` modules. [JOB-075](JOB-075-expense-summary-help.md) covered the copy it skipped, starting with the expense summary.

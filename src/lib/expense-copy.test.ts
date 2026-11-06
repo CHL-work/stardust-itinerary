@@ -9,7 +9,6 @@ describe("personal expense explanation copy", () => {
     for (const value of Object.values(copy)) expect(value.trim().length).toBeGreaterThan(0);
     expect(new Set([copy.myShare, copy.paid, copy.receive, copy.owe, copy.balanced]).size).toBe(5);
     for (const field of ["myShareHelp", "paidHelp", "balanceHelp"] as const) expect(copy[field].length).toBeGreaterThan(40);
-    expect(copy.myShareHint).not.toBe(copy.paidHint);
     expect(copy.myShareHelp).not.toBe(copy.paidHelp);
   });
   it("keeps both Cantonese modes identical and neutral for financial explanations", () => {
@@ -29,10 +28,22 @@ describe("personal expense explanation copy", () => {
     expect(copy.paidHelp).toContain("full amount");
     expect(copy.paidHelp).toContain("your own portion was zero");
     expect(copy.paidHelp).toContain("not a bank-verified cash total");
-    expect(copy.recordedOnly).toContain("not other people's hidden private records");
-    expect(copy.excluded).toContain("Pending, draft and void");
-    expect(copy.excluded).toContain("without expense records");
-    expect(copy.excluded).toContain("no exchange conversion");
+    expect(copy.myShareHelp).toContain("expenses you can view");
+    expect(copy.myShareHelp).toContain("Pending, draft and void expenses");
+    expect(copy.myShareHelp).toContain("without an expense record");
+    expect(copy.myShareHelp).toContain("without conversion");
+  });
+  it.each(locales)("keeps notes off the figures and the remaining notes to one short line in %s (JOB-075)", (locale) => {
+    const copy = expenseSummaryCopy(locale) as Record<string, string>;
+    expect(Object.keys(copy).filter((key) => /Hint$/u.test(key) && key !== "settlementHint")).toEqual([]);
+    expect(copy).not.toHaveProperty("excluded");
+    expect(copy).not.toHaveProperty("recordedOnly");
+    for (const field of ["settlementHint", "ownerScope"]) expect(copy[field].length).toBeLessThan(locale === "en" ? 60 : 30);
+  });
+  it("moves the balance note into the balance help in every language (JOB-075)", () => {
+    expect(expenseSummaryCopy("en").balanceHelp).toMatch(/^This is the balance left after posted member repayments, not your total spending\. Balance = /u);
+    expect(expenseSummaryCopy("zh-HK").balanceHelp).toContain("不是你的總開支。結餘＝");
+    expect(expenseSummaryCopy("ja-JP").balanceHelp).toContain("自分の費用総額ではありません。残高＝");
   });
   it("keeps the same positive/negative balance directions in every language", () => {
     const en = expenseSummaryCopy("en");

@@ -16,7 +16,7 @@ Per member and currency:
 
 `remaining net = expense-paid − expense-share + posted repayments sent − posted repayments received`
 
-The Expense summary and Overview now label the first two numbers **My own trip expenses** and **Bills paid by me**, with short hints and question-mark help. Personal expense portions include authorized private and shared bills regardless of payer; bill-paid is the whole amount recorded under that payer, including advances. Neither includes separate member repayments. Balance help explains the formula above and existing bookkeeping reassignment, without claiming bank verification. The underlying calculations are unchanged; see [summary definitions](TRIP_EXPENSES.md#reading-the-summary).
+The Expense summary and Overview now label the first two numbers **My own trip expenses** and **Bills paid by me**, each with question-mark help. Personal expense portions include authorized private and shared bills regardless of payer; bill-paid is the whole amount recorded under that payer, including advances. Neither includes separate member repayments. Balance help explains the formula above and existing bookkeeping reassignment, without claiming bank verification. The underlying calculations are unchanged; see [summary definitions](TRIP_EXPENSES.md#reading-the-summary).
 
 Positive means owed to this member; negative means this member owes money. Example: Bob owes Alice JPY 500; recording Bob's JPY 200 repayment leaves Bob owing JPY 300. Both people's trip spending and original bill-paid amounts stay unchanged. Multiple partial payments accumulate, and repayment-only currencies are retained. Integer minor-unit arithmetic and exact reconciliation are deterministic; no model performs settlement math.
 

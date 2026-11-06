@@ -1773,6 +1773,12 @@
   min-width: 0;
 }
 
+/* Find defaults with its "?" beside it (JOB-075). */
+:root[data-ui="new"] .trip-defaults-lookup {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
 :root[data-ui="new"] .trip-defaults-zone {
   padding: 1rem;
   border: 1px solid var(--line);

@@ -94,7 +94,7 @@ describe("expense summary rendering", () => {
     expect(markup).toContain(`<h2>${copy.title}</h2>`);
     expect(markup.indexOf(copy.myShare)).toBeLessThan(markup.indexOf(copy.paid));
     expect(markup.indexOf(copy.paid)).toBeLessThan(markup.indexOf(copy.ownerDetails));
-    expect(markup).toContain(copy.excluded);
+    expect(markup).toContain(escapedText(copy.scope));
     expect(markup).toContain(copy.settlementHint);
     expect(markup).toContain(copy.ownerScope);
     expect(markup).not.toContain("<details open");
@@ -184,7 +184,7 @@ describe("expense summary rendering", () => {
     expect(emptyWidget).toContain(expenseSummaryCopy("en").balanced);
   });
 
-  it.each(locales)("provides three native, initially collapsed metric explanations and persistent hints on both surfaces in %s", (locale) => {
+  it.each(locales)("provides three native, initially collapsed metric explanations and no notes under the figures on both surfaces in %s", (locale) => {
     const copy = expenseSummaryCopy(locale);
     const data = overview();
     const surfaces = [TripExpenseSummary({ overview: data, locale }), PersonalExpenseWidget({ overview: data, locale, openExpenses: vi.fn() })];
@@ -212,12 +212,10 @@ describe("expense summary rendering", () => {
       expect(all.filter((element) => element.type === "dt")).toHaveLength(3);
       expect(metricValues(surface)).toEqual(["1,000", "4,000", "3,000"].map((value) => locale === "en" ? `¥${value}` : expect.stringContaining(value)));
       const markup = renderToStaticMarkup(surface);
-      for (const text of [copy.myShareHint, copy.paidHint, copy.balanceHint, copy.recordedOnly, copy.scope, copy.excluded]) expect(markup).toContain(escapedText(text));
-      // Persistent hints belong to each value, outside its closed help disclosure.
-      const descriptions = all.filter((element) => element.type === "dd");
-      for (const [index, description] of descriptions.entries()) {
-        const hint = descendants(description).find((element) => element.type === "p");
-        expect(hint?.props.children).toBe([copy.myShareHint, copy.paidHint, copy.balanceHint][index]);
+      expect(markup).toContain(escapedText(copy.scope));
+      // JOB-075: each figure shows only its amount; what a note used to say is in the figure's help.
+      for (const description of all.filter((element) => element.type === "dd")) {
+        expect(descendants(description).some((element) => element.type === "p")).toBe(false);
       }
     }
   });

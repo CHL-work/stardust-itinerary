@@ -49,14 +49,13 @@ export function TripExpenseSummary({ overview, locale, recordRepayment, busy }: 
     <div className={styles.currencies}>{summary.personal.map((balance) => <article className={styles.currencyCard} key={balance.currency} aria-label={`${copy.title} · ${balance.currency}`}>
       <span className={styles.currency}>{balance.currency}</span>
       <div className={styles.metrics}>
-        <dl className={styles.primary}><dt><MetricHelp label={copy.myShare} help={copy.myShareHelp} helpLabel={copy.helpLabel} /></dt><dd data-zero={balance.shareMinor === 0}>{money(balance.shareMinor, balance.currency, locale)}<p className={styles.hint}>{copy.myShareHint}</p></dd></dl>
+        <dl className={styles.primary}><dt><MetricHelp label={copy.myShare} help={copy.myShareHelp} helpLabel={copy.helpLabel} /></dt><dd data-zero={balance.shareMinor === 0}>{money(balance.shareMinor, balance.currency, locale)}</dd></dl>
         <div className={styles.secondary}>
-          <dl><dt><MetricHelp label={copy.paid} help={copy.paidHelp} helpLabel={copy.helpLabel} /></dt><dd data-zero={balance.paidMinor === 0}>{money(balance.paidMinor, balance.currency, locale)}<p className={styles.hint}>{copy.paidHint}</p></dd></dl>
-          <dl><dt><MetricHelp label={balanceLabel(balance.netMinor, copy)} help={copy.balanceHelp} helpLabel={copy.helpLabel} /></dt><dd className={balanceClass(balance.netMinor)}>{money(Math.abs(balance.netMinor), balance.currency, locale)}<p className={styles.hint}>{copy.balanceHint}</p></dd></dl>
+          <dl><dt><MetricHelp label={copy.paid} help={copy.paidHelp} helpLabel={copy.helpLabel} /></dt><dd data-zero={balance.paidMinor === 0}>{money(balance.paidMinor, balance.currency, locale)}</dd></dl>
+          <dl><dt><MetricHelp label={balanceLabel(balance.netMinor, copy)} help={copy.balanceHelp} helpLabel={copy.helpLabel} /></dt><dd className={balanceClass(balance.netMinor)}>{money(Math.abs(balance.netMinor), balance.currency, locale)}</dd></dl>
         </div>
       </div>
     </article>)}</div>
-    <p className={styles.hint}>{copy.excluded} {copy.recordedOnly}</p>
     {summary.personalRepayments.length > 0 && <div>{summary.personalRepayments.map((payment) => <p className={styles.hint} key={payment.currency}>
       {payment.currency} · {memberPaymentMessages(locale).sent}: {money(payment.sentMinor, payment.currency, locale)} · {memberPaymentMessages(locale).received}: {money(payment.receivedMinor, payment.currency, locale)}
     </p>)}{hasReassignedRepayments && <p className={styles.hint}>{memberPaymentMessages(locale).reassignedTotals}</p>}</div>}
@@ -89,12 +88,11 @@ export function PersonalExpenseWidget({ overview, locale, openExpenses, addExpen
     <div className={styles.widgetFigures}>{summary.personal.map((balance) => <div className={styles.widgetFigure} key={balance.currency}>
       <span className={styles.currency}>{balance.currency}</span>
       <dl className={styles.widgetMetrics}>
-        <div><dt><MetricHelp label={copy.myShare} help={copy.myShareHelp} helpLabel={copy.helpLabel} /></dt><dd className={styles.widgetAmount} data-zero={balance.shareMinor === 0}>{money(balance.shareMinor, balance.currency, locale)}<p className={styles.hint}>{copy.myShareHint}</p></dd></div>
-        <div><dt><MetricHelp label={copy.paid} help={copy.paidHelp} helpLabel={copy.helpLabel} /></dt><dd>{money(balance.paidMinor, balance.currency, locale)}<p className={styles.hint}>{copy.paidHint}</p></dd></div>
-        <div><dt><MetricHelp label={balanceLabel(balance.netMinor, copy)} help={copy.balanceHelp} helpLabel={copy.helpLabel} /></dt><dd className={balanceClass(balance.netMinor)}>{money(Math.abs(balance.netMinor), balance.currency, locale)}<p className={styles.hint}>{copy.balanceHint}</p></dd></div>
+        <div><dt><MetricHelp label={copy.myShare} help={copy.myShareHelp} helpLabel={copy.helpLabel} /></dt><dd className={styles.widgetAmount} data-zero={balance.shareMinor === 0}>{money(balance.shareMinor, balance.currency, locale)}</dd></div>
+        <div><dt><MetricHelp label={copy.paid} help={copy.paidHelp} helpLabel={copy.helpLabel} /></dt><dd>{money(balance.paidMinor, balance.currency, locale)}</dd></div>
+        <div><dt><MetricHelp label={balanceLabel(balance.netMinor, copy)} help={copy.balanceHelp} helpLabel={copy.helpLabel} /></dt><dd className={balanceClass(balance.netMinor)}>{money(Math.abs(balance.netMinor), balance.currency, locale)}</dd></div>
       </dl>
     </div>)}</div>
-    <p className={styles.hint}>{copy.excluded} {copy.recordedOnly}</p>
     <div className={styles.widgetActions}><button data-feedback-action="navigate" type="button" onClick={openExpenses}>{copy.viewExpenses}</button>{addExpense && <button data-feedback-action="expense_open" type="button" onClick={addExpense}>{copy.addExpense}</button>}</div>
   </section>;
 }

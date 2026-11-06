@@ -66,6 +66,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Brief expense summary (JOB-075, D-088):** the notes under the summary's figures and the paragraph on what is excluded moved into each figure's "?" help, in the full summary and the Overview widget. Copy that JOB-073's review skipped is brief too:
+  - trip creation, with what **Find defaults** sends behind a "?";
+  - the guest sign-in line, which no longer says AI needs your own key;
+  - the operator's feedback panel.
+
 - **Brief UI copy (JOB-073, D-088):** notes, hints, warnings and long errors are shortened in every language.
   - Removed: the day map's **Privacy details**, the AI memory notice, the context line under AI replies (still shown when older messages were summarized), and two notes in AI instructions.
   - Added: three "?" buttons for details people may want, on the day map, in AI keys and in the feedback form.
