@@ -117,8 +117,7 @@ describe("personal-first mobile expense cards", () => {
 
   it("uses neutral money and destructive copy in both Cantonese tone modes", () => {
     expect(mobileCardsMessages("zh-HK-lihkg")).toEqual(mobileCardsMessages("zh-HK"));
-    expect(mobileCardsMessages("en").removeConfirm).toContain("Linked expenses and audit history will be kept");
-    expect(mobileCardsMessages("en").removeConfirm).toContain("Google Calendar copies will not be deleted");
+    expect(mobileCardsMessages("en").removeConfirm).toBe("Remove this cancelled event? This cannot be undone.");
   });
 
   it("accentuates nonzero personal shares without treating zero or void bills as active spending", () => {

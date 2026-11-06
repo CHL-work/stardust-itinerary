@@ -1,0 +1,48 @@
+.button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin-inline-start: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted, #a9a1b8);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+/* A 44px tap area around the small visible circle, without changing the layout. */
+.button::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.button:hover {
+  color: var(--ink, #f7f3ff);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--violet, #a984ff);
+  outline-offset: 2px;
+}
+
+.panel {
+  max-inline-size: min(22rem, calc(100vw - 32px));
+  margin: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  background: var(--panel-raised, #231c31);
+  color: var(--ink, #f7f3ff);
+  box-shadow: var(--shadow, 0 22px 60px rgba(0, 0, 0, 0.28));
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.panel::backdrop {
+  background: rgba(0, 0, 0, 0.2);
+}

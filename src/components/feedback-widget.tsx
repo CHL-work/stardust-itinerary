@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { MessageSquareWarning, X } from "lucide-react";
 import { withStableSession } from "@/lib/auth/client-session";
 import { locales, type Locale } from "@/lib/i18n";
+import { InfoTip } from "@/components/info-tip";
+import { infoTipLabel } from "@/lib/app/info-tip-i18n";
 import { clearFeedbackContext, coarseFeedbackEnvironment, FEEDBACK_CONTEXT_EVENT, feedbackPageForPath, feedbackTrail, getFeedbackContext, verifyFeedbackContext } from "@/lib/feedback/client-context";
 import type { FeedbackContext, FeedbackDiagnostics, FeedbackReceipt, FeedbackSubmission, FeedbackSubmissionResult } from "@/lib/feedback/contracts";
 import { feedbackActionLabel, feedbackCopy, feedbackEnvironmentLabel } from "@/lib/feedback/i18n";
@@ -186,9 +188,8 @@ export function FeedbackWidget() {
           <label>{copy.title}<input required maxLength={160} value={title} onChange={event => setTitle(event.target.value)} /></label>
           <label>{copy.description}<textarea required maxLength={6000} rows={6} value={description} onChange={event => setDescription(event.target.value)} placeholder={copy.placeholder} /></label>
           <label className={styles.check}><input type="checkbox" checked={includeActions} onChange={event => setIncludeActions(event.target.checked)} /><span>{copy.diagnostics}</span></label>
-          <p className={styles.help}>{copy.privacy}</p>
+          <p className={styles.help}>{copy.privacy}<InfoTip label={infoTipLabel(locale)}>{copy.disclosure}</InfoTip></p>
           {includeActions && diagnostics && <details className={styles.preview}><summary>{copy.preview} ({diagnostics.breadcrumbs.length})</summary><p>{[diagnostics.formFactor, diagnostics.osFamily, diagnostics.browserFamily].map(value => feedbackEnvironmentLabel(value, locale)).join(" · ")}</p>{diagnostics.breadcrumbs.length ? <ol>{diagnostics.breadcrumbs.map((item, index) => <li key={`${item.at}-${index}`}><time dateTime={item.at}>{new Date(item.at).toLocaleTimeString(locale === "zh-HK-lihkg" ? "zh-HK" : locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time> {copy.pages[item.page]} · {feedbackActionLabel(item.action, locale)}</li>)}</ol> : <p>{copy.empty}</p>}</details>}
-          <p className={styles.help}>{copy.disclosure}</p>
         </fieldset>
         <button type="submit" disabled={sending || checking || (!pending && (!title.trim() || !description.trim()))} className={styles.send}>{sending ? copy.sending : pending ? copy.retry : copy.send}</button>
       </form>}

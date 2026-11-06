@@ -30,12 +30,12 @@ Use the existing catalog/helper for each surface, with tests for all four choice
 | Events/approvals | Neutral short Edit/Approve/Reject labels stay on one horizontal row. Transport endpoints, optional end/duration, Now, cancelled status and review conflicts remain explicit. [Cards](MOBILE_CARDS.md) |
 | Expenses/repayments | Personal portion versus whole bill/payer must stay distinct. Equal/custom shares, exact allocation errors, pending status and recorded-not-transferred payments use neutral language and readable amounts. [Expenses](TRIP_EXPENSES.md), [payments](MEMBER_PAYMENTS.md) |
 | AI/history | The validated route locale controls new generated answers/reasons. Recovery has distinct processing, reconnecting, failed and quota states. Saved replies remain in their original language; opening history never calls a model to translate. [Recovery](AI_REQUEST_RECOVERY.md) |
-| Instructions/history | Settings explains manual Save/Clear, next-request timing, account scope and owner-audit implications. Retired preference chats say read-only and cannot resume. [Instructions](AI_CUSTOM_INSTRUCTIONS.md) |
+| Instructions/history | Settings says in one line that instructions are private but owners can see AI request logs, beside manual Save/Clear. Retired preference chats say read-only and cannot resume. [Instructions](AI_CUSTOM_INSTRUCTIONS.md) |
 | Research | Distinguish source-backed results, unverified information, genuine conflicts and completion failure. Unknown opening hours use informational wording, not a closure warning. Preserve useful venue spelling, dates, currency/units, uncertainty and safe public links. [Hours](AI_VENUE_HOURS.md), [prices](AI_BOOKING_PRICES.md) |
 | Calendar | Source titles/places stay authored. All-day source dates and timed trip-zone dates stay distinct. Explicit actions show progress/error/outcome; automatic reads do not show syncing prose or passive failures. [Imports](CALENDAR_IMPORT.md) |
 | Map/weather/offline | Short Directions links; visible icons/times with localized accessible mode/distance labels. State unresolved locations and approximate weather honestly. Offline/privacy/recovery notices remain neutral. [Map](DAILY_MAP.md) |
 | Disruptions | Translate bodies as well as labels from observation-bound `en`/`zh-HK`/`ja-JP` text. Spicy Cantonese uses neutral safety text. Missing translations show a neutral fallback plus original; viewing cannot regenerate evidence or trigger repeat notifications. [Localization](DISRUPTION_LOCALIZATION.md) |
-| Feedback/activity | Ten-minute diagnostics, always-on review notice and operator states are localized. Submitted feedback remains authored; developer issue templates use English with attributed excerpts. [Feedback](FEEDBACK.md), [Activity](ACTIVITY.md) |
+| Feedback/activity | Ten-minute diagnostics, the review notice behind the form's "?" button, and operator states are localized. Submitted feedback remains authored; developer issue templates use English with attributed excerpts. [Feedback](FEEDBACK.md), [Activity](ACTIVITY.md) |
 
 Original trip/event/venue/member names, addresses, notes, account email hints and submitted instructions are preserved. Locale selection does not silently translate canonical traveler data; an explicit canonical-content translation is a separately audited maintenance change, not general behavior. General on-demand content translation, saved account locale preferences and complete owner-operational surface localization are not implied by this contract.
 
@@ -43,6 +43,8 @@ Reservation-expense clarification is a neutral money surface. Missing essential 
 
 ## 2. Engineering rules
 
+- Keep copy brief (D-088). A note is one short line or none, with no internal mechanics. An error or confirmation says what happened and what to do in one or two short sentences. An explanation someone may want, about privacy or money, goes behind one "?" button (`src/components/info-tip.tsx`), at most one per section; the complete detail belongs in the privacy notice and the docs.
+- In English, prefer full forms ("could not", "cannot") to contractions, as the existing copy does.
 - Keep English keys/code identifiers and parameterized messages; do not concatenate translated sentence fragments.
 - Format dates, times, numbers and currency with locale-aware helpers, preserving exact integer monetary values. Language selection cannot change an allocation.
 - Store IANA time zones, not translated labels. Transport endpoint timing and optional unknown ends must not become guessed travel/departure estimates.

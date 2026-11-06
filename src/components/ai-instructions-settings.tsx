@@ -40,9 +40,7 @@ function AiInstructionsEditor({ tripId, locale, request, onDirtyChange }: Props)
   return <article className={`settings-card ${styles.card}`} aria-busy={state.phase === "loading" || state.phase === "saving"}>
     <h2>{copy.title}</h2>
     <p>{copy.description}</p>
-    <p>{copy.timing}</p>
     <p id="ai-instructions-privacy">{copy.privacy}</p>
-    <p>{copy.boundary}</p>
     <form data-feedback-action="settings_save" className={styles.form} onSubmit={save}>
       <label>{copy.label}<textarea rows={7} maxLength={AI_INSTRUCTIONS_MAX_CHARACTERS} value={state.draft}
         disabled={!ready} aria-describedby="ai-instructions-privacy ai-instructions-count" placeholder={copy.placeholder}

@@ -43,7 +43,7 @@ describe("map-only daily journey presentation", () => {
   });
   it.each(locales)("keeps explicit private consent and localized compact controls in %s", locale => {
     const copy = dayMapMessages(locale); const tree = DayEventMapPanel({ ...base, locale }); const html = renderToStaticMarkup(tree);
-    expect(html).toContain(copy.disclosure); expect(html).toContain(copy.calendarHint); expect(html).toContain(copy.privateConsent); expect(html).toContain(copy.load);
+    expect(html).toContain(copy.disclosure.replaceAll("'", "&#x27;")); expect(html).toContain('popover="auto"'); expect(html).toContain(copy.privateConsent); expect(html).toContain(copy.load);
     expect(elements(tree, "input").map(input => input.checked)).toEqual([false]); expect(html).not.toContain(privateStop.title);
     const consent = vi.fn(); elements(DayEventMapPanel({ ...base, changePrivate: consent }), "input")[0].onChange?.({ target: { checked: true } }); expect(consent).toHaveBeenCalledWith(true);
   });

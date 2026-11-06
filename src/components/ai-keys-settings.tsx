@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { AiCredentialSummary, AiKeyProtection, AiKeyUsage } from "@/lib/ai/credentials";
 import { aiKeysMessages, type AiKeysCopy } from "@/lib/ai/keys-i18n";
+import { InfoTip } from "@/components/info-tip";
+import { infoTipLabel } from "@/lib/app/info-tip-i18n";
 import { formatMessage, type Locale } from "@/lib/i18n";
 
 type Provider = AiCredentialSummary["provider"];
@@ -118,8 +120,7 @@ export function AiKeysView({ copy, locale, keys, usage = null, protection = null
   return <article className="settings-card" aria-busy={phase === "loading" || busy !== null}>
     <h2>{copy.title}</h2>
     <p>{copy.description}</p>
-    <p id="ai-keys-privacy">{protection === "kms" ? copy.privacyKms : copy.privacy}</p>
-    <p className="muted-copy">{copy.keyAdvice}</p>
+    <p id="ai-keys-privacy">{protection === "kms" ? copy.privacyKms : copy.privacy}<InfoTip label={infoTipLabel(locale)}>{copy.keyAdvice}</InfoTip></p>
     {phase === "loading" ? <p role="status">{copy.loading}</p> : null}
     {phase === "failed" ? <><p role="alert">{copy.loadFailed}</p><button type="button" className="ghost-button" onClick={reload}>{copy.retry}</button></> : null}
     {phase === "ready" ? aiKeyProviders.map((provider) => {

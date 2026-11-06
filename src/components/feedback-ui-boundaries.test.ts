@@ -76,8 +76,8 @@ describe("global private feedback UI boundaries", () => {
   it.each(locales)("discloses eligibility rather than guaranteed delivery and labels the ten-minute attachment (%s)", locale => {
     const copy = feedbackCopy[locale];
     expect(copy.diagnostics).toContain("10"); expect(copy.diagnostics).not.toContain("30");
-    expect(copy.disclosure).toContain("Astra"); expect(copy.disclosure).toContain("GitHub");
-    expect(copy.disclosure).toContain(locale === "en" ? "not guaranteed" : locale === "ja-JP" ? "保証されません" : "不保證");
+    expect(copy.disclosure).toContain("AI"); expect(copy.disclosure).toContain("GitHub");
+    expect(copy.disclosure).toContain(locale === "en" ? "may become" : locale === "ja-JP" ? "場合があります" : "可能");
     expect(copy.policy.length).toBeGreaterThan(20); expect(copy.private.length).toBeGreaterThan(0);
     if (locale === "zh-HK-lihkg") expect(copy.disclosure).toBe(feedbackCopy["zh-HK"].disclosure);
   });

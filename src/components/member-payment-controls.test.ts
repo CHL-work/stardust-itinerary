@@ -133,7 +133,7 @@ describe("repayment entry and history presentation", () => {
   });
   it("preserves original payment facts when removal reassigns bookkeeping and escapes notes", () => {
     const html = renderToStaticMarkup(createElement(MemberPaymentHistory, { ...historyProps, payments: [{ ...payment, accountingFromMemberId: "new", accountingFromMemberName: "New assignee", note: "<script> & note" }] }));
-    expect(html).toContain("Original sender"); expect(html).toContain("New assignee"); expect(html).toContain("Original payment details above are retained.");
+    expect(html).toContain("Original sender"); expect(html).toContain("New assignee"); expect(html).toContain("Taken over after member removal");
     expect(html).toContain("&lt;script&gt; &amp; note"); expect(html).not.toContain("<script>"); expect(html).toContain("9:00 AM");
   });
   it("requires a reason for rejection/void and distinguishes void from refund", () => {
@@ -141,7 +141,7 @@ describe("repayment entry and history presentation", () => {
       const html = renderToStaticMarkup(createElement(MemberPaymentDecisionForm, { ...formProps, decision: { payment, action, reason: "", confirmation: false }, change: vi.fn() }));
       expect(html.includes('<textarea required=""')).toBe(action !== "approve");
       expect(html).toContain('maxLength="500"');
-      if (action === "void") expect(html).toContain("It does not refund or move money.");
+      if (action === "void") expect(html).toContain("No money moves.");
     }
   });
   it("keeps controls and amounts readable on small screens", () => {

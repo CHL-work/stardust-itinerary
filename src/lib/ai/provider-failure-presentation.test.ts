@@ -31,7 +31,7 @@ describe("safe localized provider failure presentation", () => {
   it("keeps provider/service reliability and quota copy neutral in both Cantonese modes", () => {
     expect(aiProviderFailureCopy("zh-HK-lihkg")).toEqual(aiProviderFailureCopy("zh-HK"));
     expect(messages["zh-HK-lihkg"].aiOwnerPolicy).toBe(messages["zh-HK"].aiOwnerPolicy);
-    expect(messages.en.aiOwnerPolicy).toContain("provider and account limits still apply");
+    expect(messages.en.aiOwnerPolicy).toContain("wait for your approval");
   });
   it.each([
     undefined, { ...limited, retryAt: "not-a-date" }, { ...limited, retryAt: "2026-02-30T01:00:00.000Z" },

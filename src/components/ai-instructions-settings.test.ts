@@ -143,7 +143,7 @@ describe("localized Settings instructions and retired preference controls", () =
   it.each(locales)("renders an accessible, bounded, private Settings editor in %s", (locale) => {
     const copy = aiInstructionsMessages(locale); const request = vi.fn();
     const html = renderToStaticMarkup(createElement(AiInstructionsSettings, { tripId: "synthetic", scope: "trip:member:user", locale, request }));
-    for (const text of [copy.title, copy.description, copy.timing, copy.privacy, copy.boundary, copy.label, copy.loading, copy.save, copy.clear]) expect(html).toContain(text);
+    for (const text of [copy.title, copy.description, copy.privacy, copy.label, copy.loading, copy.save, copy.clear]) expect(html).toContain(text);
     expect(html).toContain('maxLength="8000"'); expect(html).toContain('aria-describedby="ai-instructions-privacy ai-instructions-count"');
     expect(html).toContain('aria-busy="true"'); expect(html).toContain('disabled=""'); expect(request).not.toHaveBeenCalled();
   });

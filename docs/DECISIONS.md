@@ -2,6 +2,15 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-088: Brief UI copy, with details behind a few help buttons (accepted November 6, 2026)
+
+The owner found the UI wordy and its warnings unread (JOB-073).
+
+- **Notes:** one short line or none. Do not describe internal mechanics, such as tokens, transactions or audit entries.
+- **Errors and confirmations:** say what happened and what to do, in one or two short sentences. Keep a fact the person needs to decide, such as the old and new dates of a change.
+- **Details on request:** an explanation someone may want, about privacy or money, goes behind one "?" button (`InfoTip`), at most one per section. The complete detail stays in the [privacy notice](PRIVACY.md) and the docs.
+- **Why not delete every disclosure:** a short privacy fact still belongs next to the action it concerns, such as what loading the map sends. A button keeps it one tap away without making everyone read it.
+
 ## D-087: The operator's own AI requests count as paid by the requester (accepted November 6, 2026)
 
 JOB-070 loosened the AI only on a user's own key. The owner runs this server and plans on its keys, so their own requests kept every limit and the link they pasted went unread (JOB-072).

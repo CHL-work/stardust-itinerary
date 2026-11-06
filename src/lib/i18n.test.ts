@@ -26,23 +26,10 @@ describe("LIHKG localization boundaries", () => {
       .toBe("オーナーのAIモデルをgpt-6.1-solに変更しました。");
   });
 
-  it("keeps conversational-memory privacy and reset copy explicit and neutral", () => {
-    expect(messages.en.aiMemoryNotice).toContain("token-budgeted recent tail");
-    expect(messages.en.aiMemoryNotice).toContain("versioned conversation summary");
-    expect(messages.en.aiMemoryNotice).toContain("trip owner can still view logged prompts and replies");
-    expect(messages.en.newAiConversationDescription).toContain("clear the unsent message");
-    expect(messages.en.newAiConversationDescription).toContain("read or continue it later");
-    expect(messages.en.newAiConversationDescription).toContain("Audit records are kept");
-    expect(formatMessage(messages["zh-HK"].aiMemoryUsage, {
-      count: 3,
-      tokens: 900,
-      budget: 6000,
-    })).toBe("此回覆使用：3 次最近對話 · 約 900/6000 tokens。");
-    expect(messages.en.aiMemoryNotice).toContain("does not automatically save preferences");
-
+  it("keeps conversation reset copy brief and neutral (JOB-073)", () => {
+    expect(messages.en.newAiConversationDescription).toBe("Start fresh. Your current chat stays in the AI tab.");
+    expect(messages.en.aiMemoryTruncated).toBe("Older messages were summarized.");
     for (const key of [
-      "aiMemoryNotice",
-      "aiMemoryUsage",
       "aiMemoryTruncated",
       "newAiConversation",
       "newAiConversationTitle",
@@ -165,9 +152,9 @@ describe("trip, event, and Calendar localization", () => {
   });
 
   it("tells owners that their own AI-created events still require approval", () => {
-    expect(messages.en.aiOwnerPolicy).toContain("even when the owner asks");
-    expect(messages["zh-HK"].aiOwnerPolicy).toContain("包括由管理員提出");
-    expect(messages["ja-JP"].aiOwnerPolicy).toContain("オーナー自身の依頼でも");
+    expect(messages.en.aiOwnerPolicy).toBe("New AI events and expenses wait for your approval.");
+    expect(messages["zh-HK"].aiOwnerPolicy).toContain("需要你批准");
+    expect(messages["ja-JP"].aiOwnerPolicy).toContain("承認待ち");
   });
 
   it("localizes AI batch approval counts and validation guidance", () => {

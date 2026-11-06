@@ -66,6 +66,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Brief UI copy (JOB-073, D-088):** notes, hints, warnings and long errors are shortened in every language.
+  - Removed: the day map's **Privacy details**, the AI memory notice, the context line under AI replies (still shown when older messages were summarized), and two notes in AI instructions.
+  - Added: three "?" buttons for details people may want, on the day map, in AI keys and in the feedback form.
+
 - **Privacy notice (JOB-068):** lists Neon, which keeps the daily copies of the database, and how long they are kept.
 - **Quick AI answers expire (JOB-067, D-082):** the quick composer hides an answer after ten idle minutes, and the next quick question starts a new conversation. AI history and the AI tab are unchanged.
 - **Day map (JOB-067, D-081):**

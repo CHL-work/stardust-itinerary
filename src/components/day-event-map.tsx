@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef, useState, type Ref } from "react";
 import { Car, ChevronDown, Footprints, MapPin, Move, Train } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
+import { InfoTip } from "@/components/info-tip";
+import { infoTipLabel } from "@/lib/app/info-tip-i18n";
 import type { DayMapStop } from "@/lib/maps/day-stops";
 import { createDayMapLoader, dayMapDirectionsLink, dayMapResponseMatches, groupDayMapMarkers, visibleDayMapStops, type DayMapFailure, type DayMapResponse, type DayMapLeg, type LocatedDayMapStop } from "@/lib/maps/client";
 import { projectMapPoint, type MapPointPosition } from "@/lib/maps/geometry";
@@ -128,9 +130,7 @@ export function DayEventMapPanel({ id, date, timeZone, locale, stops, includePri
   const modeIcons = { walking: Footprints, driving: Car, transit: Train };
 
   return <section id={id} className={styles.panel} aria-label={`${copy.title} · ${date}`} data-feedback-private>
-    <p className={styles.hint} id={`${id}-privacy`}>{copy.disclosure}</p>
-    <div className={styles.toolbar}><label className={styles.consent}><input type="checkbox" checked={includePrivate} onChange={event => changePrivate(event.target.checked)} aria-describedby={`${id}-private-help`} /><span>{copy.privateConsent}</span></label><div className={styles.actions}><button type="button" className={styles.load} disabled={busy || stops.length === 0} onClick={load} aria-describedby={`${id}-privacy`}>{busy ? copy.loading : response || failure ? copy.reload : copy.load}</button>{busy && <button type="button" onClick={cancel}>{copy.cancel}</button>}</div></div>
-    <details className={styles.privacy}><summary>{copy.privacyDetails}</summary><p className={styles.hint} id={`${id}-private-help`}>{copy.privateHint} {copy.calendarHint}</p></details>
+    <div className={styles.toolbar}><label className={styles.consent}><input type="checkbox" checked={includePrivate} onChange={event => changePrivate(event.target.checked)} /><span>{copy.privateConsent}</span></label><div className={styles.actions}><button type="button" className={styles.load} disabled={busy || stops.length === 0} onClick={load}>{busy ? copy.loading : response || failure ? copy.reload : copy.load}</button>{busy && <button type="button" onClick={cancel}>{copy.cancel}</button>}<InfoTip label={infoTipLabel(locale)}>{copy.disclosure}</InfoTip></div></div>
     <div aria-live="polite" aria-atomic="true">{busy && <p className={styles.hint} role="status">{copy.loading}</p>}{notice && <p className={styles.notice} role="status">{notice}</p>}</div>
     {live && <figure className={styles.figure}><DayEventLiveMap id={id} response={live} locale={locale} timeZone={timeZone} selectedKey={selectedKey} selectedLegKey={selectedLegKey ?? null} select={select} selectLeg={key => selectLeg?.(key)} /><figcaption><p className={styles.orderNote}>{copy.connectors}</p>{live.stops.filter(stop => stop.resolution === "located").length === 1 && <span className={styles.hint}>{copy.singleStop}</span>}</figcaption></figure>}
     {ready && <figure className={styles.figure}>

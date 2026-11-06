@@ -15,8 +15,7 @@
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .actions button { border: 1px solid var(--line, #dedbe8); border-radius: 9px; padding: 8px 11px; color: inherit; background: var(--panel-raised, #f7f5fc); font-size: 13px; overflow-wrap: anywhere; }
 .actions .load { color: #fff; background: #6749bb; border-color: #6749bb; font-weight: 650; }
-.privacy summary, .unplotted summary { cursor: pointer; align-content: center; font-size: 12px; color: var(--muted, #666174); }
-.privacy { margin-bottom: 4px; }
+.unplotted summary { cursor: pointer; align-content: center; font-size: 12px; color: var(--muted, #666174); }
 .notice { border-left: 3px solid #8a72be; padding: 9px 11px; background: var(--panel-raised, #f7f5fc); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .figure { margin: 4px 0 0; }
 .preview { position: relative; width: 100%; margin: 0; }

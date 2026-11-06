@@ -4015,12 +4015,11 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
       {overview.ai.canSelectModel ? <select data-feedback-action="settings_save" className="model-select" value={selectedModel} disabled={busy} onChange={(event) => void setModel(event.target.value)}>{selectableOwnerModels.map((model) => <option key={model}>{model}</option>)}</select> : null}
       {ownKeySelect}
       {quotaNote}
-      <p className="ai-memory-notice">{messages.aiMemoryNotice}</p>
       {openHistory ? <button data-feedback-action="navigate" type="button" className="ghost-button" onClick={openHistory}>{historyLabel}<ChevronRight size={16} /></button> : null}
       <form data-feedback-action="ai_submit" onSubmit={submit}><label className="ai-input"><span className="sr-only">{messages.askAi}</span><textarea required autoFocus={autoFocus} maxLength={AI_PROMPT_MAX_CHARACTERS} disabled={busy || !overview.ai.enabled} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={messages.aiPlaceholder} rows={4} /><button disabled={busy || !overview.ai.enabled || !prompt.trim() || imagePicker?.preparing} aria-label={messages.sendAiPrompt}><Sparkles size={17} /></button></label>
         {imagePicker ? <AiImagePicker {...imagePicker} disabled={busy || !overview.ai.enabled} /> : null}
       </form>
-      {thinking ? <p className="ai-thinking" role="status" aria-live="polite"><Sparkles size={16} /> {statusText ?? messages.aiThinking}</p> : reply ? <div className="ai-reply"><AiReadableText text={reply} />{sources.length ? <div className="ai-source-list"><strong>{messages.aiResearchSources}</strong>{sources.map((source, index) => <a href={source} target="_blank" rel="noreferrer" key={source}>{index + 1}. {sourceHost(source)}</a>)}</div> : null}{memory ? <p className="ai-memory-usage" role="status">{formatMessage(messages.aiMemoryUsage, { count: memory.previousTurnsUsed, tokens: memory.tokenEstimate, budget: memory.tokenBudget })}{memory.truncated ? <span>{messages.aiMemoryTruncated}</span> : null}</p> : null}</div> : <p className="disabled-note">{idleMessage}</p>}
+      {thinking ? <p className="ai-thinking" role="status" aria-live="polite"><Sparkles size={16} /> {statusText ?? messages.aiThinking}</p> : reply ? <div className="ai-reply"><AiReadableText text={reply} />{sources.length ? <div className="ai-source-list"><strong>{messages.aiResearchSources}</strong>{sources.map((source, index) => <a href={source} target="_blank" rel="noreferrer" key={source}>{index + 1}. {sourceHost(source)}</a>)}</div> : null}{memory?.truncated ? <p className="ai-memory-usage" role="status">{messages.aiMemoryTruncated}</p> : null}</div> : <p className="disabled-note">{idleMessage}</p>}
     </section>
   );
 }
