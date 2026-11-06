@@ -15,6 +15,8 @@ const signInErrors: Record<string, string> = {
   claim: "This invitation is invalid, expired, already used, or revoked. Ask the owner for a new invitation link.",
   join: "This trip invitation is unavailable, the trip is full, or this account was disabled or removed. Ask the owner to check the member list.",
   rate_limit: "Too many sign-in attempts were made. Wait a few minutes and try again.",
+  suspended: "This account is suspended on this site. If you think this is a mistake, contact the site's operator.",
+  signup_paused: "New sign-ups are paused for today. Try again tomorrow. Existing accounts can still sign in.",
   expired: "That one-time Google sign-in transaction has expired. Start a new sign-in below.",
   oauth: "Google sign-in could not be completed. Try again or ask the owner to check the OAuth configuration.",
 };

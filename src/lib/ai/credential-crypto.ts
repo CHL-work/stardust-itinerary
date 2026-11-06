@@ -10,6 +10,9 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
  * - `CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS` lists older keys as `version:key` pairs, separated by
  *   commas. They only open existing ciphertexts, until `reencryptAiCredentials` has moved every row
  *   to the current key and the operator removes them.
+ *
+ * With `CREDENTIAL_KMS_KEY` set, new keys are sealed by Cloud KMS instead (`credential-kms.ts`), and
+ * this ring is needed only to open keys saved before, until they are moved.
  */
 export type AiCredentialProvider = "openai" | "anthropic" | "google";
 export type SealedCredential = { ciphertext: Buffer; nonce: Buffer; keyVersion: number };
@@ -85,9 +88,11 @@ function encryptionKey(ring: KeyRing, version: number): Buffer {
   return found;
 }
 
-function additionalData(userId: string, provider: AiCredentialProvider): Buffer {
+/** Binds a ciphertext to one account and provider, under the local ring and Cloud KMS alike. */
+export function credentialAssociatedData(userId: string, provider: AiCredentialProvider): Buffer {
   return Buffer.from(`stardust-ai-credential:v1:${userId}:${provider}`, "utf8");
 }
+const additionalData = credentialAssociatedData;
 
 export function credentialEncryptionConfigured(env: Record<string, string | undefined> = process.env): boolean {
   try { keyRing(env); return true; } catch { return false; }

@@ -58,6 +58,7 @@ function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectMod
     ownKeysToShare: ((options.ai?.ownKeyProviders as string[] | undefined)?.length ?? 0) > 0,
     ChevronRight, RefreshCw, ActivitySettingsEntry,
     FeedbackOperations: () => null,
+    AdminEntry: () => null,
     advancedRequestStatus, formatMessage, ownerModels, busy: options.busy ?? false, selectedModel: "gpt-6.1-sol",
     memberDailyLimit: "20", setMemberDailyLimit: vi.fn(), updateModel: vi.fn(), saveMemberDailyLimit,
     tripSettings: { destinationName: "Synthetic city", timeZone: "Asia/Tokyo", maxMembers: "10", endsOn: "2030-04-05" },

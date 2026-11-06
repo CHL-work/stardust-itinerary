@@ -27,3 +27,13 @@ output "github_builder_service_account" {
 output "github_deployer_service_account" {
   value = google_service_account.deployer.email
 }
+
+output "credential_kms_key" {
+  description = "CREDENTIAL_KMS_KEY for stardust-credential-env (JOB-069)."
+  value       = google_kms_crypto_key.ai_credentials.id
+}
+
+output "credential_kms_service_account" {
+  description = "CREDENTIAL_KMS_SERVICE_ACCOUNT for stardust-credential-env (JOB-069)."
+  value       = google_service_account.credentials.email
+}

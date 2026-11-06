@@ -62,9 +62,10 @@ The exact filesystem routes under `src/app/api/` are authoritative. Authenticati
 | `src/components/app-shell.tsx` | Shared app orchestration/presentation; topic components isolate newer controls. |
 | `src/components/new-ui/` | New-layout additions; new-only styles stay scoped to `:root[data-ui="new"]`. |
 | `src/lib/app/repository.ts`, `validation.ts`, `types.ts` | Canonical transactions, proposal policy, model registry and shared contract. |
-| `src/lib/auth/` | Google binding, account/trip sessions, invitation and operator authority. |
+| `src/lib/auth/` | Google binding, account/trip sessions, invitation and operator authority, suspension checks. |
+| `src/lib/admin/`, `src/app/admin/`, `src/app/api/admin/` | The operator's admin page: overview, accounts, activity, suspension, the sign-up cap and daily counters (JOB-069). |
 | `src/lib/domain/` | Deterministic expense/balance/conflict/reminder primitives; primitives do not imply a scheduled reminder service exists. |
-| `src/lib/ai/` | Planner/adapters, context, drafts, images, validation/repair, public research and recovery. |
+| `src/lib/ai/` | Planner/adapters, context, drafts, images, validation/repair, public research and recovery; users' keys under the local ring or Cloud KMS (`credential-kms.ts`). |
 | `src/lib/calendar|maps|weather|disruptions|feedback/` | Separate integration policies and derived data. |
 | `database/migrations/`, `tests/database/` | Immutable forward SQL and destructive-disposable integration tests. |
 | `scripts/` | Migrations, seeds, smoke, workers, guarded synthetic evaluations and maintenance tools; read before invoking. |

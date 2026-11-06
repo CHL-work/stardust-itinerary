@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { NextResponse } from "next/server";
 
+import { recordDailyCount } from "@/lib/admin/daily-counts";
 import type { AuthConfig } from "@/lib/auth/config";
-import { SessionUnavailableError } from "@/lib/auth/errors";
+import { SessionUnavailableError, SignupPausedError } from "@/lib/auth/errors";
 import type { GoogleIdentity } from "@/lib/auth/google";
 import type { SessionGrant } from "@/lib/auth/repository";
 import { rollingSessionExpiry } from "@/lib/auth/session-lifetime";
@@ -26,6 +27,26 @@ export function clearAccountCookie(response: NextResponse, config: AuthConfig): 
     sameSite:"lax",path:"/",maxAge:0 });
 }
 
+/**
+ * The operator's daily cap on new public sign-ups (JOB-069): NULL means no cap and 0 pauses them.
+ * One lock serializes new sign-ups, so the count is exact. Databases from before migration 0059
+ * have no cap.
+ */
+async function assertSignupAllowed(client: Pick<PoolClient,"query">): Promise<void> {
+  const table = await client.query<{present:boolean}>("SELECT to_regclass('public.platform_settings') IS NOT NULL AS present");
+  if (!table.rows[0]?.present) return;
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended('stardust-public-signup',0))");
+  const result = await client.query<{daily_limit:number|null;today:number}>(
+    `SELECT settings.signup_daily_limit AS daily_limit,
+            COALESCE((SELECT sum(counts.count) FROM platform_daily_counts counts
+                       WHERE counts.metric='public_signup' AND counts.user_id IS NULL
+                         AND counts.day=(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date),0)::integer AS today
+       FROM platform_settings settings WHERE settings.singleton`,
+  );
+  const row = result.rows[0];
+  if (row && row.daily_limit !== null && row.today >= row.daily_limit) throw new SignupPausedError();
+}
+
 /** Only a completed Google OIDC callback may issue this narrowly scoped grant. */
 export async function issueAccountOnboarding(
   pool: Pool, config: AuthConfig, identity: GoogleIdentity,
@@ -45,7 +66,9 @@ export async function issueAccountOnboarding(
     const userId = found.rows[0]?.user_id ?? randomUUID();
     const displayName = identity.displayNameHint?.trim().slice(0,120) || "Traveler";
     if (!found.rows[0]) {
+      await assertSignupAllowed(client);
       await client.query("INSERT INTO app_users (id,display_name) VALUES ($1,$2)",[userId,displayName]);
+      await recordDailyCount(client,"public_signup");
       await client.query(
         `INSERT INTO oidc_identities (issuer,subject,user_id,email_hint,display_name_hint,last_authenticated_at)
          VALUES ($1,$2,$3,$4,$5,CURRENT_TIMESTAMP)`,
@@ -77,7 +100,8 @@ export async function verifyAccountOnboarding(
     `SELECT account_session.id,account_session.user_id,account_session.issuer,account_session.subject,app_user.display_name
        FROM auth_account_sessions account_session JOIN app_users app_user ON app_user.id=account_session.user_id
        JOIN oidc_identities identity ON identity.issuer=account_session.issuer AND identity.subject=account_session.subject AND identity.user_id=account_session.user_id
-      WHERE account_session.token_hash=$1 AND account_session.consumed_at IS NULL AND account_session.expires_at>CURRENT_TIMESTAMP`,
+      WHERE account_session.token_hash=$1 AND account_session.consumed_at IS NULL AND account_session.expires_at>CURRENT_TIMESTAMP
+        AND (to_jsonb(app_user)->>'suspended_at') IS NULL`,
     [hashOpaqueToken(config.authSecret,"account-onboarding",rawToken)],
   );
   const row = result.rows[0];

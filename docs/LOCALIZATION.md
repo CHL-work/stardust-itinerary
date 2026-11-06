@@ -98,6 +98,7 @@ These are tone examples, not required replacement strings. Approval, money and t
 | Possible disruption | Advisory, not certainty | 可能受阻 | 影響の可能性 |
 | Offline itinerary | Bounded saved trip-visible display | 離線行程 | オフライン旅程 |
 | Owner | Trip administrator, not platform operator | 管理員 | オーナー |
+| Admin page | The platform operator's page (JOB-069), not trip ownership | 營運管理 | 運営管理 |
 | Share cost | Allocate an expense | 分帳 | 費用を分ける |
 | Proposal | Unapplied change request | 建議變更 | 変更案 |
 

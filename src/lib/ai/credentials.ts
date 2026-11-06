@@ -3,9 +3,10 @@ import { z } from "zod";
 
 import { geminiEndpointFor } from "@/lib/ai/gemini";
 import {
-  CredentialEncryptionUnavailableError, credentialEncryptionConfigured, credentialHint, currentCredentialKeyVersion, openCredential,
-  sealCredential, type AiCredentialProvider,
+  CredentialEncryptionUnavailableError, credentialAssociatedData, credentialEncryptionConfigured, credentialHint, currentCredentialKeyVersion,
+  openCredential, sealCredential, type AiCredentialProvider,
 } from "@/lib/ai/credential-crypto";
+import { CredentialKmsUnavailableError, kmsOpen, kmsSeal, kmsSettings, type KmsSettings } from "@/lib/ai/credential-kms";
 import { AppForbiddenError, AppInvalidInputError, appendAudit, assertTrip, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
@@ -40,6 +41,51 @@ export class AiKeysUnavailableError extends AppForbiddenError {
 }
 
 const VALIDATION_TIMEOUT_MS = 8_000;
+
+/**
+ * How this server seals users' keys (JOB-069): with Cloud KMS when `CREDENTIAL_KMS_KEY` is set,
+ * otherwise with the local key ring, or null when neither is configured (or KMS is misconfigured),
+ * in which case keys cannot be saved. Settings shows users which one applies.
+ */
+export type AiKeyProtection = "kms" | "local";
+export function aiKeyProtection(env: Record<string, string | undefined> = process.env): AiKeyProtection | null {
+  const kms = kmsSettings(env);
+  if (kms === "invalid") return null;
+  if (kms) return "kms";
+  return credentialEncryptionConfigured(env) ? "local" : null;
+}
+
+type StoredSeal = { sealedWith: "local"; ciphertext: Buffer; nonce: Buffer; keyVersion: number } | { sealedWith: "kms"; ciphertext: Buffer };
+type StoredRow = { ciphertext: Buffer; nonce: Buffer | null; key_version: number | null; sealed_with?: string | null };
+
+function activeKms(env: Record<string, string | undefined>): KmsSettings {
+  const kms = kmsSettings(env);
+  if (!kms || kms === "invalid") throw new CredentialEncryptionUnavailableError();
+  return kms;
+}
+
+async function sealForStorage(secret: string, owner: { userId: string; provider: AiCredentialProvider },
+  env: Record<string, string | undefined> = process.env): Promise<StoredSeal> {
+  if (aiKeyProtection(env) === "kms") {
+    return { sealedWith: "kms", ciphertext: await kmsSeal(secret, credentialAssociatedData(owner.userId, owner.provider), activeKms(env)) };
+  }
+  return { sealedWith: "local", ...sealCredential(secret, owner, env) };
+}
+
+/** Rows saved before migration 0059 have no `sealed_with`; they are all local. */
+async function openStored(row: StoredRow, owner: { userId: string; provider: AiCredentialProvider },
+  env: Record<string, string | undefined> = process.env): Promise<string> {
+  if (row.sealed_with === "kms") return kmsOpen(row.ciphertext, credentialAssociatedData(owner.userId, owner.provider), activeKms(env));
+  if (!row.nonce || row.key_version === null) throw new Error("Credential ciphertext is malformed.");
+  return openCredential({ ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version }, owner, env);
+}
+
+async function hasSealedWithColumn(client: Pick<PoolClient, "query">): Promise<boolean> {
+  const result = await client.query<{ present: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'user_ai_credentials' AND column_name = 'sealed_with') AS present`);
+  return result.rows[0]?.present === true;
+}
 
 /**
  * Ask the provider whether the key works, with the cheapest read-only call it offers. Nothing about
@@ -100,25 +146,40 @@ export async function saveAiCredential(
 ): Promise<AiCredentialSummary> {
   assertTrip(session, tripId);
   const value = aiCredentialInputSchema.parse(input);
-  if (!credentialEncryptionConfigured()) throw new AiKeysUnavailableError();
-  // Validate before any transaction: the provider call can take seconds.
+  if (!aiKeyProtection()) throw new AiKeysUnavailableError();
+  // Validate and seal before any transaction: the provider and KMS calls can take seconds.
   if (!await validate(value)) throw new AiCredentialRejectedError();
-  const sealed = sealCredential(value.apiKey, { userId: session.userId, provider: value.provider });
+  const sealed = await sealForStorage(value.apiKey, { userId: session.userId, provider: value.provider });
   const vertexLocation = value.vertexProject ? value.vertexLocation ?? "global" : null;
   return inTransaction(pool, async (client) => {
     await lockCurrentTripActor(client, session);
-    const result = await client.query<CredentialRow>(
-      `INSERT INTO user_ai_credentials (user_id, provider, ciphertext, nonce, key_version, key_hint,
-         vertex_project, vertex_location, validated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
-       ON CONFLICT (user_id, provider) DO UPDATE
-         SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, key_version = EXCLUDED.key_version,
-             key_hint = EXCLUDED.key_hint, vertex_project = EXCLUDED.vertex_project,
-             vertex_location = EXCLUDED.vertex_location, validated_at = EXCLUDED.validated_at,
-             updated_at = CURRENT_TIMESTAMP
-       RETURNING provider, key_hint, vertex_project, validated_at, updated_at`,
-      [session.userId, value.provider, sealed.ciphertext, sealed.nonce, sealed.keyVersion, credentialHint(value.apiKey),
-        value.vertexProject ?? null, vertexLocation],
+    const sealedColumn = await hasSealedWithColumn(client);
+    // A KMS ciphertext needs migration 0059; the deploy runs migrations before the web server.
+    if (sealed.sealedWith === "kms" && !sealedColumn) throw new AiKeysUnavailableError();
+    const nonce = sealed.sealedWith === "local" ? sealed.nonce : null;
+    const keyVersion = sealed.sealedWith === "local" ? sealed.keyVersion : null;
+    const values = [session.userId, value.provider, sealed.ciphertext, nonce, keyVersion, credentialHint(value.apiKey),
+      value.vertexProject ?? null, vertexLocation];
+    const result = await client.query<CredentialRow>(sealedColumn
+      ? `INSERT INTO user_ai_credentials (user_id, provider, ciphertext, nonce, key_version, key_hint,
+           vertex_project, vertex_location, validated_at, sealed_with)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, $9)
+         ON CONFLICT (user_id, provider) DO UPDATE
+           SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, key_version = EXCLUDED.key_version,
+               sealed_with = EXCLUDED.sealed_with, key_hint = EXCLUDED.key_hint, vertex_project = EXCLUDED.vertex_project,
+               vertex_location = EXCLUDED.vertex_location, validated_at = EXCLUDED.validated_at,
+               updated_at = CURRENT_TIMESTAMP
+         RETURNING provider, key_hint, vertex_project, validated_at, updated_at`
+      : `INSERT INTO user_ai_credentials (user_id, provider, ciphertext, nonce, key_version, key_hint,
+           vertex_project, vertex_location, validated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id, provider) DO UPDATE
+           SET ciphertext = EXCLUDED.ciphertext, nonce = EXCLUDED.nonce, key_version = EXCLUDED.key_version,
+               key_hint = EXCLUDED.key_hint, vertex_project = EXCLUDED.vertex_project,
+               vertex_location = EXCLUDED.vertex_location, validated_at = EXCLUDED.validated_at,
+               updated_at = CURRENT_TIMESTAMP
+         RETURNING provider, key_hint, vertex_project, validated_at, updated_at`,
+      sealedColumn ? [...values, sealed.sealedWith] : values,
     );
     await appendAudit(client, { tripId, actorMemberId: session.memberId, entityType: "ai_credential",
       action: "ai.credential.saved", metadata: { provider: value.provider } });
@@ -181,26 +242,91 @@ export async function aiKeyUsage(pool: Pool, session: AuthenticatedSession, trip
 export async function readAiCredentialSecret(
   client: Pick<PoolClient, "query">, userId: string, provider: AiCredentialProvider,
 ): Promise<{ apiKey: string; vertex: { project: string; location: string } | null } | null> {
-  const result = await client.query<{ ciphertext: Buffer; nonce: Buffer; key_version: number; vertex_project: string | null; vertex_location: string | null }>(
-    `SELECT ciphertext, nonce, key_version, vertex_project, vertex_location
-       FROM user_ai_credentials WHERE user_id = $1 AND provider = $2`, [userId, provider]);
+  // `*` keeps this working on databases from before migration 0059, which have no `sealed_with`.
+  const result = await client.query<StoredRow & { vertex_project: string | null; vertex_location: string | null }>(
+    "SELECT * FROM user_ai_credentials WHERE user_id = $1 AND provider = $2", [userId, provider]);
   const row = result.rows[0];
   if (!row) return null;
   try {
-    const apiKey = openCredential({ ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version }, { userId, provider });
+    const apiKey = await openStored(row, { userId, provider });
     return { apiKey, vertex: row.vertex_project && row.vertex_location ? { project: row.vertex_project, location: row.vertex_location } : null };
   } catch (error) {
-    // A key that no longer opens (changed encryption key, tampered row) is treated as absent. The
-    // operator still sees that it happened; the log names no user, key or ciphertext.
+    // A key that no longer opens (changed encryption key, tampered row, KMS unreachable or
+    // refusing) is treated as absent. The operator still sees that it happened; the log names no
+    // user, key or ciphertext.
     console.warn("A stored AI key could not be decrypted", {
-      provider, keyVersion: row.key_version,
-      reason: error instanceof CredentialEncryptionUnavailableError ? "encryption_unavailable" : "decrypt_failed",
+      provider, sealedWith: row.sealed_with ?? "local", keyVersion: row.key_version,
+      reason: error instanceof CredentialEncryptionUnavailableError ? "encryption_unavailable"
+        : error instanceof CredentialKmsUnavailableError ? `kms_${error.step}` : "decrypt_failed",
     });
     return null;
   }
 }
 
-export type AiCredentialReencryption = { currentVersion: number; reencrypted: number; unreadable: number; remaining: number };
+export type AiCredentialReencryption = {
+  sealer: AiKeyProtection; currentVersion: number | null; reencrypted: number; unreadable: number; remaining: number;
+};
+
+/**
+ * With Cloud KMS configured (JOB-069): move every key still under the local ring into KMS, then open
+ * every KMS-sealed key once, to prove that this server's identity can still use the KMS key. Each of
+ * those checks is a decryption that KMS logs, like any other use. Same locking and counting rules as
+ * the local rotation below.
+ */
+async function moveAiCredentialsToKms(
+  pool: Pool, kms: KmsSettings, env: Record<string, string | undefined>, batchSize: number,
+): Promise<AiCredentialReencryption> {
+  const unreadableRows = new Set<string>();
+  let reencrypted = 0;
+  for (;;) {
+    const batch = await inTransaction(pool, async (client) => {
+      const rows = await client.query<{ user_id: string; provider: AiCredentialProvider; ciphertext: Buffer; nonce: Buffer; key_version: number }>(
+        `SELECT user_id, provider, ciphertext, nonce, key_version FROM user_ai_credentials
+          WHERE sealed_with = 'local' AND NOT ((user_id::text || ':' || provider) = ANY ($1::text[]))
+          ORDER BY user_id, provider LIMIT $2 FOR UPDATE SKIP LOCKED`, [[...unreadableRows], batchSize]);
+      let moved = 0;
+      for (const row of rows.rows) {
+        const owner = { userId: row.user_id, provider: row.provider };
+        let secret: string;
+        try {
+          secret = openCredential({ ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version }, owner, env);
+        } catch {
+          unreadableRows.add(`${row.user_id}:${row.provider}`);
+          continue;
+        }
+        const ciphertext = await kmsSeal(secret, credentialAssociatedData(owner.userId, owner.provider), kms);
+        await client.query(
+          `UPDATE user_ai_credentials SET ciphertext = $3, nonce = NULL, key_version = NULL, sealed_with = 'kms'
+            WHERE user_id = $1 AND provider = $2 AND sealed_with = 'local'`, [row.user_id, row.provider, ciphertext]);
+        moved += 1;
+      }
+      return { fetched: rows.rows.length, moved };
+    });
+    reencrypted += batch.moved;
+    if (batch.fetched < batchSize) break;
+  }
+  let unreadableKms = 0;
+  let after: { userId: string; provider: string } | null = null;
+  for (;;) {
+    const rows: { rows: { user_id: string; provider: AiCredentialProvider; ciphertext: Buffer }[] } = await pool.query(
+      `SELECT user_id, provider, ciphertext FROM user_ai_credentials
+        WHERE sealed_with = 'kms' AND ($1::uuid IS NULL OR (user_id, provider) > ($1::uuid, $2::text))
+        ORDER BY user_id, provider LIMIT $3`, [after?.userId ?? null, after?.provider ?? "", batchSize]);
+    for (const row of rows.rows) {
+      try {
+        await kmsOpen(row.ciphertext, credentialAssociatedData(row.user_id, row.provider), kms);
+      } catch {
+        unreadableKms += 1;
+      }
+    }
+    if (rows.rows.length < batchSize) break;
+    const last = rows.rows[rows.rows.length - 1]!;
+    after = { userId: last.user_id, provider: last.provider };
+  }
+  const remaining = await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM user_ai_credentials WHERE sealed_with = 'local'");
+  return { sealer: "kms", currentVersion: null, reencrypted, unreadable: unreadableRows.size + unreadableKms,
+    remaining: Number(remaining.rows[0]?.count ?? 0) };
+}
 
 /**
  * Key rotation: re-seal every saved key that is not under the current encryption key. Rows are
@@ -209,10 +335,16 @@ export type AiCredentialReencryption = { currentVersion: number; reencrypted: nu
  * owner adds the key again. `updated_at` is the owner's last change, so it stays. Rows already under
  * the current version are opened too: a key replaced without raising its version would otherwise
  * make every saved key unreadable while this reported nothing to do. Counts only.
+ *
+ * With Cloud KMS configured, keys move into KMS instead. Without it, keys already sealed by KMS
+ * cannot be opened here and are counted as unreadable.
  */
 export async function reencryptAiCredentials(
   pool: Pool, env: Record<string, string | undefined> = process.env, batchSize = 100,
 ): Promise<AiCredentialReencryption> {
+  const kms = kmsSettings(env);
+  if (kms === "invalid") throw new CredentialEncryptionUnavailableError();
+  if (kms) return moveAiCredentialsToKms(pool, kms, env, batchSize);
   const currentVersion = currentCredentialKeyVersion(env);
   const unreadableRows = new Set<string>();
   let reencrypted = 0;
@@ -264,7 +396,10 @@ export async function reencryptAiCredentials(
   }
   const remaining = await pool.query<{ count: string }>(
     "SELECT count(*)::text AS count FROM user_ai_credentials WHERE key_version <> $1", [currentVersion]);
-  return { currentVersion, reencrypted, unreadable: unreadableRows.size + unreadableCurrent, remaining: Number(remaining.rows[0]?.count ?? 0) };
+  // Only KMS-sealed rows have no key version (migration 0059).
+  const kmsSealed = await pool.query<{ count: string }>("SELECT count(*)::text AS count FROM user_ai_credentials WHERE key_version IS NULL");
+  return { sealer: "local", currentVersion, reencrypted, unreadable: unreadableRows.size + unreadableCurrent + Number(kmsSealed.rows[0]?.count ?? 0),
+    remaining: Number(remaining.rows[0]?.count ?? 0) };
 }
 
 /** Providers the user holds keys for, without decrypting anything. */

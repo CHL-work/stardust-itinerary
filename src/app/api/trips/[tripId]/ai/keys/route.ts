@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  AiCredentialRejectedError, aiCredentialInputSchema, aiCredentialProviders, aiKeyUsage, AiKeysUnavailableError, deleteAiCredential,
-  listAiCredentials, saveAiCredential,
+  AiCredentialRejectedError, aiCredentialInputSchema, aiCredentialProviders, aiKeyProtection, aiKeyUsage, AiKeysUnavailableError,
+  deleteAiCredential, listAiCredentials, saveAiCredential,
 } from "@/lib/ai/credentials";
 import { apiError } from "@/lib/app/http";
 import { AppInvalidInputError } from "@/lib/app/repository";
@@ -15,7 +15,8 @@ import { getPool } from "@/lib/db/pool";
 
 /**
  * The signed-in account's own AI provider keys. Responses carry only the provider, the last four
- * characters and timestamps; a key is never returned after it has been saved.
+ * characters and timestamps; a key is never returned after it has been saved. `protection` says how
+ * this server seals keys ("kms", "local" or null), so Settings can tell the user (JOB-069).
  */
 type Context = { params: Promise<{ tripId: string }> };
 const headers = { "Cache-Control": "private, no-store" };
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest, { params }: Context) {
     const { tripId } = await params;
     const pool = getPool(config);
     const [keys, usage] = await Promise.all([listAiCredentials(pool, session, tripId), aiKeyUsage(pool, session, tripId)]);
-    return NextResponse.json({ keys, usage }, { headers });
+    return NextResponse.json({ keys, usage, protection: aiKeyProtection() }, { headers });
   } catch (error) { return failure(error); }
 }
 
@@ -57,13 +58,13 @@ export async function PUT(request: NextRequest, { params }: Context) {
     const { tripId } = await params;
     const input = aiCredentialInputSchema.parse(await request.json());
     const pool = getPool(config);
-    await enforceRateLimit(pool, config, { scope: "ai-key-check", key: session.userId,
+    await enforceRateLimit(pool, config, { scope: "ai-key-check", key: session.userId, userId: session.userId,
       maximum: KEY_CHECKS_PER_HOUR.account, windowSeconds: 3600 });
-    await enforceRateLimit(pool, config, { scope: "ai-key-check-address", key: trustedClientAddress(request),
+    await enforceRateLimit(pool, config, { scope: "ai-key-check-address", key: trustedClientAddress(request), userId: session.userId,
       maximum: KEY_CHECKS_PER_HOUR.address, windowSeconds: 3600 });
     // Free guest accounts must not multiply the allowance (JOB-064): a few checks per guest.
     if (isGuestSession(session)) {
-      await enforceRateLimit(pool, config, { scope: "ai-key-check-guest", key: session.userId,
+      await enforceRateLimit(pool, config, { scope: "ai-key-check-guest", key: session.userId, userId: session.userId,
         maximum: GUEST_KEY_CHECKS_PER_DAY, windowSeconds: 86_400 });
     }
     return NextResponse.json({ key: await saveAiCredential(pool, session, tripId, input) }, { headers });

@@ -42,14 +42,14 @@ describe("own AI keys route", () => {
     const response = await GET(request("GET"), context);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(await response.json()).toEqual({ keys: [saved], usage });
+    expect(await response.json()).toEqual({ keys: [saved], usage, protection: null });
   });
 
   it("budgets key checks per account and per address before asking the provider", async () => {
     const response = await PUT(request("PUT", { provider: "openai", apiKey: syntheticKey }), context);
     expect(response.status).toBe(200);
     expect(JSON.stringify(await response.json())).not.toContain(syntheticKey);
-    expect(mocks.limit).toHaveBeenCalledWith("pool", config, { scope: "ai-key-check", key: "user-a", maximum: 10, windowSeconds: 3600 });
+    expect(mocks.limit).toHaveBeenCalledWith("pool", config, { scope: "ai-key-check", key: "user-a", userId: "user-a", maximum: 10, windowSeconds: 3600 });
     expect(mocks.limit).toHaveBeenCalledWith("pool", config, expect.objectContaining({ scope: "ai-key-check-address", maximum: 30 }));
     expect(mocks.limit.mock.invocationCallOrder[1]!).toBeLessThan(mocks.save.mock.invocationCallOrder[0]!);
   });

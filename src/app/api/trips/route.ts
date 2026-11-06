@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError } from "@/lib/app/http";
-import { createTrip } from "@/lib/app/repository";
+import { recordRefusal } from "@/lib/admin/daily-counts";
+import { createTrip, TripDailyLimitError } from "@/lib/app/repository";
 import { createTripSchema } from "@/lib/app/validation";
 import { getAuthConfig } from "@/lib/auth/config";
 import { accountCookieName, clearAccountCookie, verifyAccountOnboarding } from "@/lib/auth/account-session";
@@ -18,7 +19,10 @@ export async function POST(request: NextRequest) {
       ?? await verifyAccountOnboarding(pool,config,request.cookies.get(accountCookieName)?.value);
     if (!session) throw new SessionUnavailableError("Sign in with Google before creating a trip.");
     const input = createTripSchema.parse(await request.json());
-    const created = await createTrip(pool, session, input,{ config,userAgent:request.headers.get("user-agent") });
+    const created = await createTrip(pool, session, input,{ config,userAgent:request.headers.get("user-agent") }).catch(async (error: unknown) => {
+      if (error instanceof TripDailyLimitError) await recordRefusal(pool, "trip-create", session.userId);
+      throw error;
+    });
     const response = NextResponse.json({ tripId:created.tripId,memberId:created.memberId }, {
       status: 201,
       headers: { "Cache-Control": "no-store, private" },

@@ -2,6 +2,18 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 6, 2026 admin page and Cloud KMS
+
+Retrieved on 6 November 2026 for JOB-069 (D-084):
+
+- [Workload Identity Federation for GKE](https://docs.cloud.google.com/kubernetes-engine/docs/concepts/workload-identity): with a strict network policy, allow `169.254.169.252/32` on port 988, and on GKE Dataplane V2 also `169.254.169.254/32` on port 80.
+- [Identity federation: supported products](https://docs.cloud.google.com/iam/docs/federated-identity-supported-services): Cloud KMS has no known limitations with federated principals.
+- [Cloud KMS audit logging](https://docs.cloud.google.com/kms/docs/audit-logging): Encrypt and Decrypt need `DATA_READ` permissions, so they appear only in Data Access logs.
+- [Cloud KMS permissions and roles](https://docs.cloud.google.com/kms/docs/reference/permissions-and-roles): the basic roles "do not separate the ability to manage keys from the ability to use the keys", which is why the deny policy is needed.
+- [Permissions supported in deny policies](https://docs.cloud.google.com/iam/docs/deny-permissions-support): includes `cloudkms.googleapis.com/cryptoKeyVersions.useToDecrypt` and `useToEncrypt`.
+- [Principal identifiers](https://docs.cloud.google.com/iam/docs/principal-identifiers): GKE workload identities appear only among allow-policy principals, which is why a service account stands in for the web server.
+- A live check against the instance's key: a synthetic secret sealed and opened, binding to another account was refused, and after the deny policy the project owner was refused.
+
 ## November 5, 2026 off-site copy
 
 - [Neon plans](https://neon.com/docs/introduction/plans) (page updated 4 November 2026) and [the 1 GB free-plan announcement](https://neon.com/blog/neon-free-plan-1-gb-per-project) (2 October 2026): per project, 1 GB of storage, 100 CU-hours a month, 5 GB of public network transfer, a 6-hour restore window, scale to zero after 5 minutes; usage over a limit suspends the compute or fails writes, and deletes nothing. These are dated planning figures, not promises.

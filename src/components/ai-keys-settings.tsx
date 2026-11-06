@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { AiCredentialSummary, AiKeyUsage } from "@/lib/ai/credentials";
+import type { AiCredentialSummary, AiKeyProtection, AiKeyUsage } from "@/lib/ai/credentials";
 import { aiKeysMessages, type AiKeysCopy } from "@/lib/ai/keys-i18n";
 import { formatMessage, type Locale } from "@/lib/i18n";
 
@@ -33,6 +33,7 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
   const url = `/api/trips/${encodeURIComponent(tripId)}/ai/keys`;
   const [keys, setKeys] = useState<AiCredentialSummary[] | null>(null);
   const [usage, setUsage] = useState<AiKeyUsage | null>(null);
+  const [protection, setProtection] = useState<AiKeyProtection | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "failed">("loading");
   const [drafts, setDrafts] = useState<Record<Provider, { apiKey: string; vertexProject: string }>>({
     openai: { apiKey: "", vertexProject: "" }, anthropic: { apiKey: "", vertexProject: "" }, google: { apiKey: "", vertexProject: "" },
@@ -40,16 +41,19 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
   const [busy, setBusy] = useState<Provider | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
-  const fetchKeys = useCallback(() => request<{ keys: AiCredentialSummary[]; usage?: AiKeyUsage }>(url), [request, url]);
+  const fetchKeys = useCallback(() => request<{ keys: AiCredentialSummary[]; usage?: AiKeyUsage; protection?: AiKeyProtection | null }>(url),
+    [request, url]);
   useEffect(() => {
     let active = true;
-    fetchKeys().then((body) => { if (active) { setKeys(body.keys); setUsage(body.usage ?? null); setPhase("ready"); } },
-      () => { if (active) setPhase("failed"); });
+    fetchKeys().then((body) => {
+      if (active) { setKeys(body.keys); setUsage(body.usage ?? null); setProtection(body.protection ?? null); setPhase("ready"); }
+    }, () => { if (active) setPhase("failed"); });
     return () => { active = false; };
   }, [fetchKeys]);
   const reload = () => {
     setPhase("loading");
-    fetchKeys().then((body) => { setKeys(body.keys); setUsage(body.usage ?? null); setPhase("ready"); }, () => setPhase("failed"));
+    fetchKeys().then((body) => { setKeys(body.keys); setUsage(body.usage ?? null); setProtection(body.protection ?? null); setPhase("ready"); },
+      () => setPhase("failed"));
   };
 
   const save = (provider: Provider) => async (event: FormEvent) => {
@@ -94,13 +98,15 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
     }
   };
 
-  return <AiKeysView copy={copy} locale={locale} keys={keys} usage={usage} phase={phase} drafts={drafts} busy={busy} notice={notice}
+  return <AiKeysView copy={copy} locale={locale} keys={keys} usage={usage} protection={protection} phase={phase} drafts={drafts} busy={busy} notice={notice}
     edit={(provider, field, value) => setDrafts((current) => ({ ...current, [provider]: { ...current[provider], [field]: value } }))}
     save={save} remove={remove} reload={reload} />;
 }
 
 type ViewProps = {
   copy: AiKeysCopy; locale: Locale; keys: AiCredentialSummary[] | null; usage?: AiKeyUsage | null; phase: "loading" | "ready" | "failed";
+  /** How the server seals keys; "kms" switches to the Cloud KMS wording (JOB-069). */
+  protection?: AiKeyProtection | null;
   drafts: Record<Provider, { apiKey: string; vertexProject: string }>; busy: Provider | null; notice: Notice | null;
   edit: (provider: Provider, field: "apiKey" | "vertexProject", value: string) => void;
   save: (provider: Provider) => (event: FormEvent) => void;
@@ -108,11 +114,12 @@ type ViewProps = {
   reload: () => void;
 };
 
-export function AiKeysView({ copy, locale, keys, usage = null, phase, drafts, busy, notice, edit, save, remove, reload }: ViewProps) {
+export function AiKeysView({ copy, locale, keys, usage = null, protection = null, phase, drafts, busy, notice, edit, save, remove, reload }: ViewProps) {
   return <article className="settings-card" aria-busy={phase === "loading" || busy !== null}>
     <h2>{copy.title}</h2>
     <p>{copy.description}</p>
-    <p id="ai-keys-privacy">{copy.privacy}</p>
+    <p id="ai-keys-privacy">{protection === "kms" ? copy.privacyKms : copy.privacy}</p>
+    <p className="muted-copy">{copy.keyAdvice}</p>
     {phase === "loading" ? <p role="status">{copy.loading}</p> : null}
     {phase === "failed" ? <><p role="alert">{copy.loadFailed}</p><button type="button" className="ghost-button" onClick={reload}>{copy.retry}</button></> : null}
     {phase === "ready" ? aiKeyProviders.map((provider) => {

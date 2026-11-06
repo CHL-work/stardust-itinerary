@@ -21,7 +21,7 @@ export async function POST(
     assertTrip(session, tripId);
     // The free weather service has a fair-use budget; free guests get a small share (JOB-064).
     if (isGuestSession(session)) {
-      await enforceRateLimit(getPool(config), config, { scope: "guest-weather", key: session.userId, maximum: 4, windowSeconds: 3600 });
+      await enforceRateLimit(getPool(config), config, { scope: "guest-weather", key: session.userId, userId: session.userId, maximum: 4, windowSeconds: 3600 });
     }
     after(async () => {
       await refreshTripWeather(getPool(config), session, tripId).catch(() => {

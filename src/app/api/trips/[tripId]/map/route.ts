@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     assertTrip(session, z.uuid().parse(tripId));
     // Map lookups share community services and a per-process budget; free guests get a small share (JOB-064).
     if (isGuestSession(session)) {
-      await enforceRateLimit(getPool(config), config, { scope: "guest-map", key: session.userId, maximum: 20, windowSeconds: 3600 });
+      await enforceRateLimit(getPool(config), config, { scope: "guest-map", key: session.userId, userId: session.userId, maximum: 20, windowSeconds: 3600 });
     }
     const parsed = dayMapInput.safeParse(await readInput(request));
     if (!parsed.success) throw new AppInvalidInputError("map_invalid_input");

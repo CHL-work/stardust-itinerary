@@ -4,14 +4,17 @@ import { ResponseBodyError } from "openid-client";
 import { getAuthConfig } from "@/lib/auth/config";
 import { clearAccountCookie, issueAccountOnboarding, publicSignupEnabled, setAccountCookie } from "@/lib/auth/account-session";
 import {
+  AccountSuspendedError,
   ClaimUnavailableError,
   JoinUnavailableError,
   MembershipDisabledError,
   RateLimitError,
   SessionUnavailableError,
+  SignupPausedError,
 } from "@/lib/auth/errors";
 import { completeGoogleAuthorization } from "@/lib/auth/google";
 import {
+  assertIdentityNotSuspended,
   consumeClaim,
   consumeJoinLink,
   enforceRateLimit,
@@ -26,6 +29,7 @@ import {
   setSessionCookie,
 } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
+import { recordRefusal } from "@/lib/admin/daily-counts";
 
 export async function GET(request: NextRequest) {
   const config = getAuthConfig();
@@ -57,6 +61,8 @@ export async function GET(request: NextRequest) {
       nonce,
       codeVerifier,
     });
+    // A suspended account gets no session, onboarding grant or invitation (JOB-069).
+    await assertIdentityNotSuspended(pool, identity);
     const claimToken = request.cookies.get(authCookieNames.claimIntent)?.value;
     const joinToken = request.cookies.get(authCookieNames.joinIntent)?.value;
     if (claimToken && joinToken) {
@@ -88,7 +94,13 @@ export async function GET(request: NextRequest) {
     setSessionCookie(response, config, grant);
     return response;
   } catch (error) {
-    const reason = error instanceof MembershipDisabledError
+    // Sign-ups refused by the daily cap show on the admin page (JOB-069).
+    if (error instanceof SignupPausedError) await recordRefusal(pool, "signup-cap");
+    const reason = error instanceof AccountSuspendedError
+      ? "suspended"
+      : error instanceof SignupPausedError
+      ? "signup_paused"
+      : error instanceof MembershipDisabledError
       ? "disabled"
       : error instanceof SessionUnavailableError
       ? "unbound"

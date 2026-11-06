@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from "pg";
 import {
   appendAudit, applyPermittedChangeRequestWithClient, createChangeRequestWithClient, inTransaction,
 } from "@/lib/app/repository";
+import { recordDailyCount } from "@/lib/admin/daily-counts";
 import type { AuthConfig } from "@/lib/auth/config";
 import { GUEST_ISSUER } from "@/lib/auth/guest-identity";
 import { insertSession, type AuthenticatedSession, type SessionGrant } from "@/lib/auth/repository";
@@ -138,6 +139,8 @@ export async function createGuestSession(
     await client.query("INSERT INTO app_users (id, display_name, guest_expires_at, guest_origin_hash) VALUES ($1, $2, $3, $4)",
       [userId, copy.guest, expiresAt, origin]);
     await client.query("INSERT INTO oidc_identities (issuer, subject, user_id) VALUES ($1, $2, $3)", [GUEST_ISSUER, subject, userId]);
+    // Counted without the account, so the count outlives the guest's purge (JOB-069).
+    await recordDailyCount(client, "guest_created");
     const dates = [0, 1, 2].map((offset) => tokyoDate(now, offset + 1));
     await client.query(
       `INSERT INTO trips (id, owner_user_id, name, destination_name, time_zone, default_locale, default_currency,
@@ -220,5 +223,7 @@ export async function purgeExpiredGuests(pool: Pool, options: { limit?: number }
   }
   // Rate-limit windows last at most a day; old counters are only clutter.
   await pool.query("DELETE FROM auth_rate_limits WHERE window_started_at < CURRENT_TIMESTAMP - interval '2 days'").catch(() => {});
+  // The admin page's daily counts are kept for 90 days (JOB-069).
+  await pool.query("DELETE FROM platform_daily_counts WHERE day < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date - 90").catch(() => {});
   return { purged, refused };
 }

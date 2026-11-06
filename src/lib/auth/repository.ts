@@ -6,7 +6,9 @@ import type { GoogleIdentity } from "@/lib/auth/google";
 import { freshAuthenticationCeiling, readCurrentSessionCeiling, rollingSessionExpiry } from "@/lib/auth/session-lifetime";
 import { closeMemberAiConversationForIdentityChange } from "@/lib/ai/conversation";
 import { revokeAiKeyGrants } from "@/lib/app/ai-key-grants";
+import { recordRefusal } from "@/lib/admin/daily-counts";
 import {
+  AccountSuspendedError,
   ClaimUnavailableError,
   JoinUnavailableError,
   MembershipDisabledError,
@@ -1064,7 +1066,7 @@ export async function verifySession(
   }>(
     `UPDATE auth_sessions s
         SET last_seen_at = CURRENT_TIMESTAMP
-       FROM trip_members tm, oidc_identities oi
+       FROM trip_members tm, oidc_identities oi, app_users au
       WHERE s.token_hash = $1
         AND s.revoked_at IS NULL
         AND s.expires_at > CURRENT_TIMESTAMP
@@ -1072,6 +1074,9 @@ export async function verifySession(
         AND tm.trip_id = s.trip_id AND tm.id = s.member_id
         AND tm.user_id = s.user_id AND tm.status = 'active'
         AND oi.user_id = s.user_id
+        -- A suspended account's sessions stop working at once (JOB-069). to_jsonb tolerates
+        -- databases from before migration 0059.
+        AND au.id = s.user_id AND (to_jsonb(au) ->> 'suspended_at') IS NULL
     RETURNING s.id, s.trip_id, s.member_id, s.user_id, tm.role,
               s.expires_at, s.absolute_expires_at, tm.display_name,
               oi.issuer, oi.subject, s.generation`,
@@ -1126,11 +1131,13 @@ export async function rotateSession(
       `SELECT s.id, s.trip_id, s.member_id, s.user_id, tm.role, s.absolute_expires_at
          FROM auth_sessions s
          JOIN trip_members tm ON tm.trip_id = s.trip_id AND tm.id = s.member_id
+         JOIN app_users au ON au.id = s.user_id
         WHERE s.token_hash = $1
           AND s.revoked_at IS NULL
           AND s.expires_at > CURRENT_TIMESTAMP
           AND s.absolute_expires_at > CURRENT_TIMESTAMP
           AND tm.user_id = s.user_id AND tm.status = 'active'
+          AND (to_jsonb(au) ->> 'suspended_at') IS NULL
         FOR UPDATE OF s`,
       [tokenHash],
     );
@@ -1375,10 +1382,15 @@ export async function listSessions(
   }));
 }
 
+/**
+ * A fixed-window limit per scope and key, stored only as a keyed hash of the key. A refused attempt
+ * is also counted for the operator's admin page (JOB-069), with `userId` when the attempt belongs
+ * to an account.
+ */
 export async function enforceRateLimit(
   pool: Pool,
   config: AuthConfig,
-  input: { scope: string; key: string; maximum: number; windowSeconds: number },
+  input: { scope: string; key: string; maximum: number; windowSeconds: number; userId?: string },
 ): Promise<void> {
   const keyHash = hashRateLimitKey(config.authSecret, input.scope, input.key);
   const result = await pool.query<{ attempt_count: number; retry_after: number }>(
@@ -1401,6 +1413,21 @@ export async function enforceRateLimit(
   );
   const row = result.rows[0];
   if (row && row.attempt_count > input.maximum) {
+    await recordRefusal(pool, input.scope, input.userId ?? null);
     throw new RateLimitError(row.retry_after);
   }
+}
+
+/**
+ * Refuse a Google identity whose account the operator suspended (JOB-069), before any session or
+ * onboarding grant is issued for it. A new identity has no account yet and passes.
+ */
+export async function assertIdentityNotSuspended(pool: Pool, identity: { issuer: string; subject: string }): Promise<void> {
+  const result = await pool.query<{ suspended: boolean }>(
+    `SELECT (to_jsonb(app_user) ->> 'suspended_at') IS NOT NULL AS suspended
+       FROM oidc_identities identity JOIN app_users app_user ON app_user.id = identity.user_id
+      WHERE identity.issuer = $1 AND identity.subject = $2`,
+    [identity.issuer, identity.subject],
+  );
+  if (result.rows[0]?.suspended) throw new AccountSuspendedError();
 }

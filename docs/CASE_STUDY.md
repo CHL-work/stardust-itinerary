@@ -37,6 +37,10 @@ Up to 20 people share one trip: day-by-day events, private events visible only t
 - **Bring your own key** (JOB-061):
   - Users store their own provider keys, checked with the provider (rate limited, so the server cannot be used to test stolen keys).
   - Keys are encrypted with AES-256-GCM, with the user and provider bound as authenticated data, so a ciphertext copied to another row will not open.
+  - On the public instance Cloud KMS seals them instead (JOB-069):
+    - The key cannot be exported, and only one service account may use it, which only the web server may act as.
+    - An IAM deny policy also refuses the project's owners, so the person running the site cannot quietly decrypt users' keys. Every use is in the audit log.
+    - Settings tells users exactly that, and that the server still decrypts a key to send their requests.
   - A request on a user's key runs inside an `AsyncLocalStorage` context. Its subprocess sees only that key and a private, per-request state directory, never the operator's keys or another request's files. A test runs two users concurrently to prove it.
   - One resolver decides who pays (own key, an owner's shared key, operator sponsorship, or nothing), and the AI composer mirrors that decision.
 - **Key sharing** (JOB-063): an owner can let chosen members use their key in one trip. A checkbox on the invite or join link, and a per-member switch, control it. Every use re-checks that the sponsor is still an owner who holds a key, and is recorded with whose key paid.

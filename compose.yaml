@@ -32,6 +32,8 @@ services:
       # Only the web server decrypts users' saved AI keys.
       CREDENTIAL_ENCRYPTION_KEY: ""
       CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: ""
+      CREDENTIAL_KMS_KEY: ""
+      CREDENTIAL_KMS_SERVICE_ACCOUNT: ""
     depends_on:
       db:
         condition: service_healthy
@@ -61,6 +63,8 @@ services:
       # Only the web server decrypts users' saved AI keys.
       CREDENTIAL_ENCRYPTION_KEY: ""
       CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS: ""
+      CREDENTIAL_KMS_KEY: ""
+      CREDENTIAL_KMS_SERVICE_ACCOUNT: ""
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -2,6 +2,22 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-084: An admin page, suspension, a sign-up cap, and keys sealed by Cloud KMS (accepted November 6, 2026)
+
+The owner wanted to see who uses the public instance and how, to deal with spam, and ideally not to be able to read users' AI keys, since being able to would be a bad look (JOB-069).
+
+- **Metadata, not content:** the admin page shows accounts, activity counts and refused attempts. It never shows trip names or contents, prompts, replies or keys, even to the operator. The operator could already query the database; the page does not widen that access, and the [privacy notice](PRIVACY.md) says what it shows.
+- **Suspension, not deletion:** a suspended account loses its sessions, sign-in and shared-key funding at once, and keeps its data. Restoring it is one click. Deleting an account stays an operator task on request.
+- **A daily cap on public sign-ups** (50 by default; 0 pauses them). Invitations and existing accounts are never refused.
+- **Cloud KMS for users' keys:** the server still decrypts a key for each request it sends, so whoever runs the server can never be made completely unable to reach keys. What changed:
+  - the encryption key can no longer be read or copied by anyone;
+  - only the web server's service account may use it, enforced by a deny policy that also binds project owners;
+  - every use is logged;
+  - changing any of this leaves a record in the audit logs or in this public repository.
+
+  Settings says so plainly and advises a dedicated, spend-limited key. Going further, keeping keys only in the user's browser, was declined because it would end key sharing and need the key on every device.
+- **Cost:** a software KMS key costs about USD 0.06 a month per key version, and operations cost USD 0.03 per 10,000.
+
 ## D-083: A daily off-site copy in Neon (accepted November 5, 2026)
 
 The owner asked for the database to be backed up in Neon, within its free plan. The daily backups were age-encrypted dumps in a bucket of the same Google Cloud project, so losing the project, for example after an unpaid free trial, would lose them too (JOB-068).

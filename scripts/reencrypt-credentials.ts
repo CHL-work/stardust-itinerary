@@ -4,7 +4,9 @@ import { reencryptAiCredentials } from "../src/lib/ai/credentials";
 
 /**
  * Encryption-key rotation for users' saved AI keys: re-seal every key that is not under the current
- * CREDENTIAL_ENCRYPTION_KEY, using CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS to open the old ones. Run it
+ * CREDENTIAL_ENCRYPTION_KEY, using CREDENTIAL_ENCRYPTION_PREVIOUS_KEYS to open the old ones. With
+ * CREDENTIAL_KMS_KEY set, it instead moves ring-sealed keys into Cloud KMS and proves that every
+ * KMS-sealed key opens (JOB-069). Run it
  * where the web server's secrets are mounted, for example
  * `kubectl -n stardust exec deploy/stardust-web -- /app/deploy/container/entrypoint.sh credential-reencrypt`.
  * Prints counts only, and exits non-zero while any key remains under an older version or does not open.

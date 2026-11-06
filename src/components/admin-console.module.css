@@ -1,0 +1,415 @@
+/* The operator's admin page (JOB-069). Uses the theme tokens both layouts define, so it follows
+   the new layout's light/dark theme and the classic dark theme without layout-specific rules. */
+
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+.page h1 {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.page h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.page h3 {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.intro {
+  max-width: 44rem;
+  margin: 0;
+  color: var(--muted);
+}
+
+.headerActions,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Keep the header buttons clear of the feedback launcher in the top-right corner. */
+@media (min-width: 601px) {
+  .headerActions {
+    margin-right: 56px;
+  }
+}
+
+.section {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.notice {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--panel-raised);
+}
+
+.error {
+  color: var(--rose);
+}
+
+.primary,
+.secondary,
+.danger,
+.chip,
+.chipActive,
+.link {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary {
+  border: 1px solid var(--violet);
+  background: var(--violet);
+  color: #ffffff;
+}
+
+.secondary,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.chipActive {
+  border: 1px solid var(--violet);
+  background: var(--violet);
+  color: #ffffff;
+}
+
+.danger {
+  border: 1px solid var(--rose);
+  background: transparent;
+  color: var(--rose);
+}
+
+.link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--violet);
+  text-decoration: underline;
+}
+
+.primary:disabled,
+.secondary:disabled,
+.danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.page button:focus-visible,
+.page a:focus-visible,
+.page input:focus-visible,
+.tableWrap:focus-visible {
+  outline: 3px solid var(--violet);
+  outline-offset: 2px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--panel-raised);
+}
+
+.stat strong {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.statLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.panel {
+  padding: 4px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.pairs {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.pair {
+  display: contents;
+}
+
+.pairs dt {
+  color: var(--muted);
+}
+
+.pairs dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table th:first-child,
+.table thead th:first-child {
+  text-align: left;
+}
+
+.limitForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.limitForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.page input {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-raised);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.limitForm input {
+  width: 8rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.search {
+  flex: 1 1 16rem;
+}
+
+.search input {
+  width: 100%;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.accountList,
+.meta,
+.plainList,
+.dayList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accountList {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.card,
+.cardSuspended {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+  overflow-wrap: anywhere;
+}
+
+.cardSuspended {
+  border-color: var(--rose);
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge,
+.badgeWarning {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+.badgeWarning {
+  border-color: var(--rose);
+  color: var(--rose);
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 2px 16px;
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.confirm {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--rose);
+  border-radius: 10px;
+}
+
+.confirm p {
+  margin: 0 0 8px;
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0 24px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.plainList li,
+.dayList li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.plainList .muted {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.dayList li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.plainList code {
+  font-size: 0.875rem;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

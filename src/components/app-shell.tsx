@@ -52,6 +52,7 @@ import { advancedSettingsMessages, advancedRequestStatus } from "@/lib/app/advan
 import advancedStyles from "@/components/advanced-settings.module.css";
 import { announceFeedbackContext, clearFeedbackContext, feedbackTrail } from "@/lib/feedback/client-context";
 import { FeedbackOperations } from "@/components/feedback-operations";
+import { AdminEntry } from "@/components/admin-entry";
 import { activityMessages } from "@/lib/app/activity-i18n";
 import type { ActivityEntry } from "@/lib/app/activity-types";
 import { CalendarTimelineCard } from "@/components/calendar-timeline-card";
@@ -3240,6 +3241,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           </article>
               {overview.session.isOwner && overview.liveOperations ? <LiveOperationsCard status={overview.liveOperations} locale={locale} timeZone={overview.trip.timeZone} messages={messages} /> : null}
               <ActivitySettingsEntry locale={locale} isOwner={overview.session.isOwner} open={() => setSection("activity")} />
+              <AdminEntry locale={locale} />
               <FeedbackOperations locale={locale} />
               {overview.session.isOwner ? <>
                 <details className={advancedStyles.group}>

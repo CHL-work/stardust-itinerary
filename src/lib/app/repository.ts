@@ -98,6 +98,8 @@ function eventWeatherForecast(row: EventWeatherForecastRow): EventWeatherForecas
 }
 
 export class AppConflictError extends Error {}
+/** An account reached its daily limit of new trips; counted on the admin page (JOB-069). */
+export class TripDailyLimitError extends AppConflictError {}
 export class AppForbiddenError extends Error {}
 export class AppInvalidInputError extends Error {}
 export class AppNotFoundError extends Error {}
@@ -1575,7 +1577,7 @@ export async function createTrip(
         `SELECT count(*)::integer AS count FROM account_trip_creations WHERE user_id=$1
          AND created_at>=date_trunc('day',CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,[session.userId],
       );
-      if ((usage.rows[0]?.count ?? 0) >= 10) throw new AppConflictError("The daily limit of 10 new trips has been reached.");
+      if ((usage.rows[0]?.count ?? 0) >= 10) throw new TripDailyLimitError("The daily limit of 10 new trips has been reached.");
     }
     const { isPlatformOperator } = await import("@/lib/auth/operator-access");
     const hostEntitlement = accountCreationEnabled ? await isPlatformOperator(client,session.userId) : true;
@@ -4108,8 +4110,11 @@ export async function usableAiKeyGrant(client: Queryable, tripId: string, member
        FROM trip_ai_key_grants grant_row
        JOIN trip_members sponsor ON sponsor.trip_id = grant_row.trip_id AND sponsor.id = grant_row.sponsor_member_id
        JOIN user_ai_credentials credential ON credential.user_id = sponsor.user_id
+       JOIN app_users sponsor_user ON sponsor_user.id = sponsor.user_id
       WHERE grant_row.trip_id = $1 AND grant_row.member_id = $2
         AND sponsor.role = 'owner' AND sponsor.status = 'active'
+        -- A suspended owner's keys stop paying for anyone (JOB-069); to_jsonb tolerates older schemas.
+        AND (to_jsonb(sponsor_user) ->> 'suspended_at') IS NULL
       GROUP BY grant_row.sponsor_member_id, sponsor.user_id, sponsor.display_name`,
     [tripId, memberId],
   );

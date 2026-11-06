@@ -12,6 +12,7 @@ A mobile-first, AI-assisted planner for group trips: one shared itinerary, priva
 - **AI that proposes, never decides.** Chat in any of the four languages or paste a picture of a booking. The model drafts typed proposals (events, expenses, edits) backed by live web research where needed. Application code validates, authorizes and stores them as pending items for review.
 - **Calendar, maps and weather.** Optional Google Calendar import and conflict hints, numbered day maps on OpenStreetMap, Open-Meteo forecasts per stop, and background checks for official disruption notices.
 - **Works on a phone, even offline.** A read-only offline copy of the public itinerary, resumable AI requests and swipeable days.
+- **Your key stays yours.** Bring your own OpenAI, Anthropic or Gemini key. On the public instance it is sealed by Cloud KMS, under a deny policy that leaves only the web server, not even the site's operator, able to use the KMS key. The operator's admin page shows accounts and usage counts, never trip contents, prompts or keys.
 
 ## How it is built
 
@@ -35,7 +36,7 @@ flowchart LR
 - **App:** Next.js 16 (App Router), React 19, TypeScript, Zod. One container image runs the web server, the workers, migrations and backups.
 - **Data:** PostgreSQL 17 is the source of truth. Forward-only SQL migrations with checksums, append-only audit and revision tables, row-level scope checks in every query, database constraints and triggers for invariants such as the last active owner and deleted-trip lockout.
 - **AI:** official OpenAI Codex SDK and Claude Agent SDK adapters with an explicit environment allowlist, typed output schemas, evidence requirements for researched facts, and recovery of in-flight requests after a phone suspends.
-- **Infrastructure as code:** OpenTofu for the Google Cloud project (Autopilot cluster, Artifact Registry, Secret Manager, keyless GitHub deploys, budget alert) and Kustomize for Kubernetes. No service-account keys exist anywhere.
+- **Infrastructure as code:** OpenTofu for the Google Cloud project (Autopilot cluster, Artifact Registry, Secret Manager, Cloud KMS with an IAM deny policy, keyless GitHub deploys, budget alert) and Kustomize for Kubernetes. No service-account keys exist anywhere.
 - **Quality gate:** ESLint, TypeScript, 4,500+ Vitest tests and a PostgreSQL integration suite on every push (`pnpm check`).
 
 More detail: the [case study](docs/CASE_STUDY.md) (the why, in one page), the [threat model](docs/THREAT_MODEL.md), [architecture](docs/ARCHITECTURE.md), [design](docs/DESIGN.md), [decisions](docs/DECISIONS.md), [identity and security](docs/IDENTITY_AND_SECURITY.md), [database](docs/DATABASE.md), [AI](docs/AI_AND_AGENTS.md).

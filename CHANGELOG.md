@@ -6,6 +6,20 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Admin page (JOB-069, D-084):** `/admin`, reachable from Settings by the platform operator only, shows:
+  - accounts, active users, guests, trips and AI requests by who paid and by provider;
+  - refused attempts, and a 14-day table;
+  - a searchable account list with each account's activity: sessions, trip sizes without names, daily counts and recent audited actions.
+
+  It never shows trip contents, prompts, replies or keys. It is localized in English, Cantonese and Japanese.
+- **Account suspension (JOB-069):** the operator can suspend an account. Its sessions end at once, its sign-in and invitations are refused, and keys it shared stop paying. Restoring it is one click, and both are recorded in `operator_audit_events`.
+- **Daily sign-up cap (JOB-069):** at most 50 new public sign-ups per UTC day by default, set on the admin page (0 pauses them). Invitations and existing accounts are never refused.
+- **Refusal counters (JOB-069):** `platform_daily_counts` counts, per day and kind, public sign-ups, guests started, and attempts refused by rate limits, the daily trip and feedback limits and the sign-up cap. Each count names the account when there is one, and counts are kept for 90 days.
+- **Users' keys in Cloud KMS (JOB-069, D-084):** with `CREDENTIAL_KMS_KEY` (and optionally `CREDENTIAL_KMS_SERVICE_ACCOUNT`) set:
+  - new keys are sealed by Cloud KMS, with CRC32C checks and the same account binding;
+  - `credential-reencrypt` moves ring-sealed keys into KMS and proves that each opens;
+  - Settings → AI keys says which protection applies, and advises a dedicated, spend-limited key.
+
 - **Daily off-site copy (JOB-068, D-083):** `scripts/db/offsite-copy.mjs`, the `offsite-copy` container mode and the `stardust-offsite-copy` CronJob restore one snapshot of the database into a second PostgreSQL server each day as a dated database, compare every table's row count with the snapshot, and keep the newest three within a storage budget (`STARDUST_OFFSITE_KEEP`, `STARDUST_OFFSITE_MAX_MB`). On GKE the connection is a separate `stardust-offsite-env` secret, mounted only by that job, whose network policy allows only the database, DNS and port 5432. The public instance uses a Neon free-plan project.
 - **Ask AI on phones (JOB-067, D-082):** the bottom-right button on Today, Itinerary and Expenses opens the quick AI composer as a sheet, in place of Add event and Add expense, which stay at the top of each page.
 - Public repository with fresh history under the MIT license. Earlier development (JOB-001 to JOB-057) lives in a private archive.
@@ -73,6 +87,13 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Guest purge on GKE:** its network policy now allows DNS through NodeLocal DNSCache (`169.254.20.10`) and the metadata address, which the first scheduled run could not reach.
 
 ### Security
+
+- **Only the web server may use the key that seals users' keys (JOB-069):** `infra/` adds:
+  - a KMS key, and a `stardust-credentials` service account that only the web server's Kubernetes identity may act as;
+  - an IAM deny policy that refuses KMS encryption and decryption to every other principal, project owners included;
+  - KMS Data Access audit logs.
+
+  The `gke` overlay's `web-metadata-egress` NetworkPolicy lets only the web pod reach the metadata server.
 
 - **Deploys after a second review:** an automatic deploy needs the newest commit of `main` (checked in both jobs), so re-running an older CI run never rolls production back. Workload Identity accepts tokens only from `deploy.yml` on `main` for its own triggers, Artifact Registry tags are immutable, and the workflows' actions are pinned to commit SHAs.
 - **Feedback token away from the model:** publishing is now its own `stardust-feedback-publish` CronJob with the token and the database, and no model or AI keys; the reviewer job no longer mounts the token. The publisher accepts only `visibility: private`, not `internal`.

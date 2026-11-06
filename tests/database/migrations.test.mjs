@@ -14,6 +14,7 @@ import { testAiCredentials } from "./ai-credentials.mjs";
 import { testAiKeySharing } from "./ai-key-sharing.mjs";
 import { testPrivateFeedbackRepository } from "./feedback-repository.mjs";
 import { testGuestAccounts } from "./guest-accounts.mjs";
+import { testPlatformAdmin } from "./platform-admin.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
 import { testCustomExpenseSplits } from "./custom-expense-splits.mjs";
@@ -7310,6 +7311,7 @@ test(
       await testAiKeySharing(appPool,connectionString);
       await testGuestAccounts(appPool,connectionString);
       await testPrivateFeedbackRepository(appPool,connectionString);
+      await testPlatformAdmin(appPool,connectionString);
 
     } finally {
       await appPool.end();

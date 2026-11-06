@@ -2,10 +2,13 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthConfig } from "@/lib/auth/config";
-import { ClaimUnavailableError, MembershipDisabledError, RateLimitError, SessionUnavailableError } from "@/lib/auth/errors";
+import {
+  AccountSuspendedError, ClaimUnavailableError, MembershipDisabledError, RateLimitError, SessionUnavailableError, SignupPausedError,
+} from "@/lib/auth/errors";
 import { authCookieNames } from "@/lib/auth/web";
 
 const mocks = vi.hoisted(() => ({
+  assertIdentityNotSuspended: vi.fn(),
   authenticatedSession: vi.fn(),
   completeGoogleAuthorization: vi.fn(),
   consumeClaim: vi.fn(),
@@ -32,12 +35,14 @@ vi.mock("@/lib/auth/google", () => ({
   completeGoogleAuthorization: mocks.completeGoogleAuthorization,
 }));
 vi.mock("@/lib/auth/repository", () => ({
+  assertIdentityNotSuspended: mocks.assertIdentityNotSuspended,
   consumeClaim: mocks.consumeClaim,
   consumeJoinLink: mocks.consumeJoinLink,
   enforceRateLimit: mocks.enforceRateLimit,
   signInExistingIdentity: mocks.signInExistingIdentity,
 }));
 vi.mock("@/lib/db/pool", () => ({ getPool: mocks.getPool }));
+vi.mock("@/lib/admin/daily-counts", () => ({ recordRefusal: async () => {} }));
 vi.mock("@/lib/auth/account-session",async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth/account-session")>();
   return {...actual,issueAccountOnboarding:mocks.issueAccountOnboarding,publicSignupEnabled:mocks.publicSignupEnabled};
@@ -175,6 +180,42 @@ describe("GET /api/auth/google/callback invitation cleanup", () => {
     expectIntentCookiesCleared(response);
     expect(mocks.completeGoogleAuthorization).not.toHaveBeenCalled();
     expect(mocks.consumeJoinLink).not.toHaveBeenCalled();
+  });
+
+  it("refuses a suspended account before any session, onboarding or invitation (JOB-069)", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.assertIdentityNotSuspended.mockRejectedValueOnce(new AccountSuspendedError());
+    try {
+      const response = await GET(callbackRequest({
+        [authCookieNames.oauthState]: "state",
+        [authCookieNames.oauthNonce]: "nonce",
+        [authCookieNames.oauthVerifier]: "verifier",
+      }));
+      expect(response.headers.get("location")).toBe(`${config.appBaseUrl.origin}/auth/sign-in?error=suspended`);
+      expect(mocks.signInExistingIdentity).not.toHaveBeenCalled();
+      expect(mocks.consumeClaim).not.toHaveBeenCalled();
+      expect(mocks.consumeJoinLink).not.toHaveBeenCalled();
+      expect(mocks.issueAccountOnboarding).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("explains a full day of sign-ups instead of a generic failure (JOB-069)", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.signInExistingIdentity.mockRejectedValue(new SessionUnavailableError());
+    mocks.publicSignupEnabled.mockReturnValue(true);
+    mocks.issueAccountOnboarding.mockRejectedValue(new SignupPausedError());
+    try {
+      const response = await GET(callbackRequest({
+        [authCookieNames.oauthState]: "state",
+        [authCookieNames.oauthNonce]: "nonce",
+        [authCookieNames.oauthVerifier]: "verifier",
+      }));
+      expect(response.headers.get("location")).toBe(`${config.appBaseUrl.origin}/auth/sign-in?error=signup_paused`);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("reports a disabled bound membership and clears OAuth and invitation state", async () => {

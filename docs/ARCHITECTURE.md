@@ -23,9 +23,10 @@ The `Dockerfile` builds the standalone server into a non-root image listening on
 | Area | Source / responsibility |
 | --- | --- |
 | Browser and routes | `src/components/`, `src/app/`: presentation, validated HTTP boundaries, no provider/database secrets. |
-| Identity | `src/lib/auth/`: Google binding, account/trip sessions, invitation admission, operator distinction. |
+| Identity | `src/lib/auth/`: Google binding, account/trip sessions, invitation admission, operator distinction, account suspension. |
+| Administration | `src/lib/admin/`: the operator-only admin page (metadata and counts), suspension, the daily sign-up cap and daily counters (JOB-069). |
 | Trip transactions | `src/lib/app/`: canonical records, permissions, proposals, optimistic revisions and audits; `src/lib/domain/` supplies deterministic accounting/conflict primitives. |
-| AI | `src/lib/ai/`: adapters, schema-derived prompts, memory/drafts, recovery, privacy-limited research. |
+| AI | `src/lib/ai/`: adapters, schema-derived prompts, memory/drafts, recovery, privacy-limited research; users' keys sealed by the local ring or Cloud KMS (`credential-crypto.ts`, `credential-kms.ts`). |
 | Database | `src/lib/db/`, `database/migrations/`: pool, checksummed ordered SQL and constraints. |
 | Integrations | `src/lib/calendar/`, `src/lib/maps/`, `src/lib/weather/`, `src/lib/disruptions/`. |
 | Feedback / activity | `src/lib/feedback/`, `src/lib/app/`: private diagnostics, safe review links, separate issue-only publication. |

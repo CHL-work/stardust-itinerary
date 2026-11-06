@@ -33,6 +33,7 @@ resource "google_project_service" "apis" {
     "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
     "cloudbuild.googleapis.com",
+    "cloudkms.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
     "iam.googleapis.com",
@@ -170,6 +171,86 @@ resource "google_secret_manager_secret_iam_member" "workloads" {
   role       = "roles/secretmanager.secretAccessor"
   member     = "${local.ksa_principal}/${each.value.account}"
   depends_on = [google_container_cluster.autopilot]
+}
+
+# ---------------------------------------------------------------------------------------------
+# Users' AI keys: sealed by Cloud KMS (JOB-069, D-084)
+#
+# The key never leaves KMS. Only a dedicated service account may encrypt or decrypt with it, and
+# only the web server's Kubernetes identity may act as that account. A deny policy refuses KMS
+# encryption and decryption to every other principal, project owners included, and Data Access
+# audit logs record every use. Set CREDENTIAL_KMS_KEY and CREDENTIAL_KMS_SERVICE_ACCOUNT in
+# stardust-credential-env from the outputs below.
+# ---------------------------------------------------------------------------------------------
+
+resource "google_kms_key_ring" "stardust" {
+  name       = "stardust"
+  location   = var.region
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_kms_crypto_key" "ai_credentials" {
+  name     = "ai-credentials"
+  key_ring = google_kms_key_ring.stardust.id
+  purpose  = "ENCRYPT_DECRYPT"
+  # A new version each year; older versions keep decrypting what they sealed.
+  rotation_period = "31536000s"
+
+  version_template {
+    algorithm        = "GOOGLE_SYMMETRIC_ENCRYPTION"
+    protection_level = "SOFTWARE"
+  }
+
+  # Destroying the key would make every saved AI key unreadable.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "google_service_account" "credentials" {
+  account_id   = "stardust-credentials"
+  display_name = "Stardust: seals users' AI keys with Cloud KMS"
+  depends_on   = [google_project_service.apis]
+}
+
+resource "google_service_account_iam_member" "web_acts_as_credentials" {
+  service_account_id = google_service_account.credentials.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "${local.ksa_principal}/stardust-web"
+  depends_on         = [google_container_cluster.autopilot]
+}
+
+resource "google_kms_crypto_key_iam_member" "credentials_use_key" {
+  crypto_key_id = google_kms_crypto_key.ai_credentials.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = "serviceAccount:${google_service_account.credentials.email}"
+}
+
+# Deny policies cannot name a GKE workload identity, hence the service account in between.
+resource "google_iam_deny_policy" "kms_use" {
+  parent       = urlencode("cloudresourcemanager.googleapis.com/projects/${var.project_id}")
+  name         = "stardust-kms-use"
+  display_name = "Only the credentials service account uses KMS keys"
+  rules {
+    description = "Refuse Cloud KMS encryption and decryption in this project to everyone but the service account that seals users' AI keys."
+    deny_rule {
+      denied_principals    = ["principalSet://goog/public:all"]
+      exception_principals = ["principal://iam.googleapis.com/projects/-/serviceAccounts/${google_service_account.credentials.email}"]
+      denied_permissions = [
+        "cloudkms.googleapis.com/cryptoKeyVersions.useToDecrypt",
+        "cloudkms.googleapis.com/cryptoKeyVersions.useToEncrypt",
+      ]
+    }
+  }
+}
+
+# Encrypt and Decrypt are DATA_READ operations, logged only once Data Access logs are on.
+resource "google_project_iam_audit_config" "kms" {
+  project = var.project_id
+  service = "cloudkms.googleapis.com"
+  audit_log_config {
+    log_type = "DATA_READ"
+  }
 }
 
 # ---------------------------------------------------------------------------------------------
