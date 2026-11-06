@@ -2,6 +2,20 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-085: Own-key AI requests read links, take any topic and add new items (accepted November 6, 2026)
+
+The owner pasted an event link and the AI could not read it, then would only draft the event for approval. Because users pay with their own keys, the owner asked for the guardrails to loosen (JOB-070).
+
+- **Whose limits:** the topic gate and the always-review rule for AI creates protect the operator's or a sponsor's money and the group's plan. On the requester's own key, the requester decides: any topic, and new items they could add by hand are added at once, owners through the ordinary review. Shared-key and operator-funded requests keep every limit.
+- **What stays:**
+  - privacy for other members, the output schema, the funding rules and validation;
+  - review for pictures, edits of pending items and deletions;
+  - review for members who need approval.
+
+  An owner's text-only edits already applied directly and still do.
+- **Reading links, safely:** the server, not the model, fetches the linked public pages and passes them as untrusted data. The fetcher reaches only public addresses on ports 80 and 443, pinned against DNS rebinding and re-checked on every redirect, so a pasted link cannot reach the metadata server or the cluster.
+- **Prompt injection:** a page could try to steer the model. It is marked as untrusted data, kept in its own escaped section, and cannot change members, privacy, approval or the schema. Direct adds are limited to new items the requester could add anyway.
+
 ## D-084: An admin page, suspension, a sign-up cap, and keys sealed by Cloud KMS (accepted November 6, 2026)
 
 The owner wanted to see who uses the public instance and how, to deal with spam, and ideally not to be able to read users' AI keys, since being able to would be a bad look (JOB-069).

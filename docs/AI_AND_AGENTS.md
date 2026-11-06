@@ -43,7 +43,18 @@ The model returns zero to 20 typed proposal envelopes. Multi-proposal batches ar
 
 Preflight parses the complete batch before its first write. Harmless aliases and lossless explicit-offset normalization are allowed; unknown IDs, impossible dates, ambiguous participants and unsupported privacy fail closed. Completion rechecks current role/membership/trip range/revisions after provider I/O; no database lock remains held during external calls.
 
-Every AI create remains pending even for owners. Image-derived changes and pending-event AI edits always require owner review. Validated text-only owner canonical-event update/cancel/restore may still follow the existing fast path; do not claim that broader all-edits-pending or editor approval has shipped.
+Every AI create remains pending even for owners, except in a request paid by the requester's own key (below). Image-derived changes and pending-event AI edits always require owner review. Validated text-only owner canonical-event update/cancel/restore may still follow the existing fast path; do not claim that broader all-edits-pending or editor approval has shipped.
+
+**Own-key requests (JOB-070, D-085).** When the requester's own key pays, the request is theirs to direct:
+
+- **Any topic:** the deterministic off-topic gate is skipped, and the model is told to help with anything, answering non-trip questions in message without proposals.
+- **Linked pages:** the server reads up to three public pages linked in the request (`src/lib/ai/linked-pages.ts`) and supplies their title, description, structured event or place data (JSON-LD) and text as untrusted `LINKED_PAGES_JSON`.
+  - It never reaches anything but the public internet: http(s) on ports 80 and 443 only, every resolved address public, the connection pinned to the checked address, and redirects re-checked.
+  - Limits: 8 seconds, 1.5 MB, and HTML or text only.
+  - Links that the reservation-secret inspector treats as private stay redacted and unread.
+- **New items added directly:** a validated AI create is added at once when the requester could add the same item by hand. That means always for an owner, through the ordinary owner review; and for a member with direct itinerary (or expense) permission and no required approval, including for a linked expense. Requests with pictures, edits and deletions keep their usual review, and so do shared-key and operator-funded requests.
+
+The topic limit protects the operator's or a sponsor's money; privacy rules for other members, the output schema and the funding rules still apply in full.
 
 Pending trip-visible event creates are readable by active trip members. Private creates follow selected audiences plus the narrow owner proposal-review exception, not a canonical privacy bypass. Pending expenses are visible only to active requester/payer/split participants/owner reviewer and stay outside totals. Authorized editors may edit visible pending events; only the creator changes audience, and cross-editor modification forces owner review. Linked expenses are preserved by `update_pending`. [Pending edits](AI_PENDING_EVENT_EDITS.md).
 

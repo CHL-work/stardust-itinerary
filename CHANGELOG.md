@@ -6,6 +6,13 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Own-key AI (JOB-070, D-085):** on the requester's own key, the trip AI:
+  - reads up to three public pages linked in the request, such as an event page's name, time, venue and address;
+  - answers questions on any topic;
+  - adds the new events and expenses the requester could add by hand straight away, instead of leaving them in Approvals.
+
+  Requests with pictures, edits and deletions, and shared-key and operator-funded requests, keep their review.
+
 - **Admin page (JOB-069, D-084):** `/admin`, reachable from Settings by the platform operator only, shows:
   - accounts, active users, guests, trips and AI requests by who paid and by provider;
   - refused attempts, and a 14-day table;
@@ -89,6 +96,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Guest purge on GKE:** its network policy now allows DNS through NodeLocal DNSCache (`169.254.20.10`) and the metadata address, which the first scheduled run could not reach.
 
 ### Security
+
+- **Guarded link reading (JOB-070):**
+  - The page fetcher for own-key requests reaches only public addresses on ports 80 and 443. Every resolved IPv4 and IPv6 address is checked, the connection is pinned to it, and every redirect is checked again.
+  - Limits: 8 seconds and 1.5 MB, HTML or text only, and links flagged as private are never read.
+  - Page text reaches the model as escaped, untrusted data.
 
 - **Only the web server may use the key that seals users' keys (JOB-069):** `infra/` adds:
   - a KMS key, and a `stardust-credentials` service account that only the web server's Kubernetes identity may act as;

@@ -3567,6 +3567,80 @@ export async function applyPermittedChangeRequestWithClient(
     return { status: "approved", entityId: applied.entityId, revision: applied.revision };
 }
 
+/**
+ * Own-key AI (JOB-070): which new items an own-key AI request may add at once. Exactly what the
+ * requester could add by hand without approval: everything for an owner; for a member, events with
+ * direct itinerary permission and expenses with direct expense permission.
+ */
+export async function ownKeyDirectAddScope(client: Queryable, session: AuthenticatedSession): Promise<{ events: boolean; expenses: boolean }> {
+  if (session.role === "owner") return { events: true, expenses: true };
+  const permissions = await getMemberPermissions(client, session.tripId, session.memberId);
+  return {
+    events: permissions.canEditItinerary && !permissions.itineraryRequiresApproval,
+    expenses: permissions.canEditExpenses && !permissions.expenseRequiresApproval,
+  };
+}
+
+/**
+ * Own-key AI (JOB-070): add an event or expense that the requester's own-key AI request just proposed,
+ * when the requester could have added the same item by hand. An owner approves it through the
+ * ordinary review; a member needs the same direct permission as for a manual change, including for
+ * a linked expense. Anything else, including edits, deletions and every request with pictures,
+ * stays pending. Never throws for an ineligible request; it simply stays pending.
+ */
+export async function applyOwnKeyAiCreateWithClient(
+  client: PoolClient, session: AuthenticatedSession, tripId: string, requestId: string,
+): Promise<{ status: "approved" | "pending"; entityId: string | null }> {
+  assertTrip(session, tripId);
+  const pending = { status: "pending" as const, entityId: null };
+  const result = await client.query<ChangeRequestRow>(
+    `SELECT * FROM change_requests cr
+      WHERE trip_id = $1 AND id = $2 AND to_jsonb(cr)->>'invalidated_at' IS NULL
+      FOR UPDATE`,
+    [tripId, requestId],
+  );
+  const request = result.rows[0];
+  if (!request || request.status !== "pending" || request.source !== "ai" || request.operation !== "create"
+    || request.requested_by_member_id !== session.memberId || request.proposed_patch === null) {
+    return pending;
+  }
+  if (session.role === "owner") {
+    const reviewed = await reviewChangeRequestWithClient(client, session, tripId, requestId, "approve",
+      "Added from the owner's own-key AI request");
+    return reviewed.status === "approved" && reviewed.entityId ? { status: "approved", entityId: reviewed.entityId } : pending;
+  }
+  const permissions = await getMemberPermissions(client, tripId, session.memberId);
+  const hasLinkedExpense = request.entity_type === "itinerary_item"
+    && Boolean((request.proposed_patch as ItineraryPatch).linkedExpense);
+  if (!memberCanDirectlyApplyChangeRequest({ entityType: request.entity_type, hasLinkedExpense, hasNonRequesterProposalEdit: false, permissions })) {
+    return pending;
+  }
+  await lockAndRecheckChangeRequestAudience(client, session, request);
+  await lockAndRecheckChangeRequestMembers(client, session, request);
+  const applied = request.entity_type === "itinerary_item"
+    ? await applyItineraryRequest(client, session, request)
+    : await applyExpenseRequest(client, session, request);
+  await client.query(
+    `UPDATE change_requests
+        SET status = 'approved', entity_id = $3, reviewed_by_member_id = $4,
+            review_note = 'Added from the member''s own-key AI request', applied_revision = $5,
+            reviewed_at = CURRENT_TIMESTAMP
+      WHERE trip_id = $1 AND id = $2`,
+    [tripId, requestId, applied.entityId, session.memberId, applied.revision],
+  );
+  await appendAudit(client, {
+    tripId,
+    actorMemberId: session.memberId,
+    entityType: request.entity_type,
+    entityId: applied.entityId,
+    action: "created",
+    before: applied.before,
+    after: applied.after,
+    metadata: { changeRequestId: requestId, approvalMode: "own_key_ai" },
+  });
+  return { status: "approved", entityId: applied.entityId };
+}
+
 export async function applyPermittedChangeRequest(pool: Pool, session: AuthenticatedSession, tripId: string, requestId: string): Promise<{ status: "approved"; entityId: string; revision: number }> {
   return inTransaction(pool, (client) => applyPermittedChangeRequestWithClient(client, session, tripId, requestId));
 }

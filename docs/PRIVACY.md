@@ -38,6 +38,7 @@ If you run your own instance, adapt this notice to your hosting and contact deta
 ## Who receives it
 
 - **Other members of a trip** see that trip's shared content, as permitted by their role. Private events are visible only to the people they are shared with.
+- **Websites you link** in an AI request on your own key: the server fetches those public pages, so each site sees a request from this service (not your browser), and the page text goes to your AI provider with your prompt.
 - **AI providers** (OpenAI, Anthropic or Google) receive the prompt and trip context for each AI request, under the key that pays for it:
   - your own key;
   - a trip owner's key shared with you, in which case the request also appears in that owner's provider account;

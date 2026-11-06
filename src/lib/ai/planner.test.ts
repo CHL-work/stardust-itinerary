@@ -14,6 +14,8 @@ import { withAiImageFacts } from "@/lib/ai/image-context";
 
 const mocks = vi.hoisted(() => ({
   applyPermittedChangeRequest: vi.fn(),
+  applyOwnKeyAiCreate: vi.fn(async () => ({ status: "approved", entityId: "own-key-entity" })),
+  ownKeyDirectAddScope: vi.fn(async () => ({ events: true, expenses: true })),
   createChangeRequest: vi.fn(),
   createChangeRequestsAtomically: vi.fn(),
   getAiPendingItineraryContext: vi.fn(),
@@ -85,6 +87,8 @@ vi.mock("@/lib/app/repository", () => {
     AppConflictError,
     AppInvalidInputError: class AppInvalidInputError extends Error {},
     applyPermittedChangeRequest: mocks.applyPermittedChangeRequest,
+    applyOwnKeyAiCreateWithClient: mocks.applyOwnKeyAiCreate,
+    ownKeyDirectAddScope: mocks.ownKeyDirectAddScope,
     reviewChangeRequestWithClient: mocks.applyPermittedChangeRequest,
     createAiCreateRequestsWithClient: mocks.createChangeRequestsAtomically,
     createAiItineraryCreateRequestsWithClient: mocks.createChangeRequestsAtomically,
@@ -1960,6 +1964,36 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.claudeQuery).not.toHaveBeenCalled();
     const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
     expect(requestInsert?.[1]?.slice(7, 11)).toEqual([model, "google", "gemini_api", "api_key"]);
+  });
+
+  it("answers an off-topic request on the requester's own key instead of refusing it (JOB-070)", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "gpt-6.1-terra", usedToday: 0, limit: null, credentialSource: "own" });
+    mocks.readAiCredentialSecret.mockResolvedValue({ apiKey: "user-own-key", vertex: null });
+    mocks.runCodex.mockResolvedValue({ finalResponse: JSON.stringify({ message: "Here is a sort function.", proposals: [], sources: [] }), items: [], usage: null });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Write me a Python function to sort a linked list", "gpt-6.1-terra");
+    expect(mocks.runCodex).toHaveBeenCalledTimes(1);
+    expect(mocks.runCodex.mock.calls[0]![0]).toContain("This request is paid by the requester's own provider key. Help with whatever they ask");
+    expect(result).toMatchObject({ message: "Here is a sort function.", proposalCount: 0 });
+  });
+
+  it("adds new items from an own-key request directly and tells the model so (JOB-070)", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "gpt-6.1-sol", usedToday: 0, limit: null, credentialSource: "own" });
+    mocks.readAiCredentialSecret.mockResolvedValue({ apiKey: "user-own-key", vertex: null });
+    queuePublicResearchPlanner("gpt-6.1-sol");
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, researchPrompt);
+    expect(mocks.ownKeyDirectAddScope).toHaveBeenCalledTimes(1);
+    expect(mocks.applyOwnKeyAiCreate).toHaveBeenCalledWith(expect.anything(), ownerSession, ownerSession.tripId, "proposal-1");
+    expect(result).toMatchObject({ proposalCount: 1, changeStatus: "approved", entityId: "own-key-entity" });
+    expect(mocks.runCodex.mock.calls.at(-1)![0]).toContain("the server adds every validated AI-created itinerary event at once");
+  });
+
+  it("keeps new items from an operator-funded request pending (JOB-070)", async () => {
+    queuePublicResearchPlanner("gpt-6.1-sol");
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, researchPrompt);
+    expect(mocks.ownKeyDirectAddScope).not.toHaveBeenCalled();
+    expect(mocks.applyOwnKeyAiCreate).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ changeStatus: "pending" });
+    expect(mocks.runCodex.mock.calls.at(-1)![0]).toContain("Every AI-created itinerary event requires explicit owner approval");
   });
 
   it("runs an own-key request on that user's key only, in a private provider directory", async () => {

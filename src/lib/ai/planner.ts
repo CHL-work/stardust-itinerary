@@ -22,6 +22,7 @@ import { expenseSplitsForPatch } from "@/lib/app/expense-split-patch";
 import {
   AiPolicyDeniedError,
   AppConflictError,
+  applyOwnKeyAiCreateWithClient,
   createAiCreateRequestsWithClient,
   createChangeRequestWithClient,
   getAiPendingItineraryContext,
@@ -29,6 +30,7 @@ import {
   reviewChangeRequestWithClient,
   getAiPolicy,
   inTransaction,
+  ownKeyDirectAddScope,
 } from "@/lib/app/repository";
 import {
   ownerModelRegistry,
@@ -88,8 +90,10 @@ export { requiresLivePlaceSearch } from "@/lib/ai/search-policy";
 import {
   plannerPrompt,
   type LiveWebSearchPrivacyBlockReason,
+  type OwnKeyPlanning,
   type PlannerResearchContext,
 } from "@/lib/ai/prompt";
+import { extractLinkedUrls, fetchLinkedPages } from "@/lib/ai/linked-pages";
 import { instantDateInTimeZone, requestedRelativeDate } from "@/lib/ai/relative-date";
 import type { Locale } from "@/lib/i18n";
 import {
@@ -618,7 +622,7 @@ async function runCodexTurn(
   aiInstructions: string,
   liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
 ): Promise<ProviderTurn> {
   const profile = ownerModelRegistry[model];
   if (profile.provider !== "openai") {
@@ -647,6 +651,7 @@ async function runCodexTurn(
       aiInstructions,
       control.draft ?? null,
       control.research ?? null,
+      control.ownKey ?? null,
     ) + (control.repair ? `\n\n${timestampRepairInstructions(control.repair)}` : ""),
     { outputSchema: outputSchema, signal: control.abortController.signal },
   );
@@ -681,7 +686,7 @@ async function runClaudeTurn(
   aiInstructions: string,
   liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
 ): Promise<ProviderTurn> {
   const profile = ownerModelRegistry[model];
   if (profile.provider !== "anthropic") {
@@ -703,6 +708,7 @@ async function runClaudeTurn(
       aiInstructions,
       control.draft ?? null,
       control.research ?? null,
+      control.ownKey ?? null,
     ) + (control.repair ? `\n\n${timestampRepairInstructions(control.repair)}` : ""),
     options: {
       env: providerEnvironment(),
@@ -784,7 +790,7 @@ async function runGeminiTurn(
   aiInstructions: string,
   liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
 ): Promise<ProviderTurn> {
   const profile = ownerModelRegistry[model];
   if (profile.provider !== "google") {
@@ -803,6 +809,7 @@ async function runGeminiTurn(
       aiInstructions,
       control.draft ?? null,
       control.research ?? null,
+      control.ownKey ?? null,
     ) + (control.repair ? `\n\n${timestampRepairInstructions(control.repair)}` : "") }],
     responseJsonSchema: outputSchema,
     // Google Search grounding is Gemini's only tool here; nothing can touch files, shells or the network otherwise.
@@ -1023,7 +1030,8 @@ export async function runAiPlanner(
       "ai_key_required", currentPolicy.model);
     }
     await assertBoundUserAiIdle(client, session.userId);
-    if (offTopicDecision.offTopic && images.length === 0) {
+    // An own-key request is paid by the requester, so it may be about anything (JOB-070).
+    if (offTopicDecision.offTopic && images.length === 0 && currentPolicy.credentialSource !== "own") {
       setupFailureStage = "off_topic_recording";
       const message = offTopicReply(
         locale,
@@ -1142,6 +1150,9 @@ export async function runAiPlanner(
         truncated: memory.truncated,
       })],
     );
+    // Own-key requests add new items the requester could add by hand; pictures always go to review.
+    const directAdd = currentPolicy.credentialSource === "own" && images.length === 0
+      ? await ownKeyDirectAddScope(client, session) : { events: false, expenses: false };
     return {
       kind: "planning" as const,
       policy: currentPolicy,
@@ -1149,6 +1160,7 @@ export async function runAiPlanner(
       planningDraft,
       aiInstructions,
       userCredential,
+      directAdd,
     };
   }).catch(async (error: unknown) => {
     if (error instanceof AiPolicyDeniedError) {
@@ -1200,7 +1212,7 @@ export async function runAiPlanner(
   if (setup.kind === "replay") return setup.recovery;
   if (setup.kind === "off_topic") return setup.response;
 
-  const { policy, conversationMemory, aiInstructions, planningDraft, userCredential } = setup;
+  const { policy, conversationMemory, aiInstructions, planningDraft, userCredential, directAdd } = setup;
   // Every provider call below (planning, pictures, research, venue hours) runs on the same key:
   // the requester's own when the policy chose it, otherwise the server operator's.
   const continuePlanning = async (): Promise<AiPlannerResult | AiRequestRecoveryResponse> => {
@@ -1248,6 +1260,23 @@ export async function runAiPlanner(
         });
         prompt = withAiImageFacts(originalPrompt, facts);
       } finally { clearTimeout(timeout); }
+    }
+    let ownKey: OwnKeyPlanning | null = null;
+    if (policy.credentialSource === "own") {
+      // Links the inspector treats as private (signed or secret-bearing) stay redacted and unread.
+      const urls = extractLinkedUrls(originalPrompt).filter((url) => !reservationSecrets.privateUrls.some((secret) => url.href.includes(secret) || secret.includes(url.href)));
+      const linkedPages = urls.length ? await fetchLinkedPages(urls) : [];
+      ownKey = { directAdd, linkedPages };
+      if (linkedPages.length) {
+        await pool.query(
+          `INSERT INTO ai_request_events (trip_id, ai_request_id, sequence, event_type, payload)
+           VALUES ($1,$2,$3,'links.read',$4::jsonb)`,
+          [session.tripId, requestId, nextEventSequence++, JSON.stringify({
+            linked: linkedPages.length, read: linkedPages.filter((page) => !("error" in page)).length,
+            errors: linkedPages.flatMap((page) => "error" in page ? [page.error] : []),
+          })],
+        );
+      }
     }
     const contextResult = await pool.query(
       `SELECT jsonb_build_object(
@@ -1420,7 +1449,7 @@ export async function runAiPlanner(
           Math.max(1, started + workBudget - Date.now()));
         timeout.unref();
       });
-      const control = { abortController, repair, draft: resumedDraft,
+      const control = { abortController, repair, draft: resumedDraft, ownKey,
         research: repair ? { phase: "disabled" as const, outcome: "timestamp_repair", facts: [] } : researchContext };
       let providerFailed = false;
       let providerReturned = false;
@@ -2288,7 +2317,8 @@ export async function runAiPlanner(
       proposalIds: outcomes.map((proposal) => proposal.proposalId),
       proposalCount: outcomes.length,
       proposalId: outcomes[0]?.proposalId ?? null,
-      changeStatus: outcomes[0]?.changeStatus ?? null,
+      // "approved" only when every change applied; one still pending makes the whole reply pending.
+      changeStatus: outcomes.length === 0 ? null : outcomes.every((outcome) => outcome.changeStatus === "approved") ? "approved" : "pending",
       entityId: outcomes[0]?.entityId ?? null,
       model: policy.model,
       usedToday: policy.usedToday + 1,
@@ -2382,11 +2412,13 @@ export async function runAiPlanner(
           session.tripId,
           changeInputs,
         );
-        proposalOutcomes.push(...proposals.map((proposal) => ({
-          proposalId: proposal.id,
-          changeStatus: "pending" as const,
-          entityId: null,
-        })));
+        // Proposals come back in input order.
+        for (const [index, proposal] of proposals.entries()) {
+          const eligible = changeInputs[index]?.entityType === "expense" ? directAdd.expenses : directAdd.events;
+          const outcome = eligible ? await applyOwnKeyAiCreateWithClient(client, session, session.tripId, proposal.id)
+            : { status: "pending" as const, entityId: null };
+          proposalOutcomes.push({ proposalId: proposal.id, changeStatus: outcome.status, entityId: outcome.entityId });
+        }
       } else if (changeInputs[0]) {
         // Context is intentionally bounded. Recheck ALL pending updates under the
         // trip lock so an omitted/just-created draft cannot be bypassed by an
