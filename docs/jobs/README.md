@@ -22,3 +22,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-073 | Brief UI copy, with a few "?" buttons for details | done |
 | JOB-074 | Codex web search again, with the code-mode host on | done |
 | JOB-075 | Expense summary notes behind its "?" help, and the copy JOB-073 missed | done |
+| JOB-076 | A brief README with phone screenshots, and a documentation index | done |

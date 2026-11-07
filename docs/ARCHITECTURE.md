@@ -2,6 +2,14 @@
 
 Current application architecture. Hosting options are described separately: [self-hosting](SELF_HOSTING.md) with Docker Compose and [deployment](DEPLOYMENT.md) of the public instance.
 
+## At a glance
+
+- **App:** Next.js 16 (App Router), React 19, TypeScript and Zod. One container image runs the web server, the workers, migrations and backups.
+- **Data:** PostgreSQL 17 is the source of truth: forward-only SQL migrations with checksums, append-only audit and revision tables, scope checks in every query, and database constraints and triggers for invariants such as the last active owner and deleted-trip lockout.
+- **AI:** the official Codex SDK and Claude Agent SDK, and Gemini's REST API, with an explicit environment allowlist, typed output schemas, evidence for researched facts, and recovery of requests still running when a phone suspends ([AI](AI_AND_AGENTS.md)).
+- **Infrastructure as code:** OpenTofu for the Google Cloud project and Kustomize for Kubernetes; no service-account keys exist ([deployment](DEPLOYMENT.md)).
+- **Quality gate:** ESLint, TypeScript, Vitest and a PostgreSQL integration suite on every push (`pnpm check`; [verification](IMPLEMENTATION.md#4-verification)).
+
 ## 1. Runtime and topology
 
 Stardust is a modular monolith: Next.js 16 / React 19 / strict TypeScript, Node.js 24, PostgreSQL 17, standard SQL migrations and a Next.js standalone server build. Exact versions are in `package.json` and `pnpm-lock.yaml`.

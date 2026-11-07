@@ -4,7 +4,7 @@ These rules apply to every human and AI contributor.
 
 ## Start and scope
 
-1. Read [README](README.md), the [roadmap](docs/ROADMAP.md), the [documentation policy](docs/DOCUMENTATION_POLICY.md) and the relevant feature contract.
+1. Read [README](README.md), the [roadmap](docs/ROADMAP.md), the [documentation policy](docs/DOCUMENTATION_POLICY.md) and the relevant feature contract; the [documentation index](docs/README.md) lists them all.
 2. For an implementation job, read [design](docs/DESIGN.md), [decisions](docs/DECISIONS.md), the [job system](docs/JOB_SYSTEM.md) and that job. Use the repository-local `stardust-job-runner` skill when selecting or executing a job.
 3. Inspect the worktree and preserve other people's changes. Do not implement proposed work, or infer permission, from a roadmap entry, log, old job or branch.
 4. User instructions override repository guidance, then accepted decisions, product design, job criteria and conventions. Report conflicting accepted requirements.

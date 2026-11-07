@@ -21,7 +21,9 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 ## Keep instructions current and brief
 
 - `AGENTS.md` owns repository rules; [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md) own operating commands; the [roadmap](ROADMAP.md) and job records own planned work; topic documents own feature contracts. Link instead of copying them into every entry point.
-- README is an overview/navigation page, not a rollout journal.
+- README is a brief overview and navigation page, not a rollout journal. Details belong in the topic documents it links to.
+- The [documentation index](README.md) lists every document. Add, rename or remove a document there in the same change.
+- README screenshots show synthetic data only, from a local build. Replace one when its screen changes visibly, the way [JOB-076](jobs/JOB-076-readme-screenshots.md#how-the-screenshots-were-made) made them.
 - Remove superseded commands and implementation narratives from active guides. Keep necessary historical evidence in labeled job records, CHANGELOG and Git history; old approval or test results never grant present authority or prove current runtime health.
 - Label proposal-only features and outstanding decisions. Never describe an approved design as implemented without code/release evidence.
 - This repository is public. Never commit personal emails, cloud project IDs, host names, IP addresses, local machine paths, bucket names, secrets, real traveler data, or deployment evidence from a private instance; describe hosting generically and link to the hosting documents.
@@ -31,7 +33,7 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 
 | Area | Documents |
 | --- | --- |
-| Entry points and history | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CLAUDE.md`, `docs/CASE_STUDY.md` |
+| Entry points and history | `README.md` and its screenshots in `docs/screenshots/`, `docs/README.md` (documentation index), `CHANGELOG.md`, `AGENTS.md`, `CLAUDE.md`, `docs/CASE_STUDY.md` |
 | Product, decisions and plans | `docs/DESIGN.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md` |
 | Architecture and source map | `docs/ARCHITECTURE.md`, `docs/IMPLEMENTATION.md` |
 | Hosting and deployment | `docs/SELF_HOSTING.md`, `docs/DEPLOYMENT.md`, `Dockerfile`, `compose.yaml`, `.env.example`, `deploy/k8s/`, `infra/` |
@@ -72,4 +74,4 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 - Did a schema, API contract, permission, privacy boundary, or cost field change?
 - Did test coverage or a known limitation change?
 - Did a job status, dependency, acceptance criterion, or verification result change?
-- Does `README.md` still lead a new contributor to the correct current document?
+- Does `README.md` still lead a new contributor to the correct current document, and does the [documentation index](README.md) list every document?

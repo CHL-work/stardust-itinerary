@@ -4,6 +4,23 @@ How the public instance runs, and how to run your own the same way. For a single
 
 ## What runs where
 
+```mermaid
+flowchart LR
+  user([Phone / browser]) -->|HTTPS| cf[Cloudflare edge]
+  cf -->|Tunnel, outbound only| web
+  subgraph cluster [GKE Autopilot]
+    web[Next.js web<br/>stateless, autoscaled]
+    jobs[CronJobs<br/>disruption checks · feedback · guest purge · backups]
+    db[(PostgreSQL 17)]
+    web --> db
+    jobs --> db
+  end
+  web -->|API keys from Secret Manager| ai[OpenAI · Anthropic · Gemini]
+  jobs --> ai
+  jobs -->|age-encrypted dumps| gcs[(Cloud Storage)]
+  jobs -->|daily verified copy| offsite[(Neon PostgreSQL)]
+```
+
 | Piece | Where | Notes |
 | --- | --- | --- |
 | Web server | `stardust-web` Deployment, autoscaled 1–2 replicas | Stateless; probes on `/api/health` |
