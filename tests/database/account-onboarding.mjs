@@ -89,7 +89,8 @@ export async function testAccountOnboarding(pool,connectionString,baseSession) {
     const sponsoredOwner={...session,tripId:viewerTrip.tripId,memberId:viewerTrip.memberId};
     // Only this synthetic database fixture simulates a later operator grant.
     await pool.query("UPDATE trip_ai_settings SET host_subscription_enabled=true,enabled=true WHERE trip_id=$1",[viewerTrip.tripId]);
-    const limited=await getAiPolicy(pool,sponsoredOwner,"gpt-6-astra");
+    await assert.rejects(getAiPolicy(pool,sponsoredOwner,"gpt-6-astra"),{reasonCode:"ai_key_required"});
+    const limited=await getAiPolicy(pool,sponsoredOwner);
     assert.equal(limited.model,"gpt-6.1-sol");
     assert.equal(limited.limit,20,"sponsorship does not turn another trip owner into the platform operator");
     await assert.rejects(updateAiSettings(pool,sponsoredOwner,viewerTrip.tripId,{ownerDefaultModel:"gpt-6-astra"}),(error)=>error instanceof AppForbiddenError);

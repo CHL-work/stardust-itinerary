@@ -126,6 +126,58 @@ describe("AI conversation memory bounds", () => {
 });
 
 describe("AI conversation persistence", () => {
+  it("loads free-only history without a shared checkpoint, paid turns or extracted picture facts", async () => {
+    const conversationId = "90000000-0000-4000-8000-000000000001";
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("SELECT id, actor_user_id")) return { rows: [{ id: conversationId, actor_user_id: session.userId }] };
+      if (sql.includes("SELECT EXISTS")) return { rows: [{ busy: false }] };
+      if (sql.includes("FROM ai_conversation_checkpoints")) throw new Error("A paid checkpoint must not be read");
+      if (sql.includes("SELECT id, prompt_text")) {
+        expect(sql).toContain("AND to_jsonb(ai_requests)->>'credential_source' = 'free'");
+        expect(sql).toContain("NULL::text AS image_context_text");
+        expect(sql).not.toContain("to_jsonb(ai_requests)->>'image_context_text'");
+        return { rows: [memoryRow(2, { prompt_text: "Alex paid", image_context_text: null }),
+          memoryRow(1, { prompt_text: "Add dinner tomorrow", image_context_text: null })] };
+      }
+      return { rows: [], rowCount: 1 };
+    });
+    const result = await prepareAiConversation({ query } as unknown as PoolClient, session, { freeOnly: true });
+    expect(result.turns.map((turn) => turn.user)).toEqual(["Add dinner tomorrow", "Alex paid"]);
+    expect(result.checkpoint).toBeNull();
+    expect(result.checkpointThrough).toBeNull();
+    expect(query.mock.calls.some(([sql]) => sql.includes("FROM ai_conversation_checkpoints"))).toBe(false);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("SELECT id, prompt_text"),
+      [session.tripId, conversationId, session.memberId, session.userId, null, null, 200]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("SET last_used_at = CURRENT_TIMESTAMP"), [session.tripId, conversationId]);
+  });
+
+  it("never offers a shared checkpoint source even when free history exceeds its memory budget", async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("SELECT id, actor_user_id")) return { rows: [{ id: "conversation", actor_user_id: session.userId }] };
+      if (sql.includes("SELECT EXISTS")) return { rows: [{ busy: false }] };
+      if (sql.includes("SELECT id, prompt_text")) return { rows: [memoryRow(1, {
+        prompt_text: "旅".repeat(9_000), result_text: "店".repeat(9_000), available_turns: 300,
+      })] };
+      return { rows: [], rowCount: 1 };
+    });
+    const result = await prepareAiConversation({ query } as unknown as PoolClient, session, { freeOnly: true });
+    expect(result.truncated).toBe(true);
+    expect(result.tokenEstimate).toBeLessThanOrEqual(6_000);
+    expect(result.checkpoint).toBeNull();
+    expect(result.checkpointThrough).toBeNull();
+  });
+
+  it("keeps the conversation in-flight fence before loading free history", async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("SELECT id, actor_user_id")) return { rows: [{ id: "conversation", actor_user_id: session.userId }] };
+      if (sql.includes("SELECT EXISTS")) return { rows: [{ busy: true }] };
+      return { rows: [], rowCount: 1 };
+    });
+    await expect(prepareAiConversation({ query } as unknown as PoolClient, session, { freeOnly: true }))
+      .rejects.toBeInstanceOf(AppConflictError);
+    expect(query.mock.calls.some(([sql]) => sql.includes("SELECT id, prompt_text") || sql.includes("FROM ai_conversation_checkpoints"))).toBe(false);
+  });
+
   it("creates a user-bound conversation and loads only its completed history", async () => {
     const queries: Array<{ sql: string; values: unknown[] | undefined }> = [];
     const query = vi.fn(async (sqlValue: unknown, values?: unknown[]) => {

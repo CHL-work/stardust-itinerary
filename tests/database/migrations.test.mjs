@@ -6620,7 +6620,8 @@ test(
         reset_audited: true,
       });
 
-      const memberPolicy = await getAiPolicy(appPool, memberSession, "gpt-6.1-terra");
+      await assert.rejects(getAiPolicy(appPool, memberSession, "gpt-6.1-terra"), { reasonCode: "ai_key_required" });
+      const memberPolicy = await getAiPolicy(appPool, memberSession);
       assert.equal(memberPolicy.model, "gpt-6.1-sol");
       assert.equal(memberPolicy.limit, 20);
       await updateAiSettings(appPool, ownerSession, ownerSession.tripId, { memberDailyLimit: 3 });

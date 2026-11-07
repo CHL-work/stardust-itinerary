@@ -242,6 +242,71 @@ describe("planning draft lexical gates", () => {
 });
 
 describe("loadPlanningDraft", () => {
+  it("does not reconstruct a legacy draft for the free lane", async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("FROM ai_conversations")) return activeConversationResult();
+      if (sql.includes("ORDER BY event.created_at DESC")) return { rows: [] };
+      throw new Error("Free history must not reconstruct an unproven draft");
+    });
+    await expect(loadPlanningDraft({ query } as unknown as PoolClient, session, conversationId, { freeOnly: true })).resolves.toBeNull();
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls.some(([sql]) => sql.includes("prompt_text") || sql.includes("INSERT INTO"))).toBe(false);
+  });
+
+  it("reuses a free clarification only after every exact-scope source passes the funding check", async () => {
+    const sources = [rootRequestId, replyRequestId];
+    const query = vi.fn(async (sql: string, values?: unknown[]) => {
+      if (sql.includes("FROM ai_conversations")) return activeConversationResult();
+      if (sql.includes("ORDER BY event.created_at DESC")) return { rows: [markerRow({ payload: draftPayload({ sourceRequestIds: sources }) })] };
+      if (sql.includes("SELECT count(*)::int AS count")) {
+        expect(values).toEqual([tripId, conversationId, userId, memberId, sources]);
+        return { rows: [{ count: 2 }] };
+      }
+      if (sql.includes("request.id = ANY")) return { rows: [sourceRow(), sourceRow(replyRequestId, {
+        prompt_text: "Alex paid", created_at: "2026-09-04T03:00:00.000Z", result_text: "Who shares the bill?",
+      })] };
+      throw new Error(`Unexpected SQL: ${sql}`);
+    });
+    const draft = await loadPlanningDraft({ query } as unknown as PoolClient, session, conversationId, { freeOnly: true });
+    expect(draft?.sourceRequestIds).toEqual(sources);
+    expect(draft?.userRequests.map((row) => row.content)).toEqual([sourceRow().prompt_text, "Alex paid"]);
+    expect(draft?.expiresAt).toBe(expiresAt);
+    const provenance = query.mock.calls.find(([sql]) => sql.includes("SELECT count(*)::int AS count"))!;
+    expect(provenance[0]).toContain("actor_user_id = $3 AND actor_member_id = $4");
+    expect(provenance[0]).toContain("id = ANY($5::uuid[])");
+    expect(provenance[0]).toContain("to_jsonb(ai_requests)->>'credential_source' = 'free'");
+    expect(provenance[1]).toEqual([tripId, conversationId, userId, memberId, sources]);
+    expect(query.mock.calls.findIndex(([sql]) => sql.includes("SELECT count(*)::int AS count")))
+      .toBeLessThan(query.mock.calls.findIndex(([sql]) => sql.includes("request.id = ANY")));
+  });
+
+  it.each([0, 1, undefined])("does not replay a paid or missing source when free provenance count is %s", async (count) => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("FROM ai_conversations")) return activeConversationResult();
+      if (sql.includes("ORDER BY event.created_at DESC")) return { rows: [markerRow({
+        payload: draftPayload({ sourceRequestIds: [rootRequestId, replyRequestId] }),
+      })] };
+      if (sql.includes("SELECT count(*)::int AS count")) return { rows: count === undefined ? [] : [{ count }] };
+      throw new Error("Do not read draft text before all sources are proven free");
+    });
+    await expect(loadPlanningDraft({ query } as unknown as PoolClient, session, conversationId, { freeOnly: true })).resolves.toBeNull();
+    expect(query.mock.calls.some(([sql]) => sql.includes("prompt_text") || sql.includes("INSERT INTO"))).toBe(false);
+    const markerSql = query.mock.calls.find(([sql]) => sql.includes("ORDER BY event.created_at DESC"))![0];
+    expect(markerSql).not.toContain("credential_source");
+    expect(markerSql).toContain("LIMIT 1"); // Never skip the latest paid marker to revive an earlier free draft.
+    expect(query.mock.calls.filter(([sql]) => sql.includes("ORDER BY event.created_at DESC"))).toHaveLength(1);
+  });
+
+  it.each(["consumed", "closed"] as const)("does not resurrect an older free draft after the latest %s marker", async (state) => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("FROM ai_conversations")) return activeConversationResult();
+      if (sql.includes("ORDER BY event.created_at DESC")) return { rows: [markerRow({ payload: draftPayload({ state }) })] };
+      throw new Error("A terminal latest marker cannot be skipped");
+    });
+    await expect(loadPlanningDraft({ query } as unknown as PoolClient, session, conversationId, { freeOnly: true })).resolves.toBeNull();
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
   it("reuses sanitized image facts as source data without replaying image bytes or modifying the original prompt", async () => {
     const source = sourceRow(rootRequestId, { image_context_text: "Synthetic Hotel, 2030-04-01 15:00 to 2030-04-03 11:00; JPY 5000" });
     const query = vi.fn(async (sql: string) => {

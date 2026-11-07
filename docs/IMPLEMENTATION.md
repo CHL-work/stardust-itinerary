@@ -10,6 +10,7 @@ Source map and safe verification guide. Runtime topology is in [architecture](AR
 - Per-person expense summaries, equal/exact splits, multiple bills per event, atomic linked-event bills and manual repayments.
 - AI through the official Codex SDK, Claude Agent SDK and Gemini REST API: text/pictures, typed proposals, private browseable history, bounded memory/clarification drafts, manual account instructions, isolated public research and recoverable delivery. AI-created events are trip-wide unless clearly solo (JOB-079), and AI expenses are split between everyone unless the request gives the parts (JOB-080).
 - Bring-your-own provider keys, encrypted at rest and isolated per request (JOB-061). Trip owners can share them with chosen members (JOB-063).
+- Optional keyless Free AI for every active member and guest (JOB-086): an explicit per-request choice, default only without paid funding, with text-only minimized context, pending review and exact request/upstream-attempt caps. This branch's implementation is not evidence of deployment.
 - Default-off 24-hour guest accounts with a synthetic demo trip, isolated from real trips and permanently purged (JOB-064).
 - Optional per-member Calendar export/import with duplicate receipts; silent passive refresh and deterministic conflicts.
 - MapLibre/OSM day map that loads when opened, deterministic weather, backend qualified disruptions and bounded read-only public offline itinerary.
@@ -66,7 +67,7 @@ The exact filesystem routes under `src/app/api/` are authoritative. Authenticati
 | `src/lib/auth/` | Google binding, account/trip sessions, invitation and operator authority, suspension checks. |
 | `src/lib/admin/`, `src/app/admin/`, `src/app/api/admin/` | The operator's admin page: overview, accounts, activity, suspension, the sign-up cap and daily counters (JOB-069). |
 | `src/lib/domain/` | Deterministic expense/balance/conflict/reminder primitives; primitives do not imply a scheduled reminder service exists. |
-| `src/lib/ai/` | Planner/adapters, context, drafts, images, validation/repair, public research and recovery; users' keys under the local ring or Cloud KMS (`credential-kms.ts`). |
+| `src/lib/ai/` | Planner/adapters, context, drafts, images, validation/repair, public research and recovery; users' keys under the local ring or Cloud KMS (`credential-kms.ts`). Free transport/catalog in `free-model.ts`, minimized context in `free-context.ts`, parser-derived constrained output in `free-output-schema.ts`, cross-replica attempt quotas in `free-attempt.ts`. |
 | `src/lib/calendar|maps|weather|disruptions|feedback/` | Separate integration policies and derived data. |
 | `database/migrations/`, `tests/database/` | Immutable forward SQL and destructive-disposable integration tests. |
 | `scripts/` | Migrations, seeds, smoke, workers, guarded synthetic evaluations and maintenance tools; read before invoking. |

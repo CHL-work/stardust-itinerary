@@ -42,7 +42,8 @@ Up to 20 people share one trip: day-by-day events, private events visible only t
     - An IAM deny policy also refuses the project's owners, so the person running the site cannot quietly decrypt users' keys. Every use is in the audit log.
     - Settings tells users exactly that, and that the server still decrypts a key to send their requests.
   - A request on a user's key runs inside an `AsyncLocalStorage` context. Its subprocess sees only that key and a private, per-request state directory, never the operator's keys or another request's files. A test runs two users concurrently to prove it.
-  - One resolver decides who pays (own key, an owner's shared key, operator sponsorship, or nothing), and the AI composer mirrors that decision.
+  - One resolver decides who pays (own key, an owner's shared key, operator sponsorship, or explicit keyless Free AI), and the composer mirrors it. Free is the default only without paid funding; no failure silently charges another key (JOB-086).
+- **Free without hidden billing** (JOB-086): a live catalog confirms zero prices and structured-output support, a keyless context cannot use keyed adapters, and database locks cap both admitted requests and actual upstream attempts. The narrower context excludes private events, expenses, notes and paid-chat memory, with retention disclosed; free changes stay pending review.
 - **Key sharing** (JOB-063): an owner can let chosen members use their key in one trip. A checkbox on the invite or join link, and a per-member switch, control it. Every use re-checks that the sponsor is still an owner who holds a key, and is recorded with whose key paid.
 
 ## Letting strangers try it safely

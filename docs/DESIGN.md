@@ -58,6 +58,8 @@ Pending events occupy ordinary timeline positions under their authorized audienc
 
 The AI tab browses a user's trip-specific history and resumes ordinary conversations. Picture extraction, bounded memory, manual account instructions, public research and structured clarification drafts feed typed proposals. Current dates derive from the trip's IANA zone, not trip start. Phone suspension does not require resending: persisted request status/results recover without provider replay. One request per bound user may run; different users run concurrently. [AI flow](AI_AND_AGENTS.md).
 
+Where enabled, every active member and guest may choose Free AI without a key; it is the default only without paid funding. Free requests are text-only, omit private/stored-personal and paid-chat context, disclose retention, and keep every change pending review. They never charge a key on failure. Paid models retain their own capabilities and funding rules (JOB-086, D-098).
+
 ### 5.5 Record expenses and repayments
 
 One event may link multiple independent bills. Event create/edit can atomically include one new linked expense; standalone Add expense can select an existing visible event. Equal shares are default; exact nonnegative per-person minor-unit amounts must sum to the positive total. Sparse edits preserve unequal shares.

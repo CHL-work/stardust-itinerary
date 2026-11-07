@@ -2,6 +2,17 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 7, 2026 free AI for every account
+
+Reviewed for JOB-086 (D-098), without installing or executing the upstream project:
+
+- [`dsh-our-free-model` at `efea046244d9b165f097af99a66c31e852731cb9`](https://github.com/Ebony-Vinyl/dsh-our-free-model/tree/efea046244d9b165f097af99a66c31e852731cb9): its Kilo route uses the documented anonymous gateway; other routes emulate client identifiers or use relays. No upstream code, credentials or spoofed headers were imported.
+- [Kilo authentication](https://kilo.ai/docs/gateway/authentication), [usage and billing](https://kilo.ai/docs/gateway/usage-and-billing), and [models](https://kilo.ai/docs/gateway/models-and-providers): anonymous access is for free models and limited per network address. Stardust rechecks the live catalog rather than trusting a `:free` suffix.
+- [Using Kilo for free](https://kilo.ai/docs/getting-started/using-kilo-for-free): free-model inputs may be retained or used for training; NVIDIA trial routes prohibit personal/confidential input. Stardust excludes these and automatic/opaque routes, and minimizes context without claiming anonymity.
+- [OpenCode model documentation](https://opencode.ai/docs/console/models/): its free offerings are limited to OpenCode clients. Stardust does not imitate that client.
+
+These are dated eligibility findings, not a promise of free capacity or provider availability. The current adapter requires fresh catalog confirmation and fails without paid fallback.
+
 ## November 6, 2026 free guest AI
 
 Retrieved on 6 November 2026 for JOB-071 (D-086):

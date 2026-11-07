@@ -1,5 +1,7 @@
 # AI edits to pending events
 
+Free AI (JOB-086) receives only trip-visible pending creates and updates whose canonical base is also trip-visible, with notes/URLs omitted. Private pending events remain accessible through authorized paid-provider/manual flows, not automatically exported to a free provider. Free edits keep the same pending proposal and always require review.
+
 Custom linked-expense shares are preserved exactly during event-only AI edits. The manual pending-event expense section can edit those amounts with deterministic reconciliation; `update_pending` still rejects every `linkedExpense` key and gains no expense-edit authority.
 
 Relevant venue/date/time edits also receive the isolated [venue-hours assessment](AI_VENUE_HOURS.md) using the effective pending patch and exact reusable evidence when available. Omitted venue/time fields and linked expenses remain preserved. The notice is saved on the same request and in the AI reply; private or unverifiable cases remain pending with quiet neutral uncertainty, while only supported hours conflicts warn. No silent replacement or approval occurs.

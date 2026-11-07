@@ -4,7 +4,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 ## Goals
 
-- **A public instance anyone can try:** sign in with Google and bring your own AI key, or try a guest account that is deleted within a day.
+- **A public instance anyone can try:** sign in with Google or try a guest account deleted within a day; use the optional free AI or bring your own key.
 - **Easy self-hosting:** one `docker compose up`, or the same Kubernetes manifests the public instance uses.
 - **Visible engineering:** infrastructure as code, a reproducible deploy pipeline, and a security model that is documented and tested.
 
@@ -12,6 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
+| JOB-086 | Free AI for signed-in users and guests | In review: explicit keyless choice, fresh zero-price catalog checks, minimized context and exact request/attempt caps (D-098). Local only; not deployed |
 | JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
 | JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script and the `deploy` workflow with an approval step | Done |
 | JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Done: cut over on November 4, 2026 after a staging rehearsal. The old services are disabled; the VM stays as a rollback for now |
@@ -50,7 +51,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 - **One credential resolver** replaces today's operator-funding gates. Each request uses:
   1. the requester's own key for the chosen provider; otherwise
   2. a trip owner's shared key (JOB-063); otherwise
-  3. nothing, and the user sees a prompt to add a key.
+  3. the optional free service when no paid funding is available (JOB-086), else a prompt to add a key. Explicit Free AI never uses a key.
 - **Per-request isolation:** keys go to a per-request provider process with a fresh temporary state directory.
 - **Usage ledger** per request (provider, model, tokens, estimated cost, whose key), visible to the key's owner.
 
@@ -65,7 +66,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 - **"Try as guest"** behind Cloudflare Turnstile and rate limits.
 - **Seeded demo trip:** each guest starts with a synthetic one.
-- **Sandboxed in the database:** guest and real trips never mix. Guests get no invitations and no Calendar, and use AI only with their own key.
+- **Sandboxed in the database:** guest and real trips never mix. Guests get no invitations or Calendar; AI uses their own key or the optional free service (JOB-071, extended by JOB-086).
 - **Purge:** an hourly job hard-deletes guests older than 24 hours through a guarded function that may only touch guest-only rows.
 - **Public sign-up** with Google, and self-service account deletion.
 
@@ -99,6 +100,13 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 
 - **Daily copy:** the `stardust-offsite-copy` job restores the database into a Neon free-plan project as a dated database, checks every table's row count, and keeps the newest three (D-083).
 - **Free plan:** a 0.25 CU compute awake a few minutes a day, and all copies within 500 MB of the 1 GB of storage.
+
+### JOB-086: free AI for every account
+
+Requested by the user on 7 November 2026 ([job](jobs/JOB-086-free-ai-for-everyone.md)).
+
+- **Explicit choice:** any active member can choose keyless Free AI, even with paid funding available. It is the default only without paid funding.
+- **Boundaries:** text-only, minimized context, retained/training disclosure, pending changes, fresh zero-price model checks and shared request/attempt quotas. No paid fallback or deployment implied. [Contract](AI_AND_AGENTS.md#free-ai-for-every-account-job-086-d-098).
 
 ### JOB-085: only the selected language
 

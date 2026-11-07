@@ -14,6 +14,9 @@ import { withFreeAiCredential, withOperatorAiCredential, withUserAiCredential } 
 import { readAiCredentialSecret } from "@/lib/ai/credentials";
 import { generateWithGemini } from "@/lib/ai/gemini";
 import { generateWithFreeModel } from "@/lib/ai/free-model";
+import { safeFreePlanningContext } from "@/lib/ai/free-context";
+import { reserveFreeAiAttempt } from "@/lib/ai/free-attempt";
+import { freePlannerOutputSchema } from "@/lib/ai/free-output-schema";
 import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { AiProviderFailureError, aiProviderFailureDetails, createClaudeProviderFailureTracker } from "@/lib/ai/provider-failure";
 import { aiRequestWorkBudgetMs } from "@/lib/ai/request-budget";
@@ -24,6 +27,7 @@ import { expenseSplitsForPatch } from "@/lib/app/expense-split-patch";
 import {
   AiPolicyDeniedError,
   AppConflictError,
+  AppInvalidInputError,
   applyOwnKeyAiCreateWithClient,
   createAiCreateRequestsWithClient,
   createChangeRequestWithClient,
@@ -33,6 +37,7 @@ import {
   getAiPolicy,
   inTransaction,
   ownKeyDirectAddScope,
+  type AiPolicy,
 } from "@/lib/app/repository";
 import {
   ownerModelRegistry,
@@ -317,7 +322,7 @@ function parseStringList(value: unknown, maxItems: number, maxLength: number): s
 }
 
 function parseMemoryCheckpoint(value: unknown): PlannerOutput["memoryCheckpoint"] {
-  if (value === undefined) return null;
+  if (value === undefined || value === null) return null;
   const message = "The AI memory checkpoint did not match the schema.";
   const record = plainRecord(value, message);
   assertExactKeys(record, ["summaryText", "goals", "decisions", "openQuestions"], message);
@@ -341,6 +346,9 @@ const freeOutputSchema = {
   ...outputSchema,
   properties: {
     ...outputSchema.properties,
+    researchRequests: { ...publicResearchRequestJsonSchema, maxItems: 0 },
+    sources: { type: "array", items: { type: "string" }, maxItems: 0 },
+    memoryCheckpoint: { type: "null" },
     proposals: {
       ...outputSchema.properties.proposals,
       items: {
@@ -905,8 +913,8 @@ async function runGeminiTurn(
 }
 
 /**
- * Free guest AI (JOB-071): one planner turn on a keyless free model through Kilo's gateway, with the
- * planner's schema enforced. No tools, no search and no research: guests get planning only.
+ * One free planning turn with public context only. Never replay keyed chats, instructions or
+ * private itinerary data into the free service; submitted text is disclosed before the user sends.
  */
 async function runFreeTurn(
   model: OwnerModel,
@@ -919,18 +927,20 @@ async function runFreeTurn(
   aiInstructions: string,
   _liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null; beforeFreeAttempt?: () => Promise<void> },
 ): Promise<ProviderTurn> {
   if (ownerModelRegistry[model].provider !== "kilo") throw new Error(`Model ${model} is not configured for the free gateway.`);
+  const freeContext = safeFreePlanningContext(context, [prompt, ...recentConversation.map((turn) => turn.user), ...(control.draft?.userRequests.map((request) => request.content) ?? [])].join("\n"));
+  const responseSchema = freePlannerOutputSchema(freeOutputSchema, freeContext);
   const turnPrompt = plannerPrompt(
     prompt,
-    context,
+    freeContext,
     locale,
     recentConversation,
     false,
     liveWebSearchPrivacyBlockReason ?? false,
-    conversationCheckpoint,
-    aiInstructions,
+    null,
+    "",
     control.draft ?? null,
     control.research ?? null,
     null,
@@ -939,12 +949,14 @@ async function runFreeTurn(
   let output: PlannerOutput | null = null;
   // One more try when the answer still cannot be used; free models vary from run to run.
   for (let attempt = 0; attempt < 2 && !output; attempt += 1) {
-    result = await generateWithFreeModel({ prompt: turnPrompt, responseJsonSchema: freeOutputSchema, signal: control.abortController.signal });
+    result = await generateWithFreeModel({ prompt: turnPrompt, responseJsonSchema: responseSchema,
+      signal: control.abortController.signal, beforeAttempt: control.beforeFreeAttempt });
     try { output = parseOutput(freeOutputAsPlannerJson(result.text)); } catch { /* try once more */ }
   }
   if (!output || !result) throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "kilo" });
   return {
-    output,
+    // Tools are unavailable on this lane even if a model asks for them.
+    output: { ...output, sources: [], researchRequests: [], memoryCheckpoint: null },
     effectiveModel: result.model,
     provider: "kilo",
     transport: "kilo_gateway",
@@ -1038,11 +1050,17 @@ async function recordAiSetupFailure(
     prompt: string;
     locale: Locale;
     model: OwnerModel;
+    credentialSource: AiPolicy["credentialSource"];
+    sponsorMemberId?: string;
     stage: AiSetupFailureStage;
     latencyMs: number;
   },
 ): Promise<void> {
   const profile = ownerModelRegistry[input.model];
+  // Historical migration evaluators predate keyed funding. NULL already means operator;
+  // own/free require their source-column migrations, and shared requires its sponsor column.
+  const recordFunding = input.credentialSource !== "operator";
+  const recordSponsor = input.credentialSource === "shared";
   const errorCode = `AI_SETUP_${input.stage.toUpperCase()}_FAILED`;
   const errorMessage = "AI request setup failed before the provider call.";
   await inTransaction(pool, async (client) => {
@@ -1052,9 +1070,10 @@ async function recordAiSetupFailure(
          requested_model, effective_model, provider, transport, authentication_mode,
          billing_basis, status, input_tokens, output_tokens, cached_input_tokens,
          latency_ms, error_code, error_message, completed_at
+         ${recordFunding ? ", credential_source" : ""}${recordSponsor ? ", credential_sponsor_member_id" : ""}
        ) VALUES (
          $1,$2,$3,$4,$5,'planning',$6,$7,NULL,$8,$9,$10,
-         'api','failed',0,0,0,$11,$12,$13,CURRENT_TIMESTAMP
+         $14,'failed',0,0,0,$11,$12,$13,CURRENT_TIMESTAMP${recordFunding ? ",$15" : ""}${recordSponsor ? ",$16" : ""}
        )
        ON CONFLICT (trip_id, id) DO NOTHING
        RETURNING id`,
@@ -1072,6 +1091,9 @@ async function recordAiSetupFailure(
         input.latencyMs,
         errorCode,
         errorMessage,
+        input.credentialSource === "free" ? "free" : "api",
+        ...(recordFunding ? [input.credentialSource] : []),
+        ...(recordSponsor ? [input.sponsorMemberId ?? null] : []),
       ],
     );
     if (inserted.rowCount === 0) return;
@@ -1125,6 +1147,7 @@ export async function runAiPlanner(
   const workBudget = aiRequestWorkBudgetMs(images.length > 0);
   const offTopicDecision = classifyOffTopicPrompt(prompt);
   let selectedPolicyModel: OwnerModel | null = null;
+  let selectedPolicy: AiPolicy | null = null;
   let setupFailureStage: AiSetupFailureStage = "conversation_memory";
   const setup = await inTransaction(pool, async (client) => {
     await lockCurrentTripActor(client, session);
@@ -1141,6 +1164,10 @@ export async function runAiPlanner(
       serializeMemberQuota: true,
     });
     selectedPolicyModel = currentPolicy.model;
+    selectedPolicy = currentPolicy;
+    if (currentPolicy.credentialSource === "free" && images.length > 0) {
+      throw new AppInvalidInputError("Free AI accepts text only. Remove the pictures or choose a model on your own key.");
+    }
     // The requester's own key, or the key a trip owner shares with them, is read once, server-side,
     // and lives only in this request's memory. The member never receives a shared key.
     const keyOwnerId = currentPolicy.credentialSource === "own" ? session.userId
@@ -1167,6 +1194,8 @@ export async function runAiPlanner(
         offTopicDecision.restrictedTone ?? false,
       );
       const latencyMs = Date.now() - started;
+      const recordFunding = currentPolicy.credentialSource !== "operator";
+      const recordSponsor = currentPolicy.credentialSource === "shared";
       const response: AiPlannerResult = {
         requestId, message, proposalIds: [], proposalCount: 0, proposalId: null, changeStatus: null, entityId: null,
         model: currentPolicy.model, usedToday: currentPolicy.usedToday + 1,
@@ -1181,12 +1210,15 @@ export async function runAiPlanner(
            requested_model, effective_model, provider, transport, authentication_mode, billing_basis,
            status, result_text, input_tokens, output_tokens, cached_input_tokens,
            latency_ms, completed_at
+           ${recordFunding ? ", credential_source" : ""}${recordSponsor ? ", credential_sponsor_member_id" : ""}
          ) VALUES (
            $1,$2,$3,$4,$5,'off_topic',$6,$7,$7,'local','deterministic_gate','none','none',
-           'succeeded',$8,0,0,0,$9,CURRENT_TIMESTAMP
+           'succeeded',$8,0,0,0,$9,CURRENT_TIMESTAMP${recordFunding ? ",$10" : ""}${recordSponsor ? ",$11" : ""}
          )`,
         [session.tripId, requestId, session.memberId, session.userId, session.role, prompt,
-          currentPolicy.model, message, latencyMs],
+          currentPolicy.model, message, latencyMs,
+          ...(recordFunding ? [currentPolicy.credentialSource] : []),
+          ...(recordSponsor ? [currentPolicy.sponsor?.memberId ?? null] : [])],
       );
       if (selectedConversationId) {
         await client.query(`UPDATE ai_requests SET conversation_id = $3 WHERE trip_id = $1 AND id = $2`,
@@ -1233,10 +1265,12 @@ export async function runAiPlanner(
     }
 
     setupFailureStage = "conversation_memory";
-    const memory = await prepareAiConversation(client, session);
-    const planningDraft = await loadPlanningDraft(client, session, memory.conversationId);
+    const freeOnly = currentPolicy.credentialSource === "free";
+    const memory = freeOnly ? await prepareAiConversation(client, session, { freeOnly: true }) : await prepareAiConversation(client, session);
+    const planningDraft = freeOnly ? await loadPlanningDraft(client, session, memory.conversationId, { freeOnly: true })
+      : await loadPlanningDraft(client, session, memory.conversationId);
     setupFailureStage = "ai_instructions";
-    const aiInstructions = await readAiInstructions(client, session.userId);
+    const aiInstructions = freeOnly ? { instructions: "", revision: 0 } : await readAiInstructions(client, session.userId);
     setupFailureStage = "request_recording";
     const profile = ownerModelRegistry[currentPolicy.model];
     // A shared key also records whose key paid (migration 0055, present whenever a grant exists).
@@ -1320,13 +1354,15 @@ export async function runAiPlanner(
       } catch {
         // Audit persistence is best effort and must not replace the busy error.
       }
-    } else if (selectedPolicyModel) {
+    } else if (selectedPolicyModel && selectedPolicy) {
       try {
         await recordAiSetupFailure(pool, session, {
           requestId,
           prompt,
           locale,
           model: selectedPolicyModel,
+          credentialSource: selectedPolicy.credentialSource,
+          sponsorMemberId: selectedPolicy.sponsor?.memberId,
           stage: setupFailureStage,
           latencyMs: Date.now() - started,
         });
@@ -1534,7 +1570,7 @@ export async function runAiPlanner(
           : aiInstructions.instructions.trim()
             ? "private_ai_instructions"
             : null;
-    // Free guest AI (JOB-071) has no search tool and no research round.
+    // Free AI has no search tool or research round, regardless of trip role or stored paid keys.
     const freeLane = policy.credentialSource === "free";
     const livePlaceSearchRequired = livePlaceSearchRequested
       && liveWebSearchPrivacyBlockReason === null && !freeLane;
@@ -1582,6 +1618,9 @@ export async function runAiPlanner(
         timeout.unref();
       });
       const control = { abortController, repair, draft: resumedDraft, ownKey,
+        beforeFreeAttempt: freeLane ? async () => {
+          await reserveFreeAiAttempt(pool, session, requestId, nextEventSequence++);
+        } : undefined,
         research: repair ? { phase: "disabled" as const, outcome: "timestamp_repair", facts: [] } : researchContext };
       let providerFailed = false;
       let providerReturned = false;
@@ -1678,7 +1717,7 @@ export async function runAiPlanner(
     // One planner-directed public lookup round. The preliminary answer is never
     // saved as a completed conversation or used to write proposals. Only minimal
     // validated subjects reach the researcher, which cannot see this context.
-    if (turn.output.researchRequests?.length) {
+    if (!freeLane && turn.output.researchRequests?.length) {
       const preliminary = turn;
       const privateItems = (contextRecord.itinerary ?? []).filter((item) => item.visibility !== "trip");
       const forbiddenTexts = privateItems.flatMap((item) => [item.title, item.locationName,
@@ -1873,7 +1912,10 @@ export async function runAiPlanner(
       ), { name: "AI_SEARCH_EVIDENCE_MISSING" });
     }
 
-    let output = !finalizationIncomplete && (detachedClarification || (!planningDraft && turn.output.continuesDraft === true))
+    // A complete new create instruction supplies its own authority. A small
+    // model's mistaken continuation flag must not discard that instruction;
+    // detached short replies still cannot replay an old creation.
+    let output = !finalizationIncomplete && (detachedClarification || (!planningDraft && draftMode !== "new" && turn.output.continuesDraft === true))
       ? { ...turn.output, message: detachedPlanningClarification(locale), proposals: [] }
       : turn.output;
     const prepareProposals = (output: PlannerOutput) => {
@@ -2497,7 +2539,7 @@ export async function runAiPlanner(
         requestId, prompt: originalPrompt, proposalCount: outcomes.length, previous: planningDraft,
         mode: draftMode, sequence: nextEventSequence++,
       });
-      const checkpointCreated = output.memoryCheckpoint
+      const checkpointCreated = output.memoryCheckpoint && policy.credentialSource !== "free"
         ? await createConversationCheckpoint(client, session, {
             conversationId: conversationMemory.conversationId,
             through: conversationMemory.checkpointThrough,
@@ -2582,7 +2624,7 @@ export async function runAiPlanner(
         let changeStatus: "approved" | "pending" = "pending";
         let entityId: string | null = null;
         // A request the owner pays for applies with pictures too (JOB-072).
-        if ((images.length === 0 || requesterPays) && session.role === "owner" && changeInputs[0].operation !== "create") {
+        if (policy.credentialSource !== "free" && (images.length === 0 || requesterPays) && session.role === "owner" && changeInputs[0].operation !== "create") {
           const applied = await reviewChangeRequestWithClient(
             client, session, session.tripId, proposal.id, "approve", "Applied directly by owner",
           );

@@ -6,7 +6,7 @@ import { isSupportedLedgerCurrency } from "@/lib/app/supported-currencies";
 import { tripDateErrors, validTripDate } from "@/lib/app/trip-date-range";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 
-import { selectableOwnerModels } from "@/lib/app/types";
+import { ownerModels, selectableOwnerModels } from "@/lib/app/types";
 import { locales } from "@/lib/i18n";
 
 export const expenseSplitAmountsSchema = z.array(z.object({
@@ -106,7 +106,7 @@ export const aiRequestSchema = z.object({
     data: z.string().min(1).max(2_796_204),
   })).max(3).optional(),
   prompt: z.string().trim().min(1).max(8000),
-  model: z.enum(selectableOwnerModels).optional(),
+  model: z.enum(ownerModels).optional(),
   locale: z.enum(locales).optional(),
   clientRequestId: z.uuid().optional(),
   conversationId: z.uuid().nullable().optional(),

@@ -1,5 +1,7 @@
 # AI venue opening-hours checks
 
+Free AI (JOB-086) does not perform venue-hours lookups or claim verified opening times. The paid-provider verification contract below is unchanged.
+
 Hours are checked for an AI-proposed public meal/activity visit, even if the user only says to create the event rather than explicitly requesting search. Relevant canonical/pending venue, date, time, type and visibility edits, plus restores, are also checked. A title-only or note-only edit does not trigger research. Pending edits keep the same request and original linked expense. The feature does not silently move, delete, approve, reserve or book anything.
 
 Eligible initial public venue research requests optional structured dated hours in the same lookup. Exact venue/date/time-zone evidence is reassessed against the final validated event times without a second search. An explicitly researched unknown is also a completed attempt, not a reason to repeat the lookup. Unverified results use short informational notes; only supported closure/time/cutoff conflicts use a warning. Existing saved replies are not rewritten.

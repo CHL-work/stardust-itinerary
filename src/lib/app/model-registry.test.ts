@@ -38,11 +38,11 @@ describe("owner AI model registry", () => {
     expect(ownerModelRegistry["claude-fable-5-1"].effort).toBe("low");
   });
 
-  it("never offers the free guest slot for selection, while the planner can run it (JOB-071)", () => {
+  it("offers free AI per request, never as the trip's keyed default (JOB-086)", () => {
     expect([...ownerModels]).toEqual([...selectableOwnerModels, GUEST_FREE_MODEL]);
     expect(selectableOwnerModels).not.toContain(GUEST_FREE_MODEL);
     expect(ownerModelRegistry[GUEST_FREE_MODEL]).toEqual({ provider: "kilo", transport: "kilo_gateway", authenticationMode: "anonymous" });
-    expect(aiRequestSchema.safeParse({ prompt: "Plan dinner", model: GUEST_FREE_MODEL }).success).toBe(false);
+    expect(aiRequestSchema.safeParse({ prompt: "Plan dinner", model: GUEST_FREE_MODEL }).success).toBe(true);
     expect(aiSettingsSchema.safeParse({ ownerDefaultModel: GUEST_FREE_MODEL }).success).toBe(false);
   });
 

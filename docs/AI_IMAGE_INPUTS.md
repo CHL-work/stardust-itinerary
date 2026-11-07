@@ -1,5 +1,7 @@
 # Private AI picture imports
 
+Free AI is text-only (JOB-086). Selecting it disables adding pictures but keeps retained drafts removable. Explicit free submissions are rejected before image decoding; default-free submissions are also rejected at admission before storage or a provider call. It never silently uses a paid model to process them. The paid-provider contract below is unchanged.
+
 Preference conversations and their picture/text composers have been removed. Legacy preference-only conversations remain read-only history and cannot be resumed or accept attachments. Ordinary trip-planning picture selection, extraction, history and unsent-picture switch confirmation remain. Personal AI instructions are explicitly edited in Settings, never collected from pictures or chats. The admitted request's instruction snapshot enters only the planning phases; image extraction receives no saved instruction text and cannot alter it. See [personal instructions](AI_CUSTOM_INSTRUCTIONS.md).
 
 Extraction keeps each booking/menu row's branch, service, duration, date/time and labeled price together. Unknown is not zero and a published tariff is not a receipt total. Eligible public price research happens only in the separate bounded researcher, never image extraction; the existing private-context gates remain. The planner receives the count of new attachments, reuses selected earlier facts and must not claim an upload failed solely because none arrived. See [booking prices](AI_BOOKING_PRICES.md).

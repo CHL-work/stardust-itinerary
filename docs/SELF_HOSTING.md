@@ -3,7 +3,7 @@
 Runs everything on one machine: PostgreSQL 17, the web app and a scheduler for background checks. You need:
 - Docker with Compose v2;
 - a Google account for the sign-in client;
-- an API key for at least one AI provider (OpenAI, Anthropic or Google Gemini), unless every user adds their own in Settings → AI keys.
+- for AI, either enable the optional keyless free service below, configure a provider API key (OpenAI, Anthropic or Google Gemini), or let users add their own in Settings → AI keys. Manual planning needs no AI key.
 
 Kubernetes is covered in [deployment](DEPLOYMENT.md).
 
@@ -21,7 +21,7 @@ Edit `.env`:
 | --- | --- |
 | `AUTH_SECRET` | output of `openssl rand -base64 32` |
 | `CREDENTIAL_ENCRYPTION_KEY` | another, different `openssl rand -base64 32`. It encrypts the API keys users save in Settings, and Compose gives it only to the web service. Keep a copy: without it, saved keys cannot be decrypted. To rotate it, see [rotation](DEPLOYMENT.md#rotating-the-encryption-key); with Compose, run the re-encryption with `docker compose exec web /app/deploy/container/entrypoint.sh credential-reencrypt` |
-| `GUEST_FREE_AI_ENABLED` | optional, with guest mode: `true` lets guests without a key plan on keyless free models through Kilo's AI Gateway, within the caps in `.env.example`. Free models may keep what guests send, and guests are told so |
+| `FREE_AI_ENABLED` | optional: `true` offers signed-in users and guests keyless, text-only planning through Kilo's AI Gateway. No search or background work. Free models may retain/train on prompts; see [privacy](PRIVACY.md). Request and upstream-attempt caps are in `.env.example`. Canonical `FREE_AI_*` settings override legacy `GUEST_FREE_AI_*`; an old enabled flag now also covers signed-in users |
 | `CREDENTIAL_KMS_KEY`, `CREDENTIAL_KMS_SERVICE_ACCOUNT` | optional, on a Google Cloud machine: seal saved keys with a Cloud KMS key instead, so no encryption key sits on the host ([keys in Cloud KMS](DEPLOYMENT.md#users-keys-in-cloud-kms)). Settings tells users which protection applies. Elsewhere leave them empty |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` (hex keeps it URL-safe) |
 | `OWNER_GOOGLE_EMAIL` | your Google email; you become the platform operator. For several of your own accounts, separate them with commas |
@@ -102,5 +102,5 @@ Put an HTTPS reverse proxy or a [Cloudflare Tunnel](https://developers.cloudflar
 
 - **Sign-in fails immediately:** a required identity setting is blank (`AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`), or the redirect URI does not match `APP_BASE_URL` exactly.
 - **"Access blocked" from Google:** your account is not a test user of the OAuth app.
-- **AI requests fail:** check the provider key, and that the model you picked belongs to a provider whose key is set. `docker compose logs web` shows the error code.
+- **AI requests fail:** for a paid model, check that its provider key is set. Free AI requires an eligible zero-price model in the current gateway catalog and remaining account/instance quota; it never charges a key on failure. `docker compose logs web` shows the error code.
 - **Logs:** `docker compose logs -f web scheduler`.

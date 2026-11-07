@@ -130,6 +130,7 @@ import {
 import {
   DEFAULT_OWNER_MODEL,
   selectableOwnerModels,
+  GUEST_FREE_MODEL,
   type ApprovalHistoryPage,
   type ApprovalRequest,
   type DisruptionReasonCode,
@@ -350,8 +351,8 @@ type Overview = {
     sharedKey?: { sponsorName: string; model: string } | null;
     /** AI is allowed here, but only with the user's own key, and they have none. */
     keyRequired?: boolean;
-    /** Free guest AI (JOB-071): the free model's name and the guest's requests left today. */
-    freeAi?: { model: string; limit: number; remainingToday: number } | null;
+    /** Keyless AI: display label, account allowance, and whether it is the default funding route. */
+    freeAi?: { model: string; limit: number; remainingToday: number; isDefault: boolean } | null;
     memberDailyLimit: number; usedToday: number; remainingToday: number | null;
   };
   liveOperations: null | {
@@ -986,8 +987,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const aiRecoveryClient = useRef<AiRequestRecoveryClient | null>(null);
   const [aiConversationResetOpen, setAiConversationResetOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_OWNER_MODEL);
-  // A per-request choice of a model that runs on the user's own key; "" leaves it to the server.
-  const [ownKeyChoice, setOwnKeyChoice] = useState("");
+  // A model choice never crosses trip/member identities or changes the trip's default model.
+  const [requestModelChoice, setRequestModelChoice] = useState<{ scope: string; model: string } | null>(null);
   const [tripSettings, setTripSettings] = useState<TripSettingsDraft | null>(null);
   const tripSettingsSaving = useRef(false);
   const tripSettingsScopeRef = useRef<string | null>(null);
@@ -1108,6 +1109,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   }, [overviewRevalidation, setCalendarRead, setCalendarImport, setCalendarImportBusy, setCalendarConfirmation]);
 
   const aiScope = overview ? `${overview.trip.id}:${overview.session.memberId}` : null;
+  const ownKeyChoice = scopedAiModelChoice(requestModelChoice, aiScope);
+  const setOwnKeyChoice = (model: string) => { if (aiScope) setRequestModelChoice({ scope: aiScope, model }); };
   const aiTripId = overview?.trip.id ?? null;
   const aiState: AiRecoveryState = aiRecovery?.scope === aiScope
     ? aiRecovery.value
@@ -2667,10 +2670,11 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const askAi = async (event: FormEvent, conversationId = aiState.activeConversationId, purpose: "trip" | "preferences" = "trip") => {
     event.preventDefault();
     if (!overview || !aiPrompt.trim() || busy || aiThinking || aiImages.preparing || conversationId === undefined || purpose === "preferences") return;
-    const ownChoice = (ownKeyModels(overview.ai.ownKeyProviders ?? []) as string[]).includes(ownKeyChoice) ? ownKeyChoice : "";
+    const choice = aiRequestModelChoice(overview.ai, selectedModel, ownKeyChoice);
+    if (choice.unavailable || (choice.free && aiImages.images.length > 0)) return;
     await aiRecoveryClient.current?.submit({
       prompt: aiPrompt, locale, conversationId,
-      ...(overview.ai.canSelectModel === true ? { model: selectedModel } : ownChoice ? { model: ownChoice } : {}),
+      ...(choice.model ? { model: choice.model } : {}),
       ...(aiImages.images.length ? { images: aiImages.images.map((image) => image.input) } : {}),
     });
   };
@@ -3977,16 +3981,32 @@ export function ownKeyAccess(ai: Overview["ai"]) {
   };
 }
 
+/** Ignore another trip/member's model choice before rendering or admitting a request. */
+export function scopedAiModelChoice(choice: { scope: string; model: string } | null, scope: string | null): string {
+  return scope !== null && choice?.scope === scope ? choice.model : "";
+}
+
+/** The free choice is explicit, including the keyless default; it never falls back to a paid key. */
+export function aiRequestModelChoice(ai: Overview["ai"], defaultModel: string, choice = "") {
+  const explicit = choice === GUEST_FREE_MODEL || (selectableOwnerModels as readonly string[]).includes(choice) ? choice : "";
+  const model = explicit || (ai.freeAi?.isDefault ? GUEST_FREE_MODEL
+    : ai.canSelectModel === true ? defaultModel : undefined);
+  const free = model === GUEST_FREE_MODEL;
+  return { model, free, unavailable: free && (!ai.enabled || !ai.freeAi) };
+}
+
 /**
  * How AI is paid for this viewer when it is not the operator's usual sponsorship: their own key, a
  * trip owner's shared key (JOB-063), the operator's own use of the server's keys (JOB-072), or
  * neither. Null means the sponsored-trip copy applies.
  */
-export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy): string | null {
+export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy, requestModel?: string): string | null {
   if (ai.keyRequired) return keysCopy.keyRequired;
-  if (ai.enabled && ai.freeAi) {
+  if (requestModel === GUEST_FREE_MODEL && (!ai.enabled || !ai.freeAi)) return keysCopy.freeUnavailable;
+  if (ai.enabled && ai.freeAi && (requestModel === GUEST_FREE_MODEL || (!requestModel && ai.freeAi.isDefault))) {
     return formatMessage(keysCopy.freeAccess, { model: ai.freeAi.model, remaining: ai.freeAi.remainingToday, limit: ai.freeAi.limit });
   }
+  if (ai.enabled && requestModel && (ownKeyAccess(ai).models as readonly string[]).includes(requestModel)) return keysCopy.ownKeyAccess;
   if (ai.enabled && ownKeyAccess(ai).ownKeyOnly) return keysCopy.ownKeyAccess;
   if (ai.enabled && ai.sharedKey) {
     return countLabel(ai.memberDailyLimit, keysCopy.sharedAccessOne, keysCopy.sharedAccess,
@@ -3996,7 +4016,7 @@ export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: 
   return ai.hostSubscriptionEnabled === false ? messages.aiUnavailable : null;
 }
 
-export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, setModel, ownKeyChoice = "", setOwnKeyChoice, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale, heading = true, autoFocus = false }: {
+export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, ownKeyChoice = "", setOwnKeyChoice, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale, heading = true, autoFocus = false }: {
   overview: Overview;
   messages: Messages;
   prompt: string;
@@ -4024,21 +4044,28 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
 }) {
   const keysCopy = aiKeysMessages(locale ?? imagePicker?.locale ?? "en");
   const access = ownKeyAccess(overview.ai);
-  const ownChoice = (access.models as string[]).includes(ownKeyChoice) ? ownKeyChoice : "";
-  const idleMessage = aiFundingNote(overview.ai, messages, keysCopy)
+  const choice = aiRequestModelChoice(overview.ai, selectedModel, ownKeyChoice);
+  const freeExhausted = choice.free && overview.ai.freeAi?.remainingToday === 0;
+  const freeImages = choice.free && Boolean(imagePicker?.images.length);
+  const blocked = !overview.ai.enabled || choice.unavailable || freeExhausted || freeImages;
+  const idleMessage = aiFundingNote(overview.ai, messages, keysCopy, choice.model)
     ?? (!overview.ai.enabled ? messages.aiUnavailable : overview.ai.canSelectModel ? messages.aiOwnerPolicy : messages.aiMemberPolicy);
   // With no choice the server uses the user's own key in an unsponsored trip, else a shared key, else sponsorship.
-  const defaultOption = access.ownKeyOnly ? formatMessage(keysCopy.autoOption, { model: access.automatic ?? "" })
+  const defaultOption = overview.ai.freeAi?.isDefault ? keysCopy.freeOption
+    : access.ownKeyOnly ? formatMessage(keysCopy.autoOption, { model: access.automatic ?? "" })
     : overview.ai.sharedKey ? formatMessage(keysCopy.sharedOption, { model: overview.ai.sharedKey.model, owner: overview.ai.sharedKey.sponsorName })
     : formatMessage(keysCopy.sponsoredOption, { model: overview.ai.effectiveModel });
-  // Choosing one of the user's own-key models is per request; it never changes the trip's settings.
-  const ownKeySelect = !overview.ai.canSelectModel && overview.ai.enabled && access.models.length > 0
-    ? <select className="model-select" aria-label={keysCopy.modelLabel} value={ownChoice} disabled={busy} onChange={(event) => setOwnKeyChoice?.(event.target.value)}>
-      <option value="">{defaultOption}</option>
-      {access.models.map((model) => <option key={model} value={model}>{formatMessage(keysCopy.ownModelOption, { model })}</option>)}
+  // One per-request picker for paid and free models; Settings retains the separate trip default.
+  const paidModels = overview.ai.canSelectModel ? selectableOwnerModels : access.models;
+  const selectedChoice = choice.free ? GUEST_FREE_MODEL : ownKeyChoice || (overview.ai.canSelectModel ? selectedModel : "");
+  const modelSelect = overview.ai.enabled && (paidModels.length > 0 || overview.ai.freeAi || choice.free)
+    ? <select className="model-select" aria-label={keysCopy.modelLabel} value={selectedChoice} disabled={busy} onChange={(event) => setOwnKeyChoice?.(event.target.value)}>
+      {!overview.ai.canSelectModel && !overview.ai.freeAi?.isDefault ? <option value="">{defaultOption}</option> : null}
+      {paidModels.map((model) => <option key={model} value={model}>{overview.ai.canSelectModel ? model : formatMessage(keysCopy.ownModelOption, { model })}</option>)}
+      {overview.ai.freeAi || choice.free ? <option value={GUEST_FREE_MODEL}>{keysCopy.freeOption}</option> : null}
     </select>
     : null;
-  const quotaNote = !overview.ai.canSelectModel && overview.ai.enabled && !access.ownKeyOnly && !ownChoice
+  const quotaNote = !choice.free && !overview.ai.canSelectModel && overview.ai.enabled && !access.ownKeyOnly && !ownKeyChoice
     ? <p className="policy-note">{formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit })}</p>
     : null;
   if (readOnly) return <section className="ai-card"><h2>{aiInstructionsMessages(locale ?? "en").archived}</h2>
@@ -4052,14 +4079,14 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
         {heading ? <div className="ai-card-title"><div className="card-icon violet"><Bot size={21} /></div><div><p className="eyebrow">{messages.aiPlannerLabel}</p><h2>{messages.askAi}</h2></div></div> : null}
         {newConversation ? <button data-feedback-action="ai_new" type="button" className="ai-conversation-button" disabled={busy} onClick={newConversation}><Plus size={14} /> {messages.newAiConversation}</button> : null}
       </div>
-      {overview.ai.canSelectModel ? <select data-feedback-action="settings_save" className="model-select" value={selectedModel} disabled={busy} onChange={(event) => void setModel(event.target.value)}>{selectableOwnerModels.map((model) => <option key={model}>{model}</option>)}</select> : null}
-      {ownKeySelect}
+      {modelSelect}
       {quotaNote}
+      {choice.free ? <div className="free-ai-notice" role="note"><p className="policy-note">{idleMessage}</p><p className="policy-note">{keysCopy.freePrivacy}</p><p className="policy-note">{freeImages ? keysCopy.freeRemoveImages : keysCopy.freeTextOnly}</p></div> : null}
       {openHistory ? <button data-feedback-action="navigate" type="button" className="ghost-button" onClick={openHistory}>{historyLabel}<ChevronRight size={16} /></button> : null}
-      <form data-feedback-action="ai_submit" onSubmit={submit}><label className="ai-input"><span className="sr-only">{messages.askAi}</span><textarea required autoFocus={autoFocus} maxLength={AI_PROMPT_MAX_CHARACTERS} disabled={busy || !overview.ai.enabled} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={messages.aiPlaceholder} rows={4} /><button disabled={busy || !overview.ai.enabled || !prompt.trim() || imagePicker?.preparing} aria-label={messages.sendAiPrompt}><Sparkles size={17} /></button></label>
-        {imagePicker ? <AiImagePicker {...imagePicker} disabled={busy || !overview.ai.enabled} /> : null}
+      <form data-feedback-action="ai_submit" onSubmit={(event) => { if (blocked) { event.preventDefault(); return; } return submit(event); }}><label className="ai-input"><span className="sr-only">{messages.askAi}</span><textarea required autoFocus={autoFocus} maxLength={AI_PROMPT_MAX_CHARACTERS} disabled={busy || !overview.ai.enabled || choice.unavailable} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={messages.aiPlaceholder} rows={4} /><button disabled={busy || blocked || !prompt.trim() || imagePicker?.preparing} aria-label={messages.sendAiPrompt}><Sparkles size={17} /></button></label>
+        {imagePicker ? <AiImagePicker {...imagePicker} disabled={busy || !overview.ai.enabled} textOnly={choice.free} /> : null}
       </form>
-      {thinking ? <p className="ai-thinking" role="status" aria-live="polite"><Sparkles size={16} /> {statusText ?? messages.aiThinking}</p> : reply ? <div className="ai-reply"><AiReadableText text={reply} />{sources.length ? <div className="ai-source-list"><strong>{messages.aiResearchSources}</strong>{sources.map((source, index) => <a href={source} target="_blank" rel="noreferrer" key={source}>{index + 1}. {sourceHost(source)}</a>)}</div> : null}{memory?.truncated ? <p className="ai-memory-usage" role="status">{messages.aiMemoryTruncated}</p> : null}</div> : <p className="disabled-note">{idleMessage}</p>}
+      {thinking ? <p className="ai-thinking" role="status" aria-live="polite"><Sparkles size={16} /> {statusText ?? messages.aiThinking}</p> : reply ? <div className="ai-reply"><AiReadableText text={reply} />{sources.length ? <div className="ai-source-list"><strong>{messages.aiResearchSources}</strong>{sources.map((source, index) => <a href={source} target="_blank" rel="noreferrer" key={source}>{index + 1}. {sourceHost(source)}</a>)}</div> : null}{memory?.truncated ? <p className="ai-memory-usage" role="status">{messages.aiMemoryTruncated}</p> : null}</div> : choice.free ? null : <p className="disabled-note">{idleMessage}</p>}
     </section>
   );
 }

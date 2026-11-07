@@ -175,6 +175,7 @@ import { aiRequestPayloadHash } from "@/lib/ai/request-recovery";
 import {
   blocksLivePlaceSearchForPrivacy,
   freeOutputAsPlannerJson,
+  plannerOutputContract,
   lineBreakTagsAsNewlines,
   requiresLivePlaceSearch,
   runAiPlanner,
@@ -2089,6 +2090,12 @@ describe("AI planner live-search and approval policy", () => {
     expect(() => freeOutputAsPlannerJson("not json")).toThrow();
   });
 
+  it("accepts the free schema's explicit absent checkpoint", () => {
+    expect(plannerOutputContract().parse(JSON.stringify({ message: "Planning without a checkpoint.",
+      continuesDraft: false, researchRequests: [], proposals: [], sources: [], memoryCheckpoint: null })))
+      .toMatchObject({ memoryCheckpoint: null, proposals: [] });
+  });
+
   it("turns HTML line breaks in AI text into newlines and leaves everything else as written (JOB-077)", () => {
     expect(lineBreakTagsAsNewlines("One<br>two<br/>three<br />four<BR/>five<Br >six</br>seven")).toBe("One\ntwo\nthree\nfour\nfive\nsix\nseven");
     expect(lineBreakTagsAsNewlines("Not yet applied to the itinerary.<br/><br/>• Date: 2030-01-02")).toBe("Not yet applied to the itinerary.\n\n• Date: 2030-01-02");
@@ -2137,6 +2144,53 @@ describe("AI planner live-search and approval policy", () => {
     expect(result.message).toBe("A free plan, not yet applied.\n\n• Ramen at 18:30");
     const stored = mocks.query.mock.calls.find(([sql]) => String(sql).includes("SET result_text"));
     expect(stored?.[1]?.[2]).toBe("A free plan, not yet applied.\n\n• Ramen at 18:30");
+  });
+
+  it("minimizes free context, isolates history selection, and never loads personal instructions or persists shared checkpoints", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    mocks.prepareAiConversation.mockResolvedValue({ ...conversationMemory, turns: [], checkpoint: null, checkpointThrough: null });
+    mocks.query.mockImplementation(async (sql) => String(sql).includes("jsonb_build_object") ? { rows: [{ context: {
+      ...context, trip: { ...context.trip, name: "TRIP_NAME_CANARY" },
+      itinerary: [{ ...context.itinerary[0], visibility: "private", title: "PRIVATE_EVENT_CANARY" },
+        { ...context.itinerary[0], id: "40000000-0000-4000-8000-000000000002", visibility: "trip", title: "Public museum", notes: "NOTE_CANARY" }],
+    } }] } : { rows: [], rowCount: 1 });
+    mocks.readAiInstructions.mockResolvedValue({ instructions: "INSTRUCTION_CANARY", revision: 1 });
+    mocks.freeModel.mockResolvedValue({ text: JSON.stringify({ message: "A suggested museum visit.", proposals: [], sources: ["https://invented.example/"],
+      researchRequests: [{ kind: "venue", subject: "Public museum", date: "2030-01-02" }],
+      memoryCheckpoint: { summaryText: "Do not save", goals: [], decisions: [], openQuestions: [] } }),
+    model: "dots-studio/dots-3-note-preview:free", inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Plan a museum visit");
+    expect(mocks.prepareAiConversation).toHaveBeenCalledWith(expect.anything(), ownerSession, { freeOnly: true });
+    expect(mocks.loadPlanningDraft).toHaveBeenCalledWith(expect.anything(), ownerSession, conversationMemory.conversationId, { freeOnly: true });
+    expect(mocks.readAiInstructions).not.toHaveBeenCalled();
+    expect(mocks.createConversationCheckpoint).not.toHaveBeenCalled();
+    expect(mocks.runPublicResearch).not.toHaveBeenCalled();
+    expect(mocks.freeModel).toHaveBeenCalledTimes(1);
+    const sent = mocks.freeModel.mock.calls[0]![0].prompt;
+    expect(sent).toContain("Public museum");
+    expect(sent).not.toMatch(/PRIVATE_EVENT_CANARY|NOTE_CANARY|INSTRUCTION_CANARY|TRIP_NAME_CANARY/u);
+    expect(mocks.freeModel.mock.calls[0]![0].beforeAttempt).toBeTypeOf("function");
+  });
+
+  it("rejects pictures on free requests before storing images, reading keys or invoking any model", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    await expect(runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Add this receipt", "guest-free", "en",
+      imageSubmissionKey, conversationMemory.conversationId, [preparedPicture])).rejects.toThrow(/text only/u);
+    expect(mocks.saveAiRequestImages).not.toHaveBeenCalled();
+    expect(mocks.readAiCredentialSecret).not.toHaveBeenCalled();
+    expect(mocks.extractAiImageFacts).not.toHaveBeenCalled();
+    expect(mocks.freeModel).not.toHaveBeenCalled();
+  });
+
+  it("keeps free-model owner edits pending instead of applying an owner fast path", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValue({ text: plannerOutput({ message: "The edit needs review.", action: "update",
+      entityId: context.itinerary[0]!.id, baseRevision: 2, patchJson: JSON.stringify({ title: "Tea at the station" }), sources: [] }),
+    model: "dots-studio/dots-3-note-preview:free", inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Rename the tea event to Tea at the station", "guest-free");
+    expect(result).toMatchObject({ changeStatus: "pending" });
+    expect(mocks.applyPermittedChangeRequest).not.toHaveBeenCalled();
+    expect(mocks.applyOwnKeyAiCreate).not.toHaveBeenCalled();
   });
 
   it("runs an own-key request on that user's key only, in a private provider directory", async () => {
@@ -2280,6 +2334,28 @@ describe("AI planner live-search and approval policy", () => {
     });
   });
 
+  it.each(["free", "shared", "operator"] as const)("records the %s funding source for deterministic off-topic quota accounting", async (credentialSource) => {
+    const sponsor = credentialSource === "shared" ? { memberId: "synthetic-sponsor", userId: "synthetic-sponsor-user" } : undefined;
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: credentialSource === "free" ? "guest-free" : "gpt-6.1-sol",
+      credentialSource, usedToday: 2, limit: 10, sponsor });
+    if (sponsor) mocks.readAiCredentialSecret.mockResolvedValue({ provider: "openai", apiKey: "synthetic-never-sent", vertex: null });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession,
+      "Write me a Python function to sort a linked list", credentialSource === "free" ? "guest-free" : "gpt-6.1-sol", "en");
+    expect(result).toMatchObject({ usedToday: 3, remainingToday: 7, proposalCount: 0 });
+    const insertion = mocks.query.mock.calls.find(([sql]) => String(sql).includes("'off_topic'"));
+    if (credentialSource === "operator") {
+      // Pre-0054 fixtures have no funding columns; NULL is already counted as operator.
+      expect(String(insertion?.[0])).not.toContain("credential_source");
+      expect(insertion?.[1]?.slice(9)).toEqual([]);
+    } else {
+      expect(String(insertion?.[0])).toContain("credential_source");
+      expect(insertion?.[1]?.slice(9)).toEqual([credentialSource, ...(sponsor ? [sponsor.memberId] : [])]);
+    }
+    expect(mocks.freeModel).not.toHaveBeenCalled();
+    expect(mocks.runCodex).not.toHaveBeenCalled();
+    expect(mocks.prepareAiConversation).not.toHaveBeenCalled();
+  });
+
   it.each([
     "Should I buy bitcoin and trade crypto?",
     "My boyfriend is cheating and I need relationship advice",
@@ -2418,6 +2494,19 @@ describe("AI planner live-search and approval policy", () => {
       inputTokens: 0,
       outputTokens: 0,
     });
+  });
+
+  it("retains free funding on setup failure instead of consuming paid-trip quota", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", credentialSource: "free", usedToday: 0, limit: 10 });
+    const failure = new Error("Synthetic memory failure");
+    mocks.prepareAiConversation.mockRejectedValueOnce(failure);
+    await expect(runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession,
+      "Plan dinner near the hotel", "guest-free", "en")).rejects.toBe(failure);
+    const insertion = mocks.query.mock.calls.find(([sql]) => String(sql).includes("ON CONFLICT (trip_id, id) DO NOTHING"));
+    expect(String(insertion?.[0])).toContain("credential_source");
+    expect(insertion?.[1]?.slice(13)).toEqual(["free", "free"]);
+    expect(mocks.freeModel).not.toHaveBeenCalled();
+    expect(mocks.readAiCredentialSecret).not.toHaveBeenCalled();
   });
 
   it("durably audits a setup failure after the planning transaction rolls back", async () => {
@@ -3769,6 +3858,15 @@ describe("AI planner live-search and approval policy", () => {
       "梗係我啦，照上面資料做就得");
     expect(result.proposalCount).toBe(0);
     expect(mocks.createChangeRequestsAtomically).not.toHaveBeenCalled();
+  });
+
+  it("accepts a complete new free create instruction despite a mistaken draft-continuation flag", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValue({ text: reservationReply(reservationPatch(), { continuesDraft: true }).finalResponse,
+      model: "dots-studio/dots-3-note-preview:free", inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, reservationRequest, "guest-free");
+    expect(result.proposalCount).toBeGreaterThan(0);
+    expect(result.changeStatus).toBe("pending");
   });
 
   it("does not use assistant or ordinary conversation text as financial evidence", async () => {

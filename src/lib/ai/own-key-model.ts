@@ -1,4 +1,4 @@
-import { ownerModelRegistry, ownerModels, providerDefaultModels, type OwnerModel } from "@/lib/app/types";
+import { ownerModelRegistry, selectableOwnerModels, providerDefaultModels, type OwnerModel } from "@/lib/app/types";
 
 /** Providers a user can store their own API key for, in display and fallback order. */
 export const aiKeyProviderOrder = ["openai", "anthropic", "google"] as const;
@@ -7,7 +7,7 @@ export type AiKeyProvider = (typeof aiKeyProviderOrder)[number];
 /** Registered models a user can run on the keys they hold, in registry order. */
 export function ownKeyModels(providers: Iterable<string>): OwnerModel[] {
   const held = new Set(providers);
-  return ownerModels.filter((model) => held.has(ownerModelRegistry[model].provider));
+  return selectableOwnerModels.filter((model) => held.has(ownerModelRegistry[model].provider));
 }
 
 /**
@@ -21,9 +21,11 @@ export function ownKeyModel(
   requestedModel: OwnerModel | undefined, defaultModel: OwnerModel | undefined,
   ownProviders: ReadonlySet<string>, sponsoredAvailable: boolean,
 ): OwnerModel | null {
-  if (requestedModel) return ownProviders.has(ownerModelRegistry[requestedModel].provider) ? requestedModel : null;
+  if (requestedModel) return ownerModelRegistry[requestedModel].provider !== "kilo"
+    && ownProviders.has(ownerModelRegistry[requestedModel].provider) ? requestedModel : null;
   if (sponsoredAvailable || ownProviders.size === 0) return null;
-  if (defaultModel && Object.hasOwn(ownerModelRegistry, defaultModel) && ownProviders.has(ownerModelRegistry[defaultModel].provider)) {
+  if (defaultModel && Object.hasOwn(ownerModelRegistry, defaultModel) && ownerModelRegistry[defaultModel].provider !== "kilo"
+    && ownProviders.has(ownerModelRegistry[defaultModel].provider)) {
     return defaultModel;
   }
   const provider = aiKeyProviderOrder.find((name) => ownProviders.has(name));

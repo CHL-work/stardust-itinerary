@@ -89,7 +89,7 @@ describe("host AI subscription is separate from trip ownership", () => {
   it("does not attach model overrides based on owner role in submitted requests", () => {
     const source = readFileSync("src/components/app-shell.tsx", "utf8");
     const submit = source.slice(source.indexOf("const askAi ="), source.indexOf("const switchAiConversation ="));
-    expect(submit).toContain("overview.ai.canSelectModel === true");
+    expect(submit).toContain("aiRequestModelChoice(overview.ai, selectedModel, ownKeyChoice)");
     expect(submit).not.toContain("session.isOwner");
     const model = source.slice(source.indexOf("const updateModel ="), source.indexOf("const saveTripSettings ="));
     expect(model).toContain("if (!overview?.ai.canSelectModel) return");

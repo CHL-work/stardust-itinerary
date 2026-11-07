@@ -24,6 +24,8 @@ The Overview/Itinerary AI card remains a quick composer with a link to the full 
 
 ## Persistence and security
 
+Free AI has a narrower export boundary (JOB-086): only recent turns already submitted through the free lane are eligible, never paid turns, shared conversation checkpoints or paid-source clarification drafts. Changing to Free does not delete history; it prevents silently forwarding paid/private context to a retention-enabled provider. Free drafts retain the same immutable identity, root expiry and completion checks. [Free context](AI_AND_AGENTS.md#free-ai-for-every-account-job-086-d-098).
+
 Migration 0034 distinguishes ordinary user archives from permanently invalidated identity history. Legacy history is admitted only when its immutable identity and recorded closure provenance are sufficient; unprovable old audit-only requests are not assigned to the current user. An identity unbind/replacement invalidates earlier archives as well as the current conversation. Restoring the same Google account later does not revive that invalidated context.
 
 Every list, message page and continuation revalidates the exact active trip/member/app-user binding. An owner has no cross-user bypass on these endpoints. The separate existing owner audit view is unchanged. Message DTOs include submitted text, saved assistant answers, model, timestamps and safe delivery status, never raw provider diagnostics, hidden reasoning, patches or other members' conversations. Pages are fixed-size and keyset ordered with scope-bound validated cursors; responses are private and `no-store`.

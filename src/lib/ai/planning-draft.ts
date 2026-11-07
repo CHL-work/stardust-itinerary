@@ -559,15 +559,26 @@ export async function loadPlanningDraft(
   client: Pick<PoolClient, "query">,
   session: AuthenticatedSession,
   conversationId: string,
+  options: { freeOnly?: boolean } = {},
 ): Promise<PlanningDraft | null> {
   await lockActiveConversation(client, session, conversationId);
   const marker = await readLatestMarker(client, session, conversationId);
-  if (!marker) return loadLegacyDraft(client, session, conversationId);
+  if (!marker) return options.freeOnly ? null : loadLegacyDraft(client, session, conversationId);
 
   const payload = parseDraftPayload(marker.payload, marker.root_request_id);
   if (!sameInstant(payload.expiresAt, expiryFor(marker.root_created_at))) throw staleDraftError();
   if (payload.state !== "awaiting_details") return null;
   if (Date.parse(payload.expiresAt) <= new Date(marker.database_now).getTime()) return null;
+
+  if (options.freeOnly) {
+    const provenance = await client.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ai_requests WHERE trip_id = $1 AND conversation_id = $2
+         AND actor_user_id = $3 AND actor_member_id = $4 AND id = ANY($5::uuid[])
+         AND to_jsonb(ai_requests)->>'credential_source' = 'free'`,
+      [session.tripId, conversationId, session.userId, session.memberId, payload.sourceRequestIds],
+    );
+    if (provenance.rows[0]?.count !== payload.sourceRequestIds.length) return null;
+  }
 
   const sourceRows = await readSourceRequests(
     client,

@@ -315,6 +315,7 @@ function toCheckpoint(row: CheckpointRow | undefined): AiConversationCheckpoint 
 export async function prepareAiConversation(
   client: PoolClient,
   session: AuthenticatedSession,
+  options: { freeOnly?: boolean } = {},
 ): Promise<PreparedAiConversation> {
   await lockMemberConversation(client, session.tripId, session.memberId);
 
@@ -356,7 +357,8 @@ export async function prepareAiConversation(
     throw new AiConversationBusyError();
   }
 
-  const checkpointResult = await client.query<CheckpointRow>(
+  // A checkpoint can summarize paid/private turns. Never replay it into a retention-prone free lane.
+  const checkpointResult = options.freeOnly ? { rows: [] } : await client.query<CheckpointRow>(
     `SELECT id, version, through_request_id,
             to_char(through_completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS through_completed_at,
             summary_text, summary_json, token_estimate
@@ -371,7 +373,7 @@ export async function prepareAiConversation(
 
   const historyResult = await client.query<AiConversationMemoryRow>(
     `SELECT id, prompt_text, result_text, completed_at,
-            to_jsonb(ai_requests)->>'image_context_text' AS image_context_text,
+            ${options.freeOnly ? "NULL::text" : "to_jsonb(ai_requests)->>'image_context_text'"} AS image_context_text,
             to_char(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS completed_cursor,
             (count(*) OVER ())::integer AS available_turns
        FROM ai_requests
@@ -384,6 +386,7 @@ export async function prepareAiConversation(
         AND result_text IS NOT NULL
         AND btrim(result_text) <> ''
         AND completed_at IS NOT NULL
+        ${options.freeOnly ? "AND to_jsonb(ai_requests)->>'credential_source' = 'free'" : ""}
         AND (
           $5::timestamptz IS NULL
           OR (completed_at, id) > ($5::timestamptz, $6::uuid)
@@ -403,7 +406,7 @@ export async function prepareAiConversation(
     [session.tripId, conversationId],
   );
 
-  return { conversationId, checkpoint, ...memory };
+  return { conversationId, checkpoint, ...memory, ...(options.freeOnly ? { checkpointThrough: null } : {}) };
 }
 
 export async function createConversationCheckpoint(

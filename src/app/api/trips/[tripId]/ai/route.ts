@@ -9,7 +9,8 @@ import { AiConversationChangedError } from "@/lib/ai/conversation";
 import { readAiRequestRecovery } from "@/lib/ai/request-recovery";
 import { aiProviderFailureDetails } from "@/lib/ai/provider-failure";
 import { apiError } from "@/lib/app/http";
-import { assertNotGuest } from "@/lib/app/repository";
+import { AppInvalidInputError, assertNotGuest } from "@/lib/app/repository";
+import { GUEST_FREE_MODEL } from "@/lib/app/types";
 import { aiRequestSchema, aiRecoveryQuerySchema } from "@/lib/app/validation";
 import { getAuthConfig } from "@/lib/auth/config";
 import { requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
@@ -36,6 +37,10 @@ export async function POST(
       );
     }
     const body = aiRequestSchema.parse(await readAiRequestJson(request));
+    // Reject an explicit text-only choice before image decoding/normalization or planner work.
+    if (body.model === GUEST_FREE_MODEL && body.images?.length) {
+      throw new AppInvalidInputError("Free AI accepts text only. Remove the pictures or choose a model on your own key.");
+    }
     // Pictures are stored until the guest is purged; free accounts could fill the database (JOB-064).
     if (body.images?.length) assertNotGuest(session, "attach pictures");
     if (body.conversationId === undefined) throw new AiConversationChangedError();

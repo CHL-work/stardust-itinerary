@@ -83,7 +83,8 @@ export async function testAiKeySharing(pool, connectionString) {
 
     // Owners pick the trip model in an unsponsored trip; the member cannot choose another.
     await updateAiSettings(pool, ownerSession, tripId, { ownerDefaultModel: "claude-opus-5-5" });
-    assert.equal((await inTransaction(pool, (client) => getAiPolicy(client, memberSession, "claude-haiku-5-5"))).model, "claude-opus-5-5");
+    await assert.rejects(inTransaction(pool, (client) => getAiPolicy(client, memberSession, "claude-haiku-5-5")), { reasonCode: "ai_key_required" });
+    assert.equal((await policy(memberSession)).model, "claude-opus-5-5");
 
     // The overview names who shares and which model runs, never the key; members do not see others' grants.
     const ownerView = await getAppOverview(pool, ownerSession);

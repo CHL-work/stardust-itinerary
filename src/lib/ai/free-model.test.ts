@@ -1,68 +1,112 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { withFreeAiCredential, withOperatorAiCredential } from "@/lib/ai/credential-context";
-import { DEFAULT_FREE_MODELS, FREE_AI_ENDPOINT, freeModelLabel, generateWithFreeModel, guestFreeAiSettings } from "@/lib/ai/free-model";
+import { DEFAULT_FREE_MODELS, FREE_AI_CATALOG, FREE_AI_ENDPOINT, eligibleFreeCatalogModels, freeAiSettings,
+  freeModelLabel, generateWithFreeModel, guestFreeAiSettings } from "@/lib/ai/free-model";
 
 const schema = { type: "object", additionalProperties: false, required: ["message"], properties: { message: { type: "string" } } };
-const settings = { ...guestFreeAiSettings({ GUEST_FREE_AI_ENABLED: "true" }), models: ["vendor/first:free", "vendor/second:free"] };
-const answer = (content: string, model = "vendor/first:free") => Response.json({
-  model, choices: [{ message: { content }, finish_reason: "stop" }], usage: { prompt_tokens: 120, completion_tokens: 30 },
-});
+const settings = { ...freeAiSettings({ FREE_AI_ENABLED: "true" }), models: ["vendor/first:free", "vendor/second-free"] };
+const row = (id: string) => ({ id, isFree: true, pricing: { prompt: "0", completion: "0" },
+  supported_parameters: ["response_format", "structured_outputs"], top_provider: { max_completion_tokens: 8192 } });
+const answer = (content = '{"message":"Plan dinner"}') => Response.json({ choices: [{ message: { content }, finish_reason: "stop" }],
+  usage: { prompt_tokens: 120, completion_tokens: 30 } });
+function mockGateway(reply: (init: RequestInit) => Response | Promise<Response> = () => answer(), rows: unknown[] = settings.models.map(row)) {
+  return vi.fn(async (url: string | URL | Request, init?: RequestInit) => String(url) === FREE_AI_CATALOG
+    ? Response.json({ data: rows }) : reply(init!));
+}
+const generate = (fetchImpl: ReturnType<typeof mockGateway>, extra: Partial<Parameters<typeof generateWithFreeModel>[0]> = {}) =>
+  withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan a synthetic dinner", responseJsonSchema: schema, settings,
+    fetchImpl: fetchImpl as typeof fetch, ...extra }));
 
-describe("free guest AI on keyless free models (JOB-071)", () => {
-  it("is off unless enabled, and accepts only https endpoints and ':free' models", () => {
-    expect(guestFreeAiSettings({}).enabled).toBe(false);
-    const enabled = guestFreeAiSettings({ GUEST_FREE_AI_ENABLED: "true" });
-    expect(enabled).toMatchObject({ enabled: true, models: [...DEFAULT_FREE_MODELS], endpoint: FREE_AI_ENDPOINT,
-      perGuestDaily: 10, hourly: 60, daily: 500 });
-    const custom = guestFreeAiSettings({ GUEST_FREE_AI_ENABLED: "true", GUEST_FREE_AI_MODELS: "vendor/paid-model, vendor/ok:free ,bad id:free",
-      GUEST_FREE_AI_ENDPOINT: "http://gateway.example/v1/chat/completions", GUEST_FREE_AI_HOURLY: "500", GUEST_FREE_AI_PER_GUEST_DAILY: "3" });
-    expect(custom).toMatchObject({ models: ["vendor/ok:free"], endpoint: FREE_AI_ENDPOINT, hourly: 60, perGuestDaily: 3 });
-    expect(guestFreeAiSettings({ GUEST_FREE_AI_ENABLED: "true", GUEST_FREE_AI_MODELS: "vendor/paid-model" }).enabled).toBe(false);
-    expect(freeModelLabel("nvidia/nemotron-3.5-super-vl:free")).toBe("NVIDIA Nemotron 3.5 Super");
+describe("free model configuration", () => {
+  it("defaults off; canonical switches override legacy values and bounded quotas stay compatible", () => {
+    expect(freeAiSettings({}).enabled).toBe(false);
+    expect(freeAiSettings({ FREE_AI_ENABLED: "false", GUEST_FREE_AI_ENABLED: "true" }).enabled).toBe(false);
+    expect(guestFreeAiSettings({ GUEST_FREE_AI_ENABLED: "true", GUEST_FREE_AI_PER_GUEST_DAILY: "3" }))
+      .toMatchObject({ enabled: true, perGuestDaily: 3, perUserDaily: 3, hourly: 60, daily: 500, models: [...DEFAULT_FREE_MODELS] });
+    expect(freeAiSettings({ FREE_AI_ENABLED: "true", FREE_AI_PER_USER_DAILY: "20", FREE_AI_HOURLY: "999" }))
+      .toMatchObject({ enabled: true, perUserDaily: 20, hourly: 60 });
+  });
+  it("pins the service, removes restricted/opaque trial models, bounds the pool and does not trust a free suffix", () => {
+    expect(freeAiSettings({ FREE_AI_ENABLED: "true", FREE_AI_ENDPOINT: "https://another.example/v1/chat/completions" }).enabled).toBe(false);
+    expect(freeAiSettings({ FREE_AI_ENABLED: "true", FREE_AI_MODELS: "nvidia/trial:free,kilo-auto/free,openrouter/free,stealth/unknown" }).enabled).toBe(false);
+    expect(freeAiSettings({ FREE_AI_ENABLED: "true", FREE_AI_MODELS: "vendor/paid,vendor/ok-free,bad id, vendor/paid" }).models)
+      .toEqual(["vendor/paid", "vendor/ok-free"]); // pricing is verified from the catalog, before inference
+    expect(freeModelLabel(DEFAULT_FREE_MODELS[0])).toBe("dots.3 note");
     expect(freeModelLabel("vendor/unknown:free")).toBe("vendor/unknown");
   });
+});
 
-  it("refuses to run outside a free context, so keyed requests can never reach the free gateway", async () => {
-    const fetchImpl = vi.fn();
+describe("fresh free catalog verification", () => {
+  it("accepts zero-price schema models with or without :free; rejects unverified prices, capabilities and restrictions", () => {
+    const valid = row("vendor/valid-free");
+    const result = eligibleFreeCatalogModels({ data: [valid,
+      { ...row("vendor/paid:free"), pricing: { prompt: "0.01", completion: "0" } },
+      { ...row("vendor/unknown:free"), pricing: { prompt: "0" } },
+      { ...row("vendor/request:free"), pricing: { prompt: "0", completion: "0", request: "0.1" } },
+      { ...row("vendor/unlisted:free"), isFree: false },
+      { ...row("vendor/no-schema:free"), supported_parameters: ["response_format"] },
+      { ...row("vendor/expired:free"), expiration_date: "2020-01-01" },
+      { ...row("vendor/restricted:free"), description: "Do not send personal or confidential data" },
+      row("nvidia/test:free"), row("openrouter/free"), row("stealth/unknown"),
+    ] });
+    expect(result).toEqual([{ id: "vendor/valid-free", maxOutputTokens: 8192 }]);
+  });
+  it("does not POST when a configured model disappears, becomes paid or catalog fetch fails", async () => {
+    const missing = mockGateway(() => answer(), []);
+    await expect(generate(missing)).rejects.toMatchObject({ details: { code: "AI_PROVIDER_MODEL_UNAVAILABLE" } });
+    expect(missing).toHaveBeenCalledTimes(1);
+    const unavailable = vi.fn(async () => Response.json({}, { status: 503 }));
+    await expect(generate(unavailable)).rejects.toMatchObject({ details: { code: "AI_PROVIDER_UNAVAILABLE" } });
+    expect(unavailable).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("keyless gateway calls", () => {
+  it("refuses keyed/missing contexts and disabled configurations before any network request", async () => {
+    const fetchImpl = mockGateway();
     await expect(withOperatorAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: schema, settings, fetchImpl })))
-      .rejects.toMatchObject({ details: { code: "AI_PROVIDER_AUTH_REQUIRED", provider: "kilo" } });
+      .rejects.toMatchObject({ details: { code: "AI_PROVIDER_AUTH_REQUIRED" } });
     await expect(generateWithFreeModel({ prompt: "Plan", responseJsonSchema: schema, settings, fetchImpl })).rejects.toThrow(/credential context/u);
+    await expect(generate(fetchImpl, { settings: { ...settings, enabled: false } })).rejects.toMatchObject({ details: { code: "AI_PROVIDER_AUTH_REQUIRED" } });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
-
-  it("sends no key, names Stardust honestly, enforces the schema and never follows redirects", async () => {
-    const fetchImpl = vi.fn(async () => answer('{"message":"Here is a plan."}'));
-    const result = await withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan a day", responseJsonSchema: schema, settings,
-      fetchImpl: fetchImpl as unknown as typeof fetch }));
-    expect(result).toEqual({ text: '{"message":"Here is a plan."}', model: "vendor/first:free", inputTokens: 120, outputTokens: 30, cachedInputTokens: null });
-    const [url, init] = fetchImpl.mock.calls[0]! as unknown as [string, RequestInit];
-    expect(url).toBe(FREE_AI_ENDPOINT);
-    const headers = init.headers as Record<string, string>;
-    expect(Object.keys(headers).map((key) => key.toLowerCase())).not.toContain("authorization");
-    expect(headers["User-Agent"]).toMatch(/^StardustItinerary\//u);
-    expect(init.redirect).toBe("error");
-    const body = JSON.parse(String(init.body));
-    expect(body).toMatchObject({ model: "vendor/first:free", messages: [{ role: "user", content: "Plan a day" }],
-      response_format: { type: "json_schema", json_schema: { name: "stardust_planner", strict: true, schema } } });
+  it("uses the fixed catalog/service, no key/identity, honest agent, no redirects and bounded schema output", async () => {
+    const fetchImpl = mockGateway();
+    const reserve = vi.fn(async () => {});
+    expect(await generate(fetchImpl, { beforeAttempt: reserve })).toEqual({ text: '{"message":"Plan dinner"}', model: settings.models[0],
+      inputTokens: 120, outputTokens: 30, cachedInputTokens: null });
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    for (const [url, init] of fetchImpl.mock.calls) {
+      expect([FREE_AI_CATALOG, FREE_AI_ENDPOINT]).toContain(String(url));
+      expect(init?.redirect).toBe("error");
+      expect(Object.keys(init?.headers ?? {}).map((key) => key.toLowerCase())).not.toContain("authorization");
+      expect(init?.headers).toMatchObject({ "User-Agent": expect.stringMatching(/^StardustItinerary\//u) });
+    }
+    expect(JSON.parse(String(fetchImpl.mock.calls[1]![1]?.body))).toMatchObject({ model: settings.models[0], max_tokens: 8192,
+      response_format: { type: "json_schema", json_schema: { strict: true, schema } } });
   });
-
-  it("falls back to the next free model when one is gone or empty, but stops at the per-address rate limit", async () => {
-    const gone = vi.fn(async (_url: string, init: RequestInit) => JSON.parse(String(init.body)).model === "vendor/first:free"
-      ? Response.json({ error: { message: "No such model" } }, { status: 404 }) : answer('{"message":"ok"}', "vendor/second:free"));
-    const result = await withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: schema, settings,
-      fetchImpl: gone as unknown as typeof fetch }));
-    expect(result.model).toBe("vendor/second:free");
-    expect(gone).toHaveBeenCalledTimes(2);
-
-    const limited = vi.fn(async () => Response.json({ error: { message: "Rate limit" } }, { status: 429 }));
-    await expect(withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: schema, settings,
-      fetchImpl: limited as unknown as typeof fetch }))).rejects.toMatchObject({ details: { code: "AI_PROVIDER_RATE_LIMITED", provider: "kilo" } });
-    expect(limited).toHaveBeenCalledTimes(1);
-
-    const empty = vi.fn(async () => answer(""));
-    await expect(withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: schema, settings,
-      fetchImpl: empty as unknown as typeof fetch }))).rejects.toMatchObject({ details: { code: "AI_PROVIDER_OUTPUT_INVALID" } });
-    expect(empty).toHaveBeenCalledTimes(2);
+  it("reserves every fallback, but never sends after quota reservation fails", async () => {
+    const fetchImpl = mockGateway((init) => JSON.parse(String(init.body)).model === settings.models[0]
+      ? Response.json({}, { status: 404 }) : answer());
+    const reserve = vi.fn(async () => {});
+    expect((await generate(fetchImpl, { beforeAttempt: reserve })).model).toBe(settings.models[1]);
+    expect(reserve).toHaveBeenCalledTimes(2);
+    const capped = mockGateway();
+    await expect(generate(capped, { beforeAttempt: async () => { throw new Error("Synthetic attempt cap"); } })).rejects.toThrow("Synthetic attempt cap");
+    expect(capped).toHaveBeenCalledTimes(1);
+  });
+  it.each([401, 402, 403, 429])("stops at %s instead of trying models/keys to evade the service restriction", async (status) => {
+    const fetchImpl = mockGateway(() => Response.json({ privateDetail: "Never expose" }, { status, headers: { "Retry-After": "120" } }));
+    await expect(generate(fetchImpl)).rejects.toMatchObject({ details: { code: status === 429 ? "AI_PROVIDER_RATE_LIMITED" : "AI_PROVIDER_AUTH_REQUIRED",
+      ...(status === 429 ? { retryAt: expect.any(String) } : {}) } });
+    expect(fetchImpl).toHaveBeenCalledTimes(2); // catalog + exactly one completion
+  });
+  it("rejects partial, oversized and empty output without exposing provider content", async () => {
+    for (const response of [() => answer(""), () => new Response("x".repeat(2 * 1024 * 1024 + 1)),
+      () => Response.json({ choices: [{ message: { content: '{}' }, finish_reason: "length" }] })]) {
+      const fetchImpl = mockGateway(response);
+      await expect(generate(fetchImpl)).rejects.toMatchObject({ details: { code: "AI_PROVIDER_OUTPUT_INVALID" } });
+    }
   });
 });

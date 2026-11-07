@@ -22,19 +22,21 @@ export function useAiImageDraft(scope: string | null) {
 export type AiImagePickerProps = AiImageDraftState & {
   locale: Locale;
   disabled: boolean;
+  /** Text-only funding lanes can remove a retained draft, but cannot add or submit pictures. */
+  textOnly?: boolean;
   add: (files: File[]) => Promise<void>;
   remove: (id: string) => void;
 };
 
-export function AiImagePicker({ locale, disabled, images, preparing, error, add, remove }: AiImagePickerProps) {
+export function AiImagePicker({ locale, disabled, textOnly = false, images, preparing, error, add, remove }: AiImagePickerProps) {
   const copy = aiImageMessages(locale);
   const input = useRef<HTMLInputElement | null>(null);
   const noticeId = useId();
   return <div className="ai-image-picker" aria-busy={preparing}>
-    <button type="button" className="ghost-button" disabled={disabled || preparing || images.length >= AI_IMAGE_MAX_COUNT}
-      aria-describedby={noticeId} onClick={() => input.current?.click()}><ImagePlus size={17} />{copy.add}<span>{images.length}/{AI_IMAGE_MAX_COUNT}</span></button>
+    <button type="button" className="ghost-button" disabled={disabled || textOnly || preparing || images.length >= AI_IMAGE_MAX_COUNT}
+      aria-describedby={textOnly ? undefined : noticeId} onClick={() => input.current?.click()}><ImagePlus size={17} />{copy.add}<span>{images.length}/{AI_IMAGE_MAX_COUNT}</span></button>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden aria-label={copy.add}
-      disabled={disabled || preparing} onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; void add(files); }} />
+      disabled={disabled || textOnly || preparing} onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; if (!disabled && !textOnly) void add(files); }} />
     {images.length ? <div className="ai-image-previews">{images.map((image, index) => <div className="ai-image-preview" key={image.id}>
       {/* A memory-only blob must not pass through a public image optimizer. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -43,6 +45,6 @@ export function AiImagePicker({ locale, disabled, images, preparing, error, add,
     </div>)}</div> : null}
     {preparing ? <p role="status" aria-live="polite">{copy.preparing}</p> : null}
     {error ? <p role="alert" className="ai-image-error">{copy[error]}</p> : null}
-    <p id={noticeId} className="ai-image-safety">{copy.safety}</p>
+    {!textOnly ? <p id={noticeId} className="ai-image-safety">{copy.safety}</p> : null}
   </div>;
 }

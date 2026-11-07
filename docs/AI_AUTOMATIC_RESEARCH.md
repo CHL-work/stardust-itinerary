@@ -1,5 +1,7 @@
 # Automatic public-fact research
 
+This contract applies to eligible paid-provider requests. Free AI (JOB-086) has no search, research or linked-page fetch; it must disclose that it cannot verify live information rather than invent evidence or charge a key.
+
 The planner can request current public information without the user typing “search”. A shared prompt separates the research phase from the final answer and requests missing public evidence before the answer is finished.
 
 There are no dedicated preference conversations or preference extraction. Manually saved [personal AI instructions](AI_CUSTOM_INSTRUCTIONS.md) enter only the full planner's user context, disabling its direct hosted tools when nonempty. Isolated research still receives validated public subjects, not the raw instruction block; public interests can inform recommendation topics. Instructions participate in sensitive-context/identifier/booking-secret checks. No background worker or public-only helper loads the private settings text.

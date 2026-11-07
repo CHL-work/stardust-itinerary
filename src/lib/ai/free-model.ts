@@ -1,58 +1,124 @@
 import { requireAiCredential } from "@/lib/ai/credential-context";
 import { AiProviderFailureError, type AiProviderFailureCode } from "@/lib/ai/provider-failure";
 
-/**
- * Free guest AI (JOB-071, D-086): guests without a key run the planner on keyless free models
- * through Kilo's AI Gateway, which documents unauthenticated access to its ":free" models (200
- * requests an hour per address). Requests carry no key or account and identify Stardust honestly in
- * their user agent; nothing pretends to be another app.
- *
- * - `GUEST_FREE_AI_ENABLED=true` turns it on.
- * - `GUEST_FREE_AI_MODELS` lists the ":free" model IDs to try, in order; free models come and go.
- * - `GUEST_FREE_AI_PER_GUEST_DAILY`, `GUEST_FREE_AI_HOURLY` and `GUEST_FREE_AI_DAILY` bound use per
- *   guest and for the whole instance, below the gateway's per-address limit.
- * - `GUEST_FREE_AI_ENDPOINT` replaces the gateway's chat-completions URL (https only).
- */
+/** Documented anonymous access only; no identity spoofing, accounts, keys or paid fallback. */
 export const FREE_AI_ENDPOINT = "https://ai-gateway.kilo.ai/api/v1/chat/completions";
-export const DEFAULT_FREE_MODELS = ["nvidia/nemotron-3.5-super-vl:free", "dots-studio/dots-3-note-preview:free"] as const;
-const USER_AGENT = "StardustItinerary/0.1 (free guest AI; +https://github.com/CHL-work/stardust-itinerary)";
-const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,60}\/[a-z0-9][a-z0-9._-]{0,80}:free$/u;
-
-export type GuestFreeAiSettings = {
-  enabled: boolean; models: string[]; endpoint: string; perGuestDaily: number; hourly: number; daily: number;
+export const FREE_AI_CATALOG = "https://ai-gateway.kilo.ai/api/v1/models";
+export const DEFAULT_FREE_MODELS = ["dots-studio/dots-3-note-preview:free", "liquid/lfm-3-1.7b:free"] as const;
+const USER_AGENT = "StardustItinerary/0.1 (+https://github.com/CHL-work/stardust-itinerary)";
+const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,60}\/[a-z0-9][a-z0-9._:-]{0,100}$/u;
+// These trial/opaque routers can forbid personal/confidential data or route it to NVIDIA.
+const restrictedModel = /^(?:nvidia\/|stealth\/|kilo-auto\/|openrouter\/free$)/u;
+const CATALOG_TTL_MS = 5 * 60_000;
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+export type FreeAiSettings = {
+  enabled: boolean; models: string[]; endpoint: string; perUserDaily: number; hourly: number; daily: number;
 };
+export type GuestFreeAiSettings = FreeAiSettings & { perGuestDaily: number };
 
 function bounded(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
 }
 
-export function guestFreeAiSettings(env: Record<string, string | undefined> = process.env): GuestFreeAiSettings {
-  const listed = (env.GUEST_FREE_AI_MODELS?.trim() || DEFAULT_FREE_MODELS.join(",")).split(",").map((model) => model.trim());
-  const models = [...new Set(listed.filter((model) => MODEL_ID.test(model)))];
-  let endpoint = FREE_AI_ENDPOINT;
-  const configured = env.GUEST_FREE_AI_ENDPOINT?.trim();
-  if (configured) {
-    try { if (new URL(configured).protocol === "https:") endpoint = configured; } catch { /* keep the default */ }
-  }
+/** FREE_AI_* takes precedence. Legacy GUEST_FREE_AI_* remains compatible during rollout. */
+export function freeAiSettings(env: Record<string, string | undefined> = process.env): FreeAiSettings {
+  const setting = (name: string) => env[`FREE_AI_${name}`] ?? env[`GUEST_FREE_AI_${name}`];
+  const listed = (setting("MODELS")?.trim() || DEFAULT_FREE_MODELS.join(",")).split(",").map((model) => model.trim());
+  const models = [...new Set(listed.filter((model) => MODEL_ID.test(model) && !restrictedModel.test(model)))].slice(0, 3);
+  const configuredEndpoint = setting("ENDPOINT")?.trim();
   return {
-    enabled: env.GUEST_FREE_AI_ENABLED === "true" && models.length > 0,
-    models, endpoint,
-    // At most 180 an hour, under the gateway's 200 per address.
-    perGuestDaily: bounded(env.GUEST_FREE_AI_PER_GUEST_DAILY, 10, 1, 100),
-    hourly: bounded(env.GUEST_FREE_AI_HOURLY, 60, 1, 180),
-    daily: bounded(env.GUEST_FREE_AI_DAILY, 500, 1, 4000),
+    enabled: setting("ENABLED") === "true" && models.length > 0
+      && (!configuredEndpoint || configuredEndpoint === FREE_AI_ENDPOINT),
+    models, endpoint: FREE_AI_ENDPOINT,
+    perUserDaily: bounded(env.FREE_AI_PER_USER_DAILY ?? env.GUEST_FREE_AI_PER_GUEST_DAILY, 10, 1, 100),
+    hourly: bounded(setting("HOURLY"), 60, 1, 180),
+    daily: bounded(setting("DAILY"), 500, 1, 4000),
   };
 }
 
-/** A readable name for a free model ID, for the composer's note. */
+/** Compatibility for existing integrations; the limit is now per immutable account, guest or not. */
+export function guestFreeAiSettings(env: Record<string, string | undefined> = process.env): GuestFreeAiSettings {
+  const settings = freeAiSettings(env);
+  return { ...settings, perGuestDaily: settings.perUserDaily };
+}
+
 export function freeModelLabel(model: string): string {
   const known: Record<string, string> = {
     "nvidia/nemotron-3.5-super-vl:free": "NVIDIA Nemotron 3.5 Super",
-    "nvidia/nemotron-3-ultra-550b-a55b:free": "NVIDIA Nemotron 3 Ultra",
     "dots-studio/dots-3-note-preview:free": "dots.3 note",
+    "liquid/lfm-3-1.7b:free": "Liquid LFM3",
   };
   return known[model] ?? model.replace(/:free$/u, "");
+}
+
+function object(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function zero(value: unknown): boolean {
+  return (typeof value === "number" || (typeof value === "string" && value.trim().length > 0)) && Number(value) === 0;
+}
+type CatalogModel = { id: string; maxOutputTokens: number };
+
+/** Catalog text is untrusted data, never instructions or new URLs. Missing prices fail closed. */
+export function eligibleFreeCatalogModels(value: unknown, now = Date.now()): CatalogModel[] {
+  if (!object(value) || !Array.isArray(value.data)) return [];
+  return value.data.slice(0, 2000).flatMap((row) => {
+    if (!object(row) || typeof row.id !== "string" || !MODEL_ID.test(row.id) || restrictedModel.test(row.id)
+      || row.isFree !== true || !object(row.pricing) || !zero(row.pricing.prompt) || !zero(row.pricing.completion)
+      || Object.values(row.pricing).some((price) => !zero(price))
+      || !Array.isArray(row.supported_parameters) || !row.supported_parameters.includes("response_format")
+      || !row.supported_parameters.includes("structured_outputs")) return [];
+    if (typeof row.expiration_date === "string" && (!/^\d{4}-\d{2}-\d{2}$/u.test(row.expiration_date)
+      || Date.parse(`${row.expiration_date}T23:59:59.999Z`) <= now)) return [];
+    if (typeof row.description === "string" && /(?:trial.only|not (?:for|intended for) (?:personal|confidential)|do not (?:submit|send|include) (?:personal|confidential))/iu.test(row.description)) return [];
+    const top = object(row.top_provider) ? row.top_provider : {};
+    const maximum = top.max_completion_tokens;
+    if (typeof maximum !== "number" || !Number.isSafeInteger(maximum) || maximum < 2048) return [];
+    return [{ id: row.id, maxOutputTokens: Math.min(maximum, 16_384) }];
+  });
+}
+
+async function boundedJson(response: Response): Promise<unknown> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Empty upstream response");
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) throw new Error("Oversized upstream response");
+      chunks.push(value);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
+
+let catalogCache: { expiresAt: number; models: CatalogModel[] } | null = null;
+let catalogPending: Promise<CatalogModel[]> | null = null;
+async function catalog(fetchImpl: typeof fetch, signal?: AbortSignal): Promise<CatalogModel[]> {
+  const shared = fetchImpl === fetch;
+  if (shared && catalogCache && catalogCache.expiresAt > Date.now()) return catalogCache.models;
+  const load = async () => {
+    const timeout = AbortSignal.timeout(8_000);
+    const response = await fetchImpl(FREE_AI_CATALOG, {
+      headers: { "User-Agent": USER_AGENT }, redirect: "error", cache: "no-store",
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new AiProviderFailureError({ code: response.status === 429 ? "AI_PROVIDER_RATE_LIMITED" : "AI_PROVIDER_UNAVAILABLE", provider: "kilo" });
+    }
+    const models = eligibleFreeCatalogModels(await boundedJson(response));
+    if (shared) catalogCache = { models, expiresAt: Date.now() + CATALOG_TTL_MS };
+    return models;
+  };
+  if (!shared) return load();
+  // Coalesce page/request bursts; no stale catalog is used after a failed refresh.
+  if (!catalogPending) catalogPending = load().finally(() => { catalogPending = null; });
+  return catalogPending;
 }
 
 function failureCode(status: number): AiProviderFailureCode {
@@ -61,71 +127,77 @@ function failureCode(status: number): AiProviderFailureCode {
   if (status === 404) return "AI_PROVIDER_MODEL_UNAVAILABLE";
   return "AI_PROVIDER_UNAVAILABLE";
 }
-
-type ChatResponse = {
-  model?: unknown;
-  choices?: { message?: { content?: unknown }; finish_reason?: unknown }[];
-  usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; prompt_tokens_details?: { cached_tokens?: unknown } };
-};
-
 function count(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
-/**
- * One planner turn on the first free model that answers, with the planner's JSON schema enforced by
- * the gateway. Only inside a free context: keyed contexts can never send their requests here.
- */
 export async function generateWithFreeModel(input: {
-  prompt: string;
-  responseJsonSchema: unknown;
-  maxOutputTokens?: number;
-  signal?: AbortSignal;
-  settings?: GuestFreeAiSettings;
-  fetchImpl?: typeof fetch;
+  prompt: string; responseJsonSchema: unknown; maxOutputTokens?: number; signal?: AbortSignal;
+  settings?: FreeAiSettings; fetchImpl?: typeof fetch;
+  /** The planner reserves every HTTP attempt against the durable instance cap before network I/O. */
+  beforeAttempt?: () => Promise<void>;
 }): Promise<{ text: string; model: string; inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null }> {
   if (requireAiCredential().source !== "free") throw new AiProviderFailureError({ code: "AI_PROVIDER_AUTH_REQUIRED", provider: "kilo" });
-  const settings = input.settings ?? guestFreeAiSettings();
+  const settings = input.settings ?? freeAiSettings();
+  if (!settings.enabled || settings.endpoint !== FREE_AI_ENDPOINT) throw new AiProviderFailureError({ code: "AI_PROVIDER_AUTH_REQUIRED", provider: "kilo" });
+  const fetchImpl = input.fetchImpl ?? fetch;
+  let candidates: CatalogModel[];
+  try {
+    const available = await catalog(fetchImpl, input.signal);
+    candidates = settings.models.slice(0, 3).flatMap((id) => available.filter((model) => model.id === id).slice(0, 1));
+  } catch (error) {
+    if (input.signal?.aborted || error instanceof AiProviderFailureError) throw error;
+    throw new AiProviderFailureError({ code: "AI_PROVIDER_UNAVAILABLE", provider: "kilo" });
+  }
   let failure: AiProviderFailureCode = "AI_PROVIDER_MODEL_UNAVAILABLE";
-  for (const model of settings.models) {
+  for (const candidate of candidates) {
+    input.signal?.throwIfAborted();
+    await input.beforeAttempt?.();
     let response: Response;
     try {
-      response = await (input.fetchImpl ?? fetch)(settings.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
+      const timeout = AbortSignal.timeout(70_000);
+      response = await fetchImpl(FREE_AI_ENDPOINT, {
+        method: "POST", headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
         body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content: input.prompt }],
+          model: candidate.id, messages: [{ role: "user", content: input.prompt }],
           response_format: { type: "json_schema", json_schema: { name: "stardust_planner", strict: true, schema: input.responseJsonSchema } },
-          max_tokens: input.maxOutputTokens ?? 16_384,
+          max_tokens: Math.min(input.maxOutputTokens ?? 16_384, candidate.maxOutputTokens),
         }),
-        // A redirect could send the conversation elsewhere; the gateway never redirects.
-        redirect: "error",
-        signal: input.signal,
+        redirect: "error", signal: input.signal ? AbortSignal.any([input.signal, timeout]) : timeout,
       });
     } catch (error) {
       if (input.signal?.aborted) throw error;
       failure = "AI_PROVIDER_UNAVAILABLE";
       continue;
     }
-    let parsed: ChatResponse | null = null;
-    try { parsed = await response.json() as ChatResponse; } catch { parsed = null; }
     if (!response.ok) {
       failure = failureCode(response.status);
-      // The limit is per address, so another model would be refused too.
-      if (failure === "AI_PROVIDER_RATE_LIMITED") break;
+      const retry = response.headers.get("retry-after");
+      await response.body?.cancel();
+      // These are service/account restrictions, not permission to try another model or identity.
+      if ([401, 402, 403, 429].includes(response.status)) {
+        const seconds = retry && /^\d{1,6}$/u.test(retry) ? Number(retry) : null;
+        throw new AiProviderFailureError({ code: failure, provider: "kilo",
+          ...(response.status === 429 && seconds !== null && seconds <= 86_400
+            ? { retryAt: new Date(Date.now() + seconds * 1000).toISOString() } : {}) });
+      }
       continue;
     }
-    const content = parsed?.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content.trim()) { failure = "AI_PROVIDER_OUTPUT_INVALID"; continue; }
-    const usage = parsed?.usage;
-    return {
-      text: content,
-      model: typeof parsed?.model === "string" && parsed.model ? parsed.model : model,
-      inputTokens: count(usage?.prompt_tokens),
-      outputTokens: count(usage?.completion_tokens),
-      cachedInputTokens: count(usage?.prompt_tokens_details?.cached_tokens),
-    };
+    let parsed: unknown;
+    try { parsed = await boundedJson(response); } catch {
+      if (input.signal?.aborted) input.signal.throwIfAborted();
+      failure = "AI_PROVIDER_OUTPUT_INVALID"; continue;
+    }
+    const choice = object(parsed) && Array.isArray(parsed.choices) ? parsed.choices[0] : null;
+    const message = object(choice) && object(choice.message) ? choice.message : null;
+    if (!object(parsed) || !message || typeof message.content !== "string" || !message.content.trim()
+      || (object(choice) && choice.finish_reason && choice.finish_reason !== "stop")) {
+      failure = "AI_PROVIDER_OUTPUT_INVALID"; continue;
+    }
+    const usage = object(parsed.usage) ? parsed.usage : {};
+    const details = object(usage.prompt_tokens_details) ? usage.prompt_tokens_details : {};
+    return { text: message.content, model: candidate.id, inputTokens: count(usage.prompt_tokens),
+      outputTokens: count(usage.completion_tokens), cachedInputTokens: count(details.cached_tokens) };
   }
   throw new AiProviderFailureError({ code: failure, provider: "kilo" });
 }

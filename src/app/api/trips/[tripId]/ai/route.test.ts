@@ -135,6 +135,16 @@ describe("POST /api/trips/[tripId]/ai", () => {
     expect(mocks.runAiPlanner).not.toHaveBeenCalled();
   });
 
+  it("rejects explicit free pictures before image decoding, database access or planner work", async () => {
+    // Not a decodable PNG: the text-only error must win before image normalization.
+    const response = await POST(request({ prompt: "Add this receipt", model: "guest-free",
+      images: [{ mediaType: "image/png", data: "eA==" }] }), { params: Promise.resolve({ tripId }) });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining("Free AI accepts text only") });
+    expect(mocks.getPool).not.toHaveBeenCalled();
+    expect(mocks.runAiPlanner).not.toHaveBeenCalled();
+  });
+
   it("passes the stable client identity and returns a replay envelope unchanged", async () => {
     const clientRequestId = "40000000-0000-4000-8000-000000000001";
     const recovery = { request: { requestId: clientRequestId, status: "running" }, busyElsewhere: false };

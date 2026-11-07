@@ -23,12 +23,13 @@ export const selectableOwnerModels = [
 ] as const;
 
 /**
- * Free guest AI (JOB-071): a slot, never chosen by anyone, that the funding policy gives guests
- * without a key. It runs on keyless free models through Kilo's AI Gateway (`src/lib/ai/free-model.ts`).
+ * Historical persisted slot for keyless AI (JOB-071). JOB-086 makes it an explicit per-request
+ * choice for everyone; it is not a keyed model or a trip's owner/shared default.
  */
 export const GUEST_FREE_MODEL = "guest-free" as const;
+export const FREE_MODEL = GUEST_FREE_MODEL;
 
-/** Every model the planner can run, including the guest slot. Never offer this list for selection. */
+/** Every request model. Funding policy still validates access; settings only accept keyed models. */
 export const ownerModels = [...selectableOwnerModels, GUEST_FREE_MODEL] as const;
 
 export type OwnerModel = (typeof ownerModels)[number];

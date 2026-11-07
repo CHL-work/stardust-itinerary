@@ -2,6 +2,17 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-098: Free AI is an explicit option for every account (accepted November 7, 2026)
+
+The user requested free models for signed-in users as well as guests, after reviewing `Ebony-Vinyl/dsh-our-free-model` (JOB-086). This extends D-086; local implementation does not authorize deployment.
+
+- **Funding:** an explicit free choice is resolved before keys. It is the default only without paid funding; unsupported explicit paid choices are refused, not silently changed. The historical `guest-free` request ID remains, but cannot be a trip default or keyed model. Trip AI off and suspension still refuse access.
+- **Legitimate endpoint only:** Kilo documents anonymous free-model access. No upstream client impersonation, private relay, copied credentials or custom gateway. A catalog no older than five minutes must confirm free status, every price zero and structured output support. NVIDIA, automatic/opaque routes and personal/confidential-data-restricted trials are excluded. Defaults are dots.3 note and Liquid LFM-3; availability is not promised.
+- **Minimized, not anonymous:** omit private events, existing expenses, notes, URLs, saved instructions and paid-model memory. Free history stays separate from paid summaries/draft sources. Use member aliases unless the requester supplied their names. The UI warns that free providers may retain or train on inputs.
+- **Bounded:** text planning only, no images/search/research/background work. Default 10 requests/account/UTC day, 60 requests/rolling hour and 500/UTC day per instance. Actual upstream attempts, including retries and fallback, also use the instance caps under a shared database lock; no lock is held during network work. Free requests do not consume paid trip quotas. Rate limits stop fallback, and no failure charges a key.
+- **Review:** all free creates and edits, including owners', remain proposals. Existing permissions, exact money, identity, revision checks and audit still apply.
+- **Configuration:** `FREE_AI_*` overrides matching legacy `GUEST_FREE_AI_*`. An old enabled flag now has all-account scope; set `FREE_AI_ENABLED=false` to disable it explicitly. No migration is needed beyond the existing free-funding schema.
+
 ## D-097: The browser gets only the selected language (accepted November 7, 2026)
 
 The owner asked to load only the selected language, and to always show English at the top of the language menus (JOB-085).
@@ -109,6 +120,8 @@ JOB-070 loosened the AI only on a user's own key. The owner runs this server and
 - **What stays:** privacy for other members, validation, review of edits to pending items and of deletions, and review for members who need approval.
 
 ## D-086: Free guest AI on keyless free models (accepted November 6, 2026)
+
+**Extended and tightened by D-098:** the guest-only restriction and original model selection below are historical; use the all-account contract above.
 
 The owner wanted guests to use the AI for free, with a model from 2026 that is not too weak, and pointed at an open-source project that gets free tokens (JOB-071).
 

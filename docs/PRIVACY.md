@@ -1,6 +1,6 @@
 # Privacy notice
 
-This notice covers the public instance at <https://stardust-itinerary.chl-work.com>, which the project's maintainer runs as a personal project (the operator). It describes what the software stores and shares. Last updated 6 November 2026.
+This notice covers the public instance at <https://stardust-itinerary.chl-work.com>, which the project's maintainer runs as a personal project (the operator). It describes what the software stores and shares. Last updated 7 November 2026.
 
 If you run your own instance, adapt this notice to your hosting and contact details, and link it with `PRIVACY_NOTICE_URL` (see [deployment](DEPLOYMENT.md)).
 
@@ -38,7 +38,7 @@ If you run your own instance, adapt this notice to your hosting and contact deta
 ## Who receives it
 
 - **Other members of a trip** see that trip's shared content, as permitted by their role. Events the trip AI adds are shared with the whole trip unless you ask for privacy or they are clearly just for you. Private events are visible only to the people they are shared with.
-- **Free guest AI:** a guest without a key who uses AI sends the prompt and the demo trip's details to Kilo Code's AI Gateway, and through it to the free model's provider, for example NVIDIA. Free models may keep what they receive and use it to improve their models, so guests are told not to include personal details.
+- **Free AI, when enabled:** signed-in users and guests can choose it without a key; it is the default only when no paid funding is available. Your prompt, trip-wide planning facts and your recent free-model conversation go to Kilo Code's AI Gateway and the selected free model's provider. They may keep this data and use it for training: do not send sensitive details. The app does not automatically include private events, existing expenses, event notes or URLs, saved AI instructions, or previous paid-model conversations. Member names are replaced with aliases unless you supplied them in this free conversation. This reduces what is shared; it does not anonymize what you type. Free AI has no pictures, web search or background checks, and never falls back to a paid key.
 - **Websites you link** in an AI request on your own key (or, for the operator, on the server's keys): the server fetches those public pages, so each site sees a request from this service (not your browser), and the page text goes to your AI provider with your prompt.
 - **AI providers** (OpenAI, Anthropic or Google) receive the prompt and trip context for each AI request, under the key that pays for it:
   - your own key;
