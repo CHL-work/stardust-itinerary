@@ -216,6 +216,32 @@ describe("reservation expense assumption guard", () => {
     })).toBe("payer_not_explicit");
   });
 
+  it("accepts an even split between every eligible member as the default when nobody is named (JOB-080)", () => {
+    const everyone = [actorId, pacoId, guestId];
+    expect(assessReservationExpense("I paid ¥12,000 for dinner.", actorId, directory, {
+      payerMemberId: actorId, splitMemberIds: everyone,
+    })).toBeNull();
+    expect(assessReservationExpense("Dinner was ¥12,000.", actorId, directory, {
+      payerMemberId: actorId, splitMemberIds: everyone,
+    })).toBe("payer_not_explicit");
+
+    const otherGuestId = "10000000-0000-4000-8000-000000000006";
+    const duplicateNames = [...directory, { id: otherGuestId, displayName: "Ｇｕｅｓｔ", status: "active" as const }];
+    expect(assessReservationExpense("I paid for dinner.", actorId, duplicateNames, {
+      payerMemberId: actorId, splitMemberIds: [...everyone, otherGuestId],
+    })).toBeNull();
+    expect(assessReservationExpense("Guest paid for dinner.", actorId, duplicateNames, {
+      payerMemberId: guestId, splitMemberIds: [...everyone, otherGuestId],
+    })).toBe("member_name_ambiguous");
+
+    expect(assessReservationExpense("I paid for dinner; Paco did not come.", actorId, directory, {
+      payerMemberId: actorId, splitMemberIds: [actorId, guestId],
+    })).toBe("participant_not_explicit");
+    expect(assessReservationExpense("I paid for the private dinner.", actorId, directory, {
+      payerMemberId: actorId, splitMemberIds: everyone, viewerMemberIds: [pacoId, guestId],
+    })).toBe("participant_not_explicit");
+  });
+
   it("requires every proposed non-actor participant to appear in the current request", () => {
     expect(assessReservationExpense("I paid for the room.", actorId, directory, {
       payerMemberId: actorId,
@@ -256,9 +282,11 @@ describe("reservation expense assumption guard", () => {
 
   it("does not resolve a member name as a substring of another name", () => {
     const annId = "10000000-0000-4000-8000-000000000003";
+    // A third member keeps the split narrower than everyone, which is the unnamed default (JOB-080).
     expect(assessReservationExpense("I paid; split with Anna.", actorId, [
       directory[0]!,
       { id: annId, displayName: "Ann", status: "active" },
+      directory[2]!,
     ], {
       payerMemberId: actorId,
       splitMemberIds: [actorId, annId],

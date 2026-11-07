@@ -366,6 +366,22 @@ describe("AI planner prompt", () => {
     expect(prompt).not.toContain("rely on a default audience");
   });
 
+  it("splits an expense between everyone who can see it unless the request gives the parts (JOB-080)", () => {
+    const prompt = plannerPrompt("Dinner was ¥12,000 and I paid; record the expense.", {});
+
+    expect(prompt).toContain("When the request does not say who shares an expense, split it between everyone who can see it: "
+      + "every audienceDirectory member for a standalone expense or a trip-wide event, or the creator plus selected viewers for a private event");
+    expect(prompt).toContain("Leave out anyone the request excludes, such as a member who did not come");
+    expect(prompt).toContain("use only the requester when the expense is clearly theirs alone");
+    expect(prompt).toContain("When the request shows each person's part");
+    expect(prompt).toContain("including explicit zero shares, instead of equal shares");
+    expect(prompt).toContain("Who paid is not a person's part.");
+    expect(prompt).toContain("If several people each paid part of one bill, record one expense per payer for the amount that payer paid");
+    expect(prompt).toContain("Do not add people who do not share the cost merely to broaden visibility");
+    expect(prompt).toContain("split between everyone who can see the event, as the expense sharing rules say");
+    expect(prompt).not.toContain("If split participants are unspecified, use the requester alone");
+  });
+
   it("defines separate transport endpoints and their associated times", () => {
     const prompt = plannerPrompt("Create a train journey", {});
 

@@ -60,4 +60,13 @@ describe("AI reservation instructions", () => {
     expect(AI_RESERVATION_INSTRUCTIONS).toContain("Never add people merely to complete a guessed private audience");
     expect(AI_RESERVATION_INSTRUCTIONS).not.toContain("default a personal reservation to private");
   });
+
+  it("splits an unspecified reservation expense between everyone who can see the event (JOB-080)", () => {
+    expect(AI_RESERVATION_INSTRUCTIONS).toContain(
+      "If split participants are unspecified, split between everyone who can see the event, as the expense sharing rules say, "
+      + "or charge the requester alone when it is clearly theirs alone",
+    );
+    expect(AI_RESERVATION_INSTRUCTIONS).toContain("when sharing is requested with named companions only, use the requester and those companions");
+    expect(AI_RESERVATION_INSTRUCTIONS).not.toContain("use the requester alone; include named companions");
+  });
 });

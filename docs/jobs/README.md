@@ -26,3 +26,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-077 | A one-line guest notice, singular counts, and line breaks in free-model replies | done |
 | JOB-078 | Both of the owner's Google accounts act as the platform operator | done |
 | JOB-079 | AI-created events are trip-wide unless clearly solo | done |
+| JOB-080 | AI expenses are split between everyone unless the request says otherwise | done |

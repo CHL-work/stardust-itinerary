@@ -66,7 +66,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
-- **Trip-wide AI events (JOB-079, D-091):** the trip AI adds new events for the whole trip by default, including hotels, flights and meals one person booked or paid for. It makes an event private only when asked, when it is shared with named people only, or when the event or its expense is clearly just for the requester, and its reply says when it chose private unasked. On the same synthetic requests, gpt-6.1-sol and claude-sonnet-5-5 went from 7 and 6 to 9 of 9 correct audiences. Expense-sharing defaults are unchanged.
+- **AI expenses split between everyone (JOB-080, D-092):** when a request does not say who shares an expense, the trip AI splits it equally between everyone who can see it, instead of charging the requester alone. It leaves out people the request excludes, uses just the named people when it is shared with them, and charges the requester alone when it is clearly theirs. Parts the request gives become exact shares, and several payers of one bill become one expense each. The default split no longer adds the "confirm the payer and split members" notice. On ten synthetic expense requests, gpt-6.1-sol and claude-sonnet-5-5 went from 6 and 8 to 10 of 10.
+
+- **Trip-wide AI events (JOB-079, D-091):** the trip AI adds new events for the whole trip by default, including hotels, flights and meals one person booked or paid for. It makes an event private only when asked, when it is shared with named people only, or when the event or its expense is clearly just for the requester, and its reply says when it chose private unasked. On the same synthetic requests, gpt-6.1-sol and claude-sonnet-5-5 went from 7 and 6 to 9 of 9 correct audiences.
 
 - **Several operator accounts (JOB-078, D-090):** `OWNER_GOOGLE_EMAIL` may list several comma-separated Google accounts of the same person, and each is the platform operator: the server's keys pay for trips it creates and for its own requests, and it can open the admin page. A list with an entry that is not an email names nobody.
 

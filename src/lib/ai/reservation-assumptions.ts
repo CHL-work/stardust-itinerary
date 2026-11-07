@@ -148,7 +148,13 @@ export function assessReservationExpense(
 
   if (selectedIds.some((memberId) => !membersById.has(memberId))) return "member_unavailable";
 
-  const selectedNonActors = selectedIds
+  // Splitting between every eligible member, with no private viewers, is the default when a request names
+  // no one (JOB-080, D-092), so those sharers need no evidence and their names are not being resolved.
+  const everyoneShares = viewerIds.length === 0 && eligibleDirectory.length > 0
+    && eligibleDirectory.every((member) => splitIds.includes(member.id));
+  const resolvedIds = everyoneShares
+    ? [...new Set([payerId].filter((id): id is string => Boolean(id)))] : selectedIds;
+  const selectedNonActors = resolvedIds
     .filter((memberId) => memberId !== actorMemberId)
     .map((memberId) => membersById.get(memberId)!);
   if (selectedNonActors.some((member) => selectedMemberHasAmbiguousName(member, eligibleDirectory))) {
@@ -181,6 +187,7 @@ export function assessReservationExpense(
   }
 
   if (splitIds.length === 0) return "participant_not_explicit";
+  if (everyoneShares) return null;
   for (const selectedId of new Set([...splitIds, ...viewerIds])) {
     if (selectedId === actorMemberId) continue;
     const participant = membersById.get(selectedId)!;
