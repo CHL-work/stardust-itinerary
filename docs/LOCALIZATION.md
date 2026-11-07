@@ -26,7 +26,7 @@ Use the existing catalog/helper for each surface, with tests for all four choice
 | Surface | Required behavior and detailed contract |
 | --- | --- |
 | Trip creation/settings | Localized zone/currency choices; Auto/detected/manual and failed-lookup states; explicit old/new trip-date confirmation. Allowlisted country/zone labels, not arbitrary model text. [Defaults](TRIP_DESTINATION_DEFAULTS.md) |
-| Navigation/layout | Short phone labels, localized full accessible day names, `Intl` dates, script-aware fonts. Overview has no previous/next text buttons; chips, date selection and swipe change the day. [Layouts](UI_LAYOUTS.md) |
+| Navigation/layout | Short phone labels, localized full accessible day names, `Intl` dates, script-aware fonts. Overview has no previous/next text buttons; chips and swipe change the day. [Layout](UI_LAYOUTS.md) |
 | Events/approvals | Neutral short Edit/Approve/Reject labels stay on one horizontal row. Transport endpoints, optional end/duration, Now, cancelled status and review conflicts remain explicit. [Cards](MOBILE_CARDS.md) |
 | Expenses/repayments | Personal portion versus whole bill/payer must stay distinct. Equal/custom shares, exact allocation errors, pending status and recorded-not-transferred payments use neutral language and readable amounts. [Expenses](TRIP_EXPENSES.md), [payments](MEMBER_PAYMENTS.md) |
 | AI/history | The validated route locale controls new generated answers/reasons. Recovery has distinct processing, reconnecting, failed and quota states. Saved replies remain in their original language; opening history never calls a model to translate. [Recovery](AI_REQUEST_RECOVERY.md) |

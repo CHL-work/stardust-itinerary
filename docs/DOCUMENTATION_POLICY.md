@@ -61,7 +61,7 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 | Disruption display and qualification | `docs/DISRUPTION_LOCALIZATION.md`, `docs/DISRUPTION_CONFIDENCE.md` |
 | Trip expense ledger, repayments and entry | `docs/TRIP_EXPENSES.md`, `docs/MEMBER_PAYMENTS.md` |
 | Mobile cards and cancelled-event removal | `docs/MOBILE_CARDS.md` |
-| Screen layouts (new/classic) and the layout toggle | `docs/UI_LAYOUTS.md` |
+| Screen layout | `docs/UI_LAYOUTS.md` |
 | Localization | `docs/LOCALIZATION.md` |
 | Evidence and policy | `docs/SOURCES.md`, this file |
 | Work queue | `docs/JOB_SYSTEM.md`, job records under `docs/jobs/` (new work starts at JOB-058; JOB-001 to JOB-057 are in a private archive) |

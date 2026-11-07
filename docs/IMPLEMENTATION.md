@@ -12,10 +12,10 @@ Source map and safe verification guide. Runtime topology is in [architecture](AR
 - Default-off 24-hour guest accounts with a synthetic demo trip, isolated from real trips and permanently purged (JOB-064).
 - Optional per-member Calendar export/import with duplicate receipts; silent passive refresh and deterministic conflicts.
 - MapLibre/OSM day map that loads when opened, deterministic weather, backend qualified disruptions and bounded read-only public offline itinerary.
-- New default/classic optional UI, four locales, Advanced settings, owner Activity and private feedback with a separate issue-only pipeline.
+- One light/dark layout (the classic layout was retired in JOB-081), four locales, Advanced settings, owner Activity and private feedback with a separate issue-only pipeline.
 - Destination Auto defaults (time zone/currency suggestions) for eligible trip creators.
 
-Not shipped: external MCP connector, classic-layout retirement, structured preference collection (removed), full route-based reminders, Discord/Telegram delivery, closed-app push or automatic feedback fixes. Default-off public signup and operator/funding boundaries still apply.
+Not shipped: external MCP connector, structured preference collection (removed), full route-based reminders, Discord/Telegram delivery, closed-app push or automatic feedback fixes. Default-off public signup and operator/funding boundaries still apply.
 
 ## 2. Stack
 
@@ -36,7 +36,7 @@ For implementation changes, the normal gate is `pnpm check`: lint → typecheck 
 - Database tests require a separately created disposable loopback database and exact `TEST_DATABASE_CONFIRM_DESTROY` name; they reset its public schema. Never use a database holding real data. [Database test boundary](DATABASE.md#5-tests).
 - Smoke uses the standalone artifact on `127.0.0.1:3210`; keep that port free and do not attach production credentials.
 - Live AI evaluations are opt-in, consume the configured provider quota and require fresh per-evaluator synthetic databases. Some intentionally pin historical migrations. Never replay real user bookings/prompts or approve synthetic proposals in a real trip. [AI evaluations](AI_AND_AGENTS.md#11-evaluation).
-- Browser verification should cover phone/desktop, relevant locales, pending/private permissions and both layouts while the classic layout remains.
+- Browser verification should cover phone/desktop, light and dark themes, relevant locales and pending/private permissions.
 - Docs-only changes need link/anchor and diff checks, not a fabricated claim of new runtime/LLM verification.
 
 Record commands, results and skips in the job file ([job system](JOB_SYSTEM.md)) and follow the [documentation policy](DOCUMENTATION_POLICY.md). Earlier evidence is historical, not proof of a fresh run.
@@ -60,7 +60,7 @@ The exact filesystem routes under `src/app/api/` are authoritative. Authenticati
 | Path | Purpose |
 | --- | --- |
 | `src/components/app-shell.tsx` | Shared app orchestration/presentation; topic components isolate newer controls. |
-| `src/components/new-ui/` | New-layout additions; new-only styles stay scoped to `:root[data-ui="new"]`. |
+| `src/components/new-ui/` | Layout components; layout styles in `src/app/new-ui/` stay scoped to `:root[data-ui="new"]`. |
 | `src/lib/app/repository.ts`, `validation.ts`, `types.ts` | Canonical transactions, proposal policy, model registry and shared contract. |
 | `src/lib/auth/` | Google binding, account/trip sessions, invitation and operator authority, suspension checks. |
 | `src/lib/admin/`, `src/app/admin/`, `src/app/api/admin/` | The operator's admin page: overview, accounts, activity, suspension, the sign-up cap and daily counters (JOB-069). |

@@ -53,7 +53,8 @@ describe("account trip creation form",() => {
     const source = readFileSync("src/components/app-shell.tsx","utf8");
     const live = source.slice(source.indexOf('const openNewTrip'));
     expect(live).not.toContain("messages.previousDay"); expect(live).not.toContain("messages.nextDay");
-    expect(live).toContain('className="offline-day-picker overview-date-picker"');
+    // The day chips select the day; the classic date selector went with the classic layout (JOB-081).
+    expect(live).not.toContain("overview-date-picker");
     expect(live).toContain("<OverviewDayStrip"); expect(live).toContain("finishOverviewSwipe(touch.clientX, touch.clientY)");
     expect(source).toContain('className="offline-day-navigation"');
     expect(source).not.toContain("newTripDraft");

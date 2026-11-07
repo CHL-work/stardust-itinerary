@@ -115,7 +115,6 @@ import { TripAdjacentNav } from "@/components/trip-adjacent-nav";
 import { TripDeletionCard, TripDeletionReview } from "@/components/trip-deletion-controls";
 import type { TripDeletionPreview } from "@/lib/app/trip-deletion-contract";
 import { tripDeletionMessages } from "@/lib/app/trip-deletion-i18n";
-import { UiModeSettingsCard, UiModeToggle } from "@/components/new-ui/ui-mode-toggle";
 import { countdownParts, pickCurrentTripDay, shiftTripDay, tripLocalDateKey } from "@/lib/app/day-view";
 import { createRevalidationCoordinator, type RevalidationMode } from "@/lib/app/revalidation";
 import { notifyBrowserDisruptions } from "@/lib/disruptions/notifications";
@@ -819,7 +818,7 @@ function OfflineItineraryPanel({
           <div className="stand-mark"><Image src="/stardust-mark.png" alt="" width={42} height={42} priority /></div>
           <div><p className="brand-name">{messages.appName}</p><p className="brand-subtitle">STARDUST ITINERARY</p></div>
         </div>
-        <div className="offline-topbar-actions"><UiModeToggle locale={locale} /><LocaleSwitcher locale={locale} /></div>
+        <div className="offline-topbar-actions"><LocaleSwitcher locale={locale} /></div>
       </header>
       <main className="offline-itinerary-content">
         <section className="offline-status-card" role="status">
@@ -3037,7 +3036,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       <DocumentLanguage locale={locale} />
       <aside className="sidebar">
         <div className="brand-lockup"><div className="stand-mark"><Image src="/stardust-mark.png" alt="" width={42} height={42} priority /></div><div><p className="brand-name">{messages.appName}</p><p className="brand-subtitle">STARDUST ITINERARY</p></div></div>
-        <label className="trip-picker"><span>{messages.tripLabel}</span><select data-feedback-action="trip_switch" value={overview.trip.id} disabled={busy} onChange={(event) => void switchTrip(event.target.value)}>{overview.availableTrips.map((trip) => <option key={trip.id} value={trip.id}>{trip.name}</option>)}</select><small>{overview.trip.startsOn} – {overview.trip.endsOn}</small><span className="trip-progress"><i style={{ width: "58%" }} /></span></label>
+        <label className="trip-picker"><span>{messages.tripLabel}</span><select data-feedback-action="trip_switch" value={overview.trip.id} disabled={busy} onChange={(event) => void switchTrip(event.target.value)}>{overview.availableTrips.map((trip) => <option key={trip.id} value={trip.id}>{trip.name}</option>)}</select><small>{overview.trip.startsOn} – {overview.trip.endsOn}</small></label>
         <nav className="side-nav" aria-label="Primary navigation">
           {navItems.map(({ id, label, icon: Icon }) => <button data-feedback-action="navigate" className={section === id || (section === "activity" && id === "settings") ? "nav-item is-active" : "nav-item"} key={id} onClick={() => setSection(id)}><Icon size={19} /><span>{label}</span></button>)}
         </nav>
@@ -3045,7 +3044,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       </aside>
 
       <main className="main-content">
-        <header className={`topbar ${advancedStyles.feedbackSpace}`}><div><p className="eyebrow">{overview.trip.timeZone} · {overview.session.role}</p><h1>{section === "activity" ? activityMessages(locale).title : navItems.find((item) => item.id === section)?.label}</h1></div><div className="topbar-actions"><UiModeToggle locale={locale} /><LocaleSwitcher locale={locale} />{overview.session.isOwner ? <button data-feedback-action="navigate" className="icon-button" aria-label="Approval request notifications" onClick={() => setSection("requests")}><Bell size={19} />{overview.approvalPendingCount > 0 ? <span className="notification-dot" /> : null}</button> : null}<Link className="owner-avatar" href="/auth/sessions" title={overview.session.displayName}>{overview.session.displayName.slice(0, 2).toUpperCase()}</Link></div></header>
+        <header className={`topbar ${advancedStyles.feedbackSpace}`}><div><p className="eyebrow">{overview.trip.timeZone} · {overview.session.role}</p><h1>{section === "activity" ? activityMessages(locale).title : navItems.find((item) => item.id === section)?.label}</h1></div><div className="topbar-actions"><LocaleSwitcher locale={locale} />{overview.session.isOwner ? <button data-feedback-action="navigate" className="icon-button" aria-label="Approval request notifications" onClick={() => setSection("requests")}><Bell size={19} />{overview.approvalPendingCount > 0 ? <span className="notification-dot" /> : null}</button> : null}<Link className="owner-avatar" href="/auth/sessions" title={overview.session.displayName}>{overview.session.displayName.slice(0, 2).toUpperCase()}</Link></div></header>
         {overview.session.isGuest && overview.session.guestExpiresAt ? <GuestBanner locale={locale} expiresAt={overview.session.guestExpiresAt} timeZone={overview.trip.timeZone} needsKey={overview.ai.keyRequired === true} /> : null}
         {notice ? <div className="notice-banner" role="status"><span>{notice}{notice.includes("Google Calendar API is disabled") ? <> <a href={overview.calendar.setupUrl} target="_blank" rel="noreferrer">Enable the API</a></> : null}</span><button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={15} /></button></div> : null}
         {section === "today" ? <TripAdjacentNav trips={overview.availableTrips} currentTripId={overview.trip.id} locale={locale} disabled={busy} select={(tripId) => void switchTrip(tripId)} /> : null}
@@ -3072,8 +3071,6 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                     <h2>{formatTripDay(selectedOverviewDay.date, locale)}</h2>
                     <small>{countLabelWithPending(overviewItemCount, overviewPendingRequestCount, messages.eventCountOne, messages.eventCountMany, messages)}</small>
                   </div>
-                  <label className="offline-day-picker overview-date-picker"><span className="sr-only">{messages.offlineChooseDay}</span><select data-feedback-action="navigate" value={selectedOverviewDay.date} onChange={(event) => setSelectedOverviewDate(event.target.value)} aria-label={messages.offlineChooseDay}>{overview.days.map((day) => <option value={day.date} key={day.id}>{formatTripDay(day.date, locale)}</option>)}</select></label>
-                  <p className="overview-swipe-hint"><ChevronLeft size={14} /> {messages.swipeDay} <ChevronRight size={14} /></p>
                 </div>
                 <section className="stay-card" aria-label={messages.stayForDay}>
                   <div><p className="eyebrow">{messages.stayForDay}</p><h2>{overviewLodgings.length ? countLabel(overviewLodgings.length, messages.hotelCountOne, messages.hotelCountMany) : messages.noHotelListed}</h2></div>
@@ -3190,7 +3187,6 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
 
 
         {section === "settings" && <section className="page-panel settings-grid">
-          <UiModeSettingsCard locale={locale} />
           {!activityAccessLost ? <AiInstructionsSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} onDirtyChange={instructionsDirtyChanged} /> : null}
           {!activityAccessLost ? <AiKeysSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} changed={() => void refresh()} /> : null}
           <article className="settings-card"><h2>{messages.switchTripTitle}</h2><p>{messages.switchTripDescription}</p><label>{messages.currentTripField}<select data-feedback-action="trip_switch" value={overview.trip.id} disabled={busy} onChange={(event) => void switchTrip(event.target.value)}>{overview.availableTrips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name} · {trip.role}</option>)}</select></label><small>{overview.trip.destinationName} · {overview.trip.startsOn} – {overview.trip.endsOn}</small>{overview.session.isGuest ? null : <button className="primary-button fit-button" disabled={busy} onClick={openNewTrip}><Plus size={16} /> {messages.createNewTrip}</button>}</article>
@@ -3290,7 +3286,6 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         </section>}
       </main>
 
-      <nav className="bottom-nav" aria-label="Mobile navigation">{navItems.map(({ id, label, icon: Icon }) => <button data-feedback-action="navigate" className={section === id || (section === "activity" && id === "settings") ? "bottom-item is-active" : "bottom-item"} key={id} onClick={() => setSection(id)}><Icon size={20} /><span>{label.replace(/ \(.*/, "")}</span></button>)}</nav>
       <NewBottomNav items={navItems} section={section} navigate={setSection} pendingCount={overview.approvalPendingCount} locale={locale} />
       {/* `enabled` stays false until the viewer has a key; `keyRequired` means the owners allow AI and the sheet explains the key. */}
       <QuickAiButton section={section} available={overview.ai.enabled || overview.ai.keyRequired === true} label={messages.askAi} open={() => setQuickAiScope(aiScope)} />

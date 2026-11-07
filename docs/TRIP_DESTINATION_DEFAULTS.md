@@ -15,7 +15,7 @@ Every authenticated account currently eligible to create a trip may use this loo
 - Unknown, ambiguous, unsupported or unavailable results ask for an explicit supported choice. An unsupported local currency is never silently rounded into the ledger's existing currency set.
 - Stale replies are discarded when destination or request generation changes. Replies contain labels for all four locales; switching language renders the current locale without another costly lookup or stale-language prose. A lookup never submits the form or creates a trip. The final explicit Create action is still required.
 - The creation API requires explicit validated `timeZone` and `defaultCurrency`. Strict IANA validation rejects abbreviations/offsets such as `EST` and `GMT+9`, preserves recognized IANA aliases, and is scoped to creation rather than silently changing old Settings semantics.
-- All four UI languages use neutral transactional wording. The classic layout remains functional; its retirement is planned separately (see [screen layouts](UI_LAYOUTS.md)).
+- All four UI languages use neutral transactional wording.
 
 ## Trust, privacy and accounting
 
@@ -29,6 +29,6 @@ An optional `destinationLookupId` in explicit trip creation links only an author
 
 ## Navigation and upgrade
 
-The live Overview has no previous/next-date text buttons in any locale or layout. The classic date selector, new-layout day chips, phone swipe and offline day navigation remain.
+The live Overview has no previous/next-date text buttons in any locale. Day chips, phone swipe and offline day navigation remain.
 
 Migration 0050 is additive. Take a backup before applying it; if the application connects with a separate runtime database role, re-apply that role's grants afterwards. Backup, restore and migration rules are in [database](DATABASE.md); deployment is covered in [deployment](DEPLOYMENT.md) and [self-hosting](SELF_HOSTING.md).

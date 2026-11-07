@@ -52,7 +52,7 @@ These rules apply to every human and AI contributor.
 - Code, comments, logs and technical docs are English. UI: English, clear Cantonese, LIHKG-style Cantonese, Japanese.
 - UI copy is brief (D-088): a note is one short line or none, and an explanation someone may want sits behind at most one "?" button (`InfoTip`) per section. See [localization](docs/LOCALIZATION.md).
 - LIHKG tone may mock benign situations, never protected traits or vulnerabilities. Identity, money, security, destructive actions, accessibility, disruptions and safety use neutral wording.
-- Until JOB-052 lands, preserve both layouts; new CSS stays under `:root[data-ui="new"]`. Follow [UI layouts](docs/UI_LAYOUTS.md).
+- There is one layout; the classic layout and its toggle were retired (JOB-081, D-093). Layout CSS stays in `src/app/new-ui/` under `:root[data-ui="new"]`. Follow [screen layout](docs/UI_LAYOUTS.md).
 - Application changes need relevant tests and `pnpm check` against disposable data, including build and smoke. Close temporary servers and browser children you start.
 - Docs-only work needs link/anchor and stale-instruction checks, not live provider calls or deployments.
 - Update [CHANGELOG](CHANGELOG.md), affected contracts and the documentation-impact note.

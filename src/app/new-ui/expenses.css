@@ -54,7 +54,7 @@
   max-width: 70ch;
 }
 
-/* Classic hover paints a literal light gold; keep the token fill (base adds the brightness filter). */
+/* globals.css hover paints a literal light gold; keep the token fill (base adds the brightness filter). */
 :root[data-ui="new"] .page-panel:has(> .expense-days) > .day-section-heading > .primary-button:hover:not(:disabled) {
   background: var(--gold-fill);
 }

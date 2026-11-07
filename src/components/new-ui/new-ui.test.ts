@@ -7,9 +7,7 @@ import { Bot, CalendarDays, Check, ReceiptText, Route, Settings } from "lucide-r
 
 import { NewBottomNavView, QuickAiButton, QuickAiButtonView } from "@/components/new-ui/new-navigation";
 import { DayStripView, revealItineraryDay, TripOverviewBarView, tripProgress } from "@/components/new-ui/trip-overview-bar";
-import { UiModeSettingsCardView, UiModeToggleButton } from "@/components/new-ui/ui-mode-toggle";
 import { TripAdjacentNav } from "@/components/trip-adjacent-nav";
-import { classicThemeColor, newDarkThemeColor, newLightThemeColor, UiModeSync } from "@/components/new-ui/ui-mode-sync";
 import { uiRefreshMessages } from "@/lib/app/ui-refresh-i18n";
 import { formatMessage, locales } from "@/lib/i18n";
 
@@ -28,41 +26,6 @@ function buttons(node: ReactNode): Array<ReactElement<{ onClick?: () => void; "a
   const own = node.type === "button" ? [node as ReactElement<{ onClick?: () => void }>] : [];
   return [...own, ...buttons(node.props.children)];
 }
-
-describe("layout toggle", () => {
-  it.each(locales)("always offers the other layout in %s", (locale) => {
-    const copy = uiRefreshMessages(locale);
-    const fromNew = renderToStaticMarkup(createElement(UiModeToggleButton, { mode: "new", locale, onSwitch: vi.fn() }));
-    expect(fromNew).toContain(copy.toggleToClassic);
-    expect(fromNew).toContain(`aria-label="${copy.toggleToClassicLabel}"`);
-    expect(fromNew).toContain('data-ui-target="classic"');
-    expect(fromNew).toContain('data-feedback-action="settings_save"');
-    const fromClassic = renderToStaticMarkup(createElement(UiModeToggleButton, { mode: "classic", locale, onSwitch: vi.fn() }));
-    expect(fromClassic).toContain(copy.toggleToNew);
-    expect(fromClassic).toContain('data-ui-target="new"');
-  });
-
-  it("reports the target layout without other side effects", () => {
-    const onSwitch = vi.fn();
-    UiModeToggleButton({ mode: "new", locale: "en", onSwitch }).props.onClick();
-    UiModeToggleButton({ mode: "classic", locale: "en", onSwitch }).props.onClick();
-    expect(onSwitch.mock.calls).toEqual([["classic"], ["new"]]);
-  });
-
-  it.each(locales)("Settings card marks the layout in use with aria-pressed in %s", (locale) => {
-    const copy = uiRefreshMessages(locale);
-    const choose = vi.fn();
-    const markup = renderToStaticMarkup(createElement(UiModeSettingsCardView, { mode: "classic", locale, choose }));
-    expect(markup).toContain(copy.settingsTitle);
-    expect(markup).toMatch(/data-ui-option="new" aria-pressed="false"/u);
-    expect(markup).toMatch(/data-ui-option="classic" aria-pressed="true"/u);
-    expect(markup.match(new RegExp(copy.current, "gu"))).toHaveLength(1);
-    const found = buttons(UiModeSettingsCardView({ mode: "classic", locale, choose }));
-    expect(found).toHaveLength(2);
-    found.forEach((button) => button.props.onClick?.());
-    expect(choose.mock.calls).toEqual([["new"], ["classic"]]);
-  });
-});
 
 describe("new bottom navigation", () => {
   it.each(locales)("uses short labels without scrolling counts in %s", (locale) => {
@@ -227,12 +190,12 @@ describe("trip summary and day chips", () => {
 });
 
 describe("browser chrome color", () => {
-  it("renders light and dark theme colors for the new layout on the server", () => {
-    const markup = renderToStaticMarkup(createElement(UiModeSync));
-    expect(markup).toContain(`media="(prefers-color-scheme: light)" content="${newLightThemeColor}"`);
-    expect(markup).toContain(`media="(prefers-color-scheme: dark)" content="${newDarkThemeColor}"`);
-    expect(markup).not.toContain(classicThemeColor);
-    expect(readFileSync("src/app/layout.tsx", "utf8")).not.toContain("themeColor");
+  it("declares the light and dark theme colors and both color schemes in the root viewport (JOB-081)", () => {
+    const layout = readFileSync("src/app/layout.tsx", "utf8");
+    expect(layout).toContain('colorScheme: "light dark"');
+    expect(layout).toContain('{ media: "(prefers-color-scheme: light)", color: "#f5f3fa" }');
+    expect(layout).toContain('{ media: "(prefers-color-scheme: dark)", color: "#14121b" }');
+    expect(layout).not.toContain("#171225");
   });
 });
 
@@ -245,8 +208,8 @@ describe("new layout copy", () => {
       for (const value of Object.values(copy)) expect(value.trim()).not.toBe("");
     }
     expect(uiRefreshMessages("zh-HK-lihkg")).toEqual(uiRefreshMessages("zh-HK"));
-    expect(uiRefreshMessages("zh-HK").toggleToClassic).not.toBe(uiRefreshMessages("en").toggleToClassic);
-    expect(uiRefreshMessages("ja-JP").toggleToClassic).not.toBe(uiRefreshMessages("en").toggleToClassic);
+    expect(uiRefreshMessages("zh-HK").navToday).not.toBe(uiRefreshMessages("en").navToday);
+    expect(uiRefreshMessages("ja-JP").navItinerary).not.toBe(uiRefreshMessages("en").navItinerary);
   });
 });
 
@@ -274,9 +237,9 @@ function cssRules(file: string) {
   return { problems, selectors: selectorsSeen };
 }
 
-describe("new layout stylesheets cannot leak into the classic layout", () => {
+describe("layout stylesheets", () => {
   const directory = "src/app/new-ui";
-  const scoped = readdirSync(directory).filter((file) => file.endsWith(".css") && file !== "layout-toggle.css");
+  const scoped = readdirSync(directory).filter((file) => file.endsWith(".css"));
 
   it.each(scoped)("%s scopes every rule to :root[data-ui=\"new\"]", (file) => {
     const { problems, selectors } = cssRules(`${directory}/${file}`);
@@ -285,29 +248,22 @@ describe("new layout stylesheets cannot leak into the classic layout", () => {
     for (const selector of selectors) expect(selector.startsWith(':root[data-ui="new"]'), `${file}: ${selector}`).toBe(true);
   });
 
-  it("limits the shared toggle stylesheet to the toggle, its card and classic-only accommodations", () => {
-    const { problems, selectors } = cssRules(`${directory}/layout-toggle.css`);
-    expect(problems).toEqual([]);
-    for (const selector of selectors) {
-      expect(/^(\.ui-mode-|\.offline-topbar-actions\b|:root:not\(\[data-ui="new"\]\) )/u.test(selector), selector).toBe(true);
-    }
-  });
-
-  it("keeps classic stylesheets free of layout-mode selectors and loads new-layout files after globals", () => {
+  it("renders the one layout on <html> and loads its files after globals (JOB-081)", () => {
     expect(readFileSync("src/app/globals.css", "utf8")).not.toContain("data-ui");
     const layout = readFileSync("src/app/layout.tsx", "utf8");
     expect(layout.indexOf('import "./globals.css"')).toBeLessThan(layout.indexOf('import "./new-ui/base.css"'));
     for (const file of scoped) expect(layout).toContain(`import "./new-ui/${file}"`);
-    expect(layout).toContain("<html lang=\"zh-HK\" suppressHydrationWarning>");
-    expect(layout).toContain("dangerouslySetInnerHTML={{ __html: uiModeBootstrapScript }}");
+    expect(scoped).not.toContain("layout-toggle.css");
+    expect(layout).toContain("<html lang=\"zh-HK\" data-ui=\"new\" suppressHydrationWarning>");
+    expect(layout).toContain("dangerouslySetInnerHTML={{ __html: documentLanguageBootstrapScript }}");
   });
 
-  it("offers the toggle in the live and offline headers and in Settings", () => {
+  it("has no layout toggle, Screen layout card or classic-only markup (JOB-081)", () => {
     const shell = readFileSync("src/components/app-shell.tsx", "utf8");
-    expect(shell.match(/<UiModeToggle locale=\{locale\} \/>/gu)).toHaveLength(2);
-    expect(shell).toContain('<div className="topbar-actions"><UiModeToggle locale={locale} /><LocaleSwitcher locale={locale} />');
-    expect(shell).toContain('<div className="offline-topbar-actions"><UiModeToggle locale={locale} /><LocaleSwitcher locale={locale} /></div>');
-    expect(shell.match(/<UiModeSettingsCard locale=\{locale\} \/>/gu)).toHaveLength(1);
-    expect(shell.indexOf('<nav className="bottom-nav"')).toBeLessThan(shell.indexOf("<NewBottomNav "));
+    for (const retired of ["UiModeToggle", "UiModeSettingsCard", "ui-mode", '<nav className="bottom-nav"', "overview-date-picker",
+      "overview-swipe-hint", "trip-progress"]) expect(shell).not.toContain(retired);
+    expect(shell).toContain('<div className="topbar-actions"><LocaleSwitcher locale={locale} />');
+    expect(shell).toContain('<div className="offline-topbar-actions"><LocaleSwitcher locale={locale} /></div>');
+    expect(shell).toContain("<NewBottomNav ");
   });
 });

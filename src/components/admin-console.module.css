@@ -1,5 +1,5 @@
-/* The operator's admin page (JOB-069). Uses the theme tokens both layouts define, so it follows
-   the new layout's light/dark theme and the classic dark theme without layout-specific rules. */
+/* The operator's admin page (JOB-069). Uses the layout's theme tokens, so it follows the light and
+   dark themes without theme-specific rules. */
 
 .page {
   box-sizing: border-box;

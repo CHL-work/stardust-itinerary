@@ -1,8 +1,8 @@
 /*
- * JOB-048 new layout — foundation: tokens, typography and shared controls.
+ * The app's layout (JOB-048; the only layout since JOB-081) — foundation: tokens, typography and shared controls.
  *
- * Rules for every file in src/app/new-ui/ except layout-toggle.css:
- * - every selector starts with :root[data-ui="new"] so the classic layout is untouched;
+ * Rules for every file in src/app/new-ui/:
+ * - every selector starts with :root[data-ui="new"] (always set on <html>), which outranks globals.css;
  * - use the tokens below instead of literal colors so light and dark both work;
  * - interactive targets are at least 44px; form text is at least 16px; body text at least 13px;
  * - color supplements text and never replaces it;
@@ -463,7 +463,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :root[data-ui="new"] :is(.ghost-button, .primary-button, .mini-button, .icon-button, .ui-mode-option, .new-day-chip, .new-bottom-item) {
+  :root[data-ui="new"] :is(.ghost-button, .primary-button, .mini-button, .icon-button, .new-day-chip, .new-bottom-item) {
     transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, filter 120ms ease;
   }
 }

@@ -2,6 +2,14 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-093: One layout; the classic layout and its toggle are retired (accepted November 7, 2026)
+
+The owner asked to remove the classic UI. The new layout had been the default since October 11, 2026, with the original dark classic layout kept behind a toggle in the header and a **Screen layout** card in Settings (JOB-081).
+
+- **One layout:** the server renders `<html data-ui="new">`, light by default and dark with the system. There is no toggle, Settings card or stored layout preference; a leftover `stardust.ui-mode.v1` value is never read.
+- **Removed with it:** the classic phone bottom bar, the Overview date selector and swipe hint, the sidebar's placeholder progress bar, and the classic-only styles for them.
+- **Kept:** `globals.css` stays the base stylesheet the layout overrides, and layout rules stay scoped to `:root[data-ui="new"]`, so their specificity is unchanged. Behavior, data and permissions are unchanged. This supersedes the October 11, 2026 layout decision below.
+
 ## D-092: AI expenses are split between everyone unless the request says otherwise (accepted November 7, 2026)
 
 The owner asked that the trip AI use the parts a request gives, and otherwise split an expense between everyone. When nobody said who shares, the AI charged the requester alone, so a group dinner the requester paid for became their personal cost (JOB-080).
@@ -265,6 +273,8 @@ Superseded: earlier single-VM hosting; see [deployment](DEPLOYMENT.md) and [self
 
 ## October 11, 2026: New default layout with a preserved classic layout
 
+**Superseded by D-093 (November 7, 2026):** the classic layout and its toggle are retired. The original decision follows.
+
 New UI defaults on phone/desktop; classic remains reachable through the shared toggle and Settings until its planned retirement is separately implemented. Choice is device-local `stardust.ui-mode.v1`, applied before paint; missing storage means new. It stores no identity/trip data and is not purged on sign-out.
 
 New-only selectors stay scoped to `:root[data-ui="new"]`; presentational components reuse existing state/permissions without new APIs or diagnostics. Both layouts retain readable personal amounts, today-first disclosures, horizontal pending review actions, endpoint weather, 44px touch targets and 16px phone inputs. Overview previous/next text buttons were later removed (D-071); chips/date selection/swipe remain.
@@ -380,4 +390,4 @@ These accepted changes refine the register without introducing duplicate decisio
 
 ## Questions before future implementation
 
-Open questions for planned work (an external MCP connector, retiring the classic layout) belong with those jobs and the [roadmap](ROADMAP.md), not with obsolete global questions about regions, editor defaults or map providers already decided. Future route/reminder/communication providers require explicit cost, privacy and current terms review; existing optional infrastructure does not authorize activation.
+Open questions for planned work (an external MCP connector) belong with those jobs and the [roadmap](ROADMAP.md), not with obsolete global questions about regions, editor defaults or map providers already decided. Future route/reminder/communication providers require explicit cost, privacy and current terms review; existing optional infrastructure does not authorize activation.

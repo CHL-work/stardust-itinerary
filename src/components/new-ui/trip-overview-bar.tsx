@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, type TouchEvent } from "react";
 
 import { uiRefreshMessages } from "@/lib/app/ui-refresh-i18n";
 import { formatMessage, type Locale } from "@/lib/i18n";
-import { useUiMode } from "@/lib/ui-mode-store";
 
 const dayMs = 86_400_000;
 const utcDay = (date: string) => /^\d{4}-\d{2}-\d{2}$/u.test(date) ? Date.parse(`${date}T00:00:00Z`) : Number.NaN;
@@ -79,7 +78,7 @@ export function TripOverviewBarView({ trip, members, today, locale }: {
 }
 
 export function TripOverviewBar(props: Parameters<typeof TripOverviewBarView>[0]) {
-  return useUiMode() === "new" ? <TripOverviewBarView {...props} /> : null;
+  return <TripOverviewBarView {...props} />;
 }
 
 type StripDay = { date: string };
@@ -132,7 +131,7 @@ export function DayStripView({ days, selectedDate, todayDate, locale, select, va
 }
 
 export function OverviewDayStrip(props: Parameters<typeof DayStripView>[0]) {
-  return useUiMode() === "new" ? <DayStripView {...props} variant="select" /> : null;
+  return <DayStripView {...props} variant="select" />;
 }
 
 /** Opens the chosen date's existing Itinerary disclosure, scrolls to it and moves focus to its heading. */
@@ -148,9 +147,8 @@ export function revealItineraryDay(root: ParentNode, date: string): boolean {
 
 /** Itinerary variant of the chips. */
 export function ItineraryDayJump({ days, todayDate, locale }: { days: StripDay[]; todayDate: string; locale: Locale }) {
-  const mode = useUiMode();
   const [chosen, setChosen] = useState<string | null>(null);
-  if (mode !== "new" || days.length < 2) return null;
+  if (days.length < 2) return null;
   const fallback = days.some((day) => day.date === todayDate) ? todayDate : null;
   const reveal = (date: string) => {
     setChosen(date);

@@ -120,11 +120,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The classic bar is a hard-coded 58% placeholder; the trip summary bar shows real progress. */
-:root[data-ui="new"] .trip-picker .trip-progress {
-  display: none;
-}
-
 /* Vertical navigation */
 :root[data-ui="new"] .side-nav {
   display: grid;
@@ -285,29 +280,6 @@
   margin-left: 0;
 }
 
-/* Layout toggle: a quiet secondary pill; label visible on desktop. */
-:root[data-ui="new"] .ui-mode-toggle {
-  gap: 8px;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 16px 0 14px;
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: var(--panel);
-  font-size: var(--text-sm);
-  font-weight: 650;
-  line-height: 1.2;
-}
-
-:root[data-ui="new"] .ui-mode-toggle:hover {
-  background: var(--panel-raised);
-}
-
-:root[data-ui="new"] .ui-mode-toggle svg {
-  color: var(--violet);
-}
-
 /* Language menu */
 :root[data-ui="new"] .language-menu {
   position: relative;
@@ -385,7 +357,7 @@
   font-weight: 700;
 }
 
-/* Icon buttons stay visible at every width in the new layout (classic hides them on phones, incl. modal close). */
+/* Icon buttons stay visible at every width (globals.css hides them on phones, incl. modal close). */
 :root[data-ui="new"] .icon-button {
   position: relative;
   display: grid;
@@ -652,7 +624,6 @@
 /* Phone bottom navigation and quick add (hidden on desktop)           */
 /* ------------------------------------------------------------------ */
 
-:root[data-ui="new"] .bottom-nav,
 :root[data-ui="new"] .new-bottom-nav,
 :root[data-ui="new"] .new-quick-add {
   display: none;
@@ -964,7 +935,7 @@
   background: var(--page);
 }
 
-/* The right padding keeps the classic reserve for the feedback launcher. */
+/* The right padding keeps the reserve for the feedback launcher. */
 :root[data-ui="new"] .offline-itinerary-topbar {
   flex-wrap: wrap;
   gap: 12px 16px;
@@ -977,6 +948,8 @@
 }
 
 :root[data-ui="new"] .offline-topbar-actions {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
@@ -998,7 +971,7 @@
   box-shadow: var(--shadow);
 }
 
-/* Row + wrap at every width (classic switches to a column on phones, which would stretch the flex-basis vertically). */
+/* Row + wrap at every width (globals.css switches to a column on phones, which would stretch the flex-basis vertically). */
 :root[data-ui="new"] .offline-status-card {
   flex-direction: row;
   flex-wrap: wrap;
@@ -1384,7 +1357,7 @@
     margin-left: 0;
   }
 
-  /* The bell duplicates the bottom bar's Review badge (and is hidden in the classic phone layout too). */
+  /* The bell duplicates the bottom bar's Review badge. */
   :root[data-ui="new"] .topbar-actions .icon-button {
     display: none;
   }
@@ -1667,14 +1640,9 @@
   }
 }
 
-/* Small phones: the toggle collapses to its icon and the eyebrow (time zone · role) gives up its
-   own row so the day content starts higher; the header never overflows. */
+/* Small phones: the eyebrow (time zone · role) gives up its own row so the day content starts
+   higher; the header never overflows. */
 @media (max-width: 420px) {
-  :root[data-ui="new"] .ui-mode-toggle {
-    width: 44px;
-    padding: 0;
-  }
-
   :root[data-ui="new"] .topbar {
     grid-template-areas:
       "actions actions"

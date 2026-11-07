@@ -6,7 +6,7 @@
  *
  * Specificity notes: plain component CSS (.ai-*, .member-*) and modules load in an
  * unknown order, so rules here out-rank them with the :root[data-ui="new"] prefix
- * (0,2,0) plus a class. Classic !important rules (.permission-toggle,
+ * (0,2,0) plus a class. Base !important rules (.permission-toggle,
  * .member-confirmation input, .danger-button) are matched with !important only there.
  */
 
@@ -666,54 +666,6 @@
 :root[data-ui="new"] .settings-card select {
   width: 100%;
   max-width: 100%;
-}
-
-/* Layout preference card (base look in layout-toggle.css) */
-:root[data-ui="new"] .ui-mode-settings-card .ui-mode-options {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
-  gap: var(--space-3);
-}
-
-:root[data-ui="new"] .ui-mode-option {
-  gap: 6px;
-  min-height: 72px;
-  padding: 14px 16px;
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  font-size: var(--text-sm);
-  text-align: start;
-}
-
-:root[data-ui="new"] .ui-mode-option:hover {
-  border-color: var(--violet);
-  background: var(--panel-raised);
-}
-
-:root[data-ui="new"] .ui-mode-option.is-selected {
-  border-color: var(--violet);
-  background: var(--violet-soft);
-  box-shadow: inset 0 0 0 1px var(--violet);
-}
-
-:root[data-ui="new"] .ui-mode-option-title strong {
-  font-size: 1rem;
-}
-
-:root[data-ui="new"] .ui-mode-option-title small {
-  padding: 1px 9px;
-  color: var(--violet);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
-
-:root[data-ui="new"] .ui-mode-option-hint {
-  color: var(--muted);
-  font-size: var(--text-sm);
-  line-height: 1.5;
 }
 
 /* AI instructions card (module): readable field, 16px. */
@@ -1664,7 +1616,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :root[data-ui="new"] :is(.ai-conversation-button, .ai-conversation-choice, .settings-grid details > summary, .ui-mode-option) {
+  :root[data-ui="new"] :is(.ai-conversation-button, .ai-conversation-choice, .settings-grid details > summary) {
     transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   }
 }

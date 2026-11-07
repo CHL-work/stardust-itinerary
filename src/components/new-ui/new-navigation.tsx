@@ -4,7 +4,6 @@ import { Sparkles, type LucideIcon } from "lucide-react";
 
 import { uiRefreshMessages, type UiRefreshCopy } from "@/lib/app/ui-refresh-i18n";
 import { formatMessage, type Locale } from "@/lib/i18n";
-import { useUiMode } from "@/lib/ui-mode-store";
 
 type NavItem<T extends string> = { id: T; label: string; icon: LucideIcon };
 
@@ -44,7 +43,7 @@ export function NewBottomNavView<T extends string>({ items, section, navigate, p
 }
 
 export function NewBottomNav<T extends string>(props: Parameters<typeof NewBottomNavView<T>>[0]) {
-  return useUiMode() === "new" ? <NewBottomNavView {...props} /> : null;
+  return <NewBottomNavView {...props} />;
 }
 
 export function QuickAiButtonView({ label, open }: { label: string; open: () => void }) {
@@ -59,7 +58,6 @@ export function QuickAiButtonView({ label, open }: { label: string; open: () => 
 export function QuickAiButton({ section, available, label, open }: {
   section: string; available: boolean; label: string; open: () => void;
 }) {
-  const mode = useUiMode();
-  if (mode !== "new" || !available || !["today", "itinerary", "expenses"].includes(section)) return null;
+  if (!available || !["today", "itinerary", "expenses"].includes(section)) return null;
   return <QuickAiButtonView label={label} open={open} />;
 }

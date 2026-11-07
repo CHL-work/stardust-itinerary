@@ -207,16 +207,6 @@
   gap: var(--space-2);
 }
 
-/* New layout already has day chips; classic retains this accessible date selector. */
-:root[data-ui="new"] .overview-date-picker {
-  display: none;
-}
-
-/* The day chips are visible in the new layout, so the swipe hint is redundant (swiping still works). */
-:root[data-ui="new"] .overview-swipe-hint {
-  display: none;
-}
-
 /* ------------------------------------------------------------------ */
 /* Shared card surfaces                                                */
 /* ------------------------------------------------------------------ */

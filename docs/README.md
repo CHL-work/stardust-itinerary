@@ -15,7 +15,7 @@ Every document in this repository, by area, with one line each. The [README](../
 
 - [Design](DESIGN.md): product behavior, roles and the main user journeys.
 - [Decisions](DECISIONS.md): accepted decisions (D-numbers), trade-offs and pushbacks.
-- [Screen layouts](UI_LAYOUTS.md): the new and classic layouts and the layout toggle.
+- [Screen layout](UI_LAYOUTS.md): the one layout, its phone and desktop rules and its CSS.
 - [Mobile cards](MOBILE_CARDS.md): event and expense cards on phones, and cancelled-event removal.
 - [Localization](LOCALIZATION.md): English, two Cantonese tones and Japanese; voice and brief UI copy.
 

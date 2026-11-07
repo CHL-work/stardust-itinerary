@@ -88,7 +88,7 @@ Destination Auto is a separate account-level exception: a tool-free Sol (low eff
 
 ## 6. Browser and offline behavior
 
-The app shell projects authorized events/proposals into timeline cards; transport endpoint rows remain one underlying event. New UI is default, while classic is still a device-local option. Itinerary/Expenses default to today expanded; Overview is selected-day-only. Languages and safety-neutral copy are shared across UI and AI notices. [Localization](LOCALIZATION.md).
+The app shell projects authorized events/proposals into timeline cards; transport endpoint rows remain one underlying event. There is one layout, light or dark with the system ([screen layout](UI_LAYOUTS.md)). Itinerary/Expenses default to today expanded; Overview is selected-day-only. Languages and safety-neutral copy are shared across UI and AI notices. [Localization](LOCALIZATION.md).
 
 The service worker warms a locale shell/static assets, never authenticated API responses. Separate bounded offline storage allows public confirmed display records only (up to 500 events/370 days); excludes private events, notes, expenses, pending proposals, AI, Calendar, weather/disruption and credentials. It is read-only, falls back for network/5xx rather than authorization denial, and is purged on sign-out. Browser retention is not guaranteed.
 
@@ -98,4 +98,4 @@ Optional open-app disruption notifications are deduplicated by content/episode w
 
 Application-level safeguards are bounded worker deadlines, database-gated due work, idempotent outbox delivery, revision fences and no locks across network calls. They do not create an availability SLA. Process restarts, backups, log retention and alerting belong to the deployment; database backup and restore rules are in [database](DATABASE.md#4-dump-and-restore-contract).
 
-An external MCP connector and retiring the classic layout are planned, not implemented ([roadmap](ROADMAP.md)). Discord delivery, full route-based reminders and provider-managed conversation IDs are not implemented, regardless of interface names or older design prose.
+An external MCP connector is planned, not implemented ([roadmap](ROADMAP.md)). Discord delivery, full route-based reminders and provider-managed conversation IDs are not implemented, regardless of interface names or older design prose.

@@ -100,7 +100,7 @@ All itinerary/financial mutations are revisioned/audited. Never log bearer token
 | --- | --- |
 | API responses, AI text/images, instructions, feedback drafts/trails | No offline/persistent browser cache; identity changes clear in-memory drafts. Service worker never caches `/api/`. |
 | Offline itinerary v2 | One validated trip-visible display snapshot, up to 500 items; no private events, notes, finances, pending/approvals, AI, Calendar, emails or activity. Fallback only on network/5xx, never 401/403. Sign-out clears v1/v2 and private shells. |
-| `stardust.ui-mode.v1` | Only `new`/`classic`; device-level display choice survives sign-out and changes no authorization. |
+| `stardust.ui-mode.v1` | Retired with the classic layout (JOB-081); a leftover value is never read and changes no authorization. |
 | Disruption receipt ledger | Bounded hashes/timestamps only, survives sign-out for deduplication, grants no read access. |
 
 Deleting a trip clears the snapshot on the deleting owner's device. Other members' devices keep theirs until a later successful load replaces it or they sign out, the same limit that applies to removed members.

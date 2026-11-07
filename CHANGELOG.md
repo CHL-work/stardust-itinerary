@@ -108,6 +108,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Own-key requests and quotas:** requests on a user's own key no longer use up a sponsored trip's free daily prompts.
 - **Line-ending-tolerant migrations.** A migration may now differ from its recorded checksum by line endings only, which is how migrations applied from a Windows checkout were recorded.
 
+### Removed
+
+- **Classic layout (JOB-081, D-093):** the original dark layout, the layout toggle in the header and the Settings **Screen layout** card are gone; everyone gets the one layout, light or dark with the system. The classic phone bottom bar, Overview date selector and swipe hint, the sidebar's placeholder progress bar, their classic-only styles and the stored `stardust.ui-mode.v1` preference went with them. The README screenshots were retaken without the toggle.
+
 ### Fixed
 
 - **Guest notice, counts and free-model line breaks (JOB-077, D-088):**

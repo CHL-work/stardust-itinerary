@@ -166,7 +166,7 @@ describe("collapsed advanced Settings", () => {
 
 describe("privacy-safe action instrumentation", () => {
   const files = ["app-shell", "ai-conversation-page", "approval-request-cards", "activity-panel", "trip-expense-summary", "member-management-controls", "locale-switcher", "create-trip-form",
-    "new-ui/ui-mode-toggle", "new-ui/new-navigation", "new-ui/trip-overview-bar", "trip-adjacent-nav", "trip-deletion-controls"];
+    "new-ui/new-navigation", "new-ui/trip-overview-bar", "trip-adjacent-nav", "trip-deletion-controls"];
   it("uses only literal allowlisted action codes, never IDs, labels, values or URLs", () => {
     const seen = new Set<string>();
     for (const file of files) {
