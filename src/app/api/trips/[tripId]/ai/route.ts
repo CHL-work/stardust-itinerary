@@ -46,8 +46,11 @@ export async function POST(
     if (body.conversationId === undefined) throw new AiConversationChangedError();
     const images = await prepareAiImages(body.images);
     // Provider CLIs run in this pod: past the per-process cap, refuse with a retry delay (429).
-    const result = await withAiRequestSlot(() => runAiPlanner(getPool(config), session, body.prompt, body.model, body.locale,
-      body.clientRequestId, body.conversationId, ...(images.length ? [images] as const : [])));
+    const result = await withAiRequestSlot(() => body.freeModel
+      ? runAiPlanner(getPool(config), session, body.prompt, body.model, body.locale,
+        body.clientRequestId, body.conversationId, images, body.freeModel)
+      : runAiPlanner(getPool(config), session, body.prompt, body.model, body.locale,
+        body.clientRequestId, body.conversationId, ...(images.length ? [images] as const : [])));
     return NextResponse.json(result, {
       headers: { ...noStoreHeaders, "x-request-id": requestId },
     });

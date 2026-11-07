@@ -12,7 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
-| JOB-086 | Free AI for signed-in users and guests | In review: explicit keyless choice, fresh zero-price catalog checks, minimized context and exact request/attempt caps (D-098). Local only; not deployed |
+| JOB-086 | Free AI for signed-in users and guests | Release authorized: individual free-model picker, paid choices only with own saved keys, GKE free/guest verification (D-098). See the job for verification and release evidence |
 | JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
 | JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script and the `deploy` workflow with an approval step | Done |
 | JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Done: cut over on November 4, 2026 after a staging rehearsal. The old services are disabled; the VM stays as a rollback for now |
@@ -105,8 +105,8 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 
 Requested by the user on 7 November 2026 ([job](jobs/JOB-086-free-ai-for-everyone.md)).
 
-- **Explicit choice:** any active member can choose keyless Free AI, even with paid funding available. It is the default only without paid funding.
-- **Boundaries:** text-only, minimized context, retained/training disclosure, pending changes, fresh zero-price model checks and shared request/attempt quotas. No paid fallback or deployment implied. [Contract](AI_AND_AGENTS.md#free-ai-for-every-account-job-086-d-098).
+- **Explicit choice:** any active member or guest can choose each eligible free model. The composer defaults to free without an own saved key and shows paid choices only for the user's saved providers.
+- **Boundaries:** text-only, minimized context, retained/training disclosure, pending changes, fresh zero-price model checks and shared request/attempt quotas. Named choices never substitute or charge a key. The authorized GKE release enables and verifies free/guest configuration. [Contract](AI_AND_AGENTS.md#free-ai-for-every-account-job-086-d-098).
 
 ### JOB-085: only the selected language
 

@@ -13,6 +13,18 @@ import {
 } from "@/lib/app/validation";
 import { locales } from "@/lib/i18n";
 
+describe("explicit free model selection", () => {
+  it("accepts only a bounded identifier with an explicit free funding choice", () => {
+    const input = { prompt: "add dinner", model: "guest-free", freeModel: "liquid/lfm-3-1.7b:free" };
+    expect(aiRequestSchema.parse(input)).toEqual(input);
+    for (const freeModel of ["https://evil.example/completions", "../config", "x".repeat(161), "provider/a\nother"]) {
+      expect(aiRequestSchema.safeParse({ ...input, freeModel }).success).toBe(false);
+    }
+    expect(aiRequestSchema.safeParse({ ...input, model: "gpt-6.1-sol" }).success).toBe(false);
+    expect(aiRequestSchema.safeParse({ ...input, model: undefined }).success).toBe(false);
+  });
+});
+
 describe("custom expense share validation", () => {
   const payer = "10000000-0000-4000-8000-000000000001";
   const guest = "10000000-0000-4000-8000-000000000002";

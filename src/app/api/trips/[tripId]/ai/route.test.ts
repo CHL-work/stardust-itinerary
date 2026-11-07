@@ -121,6 +121,21 @@ describe("POST /api/trips/[tripId]/ai", () => {
     );
   });
 
+  it("passes an individual free choice unchanged to the keyless planner", async () => {
+    const freeModel = "liquid/lfm-3-1.7b:free";
+    const response = await POST(request({ prompt: "Add lunch", model: "guest-free", freeModel, locale: "en" }),
+      { params: Promise.resolve({ tripId }) });
+    expect(response.status).toBe(200);
+    expect(mocks.runAiPlanner).toHaveBeenCalledWith({ synthetic: true }, session, "Add lunch", "guest-free", "en", undefined, null, [], freeModel);
+  });
+
+  it.each([undefined, "gpt-6.1-sol"])("rejects a free selection paired with %s instead of silently using funding", async (model) => {
+    const response = await POST(request({ prompt: "Add lunch", model, freeModel: "liquid/lfm-3-1.7b:free" }),
+      { params: Promise.resolve({ tripId }) });
+    expect(response.status).toBe(400);
+    expect(mocks.runAiPlanner).not.toHaveBeenCalled();
+  });
+
   it("normalizes and passes pictures only after identity and trip checks", async () => {
     const png = await sharp({ create: { width: 10, height: 20, channels: 3, background: "white" } }).png().toBuffer();
     const response = await POST(request({ prompt: "Create this receipt expense", images: [{ mediaType: "image/png", data: png.toString("base64") }] }), { params: Promise.resolve({ tripId }) });

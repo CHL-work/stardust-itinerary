@@ -49,13 +49,13 @@ Any member can add their own OpenAI, Anthropic or Gemini API key in **Settings â
 In the app:
 - The overview tells the browser only which providers the viewer holds a key for.
 - The AI composer opens when an own key, shared key, operator funding or the optional free service is available.
-- A member with keys gets a model picker listing their providers' models, alongside the eligible trip-funded and free choices. The choice applies per request and never changes trip settings.
-- With no explicit choice, the server keeps existing paid funding; only accounts without it default to Free AI. An explicit free choice never charges a key, including after a failure or configuration change.
+- The model picker lists every eligible free model plus only the user's own-key providers' paid models. Shared/operator funding does not reveal paid choices. The choice applies per request and never changes trip settings.
+- Without an own key the composer defaults to free and submits that choice explicitly. Legacy API calls with no explicit model keep the existing automatic funding order. An explicit free choice never charges a key, including after a failure or configuration change.
 - Settings â†’ AI keys shows the key owner, per provider, how many requests their key paid for today and in the last 30 days, across all trips. It also counts requests by members using the owner's shared key, if any. Only counts are shown, never prompts.
 
 ### Free AI
 
-With `FREE_AI_ENABLED=true`, every active signed-in member and guest can select **Free AI**, including people who have paid funding (JOB-086, D-098). No paid route available makes it the default; otherwise free use is explicit. It remains subject to trip AI on/off, suspension, identity and ordinary permissions. The historical request ID `guest-free` is not a valid trip default or keyed model.
+With `FREE_AI_ENABLED=true`, every active signed-in member and guest can choose any supported zero-price catalog model (JOB-086, D-098). Without an own key, the composer defaults to free; OpenAI, Claude and Gemini choices appear only after the user saves the matching key. Existing shared/operator funding remains available to authorized legacy API clients, not as unkeyed paid model choices in the composer. Trip AI on/off, suspension, identity and ordinary permissions still apply. The historical request ID `guest-free` is not a valid trip default or keyed model.
 
 The default cap is 10 requests per account per UTC day across trips, plus shared instance request and upstream-attempt caps. Free requests do not consume paid trip quotas. The service has no search, images or background work; it omits private and paid-chat context, discloses retention/training and leaves every create/edit pending owner review. See [the full contract](AI_AND_AGENTS.md#free-ai-for-every-account-job-086-d-098). When disabled or exhausted, free requests fail rather than using a key.
 
@@ -72,8 +72,8 @@ Rules:
 - **Who can grant:** only active owners, never to themselves, and only with at least one key of their own (otherwise `400`). A join link grants only to people who join through it while its creator is an active owner.
 - **Funding:** after the requester's own key and before operator sponsorship. A grant works only while its sponsor is an active owner who holds a key. Turning it off, or the sponsor deleting the key, stops it at the next request.
 - **A grant belongs to the person:** it is deleted, and audited, when the member's Google identity is unbound from the slot, when the sponsor stops being an active owner, and when either is removed. It never passes to whoever claims the slot next, and never revives if the sponsor becomes an owner again.
-- **Model and quota:** shared requests run the trip's model, which any owner of an unsponsored trip can choose in Settings. Without an explicit model, if the sponsor holds no key for that model's provider, the sponsor's first provider's default runs. An explicit different paid model is refused, never silently replaced. Shared requests count against `member_daily_limit`, as sponsored ones do, and against a cap of 200 a day per sponsor and trip. That cap bounds what a leaked sharing link can cost. Choosing Free AI uses neither the grant nor these paid quotas.
-- **Privacy:** a member's prompts, and the trip context they need, go to the AI provider under the sponsor's account, and the AI tab says so.
+- **Model and quota:** legacy shared requests run the trip's model. An owner of an unsponsored trip can choose that setting only from their own saved providers in the current UI. Without an explicit model, if the sponsor holds no key for that model's provider, the sponsor's first provider's default runs. An explicit different paid model is refused, never silently replaced. Shared requests count against `member_daily_limit`, as sponsored ones do, and against a cap of 200 a day per sponsor and trip. That cap bounds what a leaked sharing link can cost. Choosing Free AI uses neither the grant nor these paid quotas.
+- **Privacy:** a legacy shared request sends the member's prompt and necessary trip context to the provider under the sponsor's account. The current composer offers free/own-key requests, not shared-key model choices.
 - **Visibility:**
   - Owners see on each member whose keys they use. A member sees only whose key and which model their AI uses, and never the key.
   - Changes are audited as `ai_keys_shared` and `ai_keys_unshared` without key material.

@@ -20,6 +20,17 @@ function narrowPatch(value: unknown, members: string[], days: string[], events: 
     const schema = Object.fromEntries(Object.entries(value).filter(([key]) => key !== "$schema")
       .map(([key, child]) => [key, visit(child)]));
     const properties = object(schema.properties);
+    // Optional means unspecified, not safe to discard. Keep these instructions
+    // beside the fields: small free models can describe a duration correctly in
+    // their answer yet omit its end timestamp from an otherwise valid patch.
+    const eventFieldGuidance: Record<string, string> = {
+      itemType: "Include the event category on create: meal for breakfast, lunch, dinner or eating; lodging for an accommodation stay; transport for travel; otherwise activity or note. Do not classify dinner as activity.",
+      startsAt: "Include the requested start time as an ISO 8601 timestamp, resolving the user's date and local time using the trip time zone. Put the time in this field, not only in the message.",
+      endsAt: "When the user supplies an end time OR a duration, include the corresponding ISO 8601 end timestamp. For example, a 19:00 start lasting 1hr ends at 20:00 on that local date. Omit or use null only when no end or duration was specified; do not invent a duration. A duration mentioned only in message is not saved.",
+    };
+    for (const [key, description] of Object.entries(eventFieldGuidance)) {
+      if (Object.hasOwn(properties, key)) properties[key] = { ...object(properties[key]), description };
+    }
     for (const key of ["payerMemberId", "memberId", "tripDayId"] as const) {
       if (!Object.hasOwn(properties, key)) continue;
       const available = key === "tripDayId" ? days : members;
@@ -90,6 +101,7 @@ export function freePlannerOutputSchema(baseSchema: unknown, context: unknown): 
   });
   if (days.length) {
     const createPatch = structuredClone(eventPatch);
+    createPatch.description = "Create the complete requested event. Include all supplied details even when the schema makes a field optional. Preserve start time and end time/duration in startsAt/endsAt, select the correct itemType, and include linkedExpense when requested. Do not claim a detail in message without saving it in the patch.";
     createPatch.required = ["tripDayId", "title", "visibility", "viewerMemberIds"];
     variants.push(variant("itinerary_item", ["create"], null, createPatch));
   }

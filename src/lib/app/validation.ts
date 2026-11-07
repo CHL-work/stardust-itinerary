@@ -107,9 +107,12 @@ export const aiRequestSchema = z.object({
   })).max(3).optional(),
   prompt: z.string().trim().min(1).max(8000),
   model: z.enum(ownerModels).optional(),
+  freeModel: z.string().max(160).regex(/^[a-z0-9][a-z0-9._-]{0,60}\/[a-z0-9][a-z0-9._:-]{0,100}$/u).optional(),
   locale: z.enum(locales).optional(),
   clientRequestId: z.uuid().optional(),
   conversationId: z.uuid().nullable().optional(),
+}).refine((value) => !value.freeModel || value.model === "guest-free", {
+  path: ["freeModel"], message: "An individual free model requires the Free AI choice.",
 });
 
 export const aiRecoveryQuerySchema = z.object({ clientRequestId: z.uuid().optional() });

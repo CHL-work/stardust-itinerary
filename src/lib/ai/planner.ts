@@ -927,7 +927,7 @@ async function runFreeTurn(
   aiInstructions: string,
   _liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null; beforeFreeAttempt?: () => Promise<void> },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null; beforeFreeAttempt?: () => Promise<void>; freeModel?: string },
 ): Promise<ProviderTurn> {
   if (ownerModelRegistry[model].provider !== "kilo") throw new Error(`Model ${model} is not configured for the free gateway.`);
   const freeContext = safeFreePlanningContext(context, [prompt, ...recentConversation.map((turn) => turn.user), ...(control.draft?.userRequests.map((request) => request.content) ?? [])].join("\n"));
@@ -950,7 +950,7 @@ async function runFreeTurn(
   // One more try when the answer still cannot be used; free models vary from run to run.
   for (let attempt = 0; attempt < 2 && !output; attempt += 1) {
     result = await generateWithFreeModel({ prompt: turnPrompt, responseJsonSchema: responseSchema,
-      signal: control.abortController.signal, beforeAttempt: control.beforeFreeAttempt });
+      signal: control.abortController.signal, beforeAttempt: control.beforeFreeAttempt, selectedModel: control.freeModel });
     try { output = parseOutput(freeOutputAsPlannerJson(result.text)); } catch { /* try once more */ }
   }
   if (!output || !result) throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "kilo" });
@@ -1129,6 +1129,7 @@ export function runAiPlanner(
   locale: Locale | undefined, clientRequestId: string | undefined,
   conversationId?: string | null,
   images?: readonly PreparedAiImage[],
+  freeModel?: string,
 ): Promise<AiPlannerResult | AiRequestRecoveryResponse>;
 export async function runAiPlanner(
   pool: Pool,
@@ -1139,10 +1140,11 @@ export async function runAiPlanner(
   clientRequestId?: string,
   conversationId?: string | null,
   images: readonly PreparedAiImage[] = [],
+  freeModel?: string,
 ): Promise<AiPlannerResult | AiRequestRecoveryResponse> {
   const requestId = randomUUID();
   const originalPrompt = prompt;
-  const payloadHash = clientRequestId ? aiRequestPayloadHash(prompt, requestedModel, locale, conversationId, images.map((image) => image.sha256)) : null;
+  const payloadHash = clientRequestId ? aiRequestPayloadHash(prompt, requestedModel, locale, conversationId, images.map((image) => image.sha256), freeModel) : null;
   const started = Date.now();
   const workBudget = aiRequestWorkBudgetMs(images.length > 0);
   const offTopicDecision = classifyOffTopicPrompt(prompt);
@@ -1164,6 +1166,9 @@ export async function runAiPlanner(
       serializeMemberQuota: true,
     });
     selectedPolicyModel = currentPolicy.model;
+    if (freeModel && (currentPolicy.credentialSource !== "free" || requestedModel !== "guest-free")) {
+      throw new AppInvalidInputError("An individual free model requires the Free AI choice.");
+    }
     selectedPolicy = currentPolicy;
     if (currentPolicy.credentialSource === "free" && images.length > 0) {
       throw new AppInvalidInputError("Free AI accepts text only. Remove the pictures or choose a model on your own key.");
@@ -1198,7 +1203,7 @@ export async function runAiPlanner(
       const recordSponsor = currentPolicy.credentialSource === "shared";
       const response: AiPlannerResult = {
         requestId, message, proposalIds: [], proposalCount: 0, proposalId: null, changeStatus: null, entityId: null,
-        model: currentPolicy.model, usedToday: currentPolicy.usedToday + 1,
+        model: freeModel ?? currentPolicy.model, usedToday: currentPolicy.usedToday + 1,
         remainingToday: currentPolicy.limit === null ? null : Math.max(0, currentPolicy.limit - currentPolicy.usedToday - 1),
         webSearch: { performed: false, queryCount: 0, sources: [] },
         memory: { previousTurnsUsed: 0, tokenEstimate: 0, tokenBudget: RECENT_CONVERSATION_TOKEN_BUDGET,
@@ -1240,7 +1245,7 @@ export async function runAiPlanner(
         [
           session.tripId,
           requestId,
-          JSON.stringify({ model: currentPolicy.model, locale, feature: "off_topic" }),
+          JSON.stringify({ model: currentPolicy.model, ...(freeModel ? { freeModel } : {}), locale, feature: "off_topic" }),
           JSON.stringify({
             classifier: "deterministic_high_precision_v1",
             category: offTopicDecision.category,
@@ -1296,7 +1301,7 @@ export async function runAiPlanner(
     await client.query(
       `INSERT INTO ai_request_events (trip_id, ai_request_id, sequence, event_type, payload)
        VALUES ($1,$2,1,'request.started',$3::jsonb)`,
-      [session.tripId, requestId, JSON.stringify({ model: currentPolicy.model, locale })],
+      [session.tripId, requestId, JSON.stringify({ model: currentPolicy.model, ...(freeModel ? { freeModel } : {}), locale })],
     );
     await client.query(
       `INSERT INTO ai_request_events (trip_id, ai_request_id, sequence, event_type, payload)
@@ -1617,7 +1622,7 @@ export async function runAiPlanner(
           Math.max(1, started + workBudget - Date.now()));
         timeout.unref();
       });
-      const control = { abortController, repair, draft: resumedDraft, ownKey,
+      const control = { abortController, repair, draft: resumedDraft, ownKey, freeModel,
         beforeFreeAttempt: freeLane ? async () => {
           await reserveFreeAiAttempt(pool, session, requestId, nextEventSequence++);
         } : undefined,
@@ -2503,7 +2508,7 @@ export async function runAiPlanner(
       // "approved" only when every change applied; one still pending makes the whole reply pending.
       changeStatus: outcomes.length === 0 ? null : outcomes.every((outcome) => outcome.changeStatus === "approved") ? "approved" : "pending",
       entityId: outcomes[0]?.entityId ?? null,
-      model: policy.model,
+      model: freeModel ?? policy.model,
       usedToday: policy.usedToday + 1,
       remainingToday: policy.limit === null ? null : Math.max(0, policy.limit - policy.usedToday - 1),
       webSearch: { performed: turn.webSearchQueries.length > 0, queryCount: turn.webSearchQueries.length, sources: turn.sourceUrls },

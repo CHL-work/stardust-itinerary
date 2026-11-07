@@ -14,7 +14,7 @@ import { localizedCatalog, type BaseCatalogs } from "@/lib/locale-packs";
 /**
  * Guest accounts (JOB-064, D-077): a try-it-now account with one synthetic demo trip, permanently
  * deleted 24 hours after creation. A guest has a synthetic identity under its own issuer, so no
- * Google sign-in can ever reach it, and it can use AI only with its own API key.
+ * Google sign-in can ever reach it. AI uses its own API key or the enabled keyless free lane.
  */
 export { GUEST_ISSUER, isGuestSession } from "@/lib/auth/guest-identity";
 export const GUEST_LIFETIME_HOURS = 24;

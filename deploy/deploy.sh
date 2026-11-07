@@ -56,6 +56,17 @@ kubectl apply -f "$work/all.yaml"
 kubectl -n "$namespace" rollout status deployment/stardust-web --timeout=15m
 kubectl -n "$namespace" rollout status deployment/stardust-tunnel --timeout=10m
 
+free_ai_enabled="$(kubectl -n "$namespace" get deployment stardust-web -o 'jsonpath={.spec.template.spec.containers[?(@.name=="web")].env[?(@.name=="FREE_AI_ENABLED")].value}')"
+if [[ $free_ai_enabled == true ]]; then
+  echo "== free AI configuration"
+  free_ai_args=()
+  # Only the public-instance overlay promises guest access. Custom
+  # overlays may enable free AI while intentionally leaving guest mode off.
+  if [[ ${relative_overlay%/} == overlays/gke ]]; then free_ai_args=(--require-guest); fi
+  kubectl -n "$namespace" exec deployment/stardust-web -c web -- \
+    /app/deploy/container/entrypoint.sh verify-free-ai-config "${free_ai_args[@]}"
+fi
+
 echo "== health"
 for attempt in $(seq 1 30); do
   if curl -fsS --max-time 10 "$public_url/api/health" >/dev/null; then

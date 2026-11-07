@@ -58,7 +58,7 @@ Pending events occupy ordinary timeline positions under their authorized audienc
 
 The AI tab browses a user's trip-specific history and resumes ordinary conversations. Picture extraction, bounded memory, manual account instructions, public research and structured clarification drafts feed typed proposals. Current dates derive from the trip's IANA zone, not trip start. Phone suspension does not require resending: persisted request status/results recover without provider replay. One request per bound user may run; different users run concurrently. [AI flow](AI_AND_AGENTS.md).
 
-Where enabled, every active member and guest may choose Free AI without a key; it is the default only without paid funding. Free requests are text-only, omit private/stored-personal and paid-chat context, disclose retention, and keep every change pending review. They never charge a key on failure. Paid models retain their own capabilities and funding rules (JOB-086, D-098).
+Where enabled, every active member and guest may select each eligible free catalog model without a key. The composer defaults to free without an own saved key and exposes paid models only for that user's saved providers. Free requests are text-only, omit private/stored-personal and paid-chat context, disclose retention, and keep every change pending review. Named free choices never substitute another model or charge a key. Legacy automatic paid funding remains compatible (JOB-086, D-098).
 
 ### 5.5 Record expenses and repayments
 

@@ -25,6 +25,7 @@ generatorOptions:
   disableNameSuffixHash: false
 patches:
   - path: patches/web-secrets.yaml
+  - path: patches/web-free-ai.yaml
   - path: patches/workers-secrets.yaml
   - path: patches/db-secrets.yaml
   - path: patches/tunnel-secrets.yaml

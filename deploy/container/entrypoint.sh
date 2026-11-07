@@ -52,6 +52,10 @@ case "$mode" in
   provider-smoke)
     # shellcheck disable=SC2086
     exec node $env_flags --import tsx scripts/provider-smoke.ts "$@" ;;
+  verify-free-ai-config)
+    # No provider/DB calls; verifies effective settings after mounted dotenv loading.
+    # shellcheck disable=SC2086
+    exec node $env_flags --import tsx scripts/verify-free-ai-config.ts "$@" ;;
   guest-purge)
     # shellcheck disable=SC2086
     exec node $env_flags --import tsx scripts/run-guest-purge.ts "$@" ;;
@@ -76,6 +80,6 @@ case "$mode" in
       sleep 300
     done ;;
   *)
-    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|credential-reencrypt|migrate|backup|offsite-copy|scheduler|provider-smoke" >&2
+    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|credential-reencrypt|migrate|backup|offsite-copy|scheduler|provider-smoke|verify-free-ai-config" >&2
     exit 64 ;;
 esac

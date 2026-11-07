@@ -12,6 +12,7 @@ const restrictedModel = /^(?:nvidia\/|stealth\/|kilo-auto\/|openrouter\/free$)/u
 const CATALOG_TTL_MS = 5 * 60_000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 export type FreeAiSettings = {
+  /** Ordered automatic fallback preferences, not a restriction on explicit free selections. */
   enabled: boolean; models: string[]; endpoint: string; perUserDaily: number; hourly: number; daily: number;
 };
 export type GuestFreeAiSettings = FreeAiSettings & { perGuestDaily: number };
@@ -64,7 +65,7 @@ type CatalogModel = { id: string; maxOutputTokens: number };
 export function eligibleFreeCatalogModels(value: unknown, now = Date.now()): CatalogModel[] {
   if (!object(value) || !Array.isArray(value.data)) return [];
   return value.data.slice(0, 2000).flatMap((row) => {
-    if (!object(row) || typeof row.id !== "string" || !MODEL_ID.test(row.id) || restrictedModel.test(row.id)
+    if (!object(row) || typeof row.id !== "string" || row.id.length > 160 || !MODEL_ID.test(row.id) || restrictedModel.test(row.id)
       || row.isFree !== true || !object(row.pricing) || !zero(row.pricing.prompt) || !zero(row.pricing.completion)
       || Object.values(row.pricing).some((price) => !zero(price))
       || !Array.isArray(row.supported_parameters) || !row.supported_parameters.includes("response_format")
@@ -121,6 +122,29 @@ async function catalog(fetchImpl: typeof fetch, signal?: AbortSignal): Promise<C
   return catalogPending;
 }
 
+/** Public catalog only: no inference, credentials, user data or quota consumption. */
+export async function listAvailableFreeModels(input: {
+  settings?: FreeAiSettings; fetchImpl?: typeof fetch; signal?: AbortSignal;
+} = {}): Promise<{ models: Array<{ id: string; label: string }>; defaultModel: string | null }> {
+  const settings = input.settings ?? freeAiSettings();
+  if (!settings.enabled || settings.endpoint !== FREE_AI_ENDPOINT) {
+    throw new AiProviderFailureError({ code: "AI_PROVIDER_UNAVAILABLE", provider: "kilo" });
+  }
+  try {
+    const available = await catalog(input.fetchImpl ?? fetch, input.signal);
+    const byId = new Map(available.map((model) => [model.id, model]));
+    // Keep preferred defaults first, then expose every other supported zero-price model.
+    const order = [...new Set([...settings.models.filter((id) => byId.has(id)), ...byId.keys()])];
+    return {
+      models: order.map((id) => ({ id, label: freeModelLabel(id) })),
+      defaultModel: order[0] ?? null,
+    };
+  } catch (error) {
+    if (input.signal?.aborted || error instanceof AiProviderFailureError) throw error;
+    throw new AiProviderFailureError({ code: "AI_PROVIDER_UNAVAILABLE", provider: "kilo" });
+  }
+}
+
 function failureCode(status: number): AiProviderFailureCode {
   if (status === 429) return "AI_PROVIDER_RATE_LIMITED";
   if (status === 401 || status === 402 || status === 403) return "AI_PROVIDER_AUTH_REQUIRED";
@@ -133,6 +157,8 @@ function count(value: unknown): number | null {
 
 export async function generateWithFreeModel(input: {
   prompt: string; responseJsonSchema: unknown; maxOutputTokens?: number; signal?: AbortSignal;
+  /** Exact user choice. It must remain eligible, and never falls back to another model. */
+  selectedModel?: string;
   settings?: FreeAiSettings; fetchImpl?: typeof fetch;
   /** The planner reserves every HTTP attempt against the durable instance cap before network I/O. */
   beforeAttempt?: () => Promise<void>;
@@ -144,7 +170,9 @@ export async function generateWithFreeModel(input: {
   let candidates: CatalogModel[];
   try {
     const available = await catalog(fetchImpl, input.signal);
-    candidates = settings.models.slice(0, 3).flatMap((id) => available.filter((model) => model.id === id).slice(0, 1));
+    candidates = input.selectedModel !== undefined
+      ? available.filter((model) => model.id === input.selectedModel).slice(0, 1)
+      : settings.models.slice(0, 3).flatMap((id) => available.filter((model) => model.id === id).slice(0, 1));
   } catch (error) {
     if (input.signal?.aborted || error instanceof AiProviderFailureError) throw error;
     throw new AiProviderFailureError({ code: "AI_PROVIDER_UNAVAILABLE", provider: "kilo" });

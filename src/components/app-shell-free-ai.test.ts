@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { AiCard, aiRequestModelChoice, scopedAiModelChoice } from "@/components/app-shell";
+import { AiCard, aiRequestModelChoice, parseFreeModelCatalog, scopedAiModelChoice, type FreeModelCatalog } from "@/components/app-shell";
 import { aiKeysMessages } from "@/lib/ai/keys-i18n";
 import { aiImageMessages } from "@/lib/ai/image-i18n";
 import { GUEST_FREE_MODEL } from "@/lib/app/types";
@@ -10,6 +10,9 @@ import { locales, messages, type Locale } from "@/lib/i18n";
 
 type Props = ComponentProps<typeof AiCard>;
 const freeAi = { model: "dots.3 note", limit: 10, remainingToday: 8, isDefault: false };
+const dots = "dots-studio/dots-3-note-preview:free";
+const liquid = "liquid/lfm-3-1.7b:free";
+const catalog: FreeModelCatalog = { status: "ready", models: [{ id: dots, label: "dots.3 note" }, { id: liquid, label: "Liquid LFM3" }], defaultModel: dots };
 const ai: Props["overview"]["ai"] = { enabled: true, canSelectModel: false, ownerDefaultModel: "gpt-6.1-sol",
   effectiveModel: "gpt-6.1-sol", memberDailyLimit: 20, usedToday: 2, remainingToday: 18,
   hostSubscriptionEnabled: true, freeAi };
@@ -19,7 +22,7 @@ function render(overrides: Partial<Props["overview"]["ai"]> = {}, props: Partial
     overview: { session: { isOwner: false }, ai: { ...ai, ...overrides } } as Props["overview"],
     locale, messages: messages[locale], prompt: "Add ramen tomorrow", setPrompt: vi.fn(), reply: null,
     sources: [], memory: null, busy: false, thinking: false, selectedModel: "gpt-6.1-sol",
-    setModel: vi.fn(), setOwnKeyChoice: vi.fn(), submit: vi.fn(), ...props,
+    setModel: vi.fn(), setOwnKeyChoice: vi.fn(), submit: vi.fn(), freeCatalog: catalog, refreshFreeCatalog: vi.fn(), ...props,
   }));
 }
 
@@ -33,23 +36,26 @@ describe("free model choice for every member (JOB-086)", () => {
   ])("offers $label one picker, with a free choice", ({ settings }) => {
     const html = render(settings);
     expect(html.match(/<select /gu)).toHaveLength(1);
-    expect(html).toContain(`value="${GUEST_FREE_MODEL}"`);
-    expect(html).toContain(aiKeysMessages("en").freeOption);
+    expect(html).toContain(`value="free:${dots}"`);
+    expect(html).toContain(`value="free:${liquid}"`);
     expect(html).not.toContain('data-feedback-action="settings_save"');
   });
 
-  it("keeps sponsored and own-key defaults paid until free is chosen explicitly", () => {
-    expect(aiRequestModelChoice(ai, "gpt-6.1-sol")).toEqual({ model: undefined, free: false, unavailable: false });
-    expect(aiRequestModelChoice({ ...ai, canSelectModel: true }, "gpt-6-astra").model).toBe("gpt-6-astra");
+  it("never defaults to shared or operator paid models without the user's own key", () => {
+    expect(aiRequestModelChoice(ai, "gpt-6.1-sol", "", catalog)).toEqual({ model: GUEST_FREE_MODEL, freeModel: dots, free: true, unavailable: false });
+    expect(aiRequestModelChoice({ ...ai, canSelectModel: true }, "gpt-6-astra", "", catalog).model).toBe(GUEST_FREE_MODEL);
     expect(aiRequestModelChoice({ ...ai, ownKeyProviders: ["anthropic"] }, "gpt-6.1-sol", "claude-sonnet-5-5").model).toBe("claude-sonnet-5-5");
-    expect(render()).not.toContain(aiKeysMessages("en").freePrivacy);
+    expect(render()).toContain(aiKeysMessages("en").freePrivacy);
+    expect(render()).not.toContain('value="gpt-6.1-sol"');
+    expect(render()).not.toContain('value="claude-sonnet-5-5"');
+    expect(aiRequestModelChoice(ai, "gpt-6.1-sol", "gpt-6-astra", catalog).unavailable).toBe(true);
   });
 
   it("sends an explicit free model for the keyless default", () => {
     const settings = { ...ai, freeAi: { ...freeAi, isDefault: true } };
-    expect(aiRequestModelChoice(settings, "gpt-6.1-sol")).toEqual({ model: GUEST_FREE_MODEL, free: true, unavailable: false });
+    expect(aiRequestModelChoice(settings, "gpt-6.1-sol", "", catalog)).toEqual({ model: GUEST_FREE_MODEL, freeModel: dots, free: true, unavailable: false });
     const html = render(settings);
-    expect(html).toContain(`<option value="${GUEST_FREE_MODEL}" selected="">`);
+    expect(html).toContain(`<option value="free:${dots}" selected="">`);
     expect(html).not.toContain(escape(aiKeysMessages("en").keyRequired));
     expect(html).not.toContain('disabled=""');
   });
@@ -67,16 +73,16 @@ describe("free model choice for every member (JOB-086)", () => {
   it("does not change a selected free model into a paid request when free access disappears", () => {
     const settings = { ...ai, freeAi: null, canSelectModel: true, ownKeyProviders: ["openai"] };
     expect(aiRequestModelChoice(settings, "gpt-6-astra", GUEST_FREE_MODEL))
-      .toEqual({ model: GUEST_FREE_MODEL, free: true, unavailable: true });
+      .toEqual({ model: GUEST_FREE_MODEL, freeModel: undefined, free: true, unavailable: true });
     const html = render(settings, { ownKeyChoice: GUEST_FREE_MODEL });
-    expect(html).toContain(`<option value="${GUEST_FREE_MODEL}" selected="">`);
+    expect(html).toContain(`<option value="free:${dots}" disabled="" selected="">`);
     expect(html).toContain(escape(aiKeysMessages("en").freeUnavailable));
     expect(html).toContain(`<button disabled="" aria-label="${messages.en.sendAiPrompt}"`);
   });
 
   it("blocks sending an exhausted free allowance without selecting a paid fallback", () => {
     const html = render({ freeAi: { ...freeAi, remainingToday: 0 } }, { ownKeyChoice: GUEST_FREE_MODEL });
-    expect(html).toContain(`<option value="${GUEST_FREE_MODEL}" selected="">`);
+    expect(html).toContain(`<option value="free:${dots}" selected="">`);
     expect(html).toContain(`<button disabled="" aria-label="${messages.en.sendAiPrompt}"`);
   });
 
@@ -99,16 +105,46 @@ describe("free model choice for every member (JOB-086)", () => {
     expect(scopedAiModelChoice({ scope: "trip-a:member-a", model: GUEST_FREE_MODEL }, "trip-a:member-a")).toBe(GUEST_FREE_MODEL);
   });
 
+  it("sends the exact chosen free ID and never silently replaces a removed model", () => {
+    expect(aiRequestModelChoice(ai, "gpt-6.1-sol", `free:${liquid}`, catalog)).toEqual({ model: GUEST_FREE_MODEL, freeModel: liquid, free: true, unavailable: false });
+    const changed = { ...catalog, models: [catalog.models[0]] };
+    expect(aiRequestModelChoice(ai, "gpt-6.1-sol", `free:${liquid}`, changed)).toEqual({ model: GUEST_FREE_MODEL, freeModel: liquid, free: true, unavailable: true });
+    expect(aiRequestModelChoice(ai, "gpt-6.1-sol", `free:${liquid}`, { ...catalog, status: "error" }).unavailable).toBe(true);
+  });
+
+  it.each(locales)("shows localized catalog loading, failure, empty and refresh states in %s", (locale) => {
+    const copy = aiKeysMessages(locale);
+    for (const [status, message] of [["loading", copy.freeModelsLoading], ["error", copy.freeModelsFailed], ["ready", copy.freeModelsEmpty]] as const) {
+      const html = render({}, { freeCatalog: { status, models: [], defaultModel: null } }, locale);
+      expect(html).toContain(escape(message));
+      if (status !== "loading") expect(html).toContain(escape(copy.freeModelsRefresh));
+      expect(html).toContain(`<button disabled="" aria-label="${messages[locale].sendAiPrompt}"`);
+    }
+  });
+
+  it("validates the catalog response before putting identifiers into request bodies", () => {
+    expect(parseFreeModelCatalog(catalog)).toEqual(catalog);
+    expect(parseFreeModelCatalog({ models: [], defaultModel: dots })).toEqual({ status: "ready", models: [], defaultModel: null });
+    expect(() => parseFreeModelCatalog({ models: [{ id: "https://evil.example", label: "invalid" }] })).toThrow();
+    expect(() => parseFreeModelCatalog({ models: [catalog.models[0], catalog.models[0]] })).toThrow();
+  });
+
   it("guards programmatic sends as well as disabled controls", () => {
     const source = readFileSync("src/components/app-shell.tsx", "utf8");
     const submit = source.slice(source.indexOf("const askAi ="), source.indexOf("const switchAiConversation ="));
     expect(submit).toContain("choice.unavailable || (choice.free && aiImages.images.length > 0)");
     expect(submit).toContain("...(choice.model ? { model: choice.model } : {})");
+    expect(submit).toContain("...(choice.freeModel ? { freeModel: choice.freeModel } : {})");
     const settings = source.slice(source.indexOf("const updateModel ="), source.indexOf("const saveTripSettings ="));
     expect(settings).not.toContain("GUEST_FREE_MODEL");
     const card = source.slice(source.indexOf("export function AiCard("), source.indexOf("function sourceHost("));
     expect(card).toContain("setOwnKeyChoice?.(event.target.value)");
     expect(card).not.toContain("setModel(event.target.value)");
     expect(card).not.toContain("/ai/settings");
+    const catalogHook = source.slice(source.indexOf("function useFreeModelCatalog("), source.indexOf("export function aiRequestModelChoice("));
+    expect(catalogHook).toContain("AbortController");
+    expect(catalogHook).toContain("FREE_CATALOG_CLIENT_TTL_MS");
+    expect(catalogHook).toContain("cached?.scope === scope");
+    expect(catalogHook).toContain("cancelled || abort.signal.aborted");
   });
 });

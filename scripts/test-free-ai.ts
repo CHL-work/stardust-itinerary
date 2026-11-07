@@ -57,8 +57,12 @@ async function main() {
     assert.ok(grant);
     const session = await verifySession(pool, config, grant.rawToken);
     assert.ok(session);
+    const selectedFreeModel = process.env.STARDUST_FREE_AI_MODEL;
     const result = await runAiPlanner(pool, session,
-      "tmrw 7pm dinner at Example Cafe, Tokyo. 1hr. i paid 4200 yen split me n Sam. add dinner + linked bill, dont search", "guest-free", "en");
+      "tmrw 7pm dinner at Example Cafe, Tokyo. 1hr. i paid 4200 yen split me n Sam. add dinner + linked bill, dont search", "guest-free", "en",
+      undefined, undefined, [], selectedFreeModel);
+    assert.ok("proposalCount" in result);
+    if (selectedFreeModel) assert.equal(result.model, selectedFreeModel);
     const proposals = (await pool.query("SELECT entity_type,status,proposed_patch FROM change_requests WHERE trip_id=$1 AND source='ai'", [tripId])).rows;
     assert.ok(proposals.length > 0, "The synthetic registered request must create a proposal.");
     assert.ok(proposals.every((proposal) => proposal.status === "pending"), "Free creates must wait for review.");
@@ -80,7 +84,10 @@ async function main() {
     const guest = await createGuestSession(pool, config, { userAgent: "Synthetic free guest", locale: "en", address: "203.0.113.123" });
     const guestSession = await verifySession(pool, config, guest.grant.rawToken);
     assert.ok(guestSession);
-    const guestResult = await runAiPlanner(pool, guestSession, "add dinner tmrw at 7pm at Example Cafe in tokyo, dont search", "guest-free", "en");
+    const guestResult = await runAiPlanner(pool, guestSession, "add dinner tmrw at 7pm at Example Cafe in tokyo, dont search", "guest-free", "en",
+      undefined, undefined, [], selectedFreeModel);
+    assert.ok("proposalCount" in guestResult);
+    if (selectedFreeModel) assert.equal(guestResult.model, selectedFreeModel);
     assert.ok(guestResult.proposalCount > 0);
     assert.equal(guestResult.changeStatus, "pending");
     const receipts = (await pool.query("SELECT provider,credential_source FROM ai_requests WHERE status='succeeded'")).rows;

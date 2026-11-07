@@ -63,6 +63,14 @@ describe("self-only AI recovery", () => {
       .not.toBe(aiRequestPayloadHash("Plan dinner", undefined, "en", id(8)));
   });
 
+  it("binds an explicit free model to delivery identity without changing legacy hashes", () => {
+    const legacy = aiRequestPayloadHash("Plan dinner", "guest-free", "en", null);
+    expect(aiRequestPayloadHash("Plan dinner", "guest-free", "en", null, [], undefined)).toBe(legacy);
+    const first = aiRequestPayloadHash("Plan dinner", "guest-free", "en", null, [], "dots-studio/dots-3-note-preview:free");
+    expect(first).not.toBe(legacy);
+    expect(aiRequestPayloadHash("Plan dinner", "guest-free", "en", null, [], "liquid/lfm-3-1.7b:free")).not.toBe(first);
+  });
+
   it("projects a strict final receipt scoped to the exact user/member/trip and active conversation", async () => {
     const { pool, query } = db();
     const result = await readAiRequestRecovery(pool, session, session.tripId, clientRequestId);

@@ -1,0 +1,26 @@
+# Public-instance policy only. Process environment takes precedence over mounted
+# Node --env-file values, including obsolete guest-only model/endpoint settings.
+# Self-hosted base/Compose deployments still opt in through their own environment.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stardust-web
+  namespace: stardust
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          env:
+            - name: FREE_AI_ENABLED
+              value: "true"
+            - name: FREE_AI_MODELS
+              value: "dots-studio/dots-3-note-preview:free,liquid/lfm-3-1.7b:free"
+            - name: FREE_AI_ENDPOINT
+              value: "https://ai-gateway.kilo.ai/api/v1/chat/completions"
+            - name: FREE_AI_PER_USER_DAILY
+              value: "10"
+            - name: FREE_AI_HOURLY
+              value: "60"
+            - name: FREE_AI_DAILY
+              value: "500"

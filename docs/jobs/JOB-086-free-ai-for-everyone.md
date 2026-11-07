@@ -11,12 +11,12 @@ started: 2026-11-07
 
 ## Outcome and authority
 
-The user requested review of the current public GKE project and `Ebony-Vinyl/dsh-our-free-model`, then implementation of free-model AI for every user, including guests. This authorizes a local implementation and synthetic verification, not a main push, deployment, cloud changes or paid calls.
+The user requested review of the current public GKE project and `Ebony-Vinyl/dsh-our-free-model`, then implementation of free-model AI for every user, including guests. The follow-up explicitly authorized GitHub push and GKE deployment, with each supported free model selectable and paid models hidden until the user saves the matching API key. No unrelated infrastructure, paid provider calls or real-trip test writes are authorized.
 
 ## Scope
 
 - Extend the existing documented keyless Kilo route, not account farming, client impersonation, captured credentials or private relay routes.
-- Offer an explicit free choice to every active member, including owners and guests; use it by default when no paid funding is available. Preserve paid choices and never silently charge a key after a free failure.
+- Offer every eligible free model to active members, owners and guests; default to free without an own saved key. Show paid choices only for the user's saved providers. Never silently substitute a named free choice or charge a key after a free failure.
 - Keep trip AI on/off, current visibility, review, exact finance validation, suspension and guest isolation. Free requests stay text-only without search, images or background work.
 - Verify upstream models are actually free and usable; bounded fallback stays within the same free service. Respect rate limits and disclose provider retention.
 - Preserve per-account and instance-wide limits, keyless credential isolation and audit/reconnect behavior.
@@ -28,7 +28,7 @@ Test keyed and keyless owners/editors/viewers/guests, explicit free choice, disa
 
 ## Handoff
 
-Implemented locally on the named branch; no push, deployment, secret change or production access. Main pushes auto-deploy and still require explicit authority. GKE remains the production host; do not restart the archived PC/VM origin.
+Implementation is complete; the authorized release is being verified before the main push. Main pushes run CI then deploy to GKE. Do not restart the archived PC/VM origin. Release outcome is recorded below after rollout.
 
 ### Verification (2026-11-07)
 
@@ -40,17 +40,23 @@ Implemented locally on the named branch; no push, deployment, secret change or p
 - Earlier smoke failures exposed and fixed a mistaken draft-continuation flag discarding new creates, insufficient reference/audience output constraints, and rejection of the explicit absent checkpoint. Tests preserve consumed-draft replay protection and normal final validation. No real user data was sent. Liquid fallback is mock-tested, not live-qualified.
 - Independent funding/privacy/UI review completed; relative documentation links/anchors and diff whitespace checked.
 
+### Release refinement verification (2026-11-07)
+
+- Individual free-model selection, own-key-only paid controls and all 12 locales are covered by UI/API/recovery tests. Full unit rerun: 247 files / 5,853 tests passed; the final field-guidance regression passed separately (11 schema tests).
+- Exact-selection live smoke passed for a synthetic registered event plus linked JPY 4,200 expense and a guest event, with two keyless upstream attempts. A prior run omitted the duration/category from its valid proposal; field-adjacent instructions now preserve supplied details without requiring invented end times.
+- Database migration/integration gate, TypeScript, ESLint (no errors), production build and isolated standalone smoke, shell syntax and documentation links passed. The final affected-file rerun passed 152 tests, including 15 effective rollout configuration tests. Final public rollout evidence follows the authorized main push.
+
 ### Behavior and limits
 
-- `FREE_AI_ENABLED=true` enables the choice for active members and guests. It is default only without paid funding; a selected free request never switches to a paid key. Canonical settings override legacy guest-only aliases, whose enabled flag now covers all accounts.
+- `FREE_AI_ENABLED=true` enables the choice for active members and guests. The composer defaults to free without an own saved key and shows paid models only for that user's saved providers. The member-scoped catalog lists every eligible free model; `freeModel` is validated, hashed for delivery recovery and sent exactly. Canonical settings override legacy aliases, whose enabled flag now covers all accounts.
 - Text-only planning; no images, search, venue-hours research, saved instructions, paid conversation history, existing expenses or private itinerary context. Only free-lane memory is reused. The prompt itself may contain sensitive information: the visible retention notice is important, and users should not submit confidential data.
 - Default limits: 10 requests/account/UTC day, 60 instance requests/upstream attempts per rolling hour, 500/day. Retries consume attempt capacity. Provider availability, capacity and catalog prices can change; fail closed without paid fallback.
 - Parser-derived generation schemas narrow IDs and require create fields. Application code still validates permissions, exact money, current audience and revisions; all free proposals require review.
 
 ### Release / rollback
 
-No schema migration or dependency change. Before an authorized deployment, review existing free-model overrides and set canonical configuration explicitly; obsolete NVIDIA/opaque trial routes are excluded. Verify the current zero-price catalog and use synthetic staging requests. Disable `FREE_AI_ENABLED` to hide/block this lane without changing stored chats or paid keys; reverting this release restores the old guest-only implementation. Never start a second production writer.
+No schema migration or dependency change. The web-only GKE patch sets canonical free configuration independently of legacy mounted values; a post-rollout check verifies effective free/guest admission settings without printing secrets. To disable, set `FREE_AI_ENABLED=false` in that patch and deploy (mounted dotenv cannot override process environment). Stored chats and paid keys remain untouched; reverting this release restores the old guest-only implementation. Never start a second production writer.
 
 ### Documentation impact
 
-Updated entry points/history, AI contracts (funding, context/history/instructions, images, pending edits, provider failures, research/hours), architecture/source map, case study, database, design/D-098, privacy/security/threat model, members, hosting/deployment/configuration, sources and job indexes. Reviewed unchanged: CLAUDE, documentation index/policy/job skill, CI/image/Compose/Kubernetes/infrastructure, destination lookup, Activity/feedback, booking-price/recovery, Calendar/map/weather/disruptions/flights, expenses/payments/cards/layout/localization contracts and retired preference history. No deferred documentation. Screenshots remain representative; changes are confined to small composer controls.
+Updated entry points/history, AI contracts (funding, context/history/instructions, images, pending edits, provider failures, research/hours), architecture/source map, case study, database, design/D-098, privacy/security/threat model, members, deployment/configuration and GKE web overlay/entrypoint/verifier, sources and job indexes. Reviewed unchanged: CLAUDE, documentation index/policy/job skill, CI workflow/image/Compose/infrastructure, destination lookup, Activity/feedback, booking-price/recovery contract, Calendar/map/weather/disruptions/flights, expenses/payments/cards/layout/localization contracts and retired preference history. No deferred documentation. Screenshots remain representative; changes are confined to small composer controls.

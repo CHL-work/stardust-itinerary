@@ -123,10 +123,11 @@ describe("collapsed advanced Settings", () => {
     expect(html).not.toContain(escape(formatMessage(messages[locale].aiMemberRemaining, { remaining: 17 })));
   });
 
-  it("keeps the sponsored member quota when the member also holds their own key", () => {
+  it("explains personal-key use without suggesting a hidden sponsored model or quota", () => {
     const { html } = renderAdvanced("en", { owner: false, canSelectModel: false, ai: { ownKeyProviders: ["openai"] } });
-    expect(html).toContain("quota-meter");
-    expect(html).not.toContain(escape(aiKeysMessages("en").ownKeyAccess));
+    expect(html).not.toContain("quota-meter");
+    expect(html).toContain(escape(aiKeysMessages("en").ownKeyAccess));
+    expect(html).not.toContain(escape(formatMessage(messages.en.aiMemberRemaining, { remaining: 17 })));
   });
 
   it("retains exact member permission callbacks and dependency rules", () => {

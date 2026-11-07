@@ -1,7 +1,7 @@
 import type { AiPlannerResult, AiRequestRecoveryResponse } from "@/lib/ai/request-recovery-types";
 
 type RecoveredRequest = NonNullable<AiRequestRecoveryResponse["request"]>;
-export type AiSubmission = { prompt: string; locale: string; model?: string; conversationId?: string | null; images?: import("@/lib/ai/image-types").AiImageInput[] };
+export type AiSubmission = { prompt: string; locale: string; model?: string; freeModel?: string; conversationId?: string | null; images?: import("@/lib/ai/image-types").AiImageInput[] };
 export type AiRecoveryState = {
   phase: "checking" | "idle" | "running" | "reconnecting" | "busy_elsewhere";
   request: RecoveredRequest | null;

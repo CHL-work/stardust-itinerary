@@ -129,7 +129,6 @@ import {
 } from "@/lib/app/timeline";
 import {
   DEFAULT_OWNER_MODEL,
-  selectableOwnerModels,
   GUEST_FREE_MODEL,
   type ApprovalHistoryPage,
   type ApprovalRequest,
@@ -1126,6 +1125,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const aiQuickReplyGone = aiQuickReplyExpired(aiState, aiObservedAt, Math.max(aiClock, aiObservedAt ?? 0));
   const aiQuickReplyTime = aiThinking || aiQuickReplyGone ? null : aiQuickReplyAt(aiState, aiObservedAt);
   const quickAiOpen = quickAiScope !== null && quickAiScope === aiScope;
+  const freeModels = useFreeModelCatalog(aiScope, aiTripId,
+    Boolean(overview?.ai.enabled && overview.ai.freeAi),
+    section === "today" || section === "itinerary" || section === "ai" || quickAiOpen);
   const aiHistoryCopy = aiHistoryMessages(locale);
   const instructionsCopy = aiInstructionsMessages(locale);
   const aiImages = useAiImageDraft(aiScope);
@@ -2670,11 +2672,12 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const askAi = async (event: FormEvent, conversationId = aiState.activeConversationId, purpose: "trip" | "preferences" = "trip") => {
     event.preventDefault();
     if (!overview || !aiPrompt.trim() || busy || aiThinking || aiImages.preparing || conversationId === undefined || purpose === "preferences") return;
-    const choice = aiRequestModelChoice(overview.ai, selectedModel, ownKeyChoice);
+    const choice = aiRequestModelChoice(overview.ai, selectedModel, ownKeyChoice, freeModels.catalog);
     if (choice.unavailable || (choice.free && aiImages.images.length > 0)) return;
     await aiRecoveryClient.current?.submit({
       prompt: aiPrompt, locale, conversationId,
       ...(choice.model ? { model: choice.model } : {}),
+      ...(choice.freeModel ? { freeModel: choice.freeModel } : {}),
       ...(aiImages.images.length ? { images: aiImages.images.map((image) => image.input) } : {}),
     });
   };
@@ -3066,6 +3069,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     reply={aiQuickReplyGone ? null : aiReply} sources={aiQuickReplyGone ? [] : aiSources} memory={aiQuickReplyGone ? null : aiMemory}
     busy={busy || aiThinking || aiState.activeConversationId === undefined} thinking={aiThinking} statusText={aiStatusText}
     selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice} submit={askQuickAi}
+    freeCatalog={freeModels.catalog} refreshFreeCatalog={freeModels.refresh}
     newConversation={() => setAiConversationResetOpen(true)} openHistory={() => { setQuickAiScope(null); setSection("ai"); }}
     historyLabel={aiHistoryCopy.viewHistory} imagePicker={overview.session.isGuest ? undefined : { ...aiImages, locale }}
     heading={!inSheet} autoFocus={inSheet && (aiQuickReplyGone || !aiReply)} />;
@@ -3179,6 +3183,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             prompt={aiPrompt} setPrompt={setAiPrompt} reply={aiState.error ? aiReply : null}
             sources={[]} memory={null} busy={busy || aiThinking} thinking={aiThinking}
             statusText={aiStatusText} selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice}
+            freeCatalog={freeModels.catalog} refreshFreeCatalog={freeModels.refresh}
             imagePicker={overview.session.isGuest ? undefined : { ...aiImages, locale }}
             submit={(event) => askAi(event, conversationId, purpose)} />}
         />}
@@ -3269,8 +3274,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <div className={advancedStyles.body}>
           <article className="settings-card"><h2>{messages.aiAccess}</h2>
             <p>{aiFundingNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : countLabel(overview.ai.memberDailyLimit, messages.aiMemberAccessDescriptionOne, messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit }))}</p>
-            {overview.ai.canSelectModel ? <label>{messages.aiOwnerDefaultModel}<select data-feedback-action="settings_save" value={selectedModel} disabled={busy} onChange={(event) => void updateModel(event.target.value)}>{selectableOwnerModels.map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
-            {!overview.ai.canSelectModel && overview.session.isOwner && overview.ai.hostSubscriptionEnabled === false && ownKeysToShare ? <label>{keysCopy.sharedModelLabel}<select data-feedback-action="settings_save" value={overview.ai.ownerDefaultModel} disabled={busy} onChange={(event) => void updateSharedModel(event.target.value)}>{[...new Set([overview.ai.ownerDefaultModel, ...ownKeyModels(overview.ai.ownKeyProviders ?? [])])].map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
+            {overview.ai.canSelectModel && ownKeysToShare ? <label>{messages.aiOwnerDefaultModel}<select data-feedback-action="settings_save" value={ownKeyModels(overview.ai.ownKeyProviders ?? []).includes(selectedModel as OwnerModel) ? selectedModel : ""} disabled={busy} onChange={(event) => void updateModel(event.target.value)}><option value="" disabled>{keysCopy.chooseModel}</option>{ownKeyModels(overview.ai.ownKeyProviders ?? []).map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
+            {!overview.ai.canSelectModel && overview.session.isOwner && overview.ai.hostSubscriptionEnabled === false && ownKeysToShare ? <label>{keysCopy.sharedModelLabel}<select data-feedback-action="settings_save" value={ownKeyModels(overview.ai.ownKeyProviders ?? []).includes(overview.ai.ownerDefaultModel as OwnerModel) ? overview.ai.ownerDefaultModel : ""} disabled={busy} onChange={(event) => void updateSharedModel(event.target.value)}><option value="" disabled>{keysCopy.chooseModel}</option>{ownKeyModels(overview.ai.ownKeyProviders ?? []).map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
             {overview.session.isOwner ? <form className="inline-settings-form" data-feedback-action="settings_save" onSubmit={saveMemberDailyLimit}><label>{messages.aiMemberPromptsPerDay}<input type="number" min="1" max="1000" step="1" required value={memberDailyLimit} onChange={(event) => setMemberDailyLimit(event.target.value)} /></label><button data-feedback-action="settings_save" className="primary-button fit-button" disabled={busy}>{messages.saveAiLimit}</button></form> : overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <div className="quota-meter"><span style={{ width: `${Math.min(100, (overview.ai.usedToday / overview.ai.memberDailyLimit) * 100)}%` }} /></div> : null}
             {overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <strong>{overview.ai.canSelectModel ? formatMessage(messages.aiOwnerSummary, { limit: overview.ai.memberDailyLimit }) : countLabel(overview.ai.remainingToday ?? 0, messages.aiMemberRemainingOne, messages.aiMemberRemaining, { remaining: overview.ai.remainingToday ?? 0 })}</strong> : null}
           </article>
@@ -3973,11 +3978,11 @@ export function GuestBanner({ locale, expiresAt, needsKey = false }: { locale: L
  */
 export function ownKeyAccess(ai: Overview["ai"]) {
   const providers = ai.ownKeyProviders ?? [];
-  const sponsored = ai.hostSubscriptionEnabled !== false;
   return {
     models: ownKeyModels(providers),
-    ownKeyOnly: !sponsored && providers.length > 0,
-    automatic: ownKeyModel(undefined, ai.ownerDefaultModel as OwnerModel, new Set(providers), sponsored),
+    // Personal-key requests no longer offer a shared/operator-funded fallback in this UI.
+    ownKeyOnly: providers.length > 0,
+    automatic: ownKeyModel(undefined, ai.ownerDefaultModel as OwnerModel, new Set(providers), false),
   };
 }
 
@@ -3986,37 +3991,98 @@ export function scopedAiModelChoice(choice: { scope: string; model: string } | n
   return scope !== null && choice?.scope === scope ? choice.model : "";
 }
 
-/** The free choice is explicit, including the keyless default; it never falls back to a paid key. */
-export function aiRequestModelChoice(ai: Overview["ai"], defaultModel: string, choice = "") {
-  const explicit = choice === GUEST_FREE_MODEL || (selectableOwnerModels as readonly string[]).includes(choice) ? choice : "";
-  const model = explicit || (ai.freeAi?.isDefault ? GUEST_FREE_MODEL
-    : ai.canSelectModel === true ? defaultModel : undefined);
-  const free = model === GUEST_FREE_MODEL;
-  return { model, free, unavailable: free && (!ai.enabled || !ai.freeAi) };
+export type FreeModelCatalog = {
+  status: "loading" | "ready" | "error";
+  models: Array<{ id: string; label: string }>;
+  defaultModel: string | null;
+};
+const freeCatalogLoading: FreeModelCatalog = { status: "loading", models: [], defaultModel: null };
+const FREE_CATALOG_CLIENT_TTL_MS = 5 * 60_000;
+const FREE_MODEL_CHOICE_PREFIX = "free:";
+
+/** Browser validation never makes a provider model eligible; the server rechecks it on every call. */
+export function parseFreeModelCatalog(value: unknown): FreeModelCatalog {
+  if (!value || typeof value !== "object" || !("models" in value) || !Array.isArray(value.models)
+      || value.models.length > 200) throw new Error("Invalid free model catalog.");
+  const models: FreeModelCatalog["models"] = [];
+  for (const model of value.models) {
+    if (!model || typeof model !== "object" || typeof model.id !== "string" || model.id.length > 180
+        || !/^[a-z0-9][a-z0-9._:-]*\/[a-z0-9][a-z0-9._:-]*$/u.test(model.id)
+        || typeof model.label !== "string" || !model.label.trim() || model.label.length > 180
+        || models.some((entry) => entry.id === model.id)) throw new Error("Invalid free model catalog.");
+    models.push({ id: model.id, label: model.label });
+  }
+  const requestedDefault = "defaultModel" in value ? value.defaultModel : null;
+  return { status: "ready", models, defaultModel: models.some((model) => model.id === requestedDefault)
+    ? requestedDefault as string : models[0]?.id ?? null };
+}
+
+/** One independent catalog request per AI scope; it never blocks the overview request. */
+function useFreeModelCatalog(scope: string | null, tripId: string | null, enabled: boolean, active: boolean) {
+  const [state, setState] = useState<{ scope: string; catalog: FreeModelCatalog } | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const cache = useRef<{ scope: string; catalog: FreeModelCatalog; loadedAt: number } | null>(null);
+  useEffect(() => {
+    if (!scope || !tripId || !enabled || !active) return;
+    let cancelled = false;
+    const abort = new AbortController();
+    const timeout = window.setTimeout(() => abort.abort(), 12_000);
+    const start = window.setTimeout(async () => {
+      if (cancelled) return;
+      const cached = cache.current;
+      if (cached?.scope === scope && Date.now() - cached.loadedAt < FREE_CATALOG_CLIENT_TTL_MS) {
+        setState({ scope, catalog: cached.catalog });
+        window.clearTimeout(timeout);
+        return;
+      }
+      setState({ scope, catalog: freeCatalogLoading });
+      try {
+        const response = await jsonRequest<unknown>(`/api/trips/${tripId}/ai/free-models`, { cache: "no-store", signal: abort.signal });
+        const catalog = parseFreeModelCatalog(response);
+        if (cancelled || abort.signal.aborted) return;
+        cache.current = { scope, catalog, loadedAt: Date.now() };
+        setState({ scope, catalog });
+      } catch {
+        if (!cancelled) setState({ scope, catalog: { status: "error", models: [], defaultModel: null } });
+      } finally { window.clearTimeout(timeout); }
+    }, 0);
+    return () => { cancelled = true; abort.abort(); window.clearTimeout(start); window.clearTimeout(timeout); };
+  }, [scope, tripId, enabled, active, refreshVersion]);
+  const refresh = useCallback(() => { cache.current = null; setRefreshVersion((version) => version + 1); }, []);
+  return { catalog: state?.scope === scope && enabled ? state.catalog : freeCatalogLoading, refresh };
+}
+
+/** Every visible paid model needs the viewer's own key. No hidden shared/operator fallback. */
+export function aiRequestModelChoice(ai: Overview["ai"], defaultModel: string, choice = "", catalog?: FreeModelCatalog) {
+  const paidModels = ownKeyModels(ai.ownKeyProviders ?? []);
+  const selectedFree = choice.startsWith(FREE_MODEL_CHOICE_PREFIX) ? choice.slice(FREE_MODEL_CHOICE_PREFIX.length) : undefined;
+  const free = selectedFree !== undefined || choice === GUEST_FREE_MODEL
+    || (!choice && Boolean(ai.freeAi) && (paidModels.length === 0 || ai.freeAi?.isDefault));
+  if (free) {
+    const freeModel = selectedFree ?? catalog?.defaultModel ?? undefined;
+    return { model: GUEST_FREE_MODEL, freeModel, free: true,
+      unavailable: !ai.enabled || !ai.freeAi || catalog?.status !== "ready"
+        || !catalog.models.some((entry) => entry.id === freeModel) };
+  }
+  const model = choice || ownKeyModel(undefined, defaultModel as OwnerModel, new Set(ai.ownKeyProviders ?? []), false) || undefined;
+  return { model, freeModel: undefined, free: false,
+    unavailable: !ai.enabled || !model || !(paidModels as readonly string[]).includes(model) };
 }
 
 /**
- * How AI is paid for this viewer when it is not the operator's usual sponsorship: their own key, a
- * trip owner's shared key (JOB-063), the operator's own use of the server's keys (JOB-072), or
- * neither. Null means the sponsored-trip copy applies.
+ * Explain only the funding choices this viewer can select: free or their own key.
  */
 export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: AiKeysCopy, requestModel?: string): string | null {
-  if (ai.keyRequired) return keysCopy.keyRequired;
+  if (!ai.enabled) return ai.keyRequired ? keysCopy.keyRequired : messages.aiUnavailable;
   if (requestModel === GUEST_FREE_MODEL && (!ai.enabled || !ai.freeAi)) return keysCopy.freeUnavailable;
-  if (ai.enabled && ai.freeAi && (requestModel === GUEST_FREE_MODEL || (!requestModel && ai.freeAi.isDefault))) {
+  if (ai.enabled && ai.freeAi && (requestModel === GUEST_FREE_MODEL || (!requestModel && (ai.freeAi.isDefault || !ownKeyAccess(ai).models.length)))) {
     return formatMessage(keysCopy.freeAccess, { model: ai.freeAi.model, remaining: ai.freeAi.remainingToday, limit: ai.freeAi.limit });
   }
-  if (ai.enabled && requestModel && (ownKeyAccess(ai).models as readonly string[]).includes(requestModel)) return keysCopy.ownKeyAccess;
-  if (ai.enabled && ownKeyAccess(ai).ownKeyOnly) return keysCopy.ownKeyAccess;
-  if (ai.enabled && ai.sharedKey) {
-    return countLabel(ai.memberDailyLimit, keysCopy.sharedAccessOne, keysCopy.sharedAccess,
-      { owner: ai.sharedKey.sponsorName, model: ai.sharedKey.model, limit: ai.memberDailyLimit });
-  }
-  if (ai.enabled && ai.operatorOwnAi) return keysCopy.operatorAccess;
-  return ai.hostSubscriptionEnabled === false ? messages.aiUnavailable : null;
+  if (!ownKeyAccess(ai).models.length) return keysCopy.keyRequired;
+  return keysCopy.ownKeyAccess;
 }
 
-export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, ownKeyChoice = "", setOwnKeyChoice, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale, heading = true, autoFocus = false }: {
+export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, ownKeyChoice = "", setOwnKeyChoice, freeCatalog, refreshFreeCatalog, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale, heading = true, autoFocus = false }: {
   overview: Overview;
   messages: Messages;
   prompt: string;
@@ -4031,6 +4097,8 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
   setModel: (model: string) => Promise<void>;
   ownKeyChoice?: string;
   setOwnKeyChoice?: (model: string) => void;
+  freeCatalog?: FreeModelCatalog;
+  refreshFreeCatalog?: () => void;
   submit: (event: FormEvent) => Promise<void>;
   newConversation?: () => void;
   openHistory?: () => void;
@@ -4044,30 +4112,31 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
 }) {
   const keysCopy = aiKeysMessages(locale ?? imagePicker?.locale ?? "en");
   const access = ownKeyAccess(overview.ai);
-  const choice = aiRequestModelChoice(overview.ai, selectedModel, ownKeyChoice);
+  const choice = aiRequestModelChoice(overview.ai, selectedModel, ownKeyChoice, freeCatalog);
   const freeExhausted = choice.free && overview.ai.freeAi?.remainingToday === 0;
   const freeImages = choice.free && Boolean(imagePicker?.images.length);
   const blocked = !overview.ai.enabled || choice.unavailable || freeExhausted || freeImages;
-  const idleMessage = aiFundingNote(overview.ai, messages, keysCopy, choice.model)
+  const freeLabel = freeCatalog?.models.find((model) => model.id === choice.freeModel)?.label ?? overview.ai.freeAi?.model;
+  const idleMessage = choice.free && overview.ai.freeAi && freeLabel
+    ? formatMessage(keysCopy.freeAccess, { model: freeLabel, remaining: overview.ai.freeAi.remainingToday, limit: overview.ai.freeAi.limit })
+    : aiFundingNote(overview.ai, messages, keysCopy, choice.model)
     ?? (!overview.ai.enabled ? messages.aiUnavailable : overview.ai.canSelectModel ? messages.aiOwnerPolicy : messages.aiMemberPolicy);
-  // With no choice the server uses the user's own key in an unsponsored trip, else a shared key, else sponsorship.
-  const defaultOption = overview.ai.freeAi?.isDefault ? keysCopy.freeOption
-    : access.ownKeyOnly ? formatMessage(keysCopy.autoOption, { model: access.automatic ?? "" })
-    : overview.ai.sharedKey ? formatMessage(keysCopy.sharedOption, { model: overview.ai.sharedKey.model, owner: overview.ai.sharedKey.sponsorName })
-    : formatMessage(keysCopy.sponsoredOption, { model: overview.ai.effectiveModel });
-  // One per-request picker for paid and free models; Settings retains the separate trip default.
-  const paidModels = overview.ai.canSelectModel ? selectableOwnerModels : access.models;
-  const selectedChoice = choice.free ? GUEST_FREE_MODEL : ownKeyChoice || (overview.ai.canSelectModel ? selectedModel : "");
+  const paidModels = access.models;
+  const selectedChoice = choice.free ? choice.freeModel ? `${FREE_MODEL_CHOICE_PREFIX}${choice.freeModel}` : GUEST_FREE_MODEL
+    : paidModels.includes(choice.model as OwnerModel) ? choice.model : "";
+  const listedFree = overview.ai.freeAi && freeCatalog?.status === "ready" ? freeCatalog.models : [];
+  const missingFreeChoice = choice.free && !listedFree.some((model) => model.id === choice.freeModel);
   const modelSelect = overview.ai.enabled && (paidModels.length > 0 || overview.ai.freeAi || choice.free)
     ? <select className="model-select" aria-label={keysCopy.modelLabel} value={selectedChoice} disabled={busy} onChange={(event) => setOwnKeyChoice?.(event.target.value)}>
-      {!overview.ai.canSelectModel && !overview.ai.freeAi?.isDefault ? <option value="">{defaultOption}</option> : null}
-      {paidModels.map((model) => <option key={model} value={model}>{overview.ai.canSelectModel ? model : formatMessage(keysCopy.ownModelOption, { model })}</option>)}
-      {overview.ai.freeAi || choice.free ? <option value={GUEST_FREE_MODEL}>{keysCopy.freeOption}</option> : null}
+      {!choice.free && (!choice.model || choice.unavailable) ? <option value="" disabled>{keysCopy.chooseModel}</option> : null}
+      {listedFree.map((model) => <option key={model.id} value={`${FREE_MODEL_CHOICE_PREFIX}${model.id}`}>{formatMessage(keysCopy.freeModelOption, { model: model.label })}</option>)}
+      {missingFreeChoice ? <option value={selectedChoice} disabled>{keysCopy.freeOption}</option> : null}
+      {paidModels.map((model) => <option key={model} value={model}>{formatMessage(keysCopy.ownModelOption, { model })}</option>)}
     </select>
     : null;
-  const quotaNote = !choice.free && !overview.ai.canSelectModel && overview.ai.enabled && !access.ownKeyOnly && !ownKeyChoice
-    ? <p className="policy-note">{formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit })}</p>
-    : null;
+  const catalogNote = freeCatalog?.status === "error" ? keysCopy.freeModelsFailed
+    : freeCatalog?.status !== "ready" ? keysCopy.freeModelsLoading
+      : !listedFree.length ? keysCopy.freeModelsEmpty : choice.free && choice.unavailable ? keysCopy.freeUnavailable : null;
   if (readOnly) return <section className="ai-card"><h2>{aiInstructionsMessages(locale ?? "en").archived}</h2>
     <p className="ai-memory-notice">{aiInstructionsMessages(locale ?? "en").archivedNotice}</p>
     {newConversation ? <button data-feedback-action="ai_new" type="button" className="ghost-button" disabled={busy} onClick={newConversation}>{messages.newAiConversation}</button> : null}
@@ -4080,7 +4149,10 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
         {newConversation ? <button data-feedback-action="ai_new" type="button" className="ai-conversation-button" disabled={busy} onClick={newConversation}><Plus size={14} /> {messages.newAiConversation}</button> : null}
       </div>
       {modelSelect}
-      {quotaNote}
+      {overview.ai.enabled && overview.ai.freeAi ? <div className="free-model-status">
+        {catalogNote ? <p className="policy-note" role="status">{catalogNote}</p> : null}
+        {refreshFreeCatalog ? <button type="button" className="mini-button" disabled={busy || freeCatalog?.status === "loading"} onClick={refreshFreeCatalog}><RefreshCw size={13} />{keysCopy.freeModelsRefresh}</button> : null}
+      </div> : null}
       {choice.free ? <div className="free-ai-notice" role="note"><p className="policy-note">{idleMessage}</p><p className="policy-note">{keysCopy.freePrivacy}</p><p className="policy-note">{freeImages ? keysCopy.freeRemoveImages : keysCopy.freeTextOnly}</p></div> : null}
       {openHistory ? <button data-feedback-action="navigate" type="button" className="ghost-button" onClick={openHistory}>{historyLabel}<ChevronRight size={16} /></button> : null}
       <form data-feedback-action="ai_submit" onSubmit={(event) => { if (blocked) { event.preventDefault(); return; } return submit(event); }}><label className="ai-input"><span className="sr-only">{messages.askAi}</span><textarea required autoFocus={autoFocus} maxLength={AI_PROMPT_MAX_CHARACTERS} disabled={busy || !overview.ai.enabled || choice.unavailable} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={messages.aiPlaceholder} rows={4} /><button disabled={busy || blocked || !prompt.trim() || imagePicker?.preparing} aria-label={messages.sendAiPrompt}><Sparkles size={17} /></button></label>

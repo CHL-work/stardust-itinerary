@@ -2193,6 +2193,19 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.applyOwnKeyAiCreate).not.toHaveBeenCalled();
   });
 
+  it("preserves the selected free model through provider calls, audit and response", async () => {
+    const freeModel = "liquid/lfm-3-1.7b:free";
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValue({ text: JSON.stringify({ message: "Tell me which day.", proposals: [], sources: [], memoryCheckpoint: null }),
+      model: freeModel, inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "add dinner", "guest-free", "en", undefined, undefined, [], freeModel);
+    expect(result).toMatchObject({ model: freeModel, proposalCount: 0 });
+    expect(mocks.freeModel).toHaveBeenCalledWith(expect.objectContaining({ selectedModel: freeModel }));
+    const started = mocks.query.mock.calls.find(([sql]) => String(sql).includes("'request.started'") && !String(sql).includes("'request.rejected'"));
+    expect(JSON.stringify(started)).toContain(freeModel);
+    expect(mocks.readAiCredentialSecret).not.toHaveBeenCalled();
+  });
+
   it("runs an own-key request on that user's key only, in a private provider directory", async () => {
     const previous = { CODEX_API_KEY: process.env.CODEX_API_KEY, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
     process.env.CODEX_API_KEY = "operator-key"; process.env.OPENAI_API_KEY = "operator-key";

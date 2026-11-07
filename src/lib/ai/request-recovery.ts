@@ -57,10 +57,11 @@ export class AiRequestInterruptedError extends AppConflictError {
   }
 }
 
-export function aiRequestPayloadHash(prompt: string, requestedModel: string | undefined, locale: string, conversationId?: string | null, imageHashes: readonly string[] = []): string {
+export function aiRequestPayloadHash(prompt: string, requestedModel: string | undefined, locale: string, conversationId?: string | null, imageHashes: readonly string[] = [], freeModel?: string): string {
   return createHash("sha256").update(JSON.stringify([
     prompt, requestedModel ?? null, locale, ...(conversationId !== undefined ? [conversationId] : []),
     ...(imageHashes.length ? [imageHashes] : []),
+    ...(freeModel ? [{ freeModel }] : []),
   ])).digest("hex");
 }
 

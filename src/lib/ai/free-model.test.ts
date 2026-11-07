@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { withFreeAiCredential, withOperatorAiCredential } from "@/lib/ai/credential-context";
 import { DEFAULT_FREE_MODELS, FREE_AI_CATALOG, FREE_AI_ENDPOINT, eligibleFreeCatalogModels, freeAiSettings,
-  freeModelLabel, generateWithFreeModel, guestFreeAiSettings } from "@/lib/ai/free-model";
+  freeModelLabel, generateWithFreeModel, guestFreeAiSettings, listAvailableFreeModels } from "@/lib/ai/free-model";
 
 const schema = { type: "object", additionalProperties: false, required: ["message"], properties: { message: { type: "string" } } };
 const settings = { ...freeAiSettings({ FREE_AI_ENABLED: "true" }), models: ["vendor/first:free", "vendor/second-free"] };
@@ -37,6 +37,35 @@ describe("free model configuration", () => {
 });
 
 describe("fresh free catalog verification", () => {
+  it("lists every supported free model, not only automatic preferences, without an inference or credential", async () => {
+    const fetchImpl = mockGateway(() => answer(), [row("vendor/third:free"), row(settings.models[1]!), row(settings.models[0]!),
+      row(settings.models[0]!), { ...row("vendor/paid:free"), pricing: { prompt: "1", completion: "1" } }, row("nvidia/trial:free")]);
+    expect(await listAvailableFreeModels({ settings, fetchImpl })).toEqual({
+      models: [
+        { id: settings.models[0], label: "vendor/first" },
+        { id: settings.models[1], label: "vendor/second-free" },
+        { id: "vendor/third:free", label: "vendor/third" },
+      ], defaultModel: settings.models[0],
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0]![0]).toBe(FREE_AI_CATALOG);
+    expect(fetchImpl.mock.calls[0]![1]?.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("returns an empty safe catalog if no supported free model remains; disabled config makes no request", async () => {
+    const fetchImpl = mockGateway(() => answer(), []);
+    expect(await listAvailableFreeModels({ settings, fetchImpl })).toEqual({ models: [], defaultModel: null });
+    fetchImpl.mockClear();
+    await expect(listAvailableFreeModels({ settings: { ...settings, enabled: false }, fetchImpl }))
+      .rejects.toMatchObject({ details: { code: "AI_PROVIDER_UNAVAILABLE" } });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("does not expose gateway text when catalog parsing or transport fails", async () => {
+    const fetchImpl = vi.fn(async () => { throw new Error("private-upstream-detail"); });
+    await expect(listAvailableFreeModels({ settings, fetchImpl }))
+      .rejects.toMatchObject({ message: "AI_PROVIDER_UNAVAILABLE", details: { provider: "kilo" } });
+  });
   it("accepts zero-price schema models with or without :free; rejects unverified prices, capabilities and restrictions", () => {
     const valid = row("vendor/valid-free");
     const result = eligibleFreeCatalogModels({ data: [valid,
@@ -62,6 +91,31 @@ describe("fresh free catalog verification", () => {
 });
 
 describe("keyless gateway calls", () => {
+  it("honors an explicit eligible model outside the auto-fallback preferences", async () => {
+    const fetchImpl = mockGateway(() => answer(), [...settings.models.map(row), row("vendor/third:free")]);
+    expect((await generate(fetchImpl, { selectedModel: "vendor/third:free" })).model).toBe("vendor/third:free");
+    expect(JSON.parse(String(fetchImpl.mock.calls[1]![1]?.body)).model).toBe("vendor/third:free");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["vendor/unknown:free", "vendor/paid:free", "nvidia/trial:free", "https://example.test/model", ""])(
+    "refuses an ineligible explicit choice %s before inference", async (selectedModel) => {
+      const fetchImpl = mockGateway(() => answer(), [...settings.models.map(row),
+        { ...row("vendor/paid:free"), pricing: { prompt: "0.1", completion: "0" } }, row("nvidia/trial:free")]);
+      await expect(generate(fetchImpl, { selectedModel })).rejects.toMatchObject({ details: { code: "AI_PROVIDER_MODEL_UNAVAILABLE" } });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([404, 503])("does not substitute another model after an explicit choice fails with %s", async (status) => {
+    const fetchImpl = mockGateway(() => Response.json({}, { status }));
+    const reserve = vi.fn(async () => {});
+    await expect(generate(fetchImpl, { selectedModel: settings.models[0], beforeAttempt: reserve })).rejects.toMatchObject({
+      details: { code: status === 404 ? "AI_PROVIDER_MODEL_UNAVAILABLE" : "AI_PROVIDER_UNAVAILABLE" },
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(reserve).toHaveBeenCalledTimes(1);
+  });
   it("refuses keyed/missing contexts and disabled configurations before any network request", async () => {
     const fetchImpl = mockGateway();
     await expect(withOperatorAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: schema, settings, fetchImpl })))

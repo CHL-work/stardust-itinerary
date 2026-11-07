@@ -120,6 +120,24 @@ describe("free model typed patch schema", () => {
     expect(validProposal(envelope("itinerary_item", { flight: { flightNumber: "JL123", bookingCode: "fake" } }))).toBe(false);
   });
 
+  it("directs free models to save supplied duration and meal type without inventing an end for untimed events", () => {
+    const create = patch("itinerary_item");
+    const properties = object(create.properties);
+    expect(create.description).toContain("Include all supplied details");
+    expect(object(properties.itemType).description).toContain("meal for breakfast, lunch, dinner");
+    expect(object(properties.startsAt).description).toContain("not only in the message");
+    expect(object(properties.endsAt).description).toContain("end time OR a duration");
+    expect(object(properties.endsAt).description).toContain("do not invent a duration");
+    const timed = { itemType: "meal", startsAt: "2030-04-01T10:00:00Z", endsAt: "2030-04-01T11:00:00Z" };
+    expect(validProposal(envelope("itinerary_item", timed))).toBe(true);
+    expect(aiItineraryPatchSchema.safeParse(timed).success).toBe(true);
+    expect(create.required).not.toContain("endsAt");
+    expect(validProposal(envelope("itinerary_item", { itemType: "activity", startsAt: timed.startsAt }))).toBe(true);
+    for (const action of ["update", "update_pending"]) {
+      expect(object(object(patch("itinerary_item", action).properties).endsAt).description).toContain("end time OR a duration");
+    }
+  });
+
   it("requires only the ordinary create essentials, not invented optional fields or defaults", () => {
     expect(patch("itinerary_item").required).toEqual(["tripDayId", "title", "visibility", "viewerMemberIds"]);
     for (const field of ["visibility", "viewerMemberIds"]) {

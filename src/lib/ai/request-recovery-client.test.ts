@@ -275,6 +275,7 @@ describe("private AI request recovery controller", () => {
     { ...prompt, prompt: "Plan a garden visit." },
     { ...prompt, locale: "ja-JP" },
     { ...prompt, model: "gpt-6-astra" },
+    { ...prompt, model: "guest-free", freeModel: "liquid/lfm-3-1.7b:free" },
   ])("gives an explicitly changed payload a new key after uncertain delivery (%#)", async (changedPrompt) => {
     const h = harness();
     await h.client.check();
