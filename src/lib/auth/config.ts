@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AuthConfigurationError } from "@/lib/auth/errors";
+import { parseOperatorEmails } from "@/lib/auth/operator-access";
 
 const authEnvironmentSchema = z.object({
   APP_BASE_URL: z.url().default("http://localhost:3100"),
@@ -10,7 +11,10 @@ const authEnvironmentSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   AUTH_TRIP_GRACE_DAYS: z.coerce.number().int().min(0).max(30).default(2),
-  OWNER_GOOGLE_EMAIL: z.email().transform((email) => email.toLowerCase()).optional(),
+  // One email, or several comma-separated accounts of the same operator (JOB-078).
+  OWNER_GOOGLE_EMAIL: z.string().optional()
+    .refine((value) => parseOperatorEmails(value) !== null, "OWNER_GOOGLE_EMAIL must list Google emails, comma-separated.")
+    .transform((value) => parseOperatorEmails(value) ?? []),
   OWNER_BOOTSTRAP_SECRET: z.string().min(32).optional(),
 });
 
@@ -23,7 +27,8 @@ export type AuthConfig = {
   googleClientSecret: string;
   /** New invitation admission only; existing active membership access has no travel-date cutoff. */
   tripGraceDays: number;
-  ownerGoogleEmail?: string;
+  /** The platform operator's Google emails, lower-cased; absent or empty when none is configured. */
+  ownerGoogleEmails?: readonly string[];
   ownerBootstrapSecret?: string;
 };
 
@@ -53,7 +58,7 @@ export function getAuthConfig(): AuthConfig {
     googleClientId: parsed.data.GOOGLE_CLIENT_ID,
     googleClientSecret: parsed.data.GOOGLE_CLIENT_SECRET,
     tripGraceDays: parsed.data.AUTH_TRIP_GRACE_DAYS,
-    ownerGoogleEmail: parsed.data.OWNER_GOOGLE_EMAIL,
+    ownerGoogleEmails: parsed.data.OWNER_GOOGLE_EMAIL,
     ownerBootstrapSecret: parsed.data.OWNER_BOOTSTRAP_SECRET,
   };
 }

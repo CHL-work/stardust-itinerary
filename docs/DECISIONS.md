@@ -2,6 +2,18 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-090: The platform operator may use several Google accounts (accepted November 6, 2026)
+
+The owner signs in with two Google accounts and wants AI to run on their own OpenAI, Anthropic and Gemini keys from both. Only one account was the operator, so the AI in trips the other created would ask for a personal key (JOB-078).
+
+- **Setting:** `OWNER_GOOGLE_EMAIL` lists one email or several, comma-separated. Each listed account, matched to a stored verified Google identity, is the platform operator for everything the operator does:
+  - the server's keys pay for trips it creates;
+  - its own requests count as paid by the requester (D-087);
+  - the admin page, feedback review and the operator's quota exemptions.
+- **One person only:** list only accounts of the person who runs the instance and pays for its keys. Every listed account can open the admin page, and none can suspend another.
+- **Trip roles still apply:** in a trip someone else owns, a listed account follows that trip's AI rules like any member: the trip's model and daily limit, on the server's keys only if that trip is sponsored.
+- **Fails closed:** a list with an entry that is not an email names nobody, and sign-in reports the configuration as invalid, as a single invalid email did before.
+
 ## D-089: The Codex code-mode host stays on as the tool transport (accepted November 6, 2026)
 
 Since Codex 0.147 the CLI runs every tool, web search included, through its code-mode host. The lockdown had turned the host off, so each session failed closed: no Codex turn could search, and the disruption monitor and OpenAI-model planning failed (JOB-074).

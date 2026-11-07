@@ -7,12 +7,12 @@ import {
 } from "@/lib/admin/contracts";
 import { AppConflictError, AppForbiddenError, AppNotFoundError, inTransaction } from "@/lib/app/repository";
 import { publicSignupEnabled } from "@/lib/auth/account-session";
-import { isPlatformOperator } from "@/lib/auth/operator-access";
+import { isPlatformOperator, platformOperatorEmails } from "@/lib/auth/operator-access";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 
 /**
  * The operator's admin page (JOB-069, D-084). Every function first checks that the session belongs
- * to the platform operator (`OWNER_GOOGLE_EMAIL`, verified through Google), inside the same
+ * to the platform operator (an `OWNER_GOOGLE_EMAIL` account, verified through Google), inside the same
  * transaction as its reads or writes. Reads return account metadata and counts only.
  */
 type Queryable = Pick<PoolClient, "query">;
@@ -25,10 +25,6 @@ async function assertOperator(client: Queryable, session: AuthenticatedSession):
 /** Whether this session may open the admin page; never throws for an ordinary account. */
 export async function adminAccess(pool: Pool, session: AuthenticatedSession): Promise<boolean> {
   return isPlatformOperator(pool, session.userId);
-}
-
-function operatorEmail(): string {
-  return process.env.OWNER_GOOGLE_EMAIL?.trim().toLowerCase() ?? "";
 }
 
 const TODAY_START = "date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'";
@@ -124,11 +120,11 @@ type AccountRow = {
   ai_own: number; ai_shared: number; ai_operator: number; ai_free: number; refused_week: number; total?: string;
 };
 
-/** One row per account; `$1` is the operator's email (or an empty string), for `is_operator`. */
+/** One row per account; `$1` lists the operator's emails (JOB-078), for `is_operator`. */
 const ACCOUNT_SELECT = `
   SELECT account.id, account.display_name, google.email_hint AS email, account.created_at, account.suspended_at, account.guest_expires_at,
          (SELECT max(session.last_seen_at) FROM auth_sessions session WHERE session.user_id = account.id) AS last_active_at,
-         ($1 <> '' AND lower(google.email_hint) = $1) AS is_operator,
+         COALESCE(lower(google.email_hint) = ANY($1::text[]), false) AS is_operator,
          (SELECT count(*) FROM trips trip WHERE trip.owner_user_id = account.id AND trip.deleted_at IS NULL)::int AS trips_owned,
          (SELECT count(*) FROM trip_members member JOIN trips trip ON trip.id = member.trip_id
            WHERE member.user_id = account.id AND member.status = 'active' AND member.role <> 'owner' AND trip.deleted_at IS NULL)::int AS trips_joined,
@@ -181,7 +177,7 @@ export async function listAdminAccounts(
          AND ($3 = '' OR account.display_name ILIKE $4 ESCAPE '\\' OR google.email_hint ILIKE $4 ESCAPE '\\')
        ORDER BY last_active_at DESC NULLS LAST, account.created_at DESC, account.id
        LIMIT $5 OFFSET $6`,
-      [operatorEmail(), options.filter, options.q, containsPattern(options.q), ADMIN_PAGE_SIZE, options.offset],
+      [platformOperatorEmails(), options.filter, options.q, containsPattern(options.q), ADMIN_PAGE_SIZE, options.offset],
     );
     const total = Number(result.rows[0]?.total ?? 0);
     const next = options.offset + result.rows.length;
@@ -190,7 +186,7 @@ export async function listAdminAccounts(
 }
 
 async function loadAccount(client: Queryable, userId: string): Promise<AdminAccount> {
-  const result = await client.query<AccountRow>(`${ACCOUNT_SELECT} ${ACCOUNT_FROM} WHERE account.id = $2`, [operatorEmail(), userId]);
+  const result = await client.query<AccountRow>(`${ACCOUNT_SELECT} ${ACCOUNT_FROM} WHERE account.id = $2`, [platformOperatorEmails(), userId]);
   if (!result.rows[0]) throw new AppNotFoundError("Account not found.");
   return account(result.rows[0]);
 }

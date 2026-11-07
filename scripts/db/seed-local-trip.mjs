@@ -17,7 +17,8 @@ await client.connect();
 try {
   await client.query("BEGIN");
   await client.query(fixture);
-  const ownerEmail = process.env.OWNER_GOOGLE_EMAIL?.trim().toLowerCase();
+  // The first operator account owns the local trip when several are listed (JOB-078).
+  const ownerEmail = process.env.OWNER_GOOGLE_EMAIL?.split(",")[0]?.trim().toLowerCase();
   if (ownerEmail) {
     const identity = await client.query(
       `SELECT user_id

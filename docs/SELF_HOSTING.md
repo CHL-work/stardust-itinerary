@@ -24,7 +24,7 @@ Edit `.env`:
 | `GUEST_FREE_AI_ENABLED` | optional, with guest mode: `true` lets guests without a key plan on keyless free models through Kilo's AI Gateway, within the caps in `.env.example`. Free models may keep what guests send, and guests are told so |
 | `CREDENTIAL_KMS_KEY`, `CREDENTIAL_KMS_SERVICE_ACCOUNT` | optional, on a Google Cloud machine: seal saved keys with a Cloud KMS key instead, so no encryption key sits on the host ([keys in Cloud KMS](DEPLOYMENT.md#users-keys-in-cloud-kms)). Settings tells users which protection applies. Elsewhere leave them empty |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` (hex keeps it URL-safe) |
-| `OWNER_GOOGLE_EMAIL` | your Google email; you become the platform operator |
+| `OWNER_GOOGLE_EMAIL` | your Google email; you become the platform operator. For several of your own accounts, separate them with commas |
 | `PUBLIC_SIGNUP_ENABLED` | `true`, so you can create your own account (see step 2 for who can sign in) |
 | `OPENAI_API_KEY` and `CODEX_API_KEY` | the same OpenAI key, if you use OpenAI models |
 | `ANTHROPIC_API_KEY` | if you use Claude models |

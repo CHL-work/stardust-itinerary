@@ -840,10 +840,12 @@ export async function consumeClaim(
       throw new ClaimUnavailableError();
     }
 
+    // An owner invitation admits only an operator account when operators are configured (JOB-078: any of them).
+    const operatorEmails = config.ownerGoogleEmails ?? [];
     if (
       memberRow.role === "owner" &&
-      config.ownerGoogleEmail &&
-      input.identity.emailHint?.toLowerCase() !== config.ownerGoogleEmail
+      operatorEmails.length > 0 &&
+      !operatorEmails.includes(input.identity.emailHint?.toLowerCase() ?? "")
     ) {
       throw new ClaimUnavailableError();
     }

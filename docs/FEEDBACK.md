@@ -16,7 +16,7 @@ Trip/member changes and sign-out clear the trail and draft. The dialog rechecks 
 
 ## Storage and visibility
 
-Migration `0044_feedback_triage.sql` adds private reports, daily review runs/items, immutable issue payloads and append-only lifecycle records. It changes no itinerary, expense or preference tables. A reporter can read their latest twenty report receipts in the current bound trip. The platform operator (the verified Google identity matching `OWNER_GOOGLE_EMAIL`) can inspect private reports and aggregate queue/run status under Advanced settings. Being a trip owner alone does not grant this authority.
+Migration `0044_feedback_triage.sql` adds private reports, daily review runs/items, immutable issue payloads and append-only lifecycle records. It changes no itinerary, expense or preference tables. A reporter can read their latest twenty report receipts in the current bound trip. The platform operator (a verified Google identity listed in `OWNER_GOOGLE_EMAIL`) can inspect private reports and aggregate queue/run status under Advanced settings. Being a trip owner alone does not grant this authority.
 
 Raw descriptions are user-supplied private text. They are not safe to copy into Git, test fixtures, analytics or logs. Removed members' reports/receipts, and reports from deleted trips, remain in the database for debugging (queued reports from a deleted trip are still reviewed and may still become a sanitized issue); active-identity checks prevent access through a tombstone or rebound member slot. Database backups include this data and follow the deployment's backup privacy and retention policy. There is no automatic report expiry.
 

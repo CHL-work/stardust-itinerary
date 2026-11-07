@@ -66,6 +66,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Several operator accounts (JOB-078, D-090):** `OWNER_GOOGLE_EMAIL` may list several comma-separated Google accounts of the same person, and each is the platform operator: the server's keys pay for trips it creates and for its own requests, and it can open the admin page. A list with an entry that is not an email names nobody.
+
 - **Brief README (JOB-076):** the README shows five phone screenshots of a synthetic trip, a short list of highlights and a **Find your way** table. A new [documentation index](docs/README.md) lists every document. The diagram moved to [deployment](docs/DEPLOYMENT.md#what-runs-where) and the stack summary to [architecture](docs/ARCHITECTURE.md#at-a-glance).
 
 - **Brief expense summary (JOB-075, D-088):** the notes under the summary's figures and the paragraph on what is excluded moved into each figure's "?" help, in the full summary and the Overview widget. Copy that JOB-073's review skipped is brief too:

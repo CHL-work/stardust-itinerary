@@ -3,7 +3,7 @@ import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
 import type { AuthConfig } from "@/lib/auth/config";
 import { SessionUnavailableError } from "@/lib/auth/errors";
 import { consumeAccountOnboarding,issueAccountOnboarding,issueCreatedTripSession,publicSignupEnabled,verifyAccountOnboarding,type AccountPrincipal } from "@/lib/auth/account-session";
-import { isPlatformOperator } from "@/lib/auth/operator-access";
+import { isPlatformOperator,parseOperatorEmails,platformOperatorEmails } from "@/lib/auth/operator-access";
 
 const config = {authSecret:"s".repeat(32)} as AuthConfig;
 const identity = {issuer:"https://accounts.google.com",subject:"synthetic-subject",emailHint:"synthetic@example.test",displayNameHint:"Synthetic"};
@@ -95,7 +95,26 @@ describe("platform operator is not a trip role",()=>{
     expect(db.query).not.toHaveBeenCalled();
     vi.stubEnv("OWNER_GOOGLE_EMAIL"," SYNTHETIC@example.test ");
     expect(await isPlatformOperator(db.client,"user")).toBe(true);
-    expect(db.query).toHaveBeenCalledWith(expect.stringContaining("issuer = 'https://accounts.google.com'"),["user","synthetic@example.test"]);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining("issuer = 'https://accounts.google.com'"),["user",["synthetic@example.test"]]);
     expect(db.query.mock.calls[0][0]).not.toContain("role");
+  });
+  it("accepts several comma-separated accounts of the same operator (JOB-078)",async()=>{
+    const db=database();
+    vi.stubEnv("OWNER_GOOGLE_EMAIL"," First@example.test, second@example.test ,first@example.test,");
+    expect(platformOperatorEmails()).toEqual(["first@example.test","second@example.test"]);
+    expect(await isPlatformOperator(db.client,"user")).toBe(true);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining("= ANY($2::text[])"),["user",["first@example.test","second@example.test"]]);
+  });
+  it("grants nobody when any listed entry is not an email",async()=>{
+    const db=database();
+    expect(parseOperatorEmails(undefined)).toEqual([]);
+    expect(parseOperatorEmails(" , ")).toEqual([]);
+    for (const value of ["first@example.test;second@example.test","first@example.test,not-an-email","first@example.test second@example.test"]) {
+      vi.stubEnv("OWNER_GOOGLE_EMAIL",value);
+      expect(parseOperatorEmails(value)).toBeNull();
+      expect(platformOperatorEmails()).toEqual([]);
+      expect(await isPlatformOperator(db.client,"user")).toBe(false);
+    }
+    expect(db.query).not.toHaveBeenCalled();
   });
 });

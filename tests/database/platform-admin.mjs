@@ -57,7 +57,8 @@ export async function testPlatformAdmin(pool, connectionString) {
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
   const saved = { owner: process.env.OWNER_GOOGLE_EMAIL, signup: process.env.PUBLIC_SIGNUP_ENABLED, kms: process.env.CREDENTIAL_KMS_KEY,
     local: process.env.CREDENTIAL_ENCRYPTION_KEY, fetch: globalThis.fetch };
-  process.env.OWNER_GOOGLE_EMAIL = "operator@example.test";
+  // Two accounts of the same operator (JOB-078); both are the platform operator.
+  process.env.OWNER_GOOGLE_EMAIL = "operator@example.test, second.operator@example.test";
   try {
     const settings = await pool.query("SELECT signup_daily_limit FROM platform_settings");
     assert.deepEqual(settings.rows, [{ signup_daily_limit: 50 }], "one settings row, capped at 50 sign-ups a day");
@@ -86,15 +87,18 @@ export async function testPlatformAdmin(pool, connectionString) {
     };
 
     const operator = await makeAccount("Synthetic operator", "Operator@Example.test");
+    const secondOperator = await makeAccount("Synthetic second operator", "second.operator@example.test");
     const member = await makeAccount("Synthetic member", "member.100%@example.test");
     const editor = await makeAccount("Synthetic editor", "editor@example.test", "editor", member.tripId);
     const { session: operatorSession } = await signIn(operator);
+    const { session: secondOperatorSession } = await signIn(secondOperator);
     const memberSignIn = await signIn(member);
     const memberSession = memberSignIn.session;
-    assert.ok(operatorSession && memberSession);
+    assert.ok(operatorSession && secondOperatorSession && memberSession);
 
-    // Only the operator, identified by OWNER_GOOGLE_EMAIL through a Google identity, can read or act.
+    // Only the operator, identified by an OWNER_GOOGLE_EMAIL account through a Google identity, can read or act.
     assert.equal(await adminAccess(pool, operatorSession), true);
+    assert.equal(await adminAccess(pool, secondOperatorSession), true, "every listed account is the operator");
     assert.equal(await adminAccess(pool, memberSession), false);
     await assert.rejects(adminOverview(pool, memberSession), AppForbiddenError);
     await assert.rejects(listAdminAccounts(pool, memberSession, { filter: "all", q: "", offset: 0 }), AppForbiddenError);
@@ -127,6 +131,7 @@ export async function testPlatformAdmin(pool, connectionString) {
       owned: listedMember.tripsOwned }, { email: "member.100%@example.test", keys: ["openai"], refused: 2, operator: false, owned: 1 });
     assert.equal(JSON.stringify(all).includes("WXYZ"), false, "not even a key's last characters");
     assert.equal(all.accounts.find((row) => row.userId === operator.userId).isOperator, true);
+    assert.equal(all.accounts.find((row) => row.userId === secondOperator.userId).isOperator, true);
     assert.equal(all.accounts.find((row) => row.userId === editor.userId).tripsJoined, 1);
     const searched = await listAdminAccounts(pool, operatorSession, { filter: "all", q: "100%", offset: 0 });
     assert.deepEqual(searched.accounts.map((row) => row.userId), [member.userId]);
@@ -142,6 +147,7 @@ export async function testPlatformAdmin(pool, connectionString) {
       [member.tripId, editor.memberId, member.memberId]);
     assert.ok(await usableAiKeyGrant(pool, member.tripId, editor.memberId), "the owner's key is shared with the editor");
     await assert.rejects(setAccountSuspension(pool, operatorSession, operator.userId, true), AppConflictError);
+    await assert.rejects(setAccountSuspension(pool, operatorSession, secondOperator.userId, true), AppConflictError);
     const suspended = await setAccountSuspension(pool, operatorSession, member.userId, true);
     assert.ok(suspended.suspendedAt);
     assert.equal(await verifySession(pool, config, memberSignIn.grant.rawToken), null);

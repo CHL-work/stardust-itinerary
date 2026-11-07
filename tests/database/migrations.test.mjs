@@ -1727,7 +1727,8 @@ test(
 
       const ownerConfig = {
         ...authConfig,
-        ownerGoogleEmail: "owner@example.test",
+        // Any listed operator account may claim the owner invitation (JOB-078).
+        ownerGoogleEmails: ["second-account@example.test", "owner@example.test"],
       };
       const ownerClaim = await issueClaim(identityPool, ownerConfig, {
         tripId: "10000000-0000-4000-8000-000000000001",

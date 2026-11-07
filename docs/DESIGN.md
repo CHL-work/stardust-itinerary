@@ -24,7 +24,7 @@ The app does not transmit money, guarantee venue availability/disruption detecti
 | Owner | Trip settings, invitations, roles, review and member removal; at least one active Google-bound owner must remain. |
 | Editor | Default member role; edit visible approved/pending events under per-member permissions. Itinerary changes require owner review by default. |
 | Viewer | Read authorized content; no editor/reviewer authority. |
-| Platform operator | Separate server-configured identity (`OWNER_GOOGLE_EMAIL`, matched to a stored verified Google identity) governing operator-funded AI and operator-only views such as feedback review; creating or owning a trip does not grant it. |
+| Platform operator | Separate server-configured identity (`OWNER_GOOGLE_EMAIL`, one or more of the operator's Google accounts, each matched to a stored verified Google identity) governing operator-funded AI and operator-only views such as feedback review; creating or owning a trip does not grant it. |
 
 Private canonical events belong to their creator plus selected viewers, **without an owner read bypass**. Active owners have a narrow proposal-only private itinerary create/update review exception; approval does not add them to the canonical audience. Private expenses remain constrained to involved authorized people. [Member lifecycle](PUBLIC_TRIPS_AND_MEMBERS.md) · [database enforcement](DATABASE.md).
 
