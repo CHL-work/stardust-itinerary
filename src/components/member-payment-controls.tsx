@@ -5,7 +5,7 @@ import { currencyFactor } from "@/lib/app/event-expense-editor";
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
 import { formatPaymentMoney } from "@/lib/app/member-payment-format";
 import { parseExpenseAmount } from "@/lib/app/expense-entry";
-import { formatMessage, type Locale } from "@/lib/i18n";
+import { countLabel, formatMessage, type Locale } from "@/lib/i18n";
 import styles from "./member-payment-controls.module.css";
 
 export type PaymentDraft = { fromMemberId: string; toMemberId: string; amount: string; currency: string;
@@ -104,5 +104,5 @@ export function MemberPaymentHistory({ payments, locale, timeZone, busy, isOwner
     .slice().sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
   const content = <div className={styles.rows}>{!rows.length ? <p className={styles.hint}>{reviewOnly ? copy.reviewEmpty : copy.empty}</p> : rows.map((payment) => <MemberPaymentCard key={payment.id} payment={payment} locale={locale} timeZone={timeZone} busy={busy} isOwner={isOwner} act={act} />)}</div>;
   return reviewOnly ? <section className={styles.history} aria-label={copy.reviewTitle}><h3>{copy.reviewTitle}</h3>{content}</section>
-    : <details className={styles.history}><summary><strong>{copy.history}</strong><span className={styles.hint}>{formatMessage(copy.historyCount, { count: rows.length, pending: rows.filter((payment) => payment.status === "pending").length })}</span></summary>{content}</details>;
+    : <details className={styles.history}><summary><strong>{copy.history}</strong><span className={styles.hint}>{countLabel(rows.length, copy.historyCountOne, copy.historyCount, { pending: rows.filter((payment) => payment.status === "pending").length })}</span></summary>{content}</details>;
 }

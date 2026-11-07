@@ -32,8 +32,9 @@ describe("member removal preview UI", () => {
   });
   it("shows private financial blockers without inventing expense content", () => {
     const html = renderRemoval({ expenses: [], hiddenPrivateExpenseCount: 2, canRemoveWithReassignment: false });
-    expect(html).toContain("2 private expense(s)"); expect(html).not.toContain("Synthetic lunch");
+    expect(html).toContain("2 private expenses you cannot see"); expect(html).not.toContain("Synthetic lunch");
     expect(html).not.toContain("<select"); expect(html).toContain("disabled=\"\">Remove member");
+    expect(renderRemoval({ expenses: [], hiddenPrivateExpenseCount: 1, canRemoveWithReassignment: false })).toContain("1 private expense you cannot see");
   });
   it("shows last-owner and empty-candidate blockers", () => {
     expect(renderRemoval({ blockedReason: "last_bound_owner", canRemoveWithReassignment: false })).toContain(memberManagementMessages("en").lastOwner);

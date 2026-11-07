@@ -2,7 +2,7 @@ import type { Locale } from "@/lib/i18n";
 
 const en = {
   title: "Trip expenses", subtitle: "Your costs across the whole trip", history: "Expenses by date",
-  myDayTotal: "My spending", currentDay: "Today", count: "{count} expenses", noExpenses: "No expenses for this day.",
+  myDayTotal: "My spending", currentDay: "Today", countOne: "{count} expense", count: "{count} expenses", noExpenses: "No expenses for this day.",
   payerAndShare: "Paid by {payer} · my share {amount}", linkedEvent: "Event: {title}", extra: "Extra expense",
   add: "Add expense", edit: "Edit expense", save: "Save expense", approval: "Request approval", cancel: "Cancel",
   posted: "Recorded", draft: "Draft", void: "Void", private: "Private", linkedField: "Linked event (optional)",
@@ -18,7 +18,7 @@ const en = {
 export type ExpensePageMessages = { [K in keyof typeof en]: string };
 const zh: ExpensePageMessages = {
   title: "旅程開支", subtitle: "整個旅程中你負擔的費用", history: "每日開支",
-  myDayTotal: "我的開支", currentDay: "今日", count: "{count} 筆開支", noExpenses: "此日暫時沒有開支。",
+  myDayTotal: "我的開支", currentDay: "今日", countOne: "{count} 筆開支", count: "{count} 筆開支", noExpenses: "此日暫時沒有開支。",
   payerAndShare: "付款人：{payer} · 我的分攤：{amount}", linkedEvent: "活動：{title}", extra: "額外開支",
   add: "新增開支", edit: "編輯開支", save: "儲存開支", approval: "提交審批", cancel: "取消",
   posted: "已記帳", draft: "草稿", void: "已作廢", private: "私人", linkedField: "連結活動（可選）",
@@ -33,7 +33,7 @@ const zh: ExpensePageMessages = {
 };
 const ja: ExpensePageMessages = {
   title: "旅行の費用", subtitle: "旅行全体であなたが負担する費用", history: "日別の費用",
-  myDayTotal: "自分の費用", currentDay: "今日", count: "費用 {count} 件", noExpenses: "この日の費用はまだありません。",
+  myDayTotal: "自分の費用", currentDay: "今日", countOne: "費用 {count} 件", count: "費用 {count} 件", noExpenses: "この日の費用はまだありません。",
   payerAndShare: "支払者：{payer} · 自分の負担額：{amount}", linkedEvent: "予定：{title}", extra: "追加の費用",
   add: "費用を追加", edit: "費用を編集", save: "費用を保存", approval: "承認を依頼", cancel: "キャンセル",
   posted: "記帳済み", draft: "下書き", void: "無効", private: "非公開", linkedField: "関連する予定（任意）",

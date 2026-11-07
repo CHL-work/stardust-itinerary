@@ -1,23 +1,27 @@
 import type { Locale } from "@/lib/i18n";
 
-/** Guest accounts (JOB-064). Deletion and account copy stays neutral in every tone. */
+/**
+ * Guest accounts (JOB-064), in one short line (D-088): when the trip is deleted, the AI key only
+ * when AI here needs one because free guest AI is off (JOB-077), and the sign-in link. Deletion and
+ * account copy stays neutral in every tone.
+ */
 const english = {
-  banner: "Guest demo trip. It and everything in it are permanently deleted on {time}.",
-  signIn: "Sign in with Google to plan trips you keep.",
-  aiHint: "AI here works with your own API key: add one in Settings → AI keys.",
+  banner: "This guest trip is deleted on {time}.",
+  bannerNeedsKey: "This guest trip is deleted on {time}. AI needs your own API key.",
+  signIn: "Sign in to keep trips.",
 };
 type GuestCopy = { [K in keyof typeof english]: string };
 
 const cantonese: GuestCopy = {
-  banner: "訪客示範旅程。旅程同入面所有內容會喺 {time} 永久刪除。",
-  signIn: "用 Google 登入，就可以規劃可以保留嘅旅程。",
-  aiHint: "呢度嘅 AI 要用你自己嘅 API 金鑰：喺「設定 → AI 金鑰」加入。",
+  banner: "呢個訪客旅程會喺 {time} 刪除。",
+  bannerNeedsKey: "呢個訪客旅程會喺 {time} 刪除。AI 要用你自己嘅 API 金鑰。",
+  signIn: "登入就可以保留旅程。",
 };
 
 const japanese: GuestCopy = {
-  banner: "ゲスト用のデモ旅行です。旅行とその内容はすべて {time} に完全に削除されます。",
-  signIn: "残しておける旅行を計画するには、Google でサインインしてください。",
-  aiHint: "ここでのAIは自分のAPIキーで動きます。「設定 → AIキー」で追加してください。",
+  banner: "このゲスト旅行は {time} に削除されます。",
+  bannerNeedsKey: "このゲスト旅行は {time} に削除されます。AIには自分のAPIキーが必要です。",
+  signIn: "サインインすると旅行を残せます。",
 };
 
 export function guestMessages(locale: Locale): GuestCopy {

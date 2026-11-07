@@ -360,16 +360,31 @@ const freeOutputSchema = {
 
 const FREE_PATCH_FORMAT_NOTE = "\n\nRESPONSE FORMAT FOR THIS MODEL: give each proposal's patch as the JSON object itself in the field \"patch\", instead of a patchJson string. The same patch fields and rules apply.";
 
-/** A free model's answer, with every nested patch turned into the planner's patchJson string. */
+/**
+ * HTML line breaks written into a free model's prose, as newlines (JOB-077). Replies are shown as
+ * escaped plain text, never rendered as HTML, so `<br>`, `<br/>`, `<br />` and `</br>` in any case
+ * would otherwise appear as tags. A break already followed by a newline becomes that one newline.
+ */
+export function lineBreakTagsAsNewlines(text: string): string {
+  return text.replace(/<\/?br\s*\/?>[^\S\n]*\n?/giu, "\n");
+}
+
+/**
+ * A free model's answer, with every nested patch turned into the planner's patchJson string and
+ * HTML line breaks in its message and reasons turned into newlines before anything stores them.
+ */
 export function freeOutputAsPlannerJson(raw: string): string {
   const value: unknown = JSON.parse(raw);
   if (!value || typeof value !== "object" || Array.isArray(value)) return raw;
   const record = value as Record<string, unknown>;
+  if (typeof record.message === "string") record.message = lineBreakTagsAsNewlines(record.message);
   if (Array.isArray(record.proposals)) {
     record.proposals = record.proposals.map((proposal: unknown) => {
       if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) return proposal;
-      const { patch, ...rest } = proposal as Record<string, unknown>;
-      return patch && typeof patch === "object" && !Array.isArray(patch) ? { ...rest, patchJson: JSON.stringify(patch) } : proposal;
+      const fields = { ...(proposal as Record<string, unknown>) };
+      if (typeof fields.reason === "string") fields.reason = lineBreakTagsAsNewlines(fields.reason);
+      const { patch, ...rest } = fields;
+      return patch && typeof patch === "object" && !Array.isArray(patch) ? { ...rest, patchJson: JSON.stringify(patch) } : fields;
     });
   }
   return JSON.stringify(record);

@@ -16,7 +16,7 @@ On 6 November 2026 the owner asked for phone screenshots in the README and a bri
 ## Scope
 
 - **In:** the README, five screenshots, a documentation index, moving the README's diagram and stack summary into existing documents, and the rules that keep them current.
-- **Out:** application code and other documents' content. Three app issues seen while taking the screenshots are left for a separate job: the guest notice still says AI needs your own key, "1 repayments" and "1 expenses" in the expense day headers, and raw `<br/>` tags shown in a free-model reply.
+- **Out:** application code and other documents' content. Three app issues seen while taking the screenshots are left for a separate job, [JOB-077](JOB-077-guest-notice-counts-line-breaks.md): the guest notice still says AI needs your own key, "1 repayments" and "1 expenses" in the expense day headers, and raw `<br/>` tags shown in a free-model reply.
 
 ## Delivered
 

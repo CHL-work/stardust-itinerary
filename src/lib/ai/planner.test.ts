@@ -175,6 +175,7 @@ import { aiRequestPayloadHash } from "@/lib/ai/request-recovery";
 import {
   blocksLivePlaceSearchForPrivacy,
   freeOutputAsPlannerJson,
+  lineBreakTagsAsNewlines,
   requiresLivePlaceSearch,
   runAiPlanner,
 } from "@/lib/ai/planner";
@@ -2088,6 +2089,28 @@ describe("AI planner live-search and approval policy", () => {
     expect(() => freeOutputAsPlannerJson("not json")).toThrow();
   });
 
+  it("turns HTML line breaks in AI text into newlines and leaves everything else as written (JOB-077)", () => {
+    expect(lineBreakTagsAsNewlines("One<br>two<br/>three<br />four<BR/>five<Br >six</br>seven")).toBe("One\ntwo\nthree\nfour\nfive\nsix\nseven");
+    expect(lineBreakTagsAsNewlines("Not yet applied to the itinerary.<br/><br/>• Date: 2030-01-02")).toBe("Not yet applied to the itinerary.\n\n• Date: 2030-01-02");
+    expect(lineBreakTagsAsNewlines("Line one<br/>\nLine two<br> \r\nLine three<br>  Line four")).toBe("Line one\nLine two\nLine three\nLine four");
+    expect(lineBreakTagsAsNewlines("Paragraph.<br/>\n\nNext.")).toBe("Paragraph.\n\nNext.");
+    for (const text of ["<b>bold</b> <brx> <bread> <br class=\"x\"> <script>alert(1)</script>", "No tags here.\n\nStill none.", "a < br > b"]) {
+      expect(lineBreakTagsAsNewlines(text)).toBe(text);
+    }
+  });
+
+  it("normalizes a free model's line breaks in its message and reasons, not in patches (JOB-077)", () => {
+    const raw = JSON.stringify({ message: "Proposed dinner, not yet applied.<br/><br/>• Date: 2030-01-02", sources: [], memoryCheckpoint: null,
+      proposals: [{ entityType: "itinerary_item", action: "create", entityId: null, baseRevision: null, reason: "Dinner<br>after the museum",
+        patch: { tripDayId: "day-2", title: "Synthetic dinner", startsAt: "2030-01-02T10:00:00Z" } },
+      { entityType: "expense", action: "create", entityId: null, baseRevision: null, reason: "Ticket<BR />cost", patchJson: "{}" }] });
+    const converted = JSON.parse(freeOutputAsPlannerJson(raw));
+    expect(converted.message).toBe("Proposed dinner, not yet applied.\n\n• Date: 2030-01-02");
+    expect(converted.proposals.map((proposal: { reason: string }) => proposal.reason)).toEqual(["Dinner\nafter the museum", "Ticket\ncost"]);
+    expect(JSON.parse(converted.proposals[0].patchJson)).toEqual({ tripDayId: "day-2", title: "Synthetic dinner", startsAt: "2030-01-02T10:00:00Z" });
+    expect(converted.proposals[1]).toMatchObject({ patchJson: "{}" });
+  });
+
   it("runs free guest AI on the free gateway only, keyless, with no search or research (JOB-071)", async () => {
     mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 2, limit: 10, credentialSource: "free" });
     mocks.freeModel.mockResolvedValue({ text: JSON.stringify({ message: "A free plan.", proposals: [], sources: [] }),
@@ -2104,6 +2127,16 @@ describe("AI planner live-search and approval policy", () => {
     const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
     expect(requestInsert?.[1]?.slice(8, 11)).toEqual(["kilo", "kilo_gateway", "anonymous"]);
     expect(requestInsert?.[1]?.at(-1)).toBe("free");
+  });
+
+  it("stores and returns a free model's reply with its HTML line breaks as newlines (JOB-077)", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 2, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValue({ text: JSON.stringify({ message: "A free plan, not yet applied.<br/><br/>• Ramen at 18:30", proposals: [], sources: [] }),
+      model: "vendor/free-model:free", inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    const result = await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Find a ramen place near the hotel tonight");
+    expect(result.message).toBe("A free plan, not yet applied.\n\n• Ramen at 18:30");
+    const stored = mocks.query.mock.calls.find(([sql]) => String(sql).includes("SET result_text"));
+    expect(stored?.[1]?.[2]).toBe("A free plan, not yet applied.\n\n• Ramen at 18:30");
   });
 
   it("runs an own-key request on that user's key only, in a private provider directory", async () => {

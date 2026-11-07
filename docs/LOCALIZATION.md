@@ -45,6 +45,7 @@ Reservation-expense clarification is a neutral money surface. Missing essential 
 
 - Keep copy brief (D-088). A note is one short line or none, with no internal mechanics. An error or confirmation says what happened and what to do in one or two short sentences. An explanation someone may want, about privacy or money, goes behind one "?" button (`src/components/info-tip.tsx`), at most one per section; the complete detail belongs in the privacy notice and the docs. Review copy wherever it lives, not only in `*i18n.ts` files: `src/lib/expense-copy.ts` and some components keep their own copy objects.
 - In English, prefer full forms ("could not", "cannot") to contractions, as the existing copy does.
+- Give every English count a singular form: an `…One` message beside the plural, chosen by `countLabel` (`src/lib/i18n.ts`), so one reads "1 expense", never "1 expenses" or "expense(s)". Cantonese and Japanese use the same text for both.
 - Keep English keys/code identifiers and parameterized messages; do not concatenate translated sentence fragments.
 - Format dates, times, numbers and currency with locale-aware helpers, preserving exact integer monetary values. Language selection cannot change an allocation.
 - Store IANA time zones, not translated labels. Transport endpoint timing and optional unknown ends must not become guessed travel/departure estimates.

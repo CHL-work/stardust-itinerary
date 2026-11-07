@@ -59,7 +59,7 @@ describe("repayment entry and history presentation", () => {
   });
   it("collapses ordinary history with count/pending count but keeps owner review expanded", () => {
     const html = renderToStaticMarkup(createElement(MemberPaymentHistory, historyProps));
-    expect(html).toMatch(/^<details/); expect(html).not.toContain('<details open'); expect(html).toContain("1 records · 1 awaiting approval");
+    expect(html).toMatch(/^<details/); expect(html).not.toContain('<details open'); expect(html).toContain("1 record · 1 awaiting approval");
     const review = renderToStaticMarkup(createElement(MemberPaymentHistory, { ...historyProps, reviewOnly: true }));
     expect(review).toMatch(/^<section/); expect(review).toContain("Repayment approvals");
   });

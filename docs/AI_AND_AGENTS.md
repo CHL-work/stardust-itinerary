@@ -57,7 +57,7 @@ Every AI create remains pending even for owners, except in a request the request
 **Free guest AI (JOB-071, D-086).** With `GUEST_FREE_AI_ENABLED=true`, a guest without a key plans on keyless free models through Kilo's AI Gateway, which documents unauthenticated access to its `:free` models.
 
 - **How it runs:** `src/lib/ai/free-model.ts` calls the gateway's chat completions with the planner's schema, no key and an honest Stardust user agent, inside the separate free credential context that every keyed adapter refuses. The `guest-free` model slot is never offered for selection.
-- **What it can do:** planning only. There is no search, research or venue-hours lookup, and guests cannot attach pictures. Free models return each proposal's patch as a nested object, which the planner turns into `patchJson` before the usual validation, and an unusable answer gets one more try.
+- **What it can do:** planning only. There is no search, research or venue-hours lookup, and guests cannot attach pictures. Free models return each proposal's patch as a nested object, which the planner turns into `patchJson` before the usual validation, and an unusable answer gets one more try. HTML line breaks (`<br>`, `<br/>`, `<br />`) in a free model's message and reasons become newlines before the reply is stored; replies are always shown as escaped text (JOB-077).
 - **Limits:** per guest per UTC day (default 10), and for the whole instance per hour (default 60, under the gateway's 200 per address) and per day (default 500). Requests are recorded with `credential_source = 'free'`.
 
 The topic limit protects the operator's or a sponsor's money; privacy rules for other members, the output schema and the funding rules still apply in full.

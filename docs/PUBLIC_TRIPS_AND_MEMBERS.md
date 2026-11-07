@@ -94,7 +94,7 @@ A guest:
 - **Cannot:** add members, create join or claim links, create more trips, connect Google Calendar, send feedback or use the operator-funded destination lookup. Invitations and members are refused by database triggers as well as by the application.
 - **Is never mixed with real trips:** a guest belongs only to its own guest trip, and an account can never become, or stop being, a guest.
 
-An hourly job (`guest-purge`) calls `app_purge_expired_guest` for each expired guest. It permanently deletes the account, its identity, keys and sessions, and every row of its trips. The app shows the guest when the deletion happens.
+An hourly job (`guest-purge`) calls `app_purge_expired_guest` for each expired guest. It permanently deletes the account, its identity, keys and sessions, and every row of its trips. A one-line notice shows the guest when the deletion happens; it says AI needs their own API key only while free guest AI is off and they have none (JOB-077).
 
 The purge refuses, and changes nothing, unless:
 - the account's only identity is the guest issuer;

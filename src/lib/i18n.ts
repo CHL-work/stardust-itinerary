@@ -119,6 +119,8 @@ export type Messages = {
   pendingEventLoadFailed: string;
   pendingEventUpdateFailed: string;
   pendingExpenses: string;
+  pendingExpenseCountOne: string;
+  pendingExpenseCountMany: string;
   pendingExpenseNotIncluded: string;
   approvePendingEvent: string;
   rejectPendingEvent: string;
@@ -161,13 +163,16 @@ export type Messages = {
   aiAccess: string;
   aiOwnerAccessDescription: string;
   aiMemberAccessDescription: string;
+  aiMemberAccessDescriptionOne: string;
   aiOwnerDefaultModel: string;
   aiMemberPromptsPerDay: string;
   saveAiLimit: string;
   aiOwnerSummary: string;
   aiMemberRemaining: string;
+  aiMemberRemainingOne: string;
   aiLimitInvalid: string;
   aiLimitChanged: string;
+  aiLimitChangedOne: string;
   aiLimitChangeFailed: string;
   aiModelChanged: string;
   aiModelChangeFailed: string;
@@ -357,6 +362,7 @@ export type Messages = {
   tripSettingsDatesStale: string;
   tripSettingsSaving: string;
   tripCapacityHint: string;
+  tripCapacityHintOne: string;
   saveTripSettings: string;
   tripSettingsSaved: string;
   tripSettingsSaveFailed: string;
@@ -481,6 +487,8 @@ const en: Messages = {
   pendingEventLoadFailed: "Unable to load this pending event for editing.",
   pendingEventUpdateFailed: "Could not update this pending event. Reload and try again.",
   pendingExpenses: "Pending expenses",
+  pendingExpenseCountOne: "{count} pending expense",
+  pendingExpenseCountMany: "{count} pending expenses",
   pendingExpenseNotIncluded: "Waiting for owner approval · not included in totals or settlements",
   approvePendingEvent: "Approve and add to itinerary",
   rejectPendingEvent: "Reject pending event",
@@ -523,13 +531,16 @@ const en: Messages = {
   aiAccess: "AI access",
   aiOwnerAccessDescription: "Choose your model and the daily prompt limit for members.",
   aiMemberAccessDescription: "Member access is fixed to gpt-6.1-sol and {limit} prompts per UTC day.",
+  aiMemberAccessDescriptionOne: "Member access is fixed to gpt-6.1-sol and {limit} prompt per UTC day.",
   aiOwnerDefaultModel: "Owner default model",
   aiMemberPromptsPerDay: "Member prompts per UTC day",
   saveAiLimit: "Save limit",
   aiOwnerSummary: "Owner unlimited · members {limit}/UTC day",
   aiMemberRemaining: "{remaining} prompts remaining this UTC day",
+  aiMemberRemainingOne: "{remaining} prompt remaining this UTC day",
   aiLimitInvalid: "Enter a daily member limit from 1 to 1000.",
   aiLimitChanged: "Member AI limit changed to {limit} prompts per UTC day.",
+  aiLimitChangedOne: "Member AI limit changed to {limit} prompt per UTC day.",
   aiLimitChangeFailed: "Unable to update the daily AI limit.",
   aiModelChanged: "Owner AI model changed to {model}.",
   aiModelChangeFailed: "Unable to update the model.",
@@ -719,6 +730,7 @@ const en: Messages = {
   tripSettingsDatesStale: "Another owner changed the dates. Refresh and try again.",
   tripSettingsSaving: "Saving…",
   tripCapacityHint: "{count} places currently reserved · product maximum 20",
+  tripCapacityHintOne: "{count} place currently reserved · product maximum 20",
   saveTripSettings: "Save trip settings",
   tripSettingsSaved: "Trip destination, time zone, dates, and member capacity were updated and logged.",
   tripSettingsSaveFailed: "Unable to update trip settings.",
@@ -843,6 +855,8 @@ const zhHk: Messages = {
   pendingEventLoadFailed: "未能載入此待審批活動以供編輯。",
   pendingEventUpdateFailed: "未能更新此待批活動，請重新載入後再試。",
   pendingExpenses: "待審批開支",
+  pendingExpenseCountOne: "{count} 筆待審批開支",
+  pendingExpenseCountMany: "{count} 筆待審批開支",
   pendingExpenseNotIncluded: "等待管理員審批 · 尚未計入總額或還款結算",
   approvePendingEvent: "審批並加入行程",
   rejectPendingEvent: "拒絕待審批活動",
@@ -885,13 +899,16 @@ const zhHk: Messages = {
   aiAccess: "AI 權限",
   aiOwnerAccessDescription: "選擇你的模型及成員每日提問上限。",
   aiMemberAccessDescription: "成員固定使用 gpt-6.1-sol，每個 UTC 日可提問 {limit} 次。",
+  aiMemberAccessDescriptionOne: "成員固定使用 gpt-6.1-sol，每個 UTC 日可提問 {limit} 次。",
   aiOwnerDefaultModel: "管理員預設模型",
   aiMemberPromptsPerDay: "成員每 UTC 日提問上限",
   saveAiLimit: "儲存上限",
   aiOwnerSummary: "管理員不限次數 · 成員每 UTC 日 {limit} 次",
   aiMemberRemaining: "本 UTC 日尚餘 {remaining} 次提問",
+  aiMemberRemainingOne: "本 UTC 日尚餘 {remaining} 次提問",
   aiLimitInvalid: "請輸入 1 至 1000 的成員每日上限。",
   aiLimitChanged: "成員每日 AI 提問上限已改為 {limit} 次（以 UTC 日計算）。",
+  aiLimitChangedOne: "成員每日 AI 提問上限已改為 {limit} 次（以 UTC 日計算）。",
   aiLimitChangeFailed: "未能更新每日 AI 提問上限。",
   aiModelChanged: "管理員 AI 模型已改為 {model}。",
   aiModelChangeFailed: "未能更新 AI 模型。",
@@ -1081,6 +1098,7 @@ const zhHk: Messages = {
   tripSettingsDatesStale: "另一位管理員已更改日期，請重新整理後再試。",
   tripSettingsSaving: "正在儲存…",
   tripCapacityHint: "目前已預留 {count} 個名額 · 系統上限 20 人",
+  tripCapacityHintOne: "目前已預留 {count} 個名額 · 系統上限 20 人",
   saveTripSettings: "儲存旅程設定",
   tripSettingsSaved: "旅程目的地、時區、日期及成員上限已更新並記錄。",
   tripSettingsSaveFailed: "未能更新旅程設定。",
@@ -1266,6 +1284,8 @@ const jaJp: Messages = {
   pendingEventLoadFailed: "承認待ちの予定を編集用に読み込めませんでした。",
   pendingEventUpdateFailed: "保留中の予定を更新できませんでした。再読み込みしてから再試行してください。",
   pendingExpenses: "承認待ちの費用",
+  pendingExpenseCountOne: "承認待ちの費用 {count} 件",
+  pendingExpenseCountMany: "承認待ちの費用 {count} 件",
   pendingExpenseNotIncluded: "オーナーの承認待ち · 合計や精算には含まれていません",
   approvePendingEvent: "承認して旅程に追加",
   rejectPendingEvent: "承認待ちの予定を却下",
@@ -1308,13 +1328,16 @@ const jaJp: Messages = {
   aiAccess: "AIアクセス",
   aiOwnerAccessDescription: "モデルと、メンバーの1日の質問上限を選びます。",
   aiMemberAccessDescription: "メンバーはgpt-6.1-sol固定で、UTC日ごとに{limit}回まで質問できます。",
+  aiMemberAccessDescriptionOne: "メンバーはgpt-6.1-sol固定で、UTC日ごとに{limit}回まで質問できます。",
   aiOwnerDefaultModel: "オーナーの既定モデル",
   aiMemberPromptsPerDay: "メンバーのUTC日ごとの質問数",
   saveAiLimit: "上限を保存",
   aiOwnerSummary: "オーナーは無制限 · メンバーはUTC日ごとに{limit}回",
   aiMemberRemaining: "このUTC日ではあと{remaining}回質問できます",
+  aiMemberRemainingOne: "このUTC日ではあと{remaining}回質問できます",
   aiLimitInvalid: "メンバーの1日上限は1～1000で入力してください。",
   aiLimitChanged: "メンバーのAI上限をUTC日ごとに{limit}回へ変更しました。",
+  aiLimitChangedOne: "メンバーのAI上限をUTC日ごとに{limit}回へ変更しました。",
   aiLimitChangeFailed: "AIの1日上限を更新できませんでした。",
   aiModelChanged: "オーナーのAIモデルを{model}に変更しました。",
   aiModelChangeFailed: "AIモデルを更新できませんでした。",
@@ -1504,6 +1527,7 @@ const jaJp: Messages = {
   tripSettingsDatesStale: "別のオーナーが日付を変更しました。更新してから再試行してください。",
   tripSettingsSaving: "保存中…",
   tripCapacityHint: "現在 {count} 枠を予約済み · 上限20人",
+  tripCapacityHintOne: "現在 {count} 枠を予約済み · 上限20人",
   saveTripSettings: "旅行設定を保存",
   tripSettingsSaved: "旅行先、タイムゾーン、日程、メンバー上限を更新し、記録しました。",
   tripSettingsSaveFailed: "旅行設定を更新できませんでした。",
@@ -1624,6 +1648,8 @@ export const restrictedToneKeys = [
   "pendingEventLoadFailed",
   "pendingEventUpdateFailed",
   "pendingExpenses",
+  "pendingExpenseCountOne",
+  "pendingExpenseCountMany",
   "pendingExpenseNotIncluded",
   "approvePendingEvent",
   "rejectPendingEvent",
@@ -1660,13 +1686,16 @@ export const restrictedToneKeys = [
   "aiAccess",
   "aiOwnerAccessDescription",
   "aiMemberAccessDescription",
+  "aiMemberAccessDescriptionOne",
   "aiOwnerDefaultModel",
   "aiMemberPromptsPerDay",
   "saveAiLimit",
   "aiOwnerSummary",
   "aiMemberRemaining",
+  "aiMemberRemainingOne",
   "aiLimitInvalid",
   "aiLimitChanged",
+  "aiLimitChangedOne",
   "aiLimitChangeFailed",
   "aiModelChanged",
   "aiModelChangeFailed",
@@ -1757,4 +1786,17 @@ export function formatMessage(
     const value = values[key];
     return value === undefined || value === null ? placeholder : String(value);
   });
+}
+
+/**
+ * A count in its singular or plural message, so English reads "1 expense" and "2 expenses" (JOB-077).
+ * `values` fill any other placeholders, or replace `{count}` with a formatted number.
+ */
+export function countLabel(
+  count: number,
+  one: string,
+  many: string,
+  values: Record<string, string | number | null> = {},
+): string {
+  return formatMessage(count === 1 ? one : many, { count, ...values });
 }

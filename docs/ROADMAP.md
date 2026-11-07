@@ -24,6 +24,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 | JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
 | JOB-078 | Both of the owner's Google accounts act as the platform operator | Done: `OWNER_GOOGLE_EMAIL` may list several of the operator's accounts, and each runs AI on the server's keys (D-090) |
+| JOB-077 | A one-line guest notice, singular counts, and line breaks in free-model replies | Done: the guest notice mentions the AI key only when free guest AI is off, English says "1 expense", and free-model replies show line breaks instead of `<br/>` tags (D-088) |
 | JOB-076 | A brief README with phone screenshots, and a documentation index | Done: five phone screenshots, a **Find your way** table and a [documentation index](README.md); the diagram moved to [deployment](DEPLOYMENT.md) |
 | JOB-075 | Expense summary notes behind its "?" help, and the copy JOB-073 missed | Done: the expense summary shows only its figures and their "?"; trip creation, guest sign-in and the operator's feedback panel are brief too (D-088) |
 | JOB-074 | Codex web search again, with the code-mode host on | Done: disruption checks and OpenAI-model planning search again; the host stays on with code mode off (D-089) |
@@ -97,6 +98,13 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 Requested by the owner on 6 November 2026 ([job](jobs/JOB-078-operator-accounts.md)).
 
 - **Both accounts:** the owner's two Google accounts are each the platform operator, so the AI runs on the server's OpenAI, Anthropic and Gemini keys from either (D-090).
+
+### JOB-077: guest notice, counts and free-model line breaks
+
+Seen on 6–7 November 2026 while taking the README screenshots ([job](jobs/JOB-077-guest-notice-counts-line-breaks.md)).
+
+- **Guest notice:** one short line; it mentions the AI key only when free guest AI is off (D-088).
+- **Counts and line breaks:** English counts have a singular form, and free-model replies show line breaks instead of `<br/>` tags.
 
 ### JOB-076: a brief README with screenshots
 

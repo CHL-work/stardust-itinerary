@@ -23,4 +23,5 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-074 | Codex web search again, with the code-mode host on | done |
 | JOB-075 | Expense summary notes behind its "?" help, and the copy JOB-073 missed | done |
 | JOB-076 | A brief README with phone screenshots, and a documentation index | done |
+| JOB-077 | A one-line guest notice, singular counts, and line breaks in free-model replies | done |
 | JOB-078 | Both of the owner's Google accounts act as the platform operator | done |

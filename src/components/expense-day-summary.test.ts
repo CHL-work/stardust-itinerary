@@ -9,7 +9,7 @@ import { currencyFactor } from "@/lib/app/event-expense-editor";
 import { DayAccordion } from "@/components/current-day-groups";
 import { expensePageMessages } from "@/lib/app/expense-page-i18n";
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
-import { formatMessage, locales, messages, type Locale } from "@/lib/i18n";
+import { countLabel, formatMessage, locales, messages, type Locale } from "@/lib/i18n";
 
 const source = readFileSync("src/components/app-shell.tsx", "utf8");
 const tree = ts.createSourceFile("app-shell.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -39,7 +39,7 @@ function renderSummary(locale: Locale, group = sample, todayDate = sample.date) 
     compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, jsxFactory: "createElement" },
   }).outputText;
   const bindings = {
-    createElement, DayAccordion, ChevronRight, formatMessage, currencyFactor, group, locale,
+    createElement, DayAccordion, ChevronRight, countLabel, formatMessage, currencyFactor, group, locale,
     expensePageCopy: expensePageMessages(locale), paymentCopy: memberPaymentMessages(locale), messages: messages[locale],
     todayDate, overview: { trip: { defaultCurrency: "JPY" } },
   };
@@ -58,7 +58,7 @@ describe("side-by-side expense day heading", () => {
     expect(markup).toContain(sample.date);
     expect(markup).toContain(expensePageMessages(locale).currentDay);
     expect(markup).toContain(formatMessage(expensePageMessages(locale).count, { count: 3 }));
-    expect(markup).toContain(`1 ${messages[locale].pendingExpenses}`);
+    expect(markup).toContain(formatMessage(messages[locale].pendingExpenseCountOne, { count: 1 }));
     expect(markup).toContain(formatMessage(memberPaymentMessages(locale).dayCount, { count: 2 }));
     expect(markup).toContain(expensePageMessages(locale).myDayTotal);
     expect(markup).toContain("1,234");
@@ -79,7 +79,14 @@ describe("side-by-side expense day heading", () => {
     expect(markup).toContain("Monday");
     expect(markup).toContain("0 expenses");
     expect(markup).toContain("¥0");
-    expect(markup).not.toContain(messages.en.pendingExpenses);
+    expect(markup).not.toContain("pending expense");
+  });
+
+  it("counts one of each in the singular, and more in the plural (JOB-077)", () => {
+    const one = renderSummary("en", { ...sample, expenses: [{}], pendingExpenses: [{}], payments: [{}] }).markup;
+    expect(one).toContain("1 expense · 1 pending expense · 1 repayment<");
+    const many = renderSummary("en", { ...sample, expenses: [{}, {}], pendingExpenses: [{}, {}], payments: [{}, {}] }).markup;
+    expect(many).toContain("2 expenses · 2 pending expenses · 2 repayments<");
   });
 
   it("escapes and preserves a long day label rather than shortening or hiding it", () => {

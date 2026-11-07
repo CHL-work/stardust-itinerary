@@ -155,7 +155,7 @@ import {
   scheduleCalendarNavigation,
   type CalendarSyncConfirmation,
 } from "@/lib/calendar/sync-confirmation";
-import { formatMessage, type Locale, type Messages } from "@/lib/i18n";
+import { countLabel, formatMessage, type Locale, type Messages } from "@/lib/i18n";
 import { disruptionDetailLocale, selectLocalizedDisruptionDetail } from "@/lib/disruptions/localization";
 import {
   isOfflineFallbackEligible,
@@ -561,10 +561,6 @@ function itineraryMapUrl(item: ItineraryItem): string {
 function endpointMapUrl(locationName: string, mapUrl: string | null): string {
   if (mapUrl && isTrustedGoogleMapsUrl(mapUrl)) return mapUrl;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationName)}`;
-}
-
-function countLabel(count: number, one: string, many: string): string {
-  return formatMessage(count === 1 ? one : many, { count });
 }
 
 function addCalendarDays(dateKey: string, days: number): string {
@@ -2170,7 +2166,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         method: "PATCH",
         body: JSON.stringify({ memberDailyLimit: limit }),
       });
-      setNotice(formatMessage(messages.aiLimitChanged, { limit }));
+      setNotice(countLabel(limit, messages.aiLimitChangedOne, messages.aiLimitChanged, { limit }));
       await refresh();
     } catch {
       setNotice(messages.aiLimitChangeFailed);
@@ -3050,7 +3046,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
 
       <main className="main-content">
         <header className={`topbar ${advancedStyles.feedbackSpace}`}><div><p className="eyebrow">{overview.trip.timeZone} · {overview.session.role}</p><h1>{section === "activity" ? activityMessages(locale).title : navItems.find((item) => item.id === section)?.label}</h1></div><div className="topbar-actions"><UiModeToggle locale={locale} /><LocaleSwitcher locale={locale} />{overview.session.isOwner ? <button data-feedback-action="navigate" className="icon-button" aria-label="Approval request notifications" onClick={() => setSection("requests")}><Bell size={19} />{overview.approvalPendingCount > 0 ? <span className="notification-dot" /> : null}</button> : null}<Link className="owner-avatar" href="/auth/sessions" title={overview.session.displayName}>{overview.session.displayName.slice(0, 2).toUpperCase()}</Link></div></header>
-        {overview.session.isGuest && overview.session.guestExpiresAt ? <GuestBanner locale={locale} expiresAt={overview.session.guestExpiresAt} timeZone={overview.trip.timeZone} /> : null}
+        {overview.session.isGuest && overview.session.guestExpiresAt ? <GuestBanner locale={locale} expiresAt={overview.session.guestExpiresAt} timeZone={overview.trip.timeZone} needsKey={overview.ai.keyRequired === true} /> : null}
         {notice ? <div className="notice-banner" role="status"><span>{notice}{notice.includes("Google Calendar API is disabled") ? <> <a href={overview.calendar.setupUrl} target="_blank" rel="noreferrer">Enable the API</a></> : null}</span><button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={15} /></button></div> : null}
         {section === "today" ? <TripAdjacentNav trips={overview.availableTrips} currentTripId={overview.trip.id} locale={locale} disabled={busy} select={(tripId) => void switchTrip(tripId)} /> : null}
         {section === "today" || section === "itinerary" ? <TripOverviewBar trip={overview.trip} members={overview.members} today={todayDate} locale={locale} /> : null}
@@ -3162,9 +3158,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           <CurrentDayGroups ref={expenseGroupsRef} className="expense-days" today={todayDate} key={`expenses:${dayGroupsScope}`}>{expenseDayGroups.map((group) => <DayAccordion date={group.date} today={todayDate} key={group.date}>
             <summary className="expense-day-summary"><span className="expense-day-toggle"><ChevronRight size={18} /><span>
               <strong>{group.label || new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "long" }).format(new Date(`${group.date}T00:00:00Z`))}</strong>
-              <small>{group.date}{group.date === todayDate ? ` · ${expensePageCopy.currentDay}` : ""} · {formatMessage(expensePageCopy.count, { count: group.expenses.length })}
-                {group.pendingExpenses.length ? ` · ${group.pendingExpenses.length} ${messages.pendingExpenses}` : ""}
-                {group.payments.length ? ` · ${formatMessage(paymentCopy.dayCount, { count: group.payments.length })}` : ""}</small>
+              <small>{group.date}{group.date === todayDate ? ` · ${expensePageCopy.currentDay}` : ""} · {countLabel(group.expenses.length, expensePageCopy.countOne, expensePageCopy.count)}
+                {group.pendingExpenses.length ? ` · ${countLabel(group.pendingExpenses.length, messages.pendingExpenseCountOne, messages.pendingExpenseCountMany)}` : ""}
+                {group.payments.length ? ` · ${countLabel(group.payments.length, paymentCopy.dayCountOne, paymentCopy.dayCount)}` : ""}</small>
             </span></span><span className="expense-day-total"><small>{expensePageCopy.myDayTotal}</small><strong data-zero={!group.totals.some(([, total]) => total > 0)}>{group.totals.length
               ? group.totals.map(([currency, total]) => formatMoney(total, currency, locale)).join(" · ")
               : formatMoney(0, overview.trip.defaultCurrency, locale)}</strong></span></summary>
@@ -3237,11 +3233,11 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <summary data-feedback-action="navigate"><ChevronRight size={20} aria-hidden="true" /><span><strong>{advancedCopy.advanced}</strong><small>{overview.session.isOwner ? advancedCopy.description : advancedCopy.memberDescription}</small></span></summary>
             <div className={advancedStyles.body}>
           <article className="settings-card"><h2>{messages.aiAccess}</h2>
-            <p>{aiFundingNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : formatMessage(messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit }))}</p>
+            <p>{aiFundingNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerAccessDescription : countLabel(overview.ai.memberDailyLimit, messages.aiMemberAccessDescriptionOne, messages.aiMemberAccessDescription, { limit: overview.ai.memberDailyLimit }))}</p>
             {overview.ai.canSelectModel ? <label>{messages.aiOwnerDefaultModel}<select data-feedback-action="settings_save" value={selectedModel} disabled={busy} onChange={(event) => void updateModel(event.target.value)}>{selectableOwnerModels.map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
             {!overview.ai.canSelectModel && overview.session.isOwner && overview.ai.hostSubscriptionEnabled === false && ownKeysToShare ? <label>{keysCopy.sharedModelLabel}<select data-feedback-action="settings_save" value={overview.ai.ownerDefaultModel} disabled={busy} onChange={(event) => void updateSharedModel(event.target.value)}>{[...new Set([overview.ai.ownerDefaultModel, ...ownKeyModels(overview.ai.ownKeyProviders ?? [])])].map((model) => <option value={model} key={model}>{model}</option>)}</select></label> : null}
             {overview.session.isOwner ? <form className="inline-settings-form" data-feedback-action="settings_save" onSubmit={saveMemberDailyLimit}><label>{messages.aiMemberPromptsPerDay}<input type="number" min="1" max="1000" step="1" required value={memberDailyLimit} onChange={(event) => setMemberDailyLimit(event.target.value)} /></label><button data-feedback-action="settings_save" className="primary-button fit-button" disabled={busy}>{messages.saveAiLimit}</button></form> : overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <div className="quota-meter"><span style={{ width: `${Math.min(100, (overview.ai.usedToday / overview.ai.memberDailyLimit) * 100)}%` }} /></div> : null}
-            {overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <strong>{overview.ai.canSelectModel ? formatMessage(messages.aiOwnerSummary, { limit: overview.ai.memberDailyLimit }) : formatMessage(messages.aiMemberRemaining, { remaining: overview.ai.remainingToday ?? 0 })}</strong> : null}
+            {overview.ai.enabled && !ownKeyAccess(overview.ai).ownKeyOnly ? <strong>{overview.ai.canSelectModel ? formatMessage(messages.aiOwnerSummary, { limit: overview.ai.memberDailyLimit }) : countLabel(overview.ai.remainingToday ?? 0, messages.aiMemberRemainingOne, messages.aiMemberRemaining, { remaining: overview.ai.remainingToday ?? 0 })}</strong> : null}
           </article>
               {overview.session.isOwner && overview.liveOperations ? <LiveOperationsCard status={overview.liveOperations} locale={locale} timeZone={overview.trip.timeZone} messages={messages} /> : null}
               <ActivitySettingsEntry locale={locale} isOwner={overview.session.isOwner} open={() => setSection("activity")} />
@@ -3273,9 +3269,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                     <div className="section-heading"><p className="muted-copy">{advancedCopy.usageDescription}</p><button data-feedback-action="navigate" className="ghost-button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={15} />{advancedCopy.refresh}</button></div>
                     <div className="metric-grid">
                       <article className="metric-card"><span>{advancedCopy.requestsToday}</span><strong>{overview.ai.usedToday}</strong><small>{aiFundingNote(overview.ai, messages, keysCopy) ?? (overview.ai.canSelectModel ? messages.aiOwnerPolicy : formatMessage(messages.aiMemberQuota, { remaining: overview.ai.remainingToday ?? 0, limit: overview.ai.memberDailyLimit }))}</small></article>
-                      <article className="metric-card"><span>{advancedCopy.inputTokens}</span><strong>{usageTotals.input.toLocaleString(locale)}</strong><small>{formatMessage(advancedCopy.outputTokens, { count: usageTotals.output.toLocaleString(locale) })}</small></article>
+                      <article className="metric-card"><span>{advancedCopy.inputTokens}</span><strong>{usageTotals.input.toLocaleString(locale)}</strong><small>{countLabel(usageTotals.output, advancedCopy.outputTokensOne, advancedCopy.outputTokens, { count: usageTotals.output.toLocaleString(locale) })}</small></article>
                       <article className="metric-card"><span>{advancedCopy.outcomes}</span><strong>{formatMessage(advancedCopy.succeededCount, { count: usageTotals.succeeded })}</strong><small>{formatMessage(advancedCopy.otherOutcomes, { failed: usageTotals.failed, rejected: usageTotals.rejected })}</small></article>
-                      <article className="metric-card"><span>{advancedCopy.effectiveModel}</span><strong>{overview.ai.effectiveModel}</strong><small>{formatMessage(advancedCopy.recentEntries, { count: overview.aiLogs.length })}</small></article>
+                      <article className="metric-card"><span>{advancedCopy.effectiveModel}</span><strong>{overview.ai.effectiveModel}</strong><small>{countLabel(overview.aiLogs.length, advancedCopy.recentEntriesOne, advancedCopy.recentEntries)}</small></article>
                     </div>
                     <div className="section-heading"><div><h2>{advancedCopy.requestLog}</h2><p className="muted-copy">{advancedCopy.requestLogDescription}</p></div></div>
                     <div className="request-grid">{overview.aiLogs.map((log) => <article className="request-card" key={log.id}>
@@ -3914,12 +3910,16 @@ export function GoogleCalendarPanel({ overview, messages, state, busy, compact =
   );
 }
 
-/** A guest's reminder that the demo trip is temporary and how to keep trips (JOB-064). */
-export function GuestBanner({ locale, expiresAt }: { locale: Locale; expiresAt: string; timeZone?: string }) {
+/**
+ * A guest's one-line reminder (JOB-064, D-088): when the demo trip is deleted and how to keep trips.
+ * It mentions the AI key only when AI here needs one (JOB-077): the server's `ai.keyRequired`, which
+ * is false while free guest AI is on, so the browser never needs the free-AI settings themselves.
+ */
+export function GuestBanner({ locale, expiresAt, needsKey = false }: { locale: Locale; expiresAt: string; timeZone?: string; needsKey?: boolean }) {
   const copy = guestMessages(locale);
   const time = new Date(expiresAt).toLocaleString(locale === "zh-HK-lihkg" ? "zh-HK" : locale, { dateStyle: "medium", timeStyle: "short" });
   return <div className="notice-banner guest-banner" role="note">
-    <span>{formatMessage(copy.banner, { time })} {copy.aiHint} <Link href="/auth/sign-in">{copy.signIn}</Link></span>
+    <span>{formatMessage(needsKey ? copy.bannerNeedsKey : copy.banner, { time })} <Link href="/auth/sign-in">{copy.signIn}</Link></span>
   </div>;
 }
 
@@ -3950,7 +3950,8 @@ export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: 
   }
   if (ai.enabled && ownKeyAccess(ai).ownKeyOnly) return keysCopy.ownKeyAccess;
   if (ai.enabled && ai.sharedKey) {
-    return formatMessage(keysCopy.sharedAccess, { owner: ai.sharedKey.sponsorName, model: ai.sharedKey.model, limit: ai.memberDailyLimit });
+    return countLabel(ai.memberDailyLimit, keysCopy.sharedAccessOne, keysCopy.sharedAccess,
+      { owner: ai.sharedKey.sponsorName, model: ai.sharedKey.model, limit: ai.memberDailyLimit });
   }
   if (ai.enabled && ai.operatorOwnAi) return keysCopy.operatorAccess;
   return ai.hostSubscriptionEnabled === false ? messages.aiUnavailable : null;
@@ -4117,7 +4118,7 @@ export function TripSettingsCard({ settings, setSettings, busy, memberCount, mes
         <small>{messages.tripDatesHint}</small>
         <label>{messages.travelDestinationField}<input required maxLength={160} value={settings.destinationName} onChange={(event) => setSettings({ ...settings, destinationName: event.target.value })} /></label>
         <label>{messages.timeZoneField}<input required list="stardust-time-zones" maxLength={80} value={settings.timeZone} onChange={(event) => setSettings({ ...settings, timeZone: event.target.value })} /><datalist id="stardust-time-zones"><option value="Asia/Tokyo">Japan · Asia/Tokyo</option><option value="America/Chicago">US Central · America/Chicago</option><option value="Europe/London">UK · Europe/London</option><option value="Asia/Hong_Kong">Hong Kong · Asia/Hong_Kong</option></datalist></label>
-        <label>{messages.maximumMembersField}<input required type="number" min={memberCount} max="20" step="1" value={settings.maxMembers} onChange={(event) => setSettings({ ...settings, maxMembers: event.target.value })} /><small>{formatMessage(messages.tripCapacityHint, { count: memberCount })}</small></label>
+        <label>{messages.maximumMembersField}<input required type="number" min={memberCount} max="20" step="1" value={settings.maxMembers} onChange={(event) => setSettings({ ...settings, maxMembers: event.target.value })} /><small>{countLabel(memberCount, messages.tripCapacityHintOne, messages.tripCapacityHint)}</small></label>
         <button className="primary-button fit-button" disabled={busy}>{busy ? messages.tripSettingsSaving : messages.saveTripSettings}</button>
       </fieldset>
     </form>

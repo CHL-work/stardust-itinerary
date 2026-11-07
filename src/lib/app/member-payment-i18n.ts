@@ -1,7 +1,8 @@
 import type { Locale } from "@/lib/i18n";
 
 const en = {
-  record: "Record repayment", repayment: "Repayment", dayCount: "{count} repayments", history: "Repayment history", reviewTitle: "Repayment approvals",
+  record: "Record repayment", repayment: "Repayment", dayCountOne: "{count} repayment", dayCount: "{count} repayments", history: "Repayment history", reviewTitle: "Repayment approvals",
+  historyCountOne: "{count} record · {pending} awaiting approval",
   historyCount: "{count} records · {pending} awaiting approval",
   empty: "No repayment records yet.", reviewEmpty: "No repayments awaiting review.",
   explanation: "Record money already paid outside the app. This does not send money or add trip spending.",
@@ -32,7 +33,8 @@ const en = {
 };
 export type MemberPaymentCopy = { [K in keyof typeof en]: string };
 const zh: MemberPaymentCopy = {
-  record: "記錄還款", repayment: "還款", dayCount: "{count} 筆還款", history: "還款紀錄", reviewTitle: "還款審批",
+  record: "記錄還款", repayment: "還款", dayCountOne: "{count} 筆還款", dayCount: "{count} 筆還款", history: "還款紀錄", reviewTitle: "還款審批",
+  historyCountOne: "{count} 筆紀錄 · {pending} 筆待批准",
   historyCount: "{count} 筆紀錄 · {pending} 筆待批准",
   empty: "暫時沒有還款紀錄。", reviewEmpty: "暫時沒有待審批還款。",
   explanation: "只記錄已在應用程式外支付的款項。此操作不會轉帳，也不會增加旅程開支。",
@@ -62,7 +64,8 @@ const zh: MemberPaymentCopy = {
   resume: "繼續未確認紀錄", saving: "儲存中…", incoming: "付予", sent: "已付還款", received: "已收還款",
 };
 const ja: MemberPaymentCopy = {
-  record: "精算を記録", repayment: "精算", dayCount: "精算 {count} 件", history: "精算履歴", reviewTitle: "精算の承認",
+  record: "精算を記録", repayment: "精算", dayCountOne: "精算 {count} 件", dayCount: "精算 {count} 件", history: "精算履歴", reviewTitle: "精算の承認",
+  historyCountOne: "{count} 件 · 承認待ち {pending} 件",
   historyCount: "{count} 件 · 承認待ち {pending} 件",
   empty: "精算の記録はまだありません。", reviewEmpty: "承認待ちの精算はありません。",
   explanation: "アプリ外で支払い済みの金額を記録します。送金は行われず、旅行費用も増えません。",

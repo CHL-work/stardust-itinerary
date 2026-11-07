@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { memberManagementMessages } from "@/lib/app/member-management-i18n";
 import { buildMemberRemovalInput, canChooseMemberRole, type MemberRole, type RemovalChoices, type PaymentRemovalChoices } from "@/lib/app/member-management-client";
 import type { MemberRemovalInput, MemberRemovalPreview } from "@/lib/app/member-removal";
-import { formatMessage, type Locale } from "@/lib/i18n";
+import { countLabel, formatMessage, type Locale } from "@/lib/i18n";
 import "./member-management-controls.css";
 
 export function MemberRoleControl({ member, locale, busy, save }: {
@@ -51,7 +51,7 @@ export function MemberRemovalReview({ preview, locale, busy, submit, cancel }: {
     <dl className="member-removal-counts">{Object.entries(preview.counts).map(([key, count]) => <div key={key}><dt>{copy[key as keyof MemberRemovalPreview["counts"]]}</dt><dd>{count}</dd></div>)}</dl>
     {preview.counts.reusableInvites > 0 ? <p>{copy.inviteWarning}</p> : null}
     {preview.blockedReason === "last_bound_owner" ? <p className="member-removal-warning" role="alert">{copy.lastOwner}</p> : null}
-    {preview.hiddenPrivateExpenseCount > 0 ? <p className="member-removal-warning" role="alert">{formatMessage(copy.hiddenExpenses, { count: preview.hiddenPrivateExpenseCount })}</p> : null}
+    {preview.hiddenPrivateExpenseCount > 0 ? <p className="member-removal-warning" role="alert">{countLabel(preview.hiddenPrivateExpenseCount, copy.hiddenExpensesOne, copy.hiddenExpenses)}</p> : null}
     {preview.expenses.length ? <><p>{copy.financial}</p><div className="member-removal-expenses">{preview.expenses.map((expense) => <fieldset key={expense.id} disabled={busy}>
       <legend>{expense.description}</legend><p>{copy.total}: {money(expense.amountMinor, expense.currency, locale)} · {copy.share}: {money(expense.shareMinor, expense.currency, locale)}</p>
       {([["requiresPayerReplacement", "replacementPayerMemberId", "payerReplacement"], ["requiresShareRecipient", "shareRecipientMemberId", "shareRecipient"]] as const).map(([required, field, label]) => expense[required] ? <label key={field}>{copy[label]}<select required value={choices[expense.id]?.[field] ?? ""} onChange={(event) => choose(expense.id, field, event.target.value)}>

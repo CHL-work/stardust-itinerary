@@ -30,6 +30,8 @@ export async function testGuestFreeAi(pool, connectionString) {
     // Off unless enabled: a guest without a key is asked for one.
     delete process.env.GUEST_FREE_AI_ENABLED;
     await assert.rejects(policy(first), { reasonCode: "ai_key_required" });
+    // The guest notice mentions the key only when this says so (JOB-077).
+    assert.equal((await getAppOverview(pool, first)).ai.keyRequired, true);
 
     process.env.GUEST_FREE_AI_ENABLED = "true";
     process.env.GUEST_FREE_AI_PER_GUEST_DAILY = "2";
@@ -38,6 +40,8 @@ export async function testGuestFreeAi(pool, connectionString) {
     const overview = await getAppOverview(pool, first);
     assert.deepEqual({ enabled: overview.ai.enabled, keyRequired: overview.ai.keyRequired, freeAi: overview.ai.freeAi, remaining: overview.ai.remainingToday },
       { enabled: true, keyRequired: false, freeAi: { model: "NVIDIA Nemotron 3.5 Super", limit: 2, remainingToday: 2 }, remaining: 2 });
+    // The browser learns only that free AI is on, never the gateway settings behind it.
+    assert.doesNotMatch(JSON.stringify(overview), /ai-gateway\.kilo\.ai|nemotron-3\.5-super-vl:free/u);
 
     // The per-guest cap, then the instance-wide hourly cap for everyone else.
     await spend(first, 2);

@@ -65,11 +65,32 @@ describe("guest accounts", () => {
     expect(renderToStaticMarkup(createElement(GuestSignIn, { siteKey: null }))).not.toContain('disabled=""');
   });
 
-  it.each(locales)("tells a guest when everything is deleted, in %s", (locale) => {
-    const html = renderToStaticMarkup(createElement(GuestBanner, { locale, expiresAt: "2030-01-02T03:04:00.000Z" }));
+  it.each(locales)("tells a guest in one line when everything is deleted, in %s", (locale) => {
+    const expiresAt = "2030-01-02T03:04:00.000Z";
     const copy = guestMessages(locale);
-    expect(html).toContain(copy.signIn.replaceAll("'", "&#x27;"));
-    expect(html).toContain('href="/auth/sign-in"');
-    expect(html).toContain("2030");
+    for (const needsKey of [false, true]) {
+      const html = renderToStaticMarkup(createElement(GuestBanner, { locale, expiresAt, needsKey }));
+      expect(html).toContain(copy.signIn.replaceAll("'", "&#x27;"));
+      expect(html).toContain('href="/auth/sign-in"');
+      expect(html).toContain("2030");
+      // The key comes up only when AI here needs one, never while free guest AI is on (JOB-077).
+      expect(html.includes("API")).toBe(needsKey);
+    }
+    expect(renderToStaticMarkup(createElement(GuestBanner, { locale, expiresAt }))).not.toContain("API");
+  });
+
+  it("keeps the guest notice to one short line, the same in both Cantonese tones (JOB-077, D-088)", () => {
+    expect(guestMessages("en")).toEqual({
+      banner: "This guest trip is deleted on {time}.",
+      bannerNeedsKey: "This guest trip is deleted on {time}. AI needs your own API key.",
+      signIn: "Sign in to keep trips.",
+    });
+    for (const locale of locales) {
+      const { banner, bannerNeedsKey, signIn } = guestMessages(locale);
+      expect(banner).toContain("{time}");
+      expect(bannerNeedsKey.startsWith(banner)).toBe(true);
+      expect(`${bannerNeedsKey} ${signIn}`.length).toBeLessThan(90);
+    }
+    expect(guestMessages("zh-HK-lihkg")).toBe(guestMessages("zh-HK"));
   });
 });

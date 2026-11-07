@@ -106,6 +106,11 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **Guest notice, counts and free-model line breaks (JOB-077, D-088):**
+  - The guest notice is one short line, and says AI needs your own API key only when free guest AI is off and the guest has none.
+  - English counts have a singular form: "1 expense", "1 pending expense", "1 repayment", "1 record", "1 place currently reserved", "1 prompt remaining" and others, instead of "1 expenses" and the like.
+  - `<br>` tags in a free model's reply and reasons become line breaks before the reply is stored, instead of showing as text.
+
 - **Codex web search, disruption checks and OpenAI-model planning (JOB-074, D-089):** since Codex 0.147 every tool runs through the CLI's code-mode host, which the lockdown had turned off. No Codex turn could search the web, the disruption monitor failed every run, and OpenAI-model planning failed. The host stays on now, with code mode and every other disabled feature still off. The monitor reports its own disallowed-tool check as `DISRUPTION_PROVIDER_TOOL` instead of a provider sign-in failure.
 
 - **The operator's own AI (JOB-072, D-087):** the platform operator's requests on the server's keys now follow the own-key rules, as JOB-070 intended for anyone paying for their own AI: they read pasted public links, take any topic and add new events and expenses at once. On a request the requester pays for, items and owner edits from pictures no longer wait for approval either. The operator's AI card says so in one line.

@@ -11,7 +11,7 @@ import { expensePageMessages } from "@/lib/app/expense-page-i18n";
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
 import { formatPaymentMoney } from "@/lib/app/member-payment-format";
 import type { MemberPayment } from "@/lib/app/member-payments";
-import { formatMessage, locales, messages, type Locale } from "@/lib/i18n";
+import { countLabel, formatMessage, locales, messages, type Locale } from "@/lib/i18n";
 
 const source = readFileSync("src/components/app-shell.tsx", "utf8");
 const tree = ts.createSourceFile("app-shell.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -46,7 +46,7 @@ function renderPage(locale: Locale, overview = fixture(), options: { today?: str
   const bindings = {
     createElement, groupExpenseDays, compareExpenseDayEntries, useMemo: (read: () => unknown) => read(), overview,
     locale, busy: options.busy ?? false, paymentCopy: memberPaymentMessages(locale), expensePageCopy: expensePageMessages(locale), messages: messages[locale],
-    formatMessage, formatMoney: formatPaymentMoney, CurrentDayGroups, DayAccordion, MemberPaymentCard, expenseGroupsRef,
+    countLabel, formatMessage, formatMoney: formatPaymentMoney, CurrentDayGroups, DayAccordion, MemberPaymentCard, expenseGroupsRef,
     todayDate: options.today ?? "2030-04-02", dayGroupsScope: "synthetic-visit", Check, ChevronRight, PencilLine, Plus, X,
     TripExpenseSummary: () => createElement("div", { "data-summary": true }, "Synthetic summary"),
     ExpenseDisplayCard: ({ expense }: { expense: Data["expenses"][number] }) => createElement("article", { "data-kind": "expense" }, expense.description),
@@ -74,7 +74,7 @@ describe("Expense page repayment date integration", () => {
     const days = descendants(node).filter((entry) => entry.type === DayAccordion);
     expect(days.map((entry) => entry.props.date)).toEqual(["2030-04-01", "2030-04-02"]);
     expect(markup).not.toContain(memberPaymentMessages(locale).history);
-    expect(markup).toContain(formatMessage(memberPaymentMessages(locale).dayCount, { count: 1 }));
+    expect(markup).toContain(formatMessage(memberPaymentMessages(locale).dayCountOne, { count: 1 }));
     expect(markup.match(/Synthetic sender/g)).toHaveLength(1);
     const current = renderToStaticMarkup(days[1]);
     expect(current).toContain('open=""'); expect(current).not.toContain(expensePageMessages(locale).noExpenses);
