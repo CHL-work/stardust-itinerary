@@ -58,7 +58,7 @@ The eight languages added in [D-096](DECISIONS.md) are translation packs, not co
 - **Packs:** one JSON file per language in `src/lib/locale-packs/`, keyed by section. Each section translates one English catalog, with the same keys, lists and placeholders.
 - **Reading text:** catalog code calls `localizedCatalog(locale, section, { en, "zh-HK": ..., "ja-JP": ... })`. The four original locales get their own catalog; an added language gets the English catalog with its pack laid over it, so a gap shows English.
 - **Loading (JOB-085, D-097):** the server bundles every pack (`store.ts`); browser code bundles none.
-  - The `turbopack.resolveAlias` entry in `next.config.ts` swaps in the empty `store.browser.ts` for client builds.
+  - The `turbopack.resolveAlias` entry in `next.config.ts` swaps in the empty `store.browser.ts` for client builds. The alias is Turbopack's, the default build: a webpack build would still work but would bundle every pack, and the smoke test would fail it.
   - A page in an added language passes `localePack(locale)` to `LocalePackScope`, which installs the pack before anything below it renders.
   - A record built when a module loads, such as `messages`, must read the added languages lazily, through `withPackLocales`.
   - A new page that renders localized client components must wrap them in `LocalePackScope`.

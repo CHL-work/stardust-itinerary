@@ -56,6 +56,17 @@ On 7 November 2026 the owner asked to load only the selected language, and to al
   - English heads the menus.
 - **Create-trip tests:** one language's choices, English first in the form's menu, and a language change that reloads the page without sending the form.
 - **Full check:** `pnpm check` on a disposable PostgreSQL 17 database, including the smoke test's pack guard.
+- **Browser** (the f8aa059 production build, run locally as a guest):
+  - The Spanish page hydrates in Spanish, with no hydration warnings.
+  - Switching to German, then Simplified Chinese, from the menu changes every label without a reload, including the feedback button outside the page.
+  - On the create-trip page, choosing German reloads the copy and time zone names in German, and keeps a typed trip name.
+  - English heads both menus.
+- **Production** (commit f8aa059):
+  - Browser code for every page fell from 1,925 KB (565 KB compressed) to 1,375 KB (399 KB compressed).
+  - A page in an added language carries its pack in the page data: 113 KB of HTML (33 KB compressed) instead of 36 KB (11 KB).
+  - The English, Cantonese and Japanese pages are unchanged at 34 KB (10 KB).
+  - The guard's 24 phrases were all found in the previous production code and are absent now.
+  - All eight language pages render their own text.
 
 ## Rollback
 
