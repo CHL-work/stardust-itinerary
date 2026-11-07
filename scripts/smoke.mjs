@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 
 const port = 3210;
 const origin = `http://127.0.0.1:${port}`;
@@ -98,6 +98,32 @@ try {
     throw new Error("LIHKG-style Cantonese page failed the production smoke test.");
   }
 
+  // Only the selected language's pack reaches the browser (JOB-085, D-097): the Spanish page renders Spanish,
+  // and no client chunk carries any pack's text.
+  const packDirectory = path.join(process.cwd(), "src", "lib", "locale-packs");
+  const readPack = async (locale) => JSON.parse(await readFile(path.join(packDirectory, `${locale}.json`), "utf8"));
+  const spanish = await readPack("es");
+  const spanishResponse = await fetch(`${origin}/es`);
+  if (!spanishResponse.ok || !(await spanishResponse.text()).includes(spanish.feedback.heading)) {
+    throw new Error("The Spanish page did not render its language pack.");
+  }
+  const markers = [];
+  for (const locale of ["es", "pt-BR", "fr", "de", "ru", "id"]) {
+    const texts = Object.values(await readPack(locale)).flatMap((section) => Object.values(section))
+      .filter((value) => typeof value === "string" && value.length >= 24 && !/[{}"'\\]/u.test(value));
+    // Accented or Cyrillic text cannot be English copy; Indonesian sentences are told apart by their length.
+    markers.push(...texts.filter((value) => locale === "id" ? value.split(" ").length >= 5 : /[^\u0000-\u007f]/u.test(value)).slice(0, 4));
+  }
+  const escaped = (value) => value.replace(/[^\u0000-\u007f]/gu, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const chunkDirectory = path.join(process.cwd(), ".next", "static", "chunks");
+  for (const entry of await readdir(chunkDirectory, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
+    const source = await readFile(path.join(entry.parentPath, entry.name), "utf8");
+    const lowered = source.toLowerCase();
+    const leaked = markers.find((marker) => source.includes(marker) || lowered.includes(escaped(marker).toLowerCase()));
+    if (leaked) throw new Error(`A language pack was bundled into browser code (${entry.name}).`);
+  }
+
   const stylesheetPath = html.match(/href="([^"]+\.css[^"]*)"/)?.[1];
   if (!stylesheetPath) {
     throw new Error("Production HTML did not reference a stylesheet.");
@@ -114,7 +140,7 @@ try {
     throw new Error("The local identity sign-in page failed the production smoke test.");
   }
 
-  console.log("Smoke test passed: health, Cantonese, identity, stylesheet and versioned MapLibre worker routes are available.");
+  console.log("Smoke test passed: health, Cantonese, a Spanish pack page with no pack in browser code, identity, stylesheet and versioned MapLibre worker routes are available.");
 } finally {
   await stopServer();
 }

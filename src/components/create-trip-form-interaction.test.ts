@@ -1,8 +1,8 @@
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DestinationLookupResponse } from "@/lib/app/trip-destination-contract";
-import { locales } from "@/lib/i18n";
-import { getTripCreationOptions, type TripCreationOptions } from "@/lib/app/trip-creation-options";
+import type { Locale } from "@/lib/i18n";
+import { getTripCreationOptions } from "@/lib/app/trip-creation-options";
 
 // Exercise the actual event handlers with a minimal hook host, without a browser or real account.
 const host = vi.hoisted(() => ({values:[] as unknown[],cursor:0}));
@@ -19,7 +19,8 @@ vi.mock("react",async (original) => ({...await original<typeof import("react")>(
   },
   useEffect:vi.fn(),
 }));
-vi.mock("next/navigation",() => ({useRouter:() => ({push:vi.fn(),refresh:vi.fn()})}));
+const router = vi.hoisted(() => ({push:vi.fn(),refresh:vi.fn(),replace:vi.fn()}));
+vi.mock("next/navigation",() => ({useRouter:() => router}));
 import { CreateTripForm, createTripCopy } from "./create-trip-form";
 
 type Node = ReactElement<Record<string, unknown>>;
@@ -27,10 +28,11 @@ function descendants(node:ReactNode):Node[] {
   if (Array.isArray(node)) return node.flatMap(descendants);
   return isValidElement<Record<string,unknown>>(node) ? [node,...descendants(node.props.children as ReactNode)] : [];
 }
-const optionsByLocale = Object.fromEntries(locales.map((locale) => [locale,getTripCreationOptions(locale)])) as Record<typeof locales[number],TripCreationOptions>;
-const props = {locale:"en" as const,now:"2030-01-01T00:00:00Z",authenticated:true,signupEnabled:false,lookupEntitled:true,optionsByLocale};
+// The page sends one language's copy and choices; another language arrives as new props once the page reloads (JOB-085).
+let page:{locale:Locale;options:ReturnType<typeof getTripCreationOptions>} = {locale:"en",options:getTripCreationOptions("en")};
+const props = {now:"2030-01-01T00:00:00Z",authenticated:true,signupEnabled:false,lookupEntitled:true};
 const fetchMock = vi.fn();
-function render(lookupEntitled = true) {host.cursor = 0; return descendants(CreateTripForm({...props,lookupEntitled}));}
+function render(lookupEntitled = true) {host.cursor = 0; return descendants(CreateTripForm({...props,...page,lookupEntitled}));}
 function control(name:string) {return render().find((node) => node.props.name === name)!;}
 function change(name:string,value:string) {(control(name).props.onChange as (event:unknown) => void)({target:{value}});}
 function blur() {(control("destinationName").props.onBlur as () => void)();}
@@ -51,6 +53,7 @@ async function flush() {await new Promise((resolve) => setTimeout(resolve,0));}
 describe("trip creation destination interactions",() => {
   beforeEach(() => {
     host.values = []; host.cursor = 0; fetchMock.mockReset(); vi.stubGlobal("fetch",fetchMock);
+    page = {locale:"en",options:getTripCreationOptions("en")}; router.replace.mockReset();
     vi.stubGlobal("window",{setTimeout,clearTimeout,requestAnimationFrame:vi.fn()});
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -59,6 +62,7 @@ describe("trip creation destination interactions",() => {
     change("timeZone","America/Chicago"); change("defaultCurrency","USD");
     const language = render().find((node) => node.type === "select" && node.props["aria-label"] === "Language")!;
     (language.props.onChange as (event:unknown) => void)({target:{value:"ja-JP"}});
+    expect(router.replace).toHaveBeenCalledWith("/trips/new?locale=ja-JP",{scroll:false});
     render(); expect(fetchMock).not.toHaveBeenCalled();
   });
   it("Enter commits an AI lookup for Japan without submitting or starting twice on blur",async () => {
@@ -110,6 +114,11 @@ describe("trip creation destination interactions",() => {
     blur();
     const language = render().find((node) => node.type === "select" && node.props["aria-label"] === "Language")!;
     (language.props.onChange as (event:unknown) => void)({target:{value:"ja-JP"}});
+    // Until the page reloads in Japanese, the select shows the choice and the form cannot be sent.
+    const pending = render();
+    expect(pending.find((node) => node.type === "select" && node.props["aria-label"] === "Language")!.props.value).toBe("ja-JP");
+    expect(pending.find((node) => node.type === "button" && node.props.type === "submit")!.props["aria-disabled"]).toBe(true);
+    page = {locale:"ja-JP",options:getTripCreationOptions("ja-JP")};
     finish(reply()); await flush();
     const status = render().find((node) => node.props.role === "status")!;
     expect(status.props.children).toContain("タイムゾーン"); expect(fetchMock).toHaveBeenCalledTimes(1);

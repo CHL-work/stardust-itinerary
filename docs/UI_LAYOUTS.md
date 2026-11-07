@@ -7,7 +7,7 @@ Create Trip offers Auto destination lookup, a manual fallback and an editable su
 ## How it is applied
 
 - `src/app/layout.tsx` renders `<html lang="zh-HK" data-ui="new">`. Every stylesheet in `src/app/new-ui/` scopes its selectors to `:root[data-ui="new"]`, which outranks the base stylesheet `src/app/globals.css` and the plain component stylesheets; those load first.
-- `documentLanguageBootstrapScript` (`src/lib/document-language-bootstrap.ts`) runs in `<head>` before first paint and sets `<html lang>` from the locale route (`/en` → `en`, `/ja-JP` → `ja-JP`, `/zh-HK` and `/zh-HK-lihkg` → `zh-HK`; any other route keeps the server-rendered `zh-HK`), so the per-script font stacks are right on first paint. `DocumentLanguage` keeps the attribute in sync after hydration, and `<html>` has `suppressHydrationWarning` because the script changes `lang` before React hydrates.
+- `documentLanguageBootstrapScript` (`src/lib/document-language-bootstrap.ts`) runs in `<head>` before first paint and sets `<html lang>` from the locale route (`/en` → `en`, `/ja-JP` → `ja-JP`, `/zh-HK` and `/zh-HK-lihkg` → `zh-HK`, and each added language to its own tag, such as `/pt-BR` → `pt-BR`; any other route keeps the server-rendered `zh-HK`), so the per-script font stacks are right on first paint. `DocumentLanguage` keeps the attribute in sync after hydration, and `<html>` has `suppressHydrationWarning` because the script changes `lang` before React hydrates.
 - The root `viewport` export sets `colorScheme: "light dark"` and the browser chrome color: `#f5f3fa` for `prefers-color-scheme: light`, `#14121b` for dark.
 
 There is no layout preference: no setting, browser storage, account field or migration. Browsers that used the toggle may still hold the retired `stardust.ui-mode.v1` key; nothing reads it.
@@ -88,7 +88,7 @@ Practical rules:
 - Put layout styling in the scoped `src/app/new-ui/` files. Leave `globals.css`, `src/components/*.css` and component CSS modules alone except to remove rules nothing uses any more.
 - A new presentational component reuses existing state and handlers and adds no API call, permission path or diagnostics field.
 - Feedback diagnostics: mark new controls with an existing allowlisted `data-feedback-action` code and add the component file to the privacy-safe instrumentation test in `src/components/app-shell-advanced-settings.test.ts`. Bottom-bar items and day chips use `navigate`, and the AI pill uses `dialog_open`.
-- Copy goes in `src/lib/app/ui-refresh-i18n.ts` (or the relevant catalog) for `en`, `zh-HK` and `ja-JP`. Layout controls are display/accessibility surfaces, so `zh-HK-lihkg` uses the identical neutral `zh-HK` text.
+- Copy goes in `src/lib/app/ui-refresh-i18n.ts` (or the relevant catalog) for `en`, `zh-HK` and `ja-JP`, and in every pack for the added languages. Layout controls are display/accessibility surfaces, so `zh-HK-lihkg` uses the identical neutral `zh-HK` text.
 - Check 1280px desktop and 390px and 320px phone widths (and spot-check 761–1240px, where the sidebar narrows and the dashboard is one column), in light and dark system themes, in the original four locales (`en`, `zh-HK`, `zh-HK-lihkg`, `ja-JP`) and at least one Latin-script pack language with long words, such as `de`. Confirm no horizontal overflow (`document.documentElement.scrollWidth <= innerWidth`), that the feedback launcher covers nothing and that the offline header still fits. Use synthetic data or a loopback preview harness, never real trip data.
 - `pnpm check` runs the guard and the layout tests with the rest of the suite.
 

@@ -38,7 +38,7 @@ The `Dockerfile` builds the standalone server into a non-root image listening on
 | Database | `src/lib/db/`, `database/migrations/`: pool, checksummed ordered SQL and constraints. |
 | Integrations | `src/lib/calendar/`, `src/lib/maps/`, `src/lib/weather/`, `src/lib/disruptions/`. |
 | Feedback / activity | `src/lib/feedback/`, `src/lib/app/`: private diagnostics, safe review links, separate issue-only publication. |
-| Offline / i18n | `src/lib/offline/` and `public/sw.js`; `src/lib/i18n.ts` plus topic `*-i18n.ts` dictionaries. |
+| Offline / i18n | `src/lib/offline/` and `public/sw.js`; `src/lib/i18n.ts` plus topic `*-i18n.ts` dictionaries, and the added languages' packs in `src/lib/locale-packs/`. The server has every pack; a page sends the browser only its own language's pack (D-097). |
 | Scripts | `scripts/`: migrations, seeds, smoke, workers, guarded evaluations and maintenance tools; presence does not authorize running them. |
 | Packaging | `Dockerfile`, `compose.yaml`; Kubernetes manifests in `deploy/k8s/` and infrastructure code in `infra/` serve the public instance. |
 

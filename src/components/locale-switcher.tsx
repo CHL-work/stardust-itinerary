@@ -4,7 +4,7 @@ import { Check, ChevronDown, Languages } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { documentLanguage, localeNames as localeLabels, locales, type Locale } from "@/lib/i18n";
+import { documentLanguage, localeNames as localeLabels, menuLocales, type Locale } from "@/lib/i18n";
 
 export function LocaleSwitcher({ locale }: { locale: Locale }) {
   const [open, setOpen] = useState(false);
@@ -41,7 +41,7 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
         <ChevronDown className={open ? "language-chevron is-open" : "language-chevron"} size={14} />
       </button>
       {open ? <nav className="language-options" aria-label="Language" role="menu">
-        {locales.map((item) => (
+        {menuLocales.map((item) => (
           <Link
             data-feedback-action="locale_change"
             className={item === locale ? "language-option is-active" : "language-option"}

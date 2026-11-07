@@ -1,5 +1,5 @@
 import type { Locale } from "@/lib/i18n";
-import { isPackLocale, packLocales, packSection, type PackLocale } from "@/lib/locale-packs";
+import { isPackLocale, packSection, withPackLocales } from "@/lib/locale-packs";
 import type { FeedbackAction } from "./contracts";
 
 const en = {
@@ -29,10 +29,8 @@ const ja: Copy = {
   pages: { today: "概要", itinerary: "日程", expenses: "支出", ai: "AI", requests: "承認", settings: "設定", permissions: "設定", usage: "設定", activity: "操作履歴", login: "ログイン", join: "旅行に参加", onboarding: "アカウント設定", privacy: "プライバシー", terms: "規約", other: "その他" },
   verbs: { navigate: "ページを表示", event: "予定の操作", expense: "支出の操作", calendar: "カレンダーの操作", ai: "AI の操作", trip: "旅行を切り替え", member: "メンバーの操作", settings: "設定の変更", feedback: "報告の操作", error: "リクエスト失敗", login: "ログイン", logout: "ログアウト", generic: "ボタン・フォーム操作" },
 };
-export const feedbackCopy: Record<Locale, Copy> = {
-  en, "zh-HK": hk, "zh-HK-lihkg": spicy, "ja-JP": ja,
-  ...Object.fromEntries(packLocales.map((locale) => [locale, packSection(locale, "feedback", en)])) as Record<PackLocale, Copy>,
-};
+export const feedbackCopy: Record<Locale, Copy> = withPackLocales<Copy, Record<"en" | "zh-HK" | "zh-HK-lihkg" | "ja-JP", Copy>>(
+  { en, "zh-HK": hk, "zh-HK-lihkg": spicy, "ja-JP": ja }, "feedback", en);
 const actionNames: Record<FeedbackAction, readonly [string, string, string]> = {
   navigate: ["View page", "查看頁面", "ページを表示"], page_view: ["View page", "查看頁面", "ページを表示"],
   dialog_open: ["Open dialog", "開啟視窗", "ダイアログを開く"], dialog_close: ["Close dialog", "關閉視窗", "ダイアログを閉じる"],

@@ -1,6 +1,6 @@
 # Stardust Itinerary · 星塵遠征軍
 
-A mobile-first planner for group trips, where AI proposes and application code decides: one shared itinerary, expense splitting, day maps, weather and disruption checks. In English, Cantonese, Japanese, Simplified and Traditional Chinese, Spanish, Portuguese, French, German, Russian and Indonesian.
+A mobile-first planner for group trips, where AI proposes and application code decides: one shared itinerary, expense splitting, day maps, weather and disruption checks, and flight status checks before departure. In English, Cantonese, Japanese, Simplified and Traditional Chinese, Spanish, Portuguese, French, German, Russian and Indonesian.
 
 **Try it:** <https://stardust-itinerary.chl-work.com>. Sign in with Google, or try a guest demo trip with a few free AI requests; it is deleted after 24 hours.
 

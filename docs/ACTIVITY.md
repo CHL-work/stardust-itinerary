@@ -16,4 +16,4 @@ Unknown actions receive safe generic labels. Rich detail is deliberately allowli
 
 ## Verification
 
-Test owner/member/cross-trip authorization, current private audiences, proposal-only owner visibility, missing and removed targets, raw metadata suppression, correct collapsed-day navigation and read-only request rendering. Controls and details support English, Cantonese, LIHKG Cantonese and Japanese with neutral security/financial language and touch-sized controls.
+Test owner/member/cross-trip authorization, current private audiences, proposal-only owner visibility, missing and removed targets, raw metadata suppression, correct collapsed-day navigation and read-only request rendering. Controls and details support every interface language (English, Cantonese, LIHKG Cantonese, Japanese and the eight translation packs) with neutral security/financial language and touch-sized controls.

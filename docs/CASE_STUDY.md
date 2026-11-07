@@ -4,7 +4,7 @@ A collaborative trip planner where AI proposes and application code decides. Thi
 
 ## The product in one paragraph
 
-Up to 20 people share one trip: day-by-day events, private events visible only to chosen members, expenses with exact splits, repayments, approvals and a full change history. An AI planner (OpenAI, Anthropic or Google models) reads the trip and the web, then proposes events and expenses. Members review the proposals; nothing the model says is written directly. The UI is in English, Cantonese, LIHKG-style Cantonese and Japanese.
+Up to 20 people share one trip: day-by-day events, private events visible only to chosen members, expenses with exact splits, repayments, approvals and a full change history. An AI planner (OpenAI, Anthropic or Google models) reads the trip and the web, then proposes events and expenses. Members review the proposals; nothing the model says is written directly. The UI is in English, Cantonese, LIHKG-style Cantonese and Japanese, plus Simplified and Traditional Chinese, Spanish, Brazilian Portuguese, French, German, Russian and Indonesian.
 
 ## Design principles
 

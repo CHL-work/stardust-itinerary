@@ -2,6 +2,18 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-097: The browser gets only the selected language (accepted November 7, 2026)
+
+The owner asked to load only the selected language, and to always show English at the top of the language menus (JOB-085).
+
+- **Packs:** the server bundles every language pack; browser code bundles none.
+  - A `turbopack.resolveAlias` entry gives client builds an empty pack store.
+  - Each page sends only its own language's pack, which `LocalePackScope` installs before the page renders.
+  - Catalog records built when a module loads read the added languages when used, so they show the installed pack.
+- **Create trip:** the page carries only the selected language's copy and its time zone and currency choices. Choosing another language in the form reloads them and keeps what was typed.
+- **Menus:** both language menus list English first, then the other languages in a fixed order.
+- **Guard:** the smoke test fails the build if any pack's text appears in browser code.
+
 ## D-096: Eight more interface languages, kept as translation packs (accepted November 7, 2026)
 
 The owner asked for Simplified Chinese, Traditional Chinese and six more of the languages most used on the internet, and for the README to call the Cantonese interface just "Cantonese" (JOB-084).
@@ -13,7 +25,7 @@ The owner asked for Simplified Chinese, Traditional Chinese and six more of the 
   - Outside Chinese the app keeps its English name; it is 星尘远征军 in Simplified and 星塵遠征軍 in Traditional Chinese.
   - Disruption details are written in English, Cantonese and Japanese, so the added languages show the English one.
   - AI answers follow the selected language, as before. The spicy Cantonese mode is unchanged.
-- **Cost:** every pack ships in the client bundle; loading only the selected language can come later.
+- **Cost:** superseded by D-097: the browser now gets only the selected language's pack.
 
 ## D-095: The server checks flights before departure and updates them (accepted November 7, 2026)
 

@@ -23,6 +23,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 | JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
+| JOB-085 | Load only the selected language, with English first in the language menus | Done: browser code carries no language pack; each page sends its own, and the create-trip page only its language's choices (D-097) |
 | JOB-084 | Eight more languages, and "Cantonese" in the README | Done: Simplified and Traditional Chinese, Spanish, Brazilian Portuguese, French, German, Russian and Indonesian as translation packs (D-096) |
 | JOB-083 | Flight status checks before departure | Done: checks 24 and 12 hours, then hourly from 6 hours, before departure; time changes, cancellations and terminal or gate changes update the flight (D-095) |
 | JOB-082 | Flight details on transport events, and the AI looks up terminals | Done: flight number, airline, terminals and gate on flights; cards show the gate, else the terminal, else the airline (D-094) |
@@ -58,7 +59,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 - The invite dialog gets a checkbox, **"Let this member use my AI keys"**, off by default. Owners can switch it on or off per member at any time.
 - The grant names the sponsoring owner, and stops working if that owner removes the key, leaves or is removed.
 - **Limits:** members using shared keys use one trip-level model the owner chooses, with the trip's daily request limit (default 20). A monthly cost cap is not built; it would need per-model prices.
-- All grant changes are audited; copy is in all four languages. Contract: [sharing your keys](PUBLIC_TRIPS_AND_MEMBERS.md#sharing-your-keys-with-members).
+- All grant changes are audited; copy is in every interface language. Contract: [sharing your keys](PUBLIC_TRIPS_AND_MEMBERS.md#sharing-your-keys-with-members).
 
 ### JOB-064: guest mode and public sign-up
 
@@ -99,12 +100,19 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 - **Daily copy:** the `stardust-offsite-copy` job restores the database into a Neon free-plan project as a dated database, checks every table's row count, and keeps the newest three (D-083).
 - **Free plan:** a 0.25 CU compute awake a few minutes a day, and all copies within 500 MB of the 1 GB of storage.
 
+### JOB-085: only the selected language
+
+Requested by the owner on 7 November 2026 ([job](jobs/JOB-085-load-selected-language.md)).
+
+- **Smaller downloads:** browser code carries no language pack; each page sends only its own language's pack, and the create-trip page only its language's choices (D-097).
+- **Menus:** English is always first in the language menus.
+
 ### JOB-084: more languages
 
 Requested by the owner on 7 November 2026 ([job](jobs/JOB-084-more-languages.md)).
 
 - **Languages:** Simplified and Traditional Chinese, Spanish, Brazilian Portuguese, French, German, Russian and Indonesian, each a translation pack laid over the English copy (D-096).
-- **Later:** send only the selected language's pack and create-trip choices to the browser, and a native speaker's review of each pack.
+- **Later:** a native speaker's review of each pack. Sending the browser only the selected language followed in JOB-085.
 
 ### JOB-083: flight status checks
 

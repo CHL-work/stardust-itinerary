@@ -1,4 +1,4 @@
-import { packLocales, packSection } from "@/lib/locale-packs";
+import { packLocales, withPackLocales } from "@/lib/locale-packs";
 
 /** The four original locales, whose catalogs are written in code. */
 export const baseLocales = ["en", "zh-HK", "zh-HK-lihkg", "ja-JP"] as const;
@@ -7,6 +7,9 @@ export const baseLocales = ["en", "zh-HK", "zh-HK-lihkg", "ja-JP"] as const;
 export const locales = [...baseLocales, ...packLocales] as const;
 
 export type Locale = (typeof locales)[number];
+
+/** The language menus' order: English always first, then the rest as in `locales` (JOB-085). */
+export const menuLocales: readonly Locale[] = ["en", ...locales.filter((locale) => locale !== "en")];
 
 /** Each language's name in itself, for the language menus. */
 export const localeNames: Record<Locale, string> = {
@@ -1562,13 +1565,8 @@ const jaJp: Messages = {
   refreshAfterChangeFailed: "保存しましたが、画面を更新できませんでした。再読み込みしてください。",
 };
 
-export const messages: Record<Locale, Messages> = {
-  en,
-  "zh-HK": zhHk,
-  "zh-HK-lihkg": zhHkLihkg,
-  "ja-JP": jaJp,
-  ...Object.fromEntries(packLocales.map((locale) => [locale, packSection(locale, "messages", en)])) as Record<(typeof packLocales)[number], Messages>,
-};
+/** The added languages are read when used, so the browser shows a pack the page installs after this module loads (JOB-085). */
+export const messages: Record<Locale, Messages> = withPackLocales({ en, "zh-HK": zhHk, "zh-HK-lihkg": zhHkLihkg, "ja-JP": jaJp }, "messages", en);
 
 export const restrictedToneKeys = [
   "expenses",

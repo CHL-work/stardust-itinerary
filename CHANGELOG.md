@@ -72,6 +72,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Only the selected language is downloaded (JOB-085, D-097):**
+  - Browser code no longer carries any language pack, which saves about 185 KB compressed for every visitor. A page in an added language sends only its own pack.
+  - The create-trip page sends only the selected language's time zone and currency choices; choosing another language reloads them and keeps what was typed.
+  - English is always first in the language menus.
+  - The smoke test fails the build if a pack reaches browser code.
+
 - **AI expenses split between everyone (JOB-080, D-092):** when a request does not say who shares an expense, the trip AI splits it equally between everyone who can see it, instead of charging the requester alone. It leaves out people the request excludes, uses just the named people when it is shared with them, and charges the requester alone when it is clearly theirs. Parts the request gives become exact shares, and several payers of one bill become one expense each. The default split no longer adds the "confirm the payer and split members" notice. On ten synthetic expense requests, gpt-6.1-sol and claude-sonnet-5-5 went from 6 and 8 to 10 of 10.
 
 - **Trip-wide AI events (JOB-079, D-091):** the trip AI adds new events for the whole trip by default, including hotels, flights and meals one person booked or paid for. It makes an event private only when asked, when it is shared with named people only, or when the event or its expense is clearly just for the requester, and its reply says when it chose private unasked. On the same synthetic requests, gpt-6.1-sol and claude-sonnet-5-5 went from 7 and 6 to 9 of 9 correct audiences.

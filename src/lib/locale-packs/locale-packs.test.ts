@@ -33,7 +33,7 @@ function leaves(value: unknown, path: string): Array<[string, string]> {
   return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => leaves(item, `${path}.${key}`));
 }
 
-/** Section names the source code reads, from every `localizedCatalog` and `packSection` call. */
+/** Section names the source code reads, from every `localizedCatalog`, `packSection` and `withPackLocales` call. */
 function sectionsReadInCode(): Set<string> {
   const found = new Set<string>();
   const visit = (directory: string) => {
@@ -43,6 +43,7 @@ function sectionsReadInCode(): Set<string> {
       else if (/\.tsx?$/u.test(name) && !/\.test\.tsx?$/u.test(name) && !path.includes("locale-packs")) {
         const text = readFileSync(path, "utf8");
         for (const match of text.matchAll(/(?:localizedCatalog(?:<[^(]*>)?|packSection)\(\s*[\w.]+,\s*"(\w+)"/gu)) found.add(match[1]!);
+        for (const match of text.matchAll(/withPackLocales(?:<[^(]*>)?\(\s*\{[^}]*\},\s*"(\w+)"/gu)) found.add(match[1]!);
       }
     }
   };

@@ -57,6 +57,13 @@ The eight languages added in [D-096](DECISIONS.md) are translation packs, not co
 
 - **Packs:** one JSON file per language in `src/lib/locale-packs/`, keyed by section. Each section translates one English catalog, with the same keys, lists and placeholders.
 - **Reading text:** catalog code calls `localizedCatalog(locale, section, { en, "zh-HK": ..., "ja-JP": ... })`. The four original locales get their own catalog; an added language gets the English catalog with its pack laid over it, so a gap shows English.
+- **Loading (JOB-085, D-097):** the server bundles every pack (`store.ts`); browser code bundles none.
+  - The `turbopack.resolveAlias` entry in `next.config.ts` swaps in the empty `store.browser.ts` for client builds.
+  - A page in an added language passes `localePack(locale)` to `LocalePackScope`, which installs the pack before anything below it renders.
+  - A record built when a module loads, such as `messages`, must read the added languages lazily, through `withPackLocales`.
+  - A new page that renders localized client components must wrap them in `LocalePackScope`.
+  - The smoke test fails the build if a pack's text reaches browser code.
+- **Menus:** both language menus list English first (`menuLocales`), then the other languages.
 - **The section list:** `catalogs.ts` names every section and its English catalog. The pack tests fail when code reads a section missing there, or when a pack misses a string, changes a placeholder or leaves an English sentence.
 - **Adding or changing English copy:** add the same key to every pack; for a new catalog, add its section to `catalogs.ts` and every pack.
 - **Terms:** AI is written as each language usually writes it: IA in Spanish, Portuguese and French, KI in German and ИИ in Russian. Chinese and Indonesian keep AI. Product names such as OpenAI stay as they are.

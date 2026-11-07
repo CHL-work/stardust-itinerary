@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { localeNames, locales, type Locale } from "@/lib/i18n";
+import { localeNames, menuLocales, type Locale } from "@/lib/i18n";
 import type { TripCreationOptions } from "@/lib/app/trip-creation-options";
 import { submitTripCreation, tripCreationLocalDate, type TripCreationFailure, type TripCreationField } from "@/lib/app/trip-creation-feedback";
 import { canSubmitTripCreation, initialTripCreationFormState, normalizedFormDestination, tripCreationFormReducer, type TripCreationFormAction } from "@/lib/app/trip-creation-form-state";
@@ -14,8 +14,10 @@ import { InfoTip } from "@/components/info-tip";
 
 export { createTripCopy } from "@/lib/app/create-trip-i18n";
 
-export function CreateTripForm({ locale:initialLocale,now,optionsByLocale,authenticated,signupEnabled,lookupEntitled = false }:{locale:Locale;now:string;optionsByLocale:Record<Locale,TripCreationOptions>;authenticated:boolean;signupEnabled:boolean;lookupEntitled?:boolean}) {
-  const [locale,setLocale] = useState(initialLocale);
+export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,lookupEntitled = false }:{locale:Locale;now:string;options:TripCreationOptions;authenticated:boolean;signupEnabled:boolean;lookupEntitled?:boolean}) {
+  // The page carries one language's copy and choices (JOB-085): another language reloads them, keeping the form.
+  const [requestedLocale,setRequestedLocale] = useState<Locale | null>(null);
+  const switching = requestedLocale !== null && requestedLocale !== locale;
   const [busy,setBusy] = useState(false);
   const [failure,setFailure] = useState<TripCreationFailure | null>(null);
   const [state,setState] = useState(initialTripCreationFormState);
@@ -28,7 +30,6 @@ export function CreateTripForm({ locale:initialLocale,now,optionsByLocale,authen
   const inFlight = useRef(false);
   const router = useRouter();
   const copy = createTripCopy(locale);
-  const options = optionsByLocale[locale];
   // An unresolved Auto value must never be passed to Intl or silently saved as Tokyo.
   const today = state.zone ? tripCreationLocalDate(now,state.zone) : "";
   const ready = canSubmitTripCreation(state);
@@ -98,9 +99,13 @@ export function CreateTripForm({ locale:initialLocale,now,optionsByLocale,authen
       if (field instanceof HTMLElement) field.focus();
     });
   }
+  function chooseLocale(next:Locale) {
+    setRequestedLocale(next);
+    if (next !== locale) router.replace(`/trips/new?locale=${encodeURIComponent(next)}`,{scroll:false});
+  }
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current) return;
+    if (inFlight.current || switching) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     if (!canSubmitTripCreation(stateRef.current)) {
@@ -119,8 +124,8 @@ export function CreateTripForm({ locale:initialLocale,now,optionsByLocale,authen
     router.refresh();
   }
   return <main className="auth-page"><section className="auth-panel trip-creation-panel">
-    <label>{copy.language}<select aria-label={copy.language} disabled={busy} value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
-      {locales.map((value) => <option key={value} value={value}>{localeNames[value]}</option>)}
+    <label>{copy.language}<select aria-label={copy.language} disabled={busy} value={switching ? requestedLocale : locale} onChange={(event) => chooseLocale(event.target.value as Locale)}>
+      {menuLocales.map((value) => <option key={value} value={value}>{localeNames[value]}</option>)}
     </select></label>
     <h1>{copy.title}</h1>
     {authenticated ? <><p>{copy.intro}</p><form onSubmit={submit} noValidate>
@@ -155,7 +160,7 @@ export function CreateTripForm({ locale:initialLocale,now,optionsByLocale,authen
           : state.currencySource === "lookup" && state.currency ? copy.currencySuggested : copy.currencyCheck} {copy.currencyHint}</small>{fieldError("defaultCurrency")}</label>
         {state.currencySource === "manual" && state.response?.currency && state.currency !== state.response.currency ? <button type="button" className="auth-secondary" onClick={() => send({type:"useSuggestedCurrency"})}>{copy.currencyUseSuggested.replace("{code}",state.response.currency)}</button> : null}
         <label>{copy.capacity}<input name="maxMembers" type="number" required min={1} max={20} defaultValue={10} {...fieldProps("maxMembers")}/>{fieldError("maxMembers")}</label>
-        <button className="auth-primary" type="submit" aria-disabled={!ready || busy}>{busy ? copy.busy : copy.create}</button>
+        <button className="auth-primary" type="submit" aria-disabled={!ready || busy || switching}>{busy ? copy.busy : copy.create}</button>
       </fieldset>
       {busy ? <p role="status">{copy.busy}</p> : null}
       {failure ? <p role="alert">{failure.kind === "fields" || failure.kind === "invalid" ? copy.error : copy[failure.kind]}</p> : null}

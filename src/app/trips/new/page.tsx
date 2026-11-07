@@ -1,13 +1,15 @@
 import { cookies } from "next/headers";
 
 import { CreateTripForm } from "@/components/create-trip-form";
+import { LocalePackScope } from "@/components/locale-pack-scope";
 import { accountCookieName,publicSignupEnabled,verifyAccountOnboarding } from "@/lib/auth/account-session";
 import { getAuthConfig,isAuthConfigured } from "@/lib/auth/config";
 import { verifySession } from "@/lib/auth/repository";
 import { authCookieNames } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 import { locales,type Locale } from "@/lib/i18n";
-import { getTripCreationOptions, type TripCreationOptions } from "@/lib/app/trip-creation-options";
+import { getTripCreationOptions } from "@/lib/app/trip-creation-options";
+import { localePack } from "@/lib/locale-packs";
 import { canLookupTripDestination } from "@/lib/app/trip-destination-service";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +28,7 @@ export default async function NewTripPage({ searchParams }:{searchParams:Promise
     authenticated = Boolean(principal);
     if (principal) lookupEntitled = await canLookupTripDestination(pool,config,principal.userId).catch(() => false);
   }
-  // Serialize ICU-derived labels once; browser ICU versions cannot change hydration.
-  const optionsByLocale = Object.fromEntries(locales.map((value) => [value,getTripCreationOptions(value)])) as Record<Locale,TripCreationOptions>;
-  return <CreateTripForm locale={locale} now={new Date().toISOString()} optionsByLocale={optionsByLocale} authenticated={authenticated} signupEnabled={publicSignupEnabled()} lookupEntitled={lookupEntitled}/>;
+  // Serialize this language's ICU-derived labels (browser ICU versions cannot change hydration), and only this
+  // language's pack; choosing another language reloads the page with its own (JOB-085).
+  return <LocalePackScope locale={locale} pack={localePack(locale)}><CreateTripForm locale={locale} now={new Date().toISOString()} options={getTripCreationOptions(locale)} authenticated={authenticated} signupEnabled={publicSignupEnabled()} lookupEntitled={lookupEntitled}/></LocalePackScope>;
 }

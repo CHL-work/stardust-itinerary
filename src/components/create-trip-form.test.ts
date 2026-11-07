@@ -4,16 +4,19 @@ import { describe,expect,it,vi } from "vitest";
 import { readFileSync } from "node:fs";
 vi.mock("next/navigation",()=>({useRouter:()=>({push:vi.fn(),refresh:vi.fn()})}));
 import { CreateTripForm,createTripCopy } from "@/components/create-trip-form";
-import { locales } from "@/lib/i18n";
-import { getTripCreationOptions, type TripCreationOptions } from "@/lib/app/trip-creation-options";
-const optionsByLocale = Object.fromEntries(locales.map((locale) => [locale,getTripCreationOptions(locale)])) as Record<typeof locales[number],TripCreationOptions>;
-const defaults = {now:"2030-01-01T00:00:00Z",optionsByLocale,authenticated:true,signupEnabled:false,lookupEntitled:true};
+import { locales, type Locale } from "@/lib/i18n";
+import { getTripCreationOptions } from "@/lib/app/trip-creation-options";
+// The page sends one language's choices (JOB-085).
+const defaults = {now:"2030-01-01T00:00:00Z",authenticated:true,signupEnabled:false,lookupEntitled:true};
+const props = (locale:Locale) => ({...defaults,locale,options:getTripCreationOptions(locale)});
 
 describe("account trip creation form",() => {
   it.each(locales)("renders local-language identity, with the AI lookup disclosure behind a help button, for %s",(locale) => {
-    const html = renderToStaticMarkup(createElement(CreateTripForm,{...defaults,locale}));
+    const html = renderToStaticMarkup(createElement(CreateTripForm,props(locale)));
     expect(html).toContain(createTripCopy(locale).title);
     expect(html).toContain(createTripCopy(locale).intro);
+    // English always heads the language menu (JOB-085).
+    expect(html.match(/<select aria-label="[^"]*"[^>]*><option value="([^"]+)"/u)?.[1]).toBe("en");
     expect(html).toContain('name="name"');
     expect(html).toContain('value="2030-01-01"');
     expect(html).not.toContain('name="role"');
@@ -36,7 +39,7 @@ describe("account trip creation form",() => {
     expect(html).not.toMatch(/<input[^>]*name="(?:timeZone|defaultCurrency)"/);
   });
   it("does not expose a create form while signed out or imply public signup is enabled",() => {
-    const html = renderToStaticMarkup(createElement(CreateTripForm,{...defaults,locale:"en",authenticated:false}));
+    const html = renderToStaticMarkup(createElement(CreateTripForm,{...props("en"),authenticated:false}));
     expect(html).toContain(createTripCopy("en").closed);
     expect(html).not.toContain('name="name"');
   });
@@ -44,7 +47,7 @@ describe("account trip creation form",() => {
     expect(createTripCopy("zh-HK-lihkg")).toEqual(createTripCopy("zh-HK"));
   });
   it.each(locales)("opens manual fallback without AI disclosure for a non-entitled %s principal",(locale) => {
-    const html = renderToStaticMarkup(createElement(CreateTripForm,{...defaults,locale,lookupEntitled:false}));
+    const html = renderToStaticMarkup(createElement(CreateTripForm,{...props(locale),lookupEntitled:false}));
     expect(html).toContain('<details open="">');
     expect(html).not.toContain(createTripCopy(locale).aiDisclosure);
     expect(html).not.toContain(createTripCopy(locale).find);

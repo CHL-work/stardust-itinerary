@@ -29,7 +29,7 @@ The six are Spanish, Brazilian Portuguese, French, German, Russian and Indonesia
   - right-to-left layouts;
   - a native speaker's review of the packs;
   - disruption details in the added languages, which keep English;
-  - sending only the selected language's pack and create-trip choices to the browser: the create-trip page now carries about 96 KB of compressed choices for twelve locales, up from 32 KB.
+  - sending only the selected language's pack and create-trip choices to the browser, done in [JOB-085](JOB-085-load-selected-language.md). Before that, every pack shipped in browser code, about 185 KB compressed, and the create-trip page carried about 96 KB of compressed choices for twelve locales, up from 32 KB.
 
 ## Delivered
 

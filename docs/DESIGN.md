@@ -88,7 +88,7 @@ Settings holds sign-out, trip/member controls, manual personal AI instructions a
 
 Activity, Approvals history and AI usage history are owner-only. Feedback is a document-top-right control that scrolls away. Reports may attach an optional allowlisted **ten-minute** action trail; new reports always permit sanitized issue review, historical opt-outs remain respected. A separate reviewer/publisher creates issues only, never fixes. Actual credentials/scheduling determine delivery availability. [Feedback](FEEDBACK.md) · [Activity](ACTIVITY.md).
 
-One language control selects English, clear Hong Kong Cantonese, 廣東話(辛辣), or Japanese. Safety/auth/money/approvals/errors/destructive actions stay neutral. There is one layout; the classic layout and its toggle were retired (D-093).
+One language control selects English, which is always first, clear Hong Kong Cantonese, 廣東話(辛辣), Japanese, or one of the eight added languages: Simplified and Traditional Chinese, Spanish, Brazilian Portuguese, French, German, Russian and Indonesian. Safety/auth/money/approvals/errors/destructive actions stay neutral. There is one layout; the classic layout and its toggle were retired (D-093).
 
 ## 9. Availability and lifecycle
 
