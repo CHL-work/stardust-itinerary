@@ -1,7 +1,7 @@
 ---
 id: JOB-086
 title: Free AI for signed-in users and guests
-status: review
+status: done
 priority: P2
 depends_on: [JOB-071, JOB-085]
 claimant: Codex
@@ -28,7 +28,7 @@ Test keyed and keyless owners/editors/viewers/guests, explicit free choice, disa
 
 ## Handoff
 
-Implementation is complete; the authorized release is being verified before the main push. Main pushes run CI then deploy to GKE. Do not restart the archived PC/VM origin. Release outcome is recorded below after rollout.
+Accepted, merged and deployed to GKE on November 7, 2026. Main pushes run CI then deploy to GKE. Do not restart the archived PC/VM origin. Release evidence is below; future production changes still need explicit authority.
 
 ### Verification (2026-11-07)
 
@@ -44,7 +44,13 @@ Implementation is complete; the authorized release is being verified before the 
 
 - Individual free-model selection, own-key-only paid controls and all 12 locales are covered by UI/API/recovery tests. Full unit rerun: 247 files / 5,853 tests passed; the final field-guidance regression passed separately (11 schema tests).
 - Exact-selection live smoke passed for a synthetic registered event plus linked JPY 4,200 expense and a guest event, with two keyless upstream attempts. A prior run omitted the duration/category from its valid proposal; field-adjacent instructions now preserve supplied details without requiring invented end times.
-- Database migration/integration gate, TypeScript, ESLint (no errors), production build and isolated standalone smoke, shell syntax and documentation links passed. The final affected-file rerun passed 152 tests, including 15 effective rollout configuration tests. Final public rollout evidence follows the authorized main push.
+- Database migration/integration gate, TypeScript, ESLint (no errors), production build and isolated standalone smoke, shell syntax and documentation links passed. The final affected-file rerun passed 152 tests, including 15 effective rollout configuration tests.
+
+### Release evidence
+
+- Implementation commits `73d2de8` and `dffeab3` reached `main` through the authorized fast-forward push. [CI](https://github.com/CHL-work/stardust-itinerary/actions/runs/42416869730) and [GKE deployment](https://github.com/CHL-work/stardust-itinerary/actions/runs/42417096932) succeeded, including backup/migration, rollout, effective free/guest configuration gate and public health check.
+- Post-release read-only checks: public health reported database ready; the new catalog route returned 401 without a session. The sign-in page exposed an enabled guest entry after its normal browser check. No real trips or provider credentials were used in these checks; inference verification used only the disposable synthetic database described above.
+- Temporary local test server and database were stopped. Provider availability can change after this verification; the live catalog and normal fail-closed behavior remain authoritative.
 
 ### Behavior and limits
 

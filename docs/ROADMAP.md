@@ -12,7 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
-| JOB-086 | Free AI for signed-in users and guests | Release authorized: individual free-model picker, paid choices only with own saved keys, GKE free/guest verification (D-098). See the job for verification and release evidence |
+| JOB-086 | Free AI for signed-in users and guests | Done: individual free-model picker, paid choices only with own saved keys, enabled and verified on GKE (D-098). See the job for release evidence |
 | JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
 | JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script and the `deploy` workflow with an approval step | Done |
 | JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Done: cut over on November 4, 2026 after a staging rehearsal. The old services are disabled; the VM stays as a rollback for now |
