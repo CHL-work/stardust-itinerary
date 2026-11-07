@@ -23,6 +23,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 | JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
+| JOB-082 | Flight details on transport events, and the AI looks up terminals | Done: flight number, airline, terminals and gate on flights; cards show the gate, else the terminal, else the airline (D-094) |
 | JOB-081 | Retire the classic layout and the layout toggle | Done: one layout, light or dark with the system; no toggle, Settings card or stored preference (D-093) |
 | JOB-080 | AI expenses are split between everyone unless the request says otherwise | Done: unnamed sharers mean everyone who can see the expense, parts the request gives become exact shares, and several payers become one expense each (D-092) |
 | JOB-079 | AI-created events are trip-wide unless clearly solo | Done: the trip AI adds events for the whole trip unless the user asks for privacy, names who may see them, or the event or its expense is clearly just for them (D-091) |
@@ -95,6 +96,12 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 
 - **Daily copy:** the `stardust-offsite-copy` job restores the database into a Neon free-plan project as a dated database, checks every table's row count, and keeps the newest three (D-083).
 - **Free plan:** a 0.25 CU compute awake a few minutes a day, and all copies within 500 MB of the 1 GB of storage.
+
+### JOB-082: flight details
+
+Requested by the owner on 7 November 2026 ([job](jobs/JOB-082-flight-details.md)).
+
+- **Flights:** transport events can carry a flight number, airline, terminals and gate; the trip AI fills them in and looks up the terminals, and cards show the most specific known spot (D-094).
 
 ### JOB-081: one layout
 

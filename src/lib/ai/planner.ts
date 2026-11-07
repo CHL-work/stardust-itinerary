@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
+import { normalizeFlightNumber } from "@/lib/app/flight";
 import type { Pool, PoolClient } from "pg";
 import { ZodError } from "zod";
 import { query as claudeQuery, type SDKResultSuccess } from "@anthropic-ai/claude-agent-sdk";
@@ -461,6 +462,10 @@ function normalizePlannerPatch(value: unknown): unknown {
     patch.itemType = "lodging";
   }
   if (patch.status === "confirmed") patch.status = "planned";
+  if (patch.flight && typeof patch.flight === "object" && !Array.isArray(patch.flight)) {
+    const flight = patch.flight as Record<string, unknown>;
+    if (typeof flight.flightNumber === "string") patch.flight = { ...flight, flightNumber: normalizeFlightNumber(flight.flightNumber) };
+  }
   for (const field of ["startsAt", "endsAt", "occurredAt"] as const) {
     if (Object.hasOwn(patch, field)) patch[field] = normalizeAiIsoDateTime(patch[field]);
   }
@@ -1440,7 +1445,7 @@ export async function runAiPlanner(
              'title', i.title, 'itemType', i.item_type, 'startsAt', i.starts_at,
              'endsAt', i.ends_at, 'locationName', i.location_name, 'visibility', i.visibility, 'mapUrl', i.map_url,
              'departureLocationName', i.departure_location_name,
-             'destinationLocationName', i.destination_location_name, 'notes', i.notes,
+             'destinationLocationName', i.destination_location_name, 'flight', to_jsonb(i)->'flight', 'notes', i.notes,
              'status', i.status, 'isLocked', i.is_locked
            ) ORDER BY i.starts_at NULLS LAST, i.id)
              FROM itinerary_items i
@@ -1489,6 +1494,7 @@ export async function runAiPlanner(
         mapUrl?: string | null;
         departureLocationName?: string | null;
         destinationLocationName?: string | null;
+        flight?: { flightNumber?: string } | null;
       }>;
     } & Awaited<ReturnType<typeof getAiPendingItineraryContext>>;
     const clarificationReply = isDraftClarificationReply(
@@ -1676,10 +1682,10 @@ export async function runAiPlanner(
       const preliminary = turn;
       const privateItems = (contextRecord.itinerary ?? []).filter((item) => item.visibility !== "trip");
       const forbiddenTexts = privateItems.flatMap((item) => [item.title, item.locationName,
-        item.departureLocationName, item.destinationLocationName, item.notes])
+        item.departureLocationName, item.destinationLocationName, item.notes, item.flight?.flightNumber])
         .concat(pendingContext.pendingItinerary.filter((item) => item.patch.visibility !== "trip")
           .flatMap((item) => [item.patch.title, item.patch.locationName, item.patch.departureLocationName,
-            item.patch.destinationLocationName, item.patch.notes]))
+            item.patch.destinationLocationName, item.patch.notes, item.patch.flight?.flightNumber]))
         .filter((value): value is string => Boolean(value));
       const targets = selectPublicResearchTargets(turn.output.researchRequests, {
         forbiddenTexts,

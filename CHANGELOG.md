@@ -6,6 +6,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Flight details (JOB-082, D-094):** a transport event can carry a flight number, airline, departure terminal, gate and arrival terminal, in the event editor and from the trip AI. The AI looks up a flight's terminals for its date and never guesses a gate. Cards show the departure airport with its gate and terminal, else its terminal, else the airline, and the arrival airport with its terminal. Migration 0061 adds the optional `flight` details.
+
 - **Free guest AI (JOB-071, D-086):** with `GUEST_FREE_AI_ENABLED=true`, guests without a key plan on keyless free models through Kilo's AI Gateway, by default NVIDIA Nemotron 3.5 Super with dots.3 note as a fallback. It is limited to 10 requests per guest a day and instance-wide hourly and daily caps, and has no search, research or pictures. The AI card shows the free model, the requests left, and that free models may keep what guests send. A new funding source `free` arrives with migration 0060.
 
 - **Own-key AI (JOB-070, D-085):** on the requester's own key, the trip AI:

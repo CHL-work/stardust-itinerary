@@ -17,6 +17,7 @@ import { testGuestAccounts } from "./guest-accounts.mjs";
 import { testPlatformAdmin } from "./platform-admin.mjs";
 import { testOwnKeyAi } from "./own-key-ai.mjs";
 import { testGuestFreeAi } from "./guest-free-ai.mjs";
+import { testFlightDetails } from "./flight-details.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
 import { testCustomExpenseSplits } from "./custom-expense-splits.mjs";
@@ -2627,6 +2628,7 @@ test(
         "destinationLocationName",
         "destinationMapUrl",
         "endsAt",
+        "flight",
         "itemType",
         "locationName",
         "mapUrl",
@@ -7317,6 +7319,7 @@ test(
       await testPlatformAdmin(appPool,connectionString);
       await testOwnKeyAi(appPool,connectionString);
       await testGuestFreeAi(appPool,connectionString);
+      await testFlightDetails(appPool,connectionString);
 
     } finally {
       await appPool.end();

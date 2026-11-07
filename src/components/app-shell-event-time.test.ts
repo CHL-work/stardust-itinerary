@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventTimeFields } from "@/components/event-time-fields";
 import { eventEditorFailureMessage, eventEditorMessages } from "@/lib/app/event-editor-i18n";
 import * as expenseHelpers from "@/lib/app/event-expense-editor";
+import { isFlightNumber, normalizeFlightNumber } from "@/lib/app/flight";
+import { flightMessages } from "@/lib/app/flight-i18n";
 import * as splitHelpers from "@/lib/app/expense-split-editor";
 import { expenseAmountInput } from "@/lib/app/expense-currency";
 import { parseExpenseAmount } from "@/lib/app/expense-entry";
@@ -56,8 +58,11 @@ type Draft = {
   title: string; tripDayId: string; itemType: string; startsAt: string; endsAt: string; durationMinutes: string;
   linkedExpense: expenseHelpers.EventExpenseDraft;
 } & Record<string, unknown>;
+const flightHelpers = evaluate<Record<string, unknown>>(["flightDraft", "flightFromDraft"].map(declaration).join("\n"),
+  "({flightDraft, flightFromDraft})", { normalizeFlightNumber });
 const baseBindings = { ...expenseHelpers, ...splitHelpers, expenseAmountInput, parseExpenseAmount, ...timing, overview, messages: messages.en,
-  eventEditorCopy: eventEditorMessages("en"), eventEditorFailureMessage, addMinutesToWallTime, minutesBetweenWallTimes };
+  eventEditorCopy: eventEditorMessages("en"), eventEditorFailureMessage, addMinutesToWallTime, minutesBetweenWallTimes,
+  ...flightHelpers, normalizeFlightNumber, isFlightNumber, flightMessages, locale: "en" };
 function editor(initial: Draft | null = null) {
   let draft = initial;
   const eventSaveInFlight = { current: false };

@@ -72,7 +72,7 @@ Calendar consent is optional after basic sign-in. A user's encrypted connection/
 
 An event has a trip day, type, status, title, visibility, revision and optional timing/location details. Manual start is required; end/duration are optional. Duration is an editing aid, not a separate stored fact. Now uses the click-time device clock expressed in the trip zone. Known end must follow start. Maps links should identify the actual venue/branch.
 
-Transport remains **one canonical event** with optional departure/destination endpoints, at least one named. Start/end mean departure/arrival. Timeline endpoint rows have their own place, time, day and weather; controls appear once. Non-transport uses `locationName`/`mapUrl`. Integration end-time fallbacks never fabricate a canonical end.
+Transport remains **one canonical event** with optional departure/destination endpoints, at least one named. Start/end mean departure/arrival. Timeline endpoint rows have their own place, time, day and weather; controls appear once. Non-transport uses `locationName`/`mapUrl`. A flight is transport with optional flight details (flight number, airline, departure terminal and gate, arrival terminal); cards show the gate, else the terminal, else the airline beside the departure airport (D-094). Integration end-time fallbacks never fabricate a canonical end.
 
 Apply rechecks revisions, authorization, current trip dates, audiences and participant eligibility. Approved records stay canonical until reviewed replacement. Approval is terminal; rejection remains reapprovable after fresh checks. [Pending AI edits](AI_PENDING_EVENT_EDITS.md).
 

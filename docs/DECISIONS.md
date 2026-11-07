@@ -2,6 +2,14 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-094: Flights carry structured details, and cards show the most specific known spot (accepted November 7, 2026)
+
+The owner asked the trip AI to look up a flight's terminal, and said a gate or terminal may not be findable: without a gate, show the terminal; without either, show the airline (JOB-082).
+
+- **Details:** a transport event may carry `flight` details: the flight number, required, and the airline, departure terminal, departure gate and arrival terminal when known. They are one validated JSON object on the event, replaced whole by an edit.
+- **Display:** cards show the departure airport followed by the gate with its terminal, else the terminal, else the airline; the arrival airport is followed by its terminal. The stored airport names stay as they are, so maps and directions still find the airports.
+- **AI:** the trip AI sets the flight number and airline, and looks up the terminals for the flight's date by direct search or isolated `travel` research. It sets a terminal only from the request or a source, and a gate only when a source states one; unknown details stay empty. A private flight's number never goes to research.
+
 ## D-093: One layout; the classic layout and its toggle are retired (accepted November 7, 2026)
 
 The owner asked to remove the classic UI. The new layout had been the default since October 11, 2026, with the original dark classic layout kept behind a toggle in the header and a **Screen layout** card in Settings (JOB-081).

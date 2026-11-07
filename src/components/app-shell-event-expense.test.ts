@@ -9,18 +9,33 @@ import * as splitHelpers from "@/lib/app/expense-split-editor";
 import { expenseAmountInput } from "@/lib/app/expense-currency";
 import { parseExpenseAmount } from "@/lib/app/expense-entry";
 import { eventEditorFailureMessage, eventEditorMessages } from "@/lib/app/event-editor-i18n";
+import { isFlightNumber, normalizeFlightNumber } from "@/lib/app/flight";
+import { flightMessages } from "@/lib/app/flight-i18n";
 import { addMinutesToWallTime } from "@/lib/app/wall-time";
 import { locales, messages } from "@/lib/i18n";
 
 // Execute the actual component closures with synthetic state and inert request callbacks.
 // This catches wiring regressions that tests of the audience helper alone cannot see.
 const source = readFileSync("src/components/app-shell.tsx", "utf8");
+// The editor's module-level flight helpers (JOB-082), shared by every closure below.
+function topLevelFunction(name: string): string {
+  const text = source.replace(/\r\n/gu, "\n");
+  const start = text.indexOf(`\nfunction ${name}(`);
+  expect(start).toBeGreaterThan(0);
+  return text.slice(start, text.indexOf("\n}\n", start) + 3);
+}
+const flightBindings = {
+  ...new Function("normalizeFlightNumber", `${ts.transpileModule(["flightDraft", "flightFromDraft"].map(topLevelFunction).join("\n"),
+    { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}; return { flightDraft, flightFromDraft };`)(normalizeFlightNumber) as Record<string, unknown>,
+  normalizeFlightNumber, isFlightNumber, flightMessages, locale: "en",
+};
 function closure<T>(name: string, next: string, bindings: Record<string, unknown>): T {
   const start = source.indexOf(`  const ${name} =`);
   const end = source.indexOf(`\n  const ${next} =`, start);
   expect(start).toBeGreaterThan(0); expect(end).toBeGreaterThan(start);
   const code = ts.transpileModule(source.slice(start, end), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return new Function(...Object.keys(bindings), `${code}; return ${name};`)(...Object.values(bindings)) as T;
+  const all = { ...flightBindings, ...bindings };
+  return new Function(...Object.keys(all), `${code}; return ${name};`)(...Object.values(all)) as T;
 }
 const id = (number: number) => `a9210000-0000-4000-8000-${String(number).padStart(12, "0")}`;
 const member = (number: number, status = "active") => ({ id: id(number), status, displayName: `Synthetic member ${number}` });

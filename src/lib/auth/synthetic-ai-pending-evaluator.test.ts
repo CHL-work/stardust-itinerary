@@ -81,7 +81,7 @@ const pending: PendingItineraryEditDetail = {
   reason: "Synthetic fixture", proposalRevision: 1, createdAt: "2030-04-01T00:00:00Z", updatedAt: "2030-04-01T00:00:00Z",
   patch: { tripDayId: "synthetic-day", title: "Synthetic lunch", itemType: "meal", startsAt: "2030-04-01T03:00:00Z", endsAt: "2030-04-01T04:00:00Z",
     locationName: "架空食堂ほし 秋葉原", mapUrl: null, departureLocationName: null, departureMapUrl: null, destinationLocationName: null, destinationMapUrl: null,
-    notes: "Synthetic note", visibility: "private", viewerMemberIds: ["synthetic-guest"], status: "planned", isLocked: false,
+    flight: null, notes: "Synthetic note", visibility: "private", viewerMemberIds: ["synthetic-guest"], status: "planned", isLocked: false,
     linkedExpense: { description: "Synthetic lunch charge", amountMinor: 5101, currency: "JPY", payerMemberId: "synthetic-creator",
       occurredAt: "2030-04-01T03:00:00Z", status: "posted", splitMemberIds: ["synthetic-creator", "synthetic-guest"] },
   },

@@ -91,6 +91,8 @@ import { expenseAmountInput } from "@/lib/app/expense-currency";
 import { expenseSplitPatch, expenseSplitPreview, initializeExpenseSplits, type ExpenseSplitDraft } from "@/lib/app/expense-split-editor";
 import { resolveExpenseEvent } from "@/lib/app/expense-retained-event";
 import { eventEditorFailureMessage, eventEditorMessages } from "@/lib/app/event-editor-i18n";
+import { isFlightNumber, normalizeFlightNumber, type FlightDetails } from "@/lib/app/flight";
+import { flightMessages, flightPointLocation } from "@/lib/app/flight-i18n";
 import {
   constrainNewEventExpense,
   currencyFactor,
@@ -248,6 +250,7 @@ type ItineraryItem = {
   departureMapUrl: string | null;
   destinationLocationName: string | null;
   destinationMapUrl: string | null;
+  flight: FlightDetails | null;
   notes: string | null;
   createdByMemberId: string;
   creatorName: string;
@@ -410,12 +413,32 @@ type EventDraft = {
   departureMapUrl: string;
   destinationLocationName: string;
   destinationMapUrl: string;
+  flight: FlightDraft;
   notes: string;
   visibility: "trip" | "private";
   viewerMemberIds: string[];
   isLocked: boolean;
   linkedExpense: EventExpenseDraft;
 };
+
+/** Flight details as typed in the event editor (JOB-082); a blank flight number means no flight. */
+type FlightDraft = { flightNumber: string; airline: string; departureTerminal: string; departureGate: string; arrivalTerminal: string };
+
+function flightDraft(flight: FlightDetails | null | undefined): FlightDraft {
+  return {
+    flightNumber: flight?.flightNumber ?? "", airline: flight?.airline ?? "", departureTerminal: flight?.departureTerminal ?? "",
+    departureGate: flight?.departureGate ?? "", arrivalTerminal: flight?.arrivalTerminal ?? "",
+  };
+}
+
+function flightFromDraft(draft: FlightDraft): FlightDetails | null {
+  const flightNumber = normalizeFlightNumber(draft.flightNumber);
+  if (!flightNumber) return null;
+  return {
+    flightNumber, airline: draft.airline.trim() || null, departureTerminal: draft.departureTerminal.trim() || null,
+    departureGate: draft.departureGate.trim() || null, arrivalTerminal: draft.arrivalTerminal.trim() || null,
+  };
+}
 
 type ExpenseDraft = ExpenseSplitDraft & {
   id: string | null;
@@ -1435,6 +1458,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       departureMapUrl: "",
       destinationLocationName: "",
       destinationMapUrl: "",
+      flight: flightDraft(null),
       notes: "",
       visibility: "trip",
       viewerMemberIds: [],
@@ -1455,6 +1479,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       departureMapUrl: item.departureMapUrl ?? "",
       destinationLocationName: item.destinationLocationName ?? "",
       destinationMapUrl: item.destinationMapUrl ?? "",
+      flight: flightDraft(item.flight),
       notes: item.notes ?? "",
       visibility: item.visibility,
       viewerMemberIds: item.viewerMemberIds,
@@ -1499,6 +1524,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         departureMapUrl: patch.departureMapUrl ?? "",
         destinationLocationName: patch.destinationLocationName ?? "",
         destinationMapUrl: patch.destinationMapUrl ?? "",
+        flight: flightDraft(patch.flight),
         notes: patch.notes ?? "",
         visibility: patch.visibility,
         viewerMemberIds: patch.viewerMemberIds,
@@ -2368,6 +2394,10 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           && !eventDraft.destinationLocationName.trim()) {
         throw new Error(messages.transportEndpointRequired);
       }
+      const typedFlightNumber = normalizeFlightNumber(eventDraft.flight.flightNumber);
+      if (eventDraft.itemType === "transport" && typedFlightNumber && !isFlightNumber(typedFlightNumber)) {
+        throw new Error(flightMessages(locale).invalidNumber);
+      }
       const originalTiming = pendingTarget?.detail.patch ?? canonicalTarget;
       // A minute-resolution editor must not rewrite unchanged timestamp precision.
       const startsAt = originalTiming?.startsAt && eventDraft.startsAt === inputDateTime(originalTiming.startsAt, overview.trip.timeZone)
@@ -2416,6 +2446,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           departureMapUrl: eventDraft.departureMapUrl || null,
           destinationLocationName: eventDraft.destinationLocationName.trim() || null,
           destinationMapUrl: eventDraft.destinationMapUrl || null,
+          flight: flightFromDraft(eventDraft.flight),
         } : {
           locationName: eventDraft.locationName.trim() || null,
           mapUrl: eventDraft.mapUrl || null,
@@ -2423,6 +2454,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           departureMapUrl: null,
           destinationLocationName: null,
           destinationMapUrl: null,
+          flight: null,
         }),
         notes: eventDraft.notes || null,
         ...(
@@ -3327,14 +3359,22 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
               startsAt={eventDraft.startsAt} endsAt={eventDraft.endsAt} durationMinutes={eventDraft.durationMinutes}
               min={`${overview.trip.startsOn}T00:00`} max={`${overview.trip.endsOn}T23:59`} busy={busy}
               changeStart={updateEventStart} changeEnd={updateEventEnd} changeDuration={updateEventDuration} fillNow={fillEventTimeNow} />
-            {eventDraft.itemType === "transport" ? <fieldset className="transport-endpoint-fields full-field">
+            {eventDraft.itemType === "transport" ? <><fieldset className="transport-endpoint-fields full-field">
               <legend>{messages.transportRouteFields}</legend>
               <p className="muted-copy full-field">{messages.transportEndpointHint}</p>
               <label>{messages.departureLocationField}<input value={eventDraft.departureLocationName} onChange={(event) => updateTransportLocation("departure", event.target.value)} /></label>
               <label>{messages.departureMapUrlField}<input type="url" disabled={!eventDraft.departureLocationName.trim()} placeholder="https://www.google.com/maps/place/..." value={eventDraft.departureMapUrl} onChange={(event) => setEventDraft({ ...eventDraft, departureMapUrl: event.target.value })} /></label>
               <label>{messages.destinationLocationField}<input value={eventDraft.destinationLocationName} onChange={(event) => updateTransportLocation("destination", event.target.value)} /></label>
               <label>{messages.destinationMapUrlField}<input type="url" disabled={!eventDraft.destinationLocationName.trim()} placeholder="https://www.google.com/maps/place/..." value={eventDraft.destinationMapUrl} onChange={(event) => setEventDraft({ ...eventDraft, destinationMapUrl: event.target.value })} /></label>
-            </fieldset> : <label className="full-field">{messages.eventMapUrlField}<input type="url" placeholder="https://www.google.com/maps/place/..." value={eventDraft.mapUrl} onChange={(event) => setEventDraft({ ...eventDraft, mapUrl: event.target.value })} /><small>{messages.eventMapUrlHint}</small></label>}
+            </fieldset>
+            <fieldset className="transport-endpoint-fields flight-fields full-field">
+              <legend>{flightMessages(locale).fields} <small>({eventEditorCopy.optional})</small></legend>
+              <label>{flightMessages(locale).number}<input autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={12} placeholder="JL123" value={eventDraft.flight.flightNumber} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, flightNumber: event.target.value } })} /></label>
+              <label>{flightMessages(locale).airline}<input maxLength={80} value={eventDraft.flight.airline} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, airline: event.target.value } })} /></label>
+              <label>{flightMessages(locale).departureTerminal}<input maxLength={40} value={eventDraft.flight.departureTerminal} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, departureTerminal: event.target.value } })} /></label>
+              <label>{flightMessages(locale).gate}<input maxLength={20} value={eventDraft.flight.departureGate} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, departureGate: event.target.value } })} /></label>
+              <label>{flightMessages(locale).arrivalTerminal}<input maxLength={40} value={eventDraft.flight.arrivalTerminal} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, arrivalTerminal: event.target.value } })} /></label>
+            </fieldset></> : <label className="full-field">{messages.eventMapUrlField}<input type="url" placeholder="https://www.google.com/maps/place/..." value={eventDraft.mapUrl} onChange={(event) => setEventDraft({ ...eventDraft, mapUrl: event.target.value })} /><small>{messages.eventMapUrlHint}</small></label>}
             <label className="full-field">{messages.eventNotesField}<textarea value={eventDraft.notes} onChange={(event) => setEventDraft({ ...eventDraft, notes: event.target.value })} /></label>
             <fieldset className="split-field full-field privacy-field">
               <legend>{messages.eventAudienceField}</legend>
@@ -3609,7 +3649,7 @@ export function NextEventHeader({ item, weather, locale, messages, timeZone, sho
 function EventDestination({ point, locale, messages, timeZone }: { point: TimelinePoint<ItineraryItem>; locale: Locale; messages: Messages; timeZone: string }) {
   const item = point.item;
   if (point.kind !== "event") {
-    const content = <><span>{point.kind === "departure" ? messages.departureLabel : messages.destinationLabel}</span><h2>{item.title}</h2><p>{point.locationName}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
+    const content = <><span>{point.kind === "departure" ? messages.departureLabel : messages.destinationLabel}</span><h2>{item.title}</h2><p>{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
     return <a className="departure-destination event-map-destination transport-next-event" href={endpointMapUrl(point.locationName ?? item.title, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName ?? item.title })}>{content}<span className="sr-only">{formatDateTime(point.at, locale, timeZone)}</span></a>;
   }
   const content = <><span>{eventStatusLabel(item.status, messages)}</span><h2>{item.title}</h2><p>{item.locationName || eventTypeLabel(item.itemType, messages)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
@@ -3659,7 +3699,7 @@ export function PendingItineraryList({ points, locale, messages, timeZone, busy,
       <h3>{request.title}</h3>
       {pointLabel
         ? point.locationName
-          ? <a className="transport-endpoint" href={endpointMapUrl(point.locationName, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName })}><span className="transport-endpoint-label">{pointLabel}</span><strong>{point.locationName}</strong><time><Clock3 size={12} aria-hidden="true" /> {point.at ? formatDateTime(point.at, locale, timeZone) : messages.timeNotSet}</time><small><MapPin size={12} aria-hidden="true" /> {messages.openGoogleMaps}</small></a>
+          ? <a className="transport-endpoint" href={endpointMapUrl(point.locationName, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName })}><span className="transport-endpoint-label">{pointLabel}</span><strong>{flightPointLocation(point.kind, point.locationName, request.flight, locale)}</strong><time><Clock3 size={12} aria-hidden="true" /> {point.at ? formatDateTime(point.at, locale, timeZone) : messages.timeNotSet}</time><small><MapPin size={12} aria-hidden="true" /> {messages.openGoogleMaps}</small></a>
           : null
         : <><p>{point.locationName ? <><MapPin size={14} aria-hidden="true" /> {point.locationName}</> : eventTypeLabel(request.itemType, messages)}</p><small>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : <>{point.at ? formatDateTime(point.at, locale, timeZone) : messages.timeNotSet}{request.endsAt ? ` – ${formatTime(request.endsAt, locale, timeZone)}` : ""}</>}</small></>}
       {request.notes ? <p className="pending-itinerary-notes">{request.notes}</p> : null}
@@ -3856,7 +3896,7 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
             {pointLabel ? <span className="transport-endpoint-label">{pointLabel}</span> : null}
             {item.status === "cancelled" ? <span className="cancelled-event-label"><X size={14} aria-hidden="true" /> {messages.eventStatusCancelled}</span> : null}
             <h3>{item.title}{item.visibility === "private" ? <span className="private-event-tag"><Lock size={11} /> {messages.privateEvent}</span> : null}</h3>
-            <p>{point.locationName ? <><MapPin size={14} />{point.locationName}</> : eventTypeLabel(item.itemType, messages)}</p>
+            <p>{point.locationName ? <><MapPin size={14} />{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</> : eventTypeLabel(item.itemType, messages)}</p>
             <small>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : formatDateTime(point.at, locale, overview.trip.timeZone)}{item.visibility === "private" ? ` · ${formatMessage(messages.sharedByCreator, { name: item.creatorName })}` : ""}</small>
           </a>
         </div>

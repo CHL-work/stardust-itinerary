@@ -20,7 +20,7 @@ type Item = TimelineProps["points"][number]["item"];
 const item: Item = {
   id: "synthetic-event", tripDayId: "synthetic-day", title: "Synthetic restaurant", itemType: "meal",
   startsAt: "2030-04-01T10:00:00.000Z", endsAt: "2030-04-01T11:00:00.000Z", locationName: "Synthetic venue", mapUrl: null,
-  departureLocationName: null, departureMapUrl: null, destinationLocationName: null, destinationMapUrl: null,
+  departureLocationName: null, departureMapUrl: null, destinationLocationName: null, destinationMapUrl: null, flight: null,
   notes: null, createdByMemberId: "synthetic-member", creatorName: "Synthetic member", visibility: "trip", viewerMemberIds: [],
   status: "planned", isLocked: false, currentRevision: 9, weather: null, weatherForecasts: [], disruption: null, calendarLink: null,
 };

@@ -169,6 +169,8 @@ export type ItineraryPatch = {
   departureMapUrl?: string | null;
   destinationLocationName?: string | null;
   destinationMapUrl?: string | null;
+  /** Transport events only (JOB-082). */
+  flight?: import("@/lib/app/flight").FlightDetails | null;
   notes?: string | null;
   visibility?: "trip" | "private";
   viewerMemberIds?: string[];
@@ -200,6 +202,7 @@ export type PendingItineraryDraft = {
   departureMapUrl: string | null;
   destinationLocationName: string | null;
   destinationMapUrl: string | null;
+  flight: import("@/lib/app/flight").FlightDetails | null;
   notes: string | null;
   visibility: NonNullable<ItineraryPatch["visibility"]>;
   viewerMemberIds: string[];
@@ -231,6 +234,7 @@ export type PendingItineraryProjection = {
   departureMapUrl: string | null;
   destinationLocationName: string | null;
   destinationMapUrl: string | null;
+  flight: import("@/lib/app/flight").FlightDetails | null;
   notes: string | null;
   visibility: "trip" | "private";
   viewerMemberIds: string[];

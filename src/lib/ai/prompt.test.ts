@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { plannerPrompt } from "@/lib/ai/prompt";
+import { plannerPatchContract } from "@/lib/ai/proposal-contract";
 import type { PlanningDraft } from "@/lib/ai/planning-draft";
 import { locales } from "@/lib/i18n";
 
@@ -394,6 +395,20 @@ describe("AI planner prompt", () => {
     );
     expect(prompt).toContain("do not use locationName/mapUrl for a transport route");
     expect(prompt).toContain("Non-transport events continue to use only locationName/mapUrl");
+  });
+
+  it("sets flight details and looks up terminals without guessing (JOB-082)", () => {
+    const prompt = plannerPrompt("Add my flight JL123 from Haneda to Itami on 2030-04-04, 08:00-09:10.", {},
+      "en", [], false, false, null, "", null, { phase: "available", outcome: "not_needed_yet", facts: [] });
+
+    expect(prompt).toContain("destinationMapUrl, flight, notes, visibility");
+    expect(prompt).toContain("A flight is a transport event with flight set: flightNumber is the airline code and number in capitals without spaces, such as JL123");
+    expect(prompt).toContain("Unless the request gives them, look up the flight's departure and arrival terminals for its date");
+    expect(prompt).toContain("Set departureTerminal and arrivalTerminal only from the request or current source-backed evidence");
+    expect(prompt).toContain("set departureGate only when a current source states it; leave any unknown detail null and never guess");
+    expect(prompt).toContain("The app shows the gate, else the terminal, else the airline beside the departure airport");
+    expect(prompt).toContain("For a flight whose terminals the request does not give, request kind=travel with only the flight number and airports as the subject");
+    expect(plannerPatchContract.itinerary_item.properties).toHaveProperty("flight");
   });
 
   it("states when hosted web search is unavailable for an import turn", () => {

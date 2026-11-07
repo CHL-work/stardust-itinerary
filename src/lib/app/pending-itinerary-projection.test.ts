@@ -54,6 +54,7 @@ describe("pending itinerary projection", () => {
       departureMapUrl: null,
       destinationLocationName: null,
       destinationMapUrl: null,
+      flight: null,
       notes: null,
       visibility: "trip",
       viewerMemberIds: [],
