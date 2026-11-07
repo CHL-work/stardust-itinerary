@@ -24,7 +24,7 @@ const actionByCode: Record<string, ActivityAction> = {
 const fieldByKey: Record<string, ActivityField> = {
   title: "title", description: "title", startsAt: "time", endsAt: "time", tripDayId: "time", occurredAt: "time",
   locationName: "location", mapUrl: "location", departureLocationName: "location", departureMapUrl: "location",
-  destinationLocationName: "location", destinationMapUrl: "location", itemType: "type", status: "status",
+  destinationLocationName: "location", destinationMapUrl: "location", flight: "location", itemType: "type", status: "status",
   visibility: "visibility", viewerMemberIds: "audience", amountMinor: "amount", currency: "currency",
   payerMemberId: "payer", splitMemberIds: "shares", splits: "shares", splitAmounts: "shares",
   linkedExpense: "linkedExpense", itineraryItemId: "linkedEvent", notes: "notes", isLocked: "lock",

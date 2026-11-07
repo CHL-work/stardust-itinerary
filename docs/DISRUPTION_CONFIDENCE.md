@@ -22,7 +22,7 @@ Migration `0039_disruption_qualification.sql` adds `qualification_policy_version
 
 Legacy evidence is hidden pending the normal scheduled recheck, **not deleted, relabeled as resolved or silently promoted**. A qualifying recheck appends a new version-one observation even when legacy text/fingerprint is identical. Same-reason/revision episode timing is retained; policy version and observation identity do not become notification identity, so upgrading alone does not trigger a new pop-up.
 
-Successful researched responses retain parsed claims, assessment facts, policy version and content-free suppression reasons in the existing owner-visible AI audit. A weak, omitted or failed result never renews an existing warning's TTL and is not affirmative recovery. Qualified existing warnings expire normally unless fresh qualifying evidence renews them. Resolution still requires the exact qualified current warning, matching reason/source host and the existing affirmative-evidence/revision checks. The gate does not edit trip events or propose cancellations.
+Successful researched responses retain parsed claims, assessment facts, policy version and content-free suppression reasons in the existing owner-visible AI audit. A weak, omitted or failed result never renews an existing warning's TTL and is not affirmative recovery. Qualified existing warnings expire normally unless fresh qualifying evidence renews them. Resolution still requires the exact qualified current warning, matching reason/source host and the existing affirmative-evidence/revision checks. The gate does not edit trip events or propose cancellations; [flight status checks](FLIGHT_STATUS.md) are separate and do update flights (D-095).
 
 ## Monitor boundaries
 

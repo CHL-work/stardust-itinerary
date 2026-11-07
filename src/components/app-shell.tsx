@@ -91,7 +91,8 @@ import { expenseAmountInput } from "@/lib/app/expense-currency";
 import { expenseSplitPatch, expenseSplitPreview, initializeExpenseSplits, type ExpenseSplitDraft } from "@/lib/app/expense-split-editor";
 import { resolveExpenseEvent } from "@/lib/app/expense-retained-event";
 import { eventEditorFailureMessage, eventEditorMessages } from "@/lib/app/event-editor-i18n";
-import { isFlightNumber, normalizeFlightNumber, type FlightDetails } from "@/lib/app/flight";
+import { isFlightNumber, normalizeFlightNumber, type FlightChange, type FlightDetails } from "@/lib/app/flight";
+import { FlightChangeBadge } from "@/components/flight-change-badge";
 import { flightMessages, flightPointLocation } from "@/lib/app/flight-i18n";
 import {
   constrainNewEventExpense,
@@ -251,6 +252,8 @@ type ItineraryItem = {
   destinationLocationName: string | null;
   destinationMapUrl: string | null;
   flight: FlightDetails | null;
+  /** The latest automatic time change or cancellation the event still reflects (JOB-083). */
+  flightChange?: FlightChange | null;
   notes: string | null;
   createdByMemberId: string;
   creatorName: string;
@@ -3641,6 +3644,7 @@ export function NextEventHeader({ item, weather, locale, messages, timeZone, sho
     {weather ? <WeatherBadge weather={weather} locale={locale} messages={messages} timeZone={timeZone} /> : null}
     <div className="departure-topline-actions">
       <span className="status-pill"><Clock3 size={14} /> {messages.nextUp}</span>
+      {item?.flightChange ? <FlightChangeBadge change={item.flightChange} locale={locale} timeZone={timeZone} /> : null}
       {item?.disruption ? <DisruptionBadge item={item} messages={messages} showDisruption={showDisruption} /> : null}
     </div>
   </div>;
@@ -3900,7 +3904,7 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
             <small>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : formatDateTime(point.at, locale, overview.trip.timeZone)}{item.visibility === "private" ? ` · ${formatMessage(messages.sharedByCreator, { name: item.creatorName })}` : ""}</small>
           </a>
         </div>
-        {ownsActions && item.disruption ? <div className="event-live-signals"><DisruptionBadge item={item} messages={messages} showDisruption={() => showDisruption(item)} /></div> : null}
+        {ownsActions && (item.disruption || item.flightChange) ? <div className="event-live-signals">{item.flightChange ? <FlightChangeBadge change={item.flightChange} locale={locale} timeZone={overview.trip.timeZone} /> : null}{item.disruption ? <DisruptionBadge item={item} messages={messages} showDisruption={() => showDisruption(item)} /> : null}</div> : null}
       </div>
         {ownsActions ? <div className="row-actions card-actions">{overview.permissions.canEditItinerary ? <><button data-feedback-action="event_edit" className="mini-button" disabled={busy} onClick={() => openEvent(item)}><PencilLine size={14} /> {messages.editEvent}</button><button data-feedback-action="event_cancel" className="mini-button" disabled={busy} onClick={() => void cancelOrRestore(item)}>{item.status === "cancelled" ? messages.restoreEvent : messages.cancelEvent}</button></> : null}{overview.session?.isOwner && item.status === "cancelled" && removeCancelledEvent ? <button data-feedback-action="event_remove" className="mini-button danger-button" disabled={busy} onClick={() => void removeCancelledEvent(item)}><Trash2 size={14} /> {mobileCardsMessages(locale).remove}</button> : null}{overview.permissions.canSyncCalendar && item.status !== "cancelled" && item.startsAt ? <button data-feedback-action="calendar_sync" className="mini-button" disabled={calendarBusy} onClick={() => syncCalendar("item", item.id)}><CalendarRange size={14} /> {calendarBusy ? messages.calendarSyncing : item.calendarLink ? messages.updateCalendar : messages.addToCalendar}</button> : null}</div> : null}
     </article>;

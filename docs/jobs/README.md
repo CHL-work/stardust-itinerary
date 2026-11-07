@@ -29,3 +29,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-080 | AI expenses are split between everyone unless the request says otherwise | done |
 | JOB-081 | Retire the classic layout and the layout toggle | done |
 | JOB-082 | Flight details on transport events, and the AI looks up terminals | done |
+| JOB-083 | Flight status checks before departure | done |

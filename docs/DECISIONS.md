@@ -2,6 +2,15 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-095: The server checks flights before departure and updates them (accepted November 7, 2026)
+
+The owner asked for routine checks on the day of a flight: 24 hours before departure, then 12, 6, 5, 4, 3, 2 and 1 hours before. A time change or delay updates the event with a changed badge that says what changed; a cancellation keeps the event, marked cancelled with a red warning; a new gate or terminal just updates them; and the checks follow a changed departure (JOB-083).
+
+- **Scope:** trip-visible, planned flights with a flight number, in operator-sponsored trips with background checks on, on the operator's keys. Private flights are never looked up.
+- **The model reports, code decides:** a time change of at least 15 minutes or a cancellation needs high confidence, a terminal or gate at least medium, and every change a public https source for this exact flight and date. Unknown details never clear known ones.
+- **Automatic writes:** this is the first automatic canonical edit. It is a revision with `changed_by_source = 'flight_status'`, an audit event with no actor and a `flight_status_changes` row, so it is visible, auditable and reversible. It supersedes, for flights only, the rule that background checks never edit events; disruption warnings still never do.
+- **Not included:** phone notifications, unsponsored and guest trips, and flights without a flight number.
+
 ## D-094: Flights carry structured details, and cards show the most specific known spot (accepted November 7, 2026)
 
 The owner asked the trip AI to look up a flight's terminal, and said a gate or terminal may not be findable: without a gate, show the terminal; without either, show the airline (JOB-082).

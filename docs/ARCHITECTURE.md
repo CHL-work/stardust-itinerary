@@ -19,10 +19,10 @@ browser → HTTPS ingress / reverse proxy → Next.js standalone server (Node 24
                                                   ↓
                                             PostgreSQL 17
                                                   ↑
-                     scheduled workers: disruption monitor, feedback reviewer
+                     scheduled workers: disruption monitor and flight status checks, feedback reviewer
 ```
 
-One web process serves pages and APIs, runs AI provider subprocesses for interactive requests and performs all user-initiated writes. Two short-lived workers, `pnpm monitor:disruptions` and `pnpm feedback:run`, are started by the deployment's scheduler (for example cron or a Kubernetes CronJob); the database decides which work is due. `GET /api/health` reports database readiness.
+One web process serves pages and APIs, runs AI provider subprocesses for interactive requests and performs all user-initiated writes. Two short-lived workers, `pnpm monitor:disruptions` and `pnpm feedback:run`, are started by the deployment's scheduler (for example cron or a Kubernetes CronJob); the database decides which work is due. The disruption worker first runs any due [flight status checks](FLIGHT_STATUS.md), whose updates are the only automatic canonical writes (D-095). `GET /api/health` reports database readiness.
 
 The `Dockerfile` builds the standalone server into a non-root image listening on port 8080, and `compose.yaml` runs PostgreSQL 17 plus that image for self-hosting. TLS/ingress, process supervision, secrets, backups and worker scheduling are deployment responsibilities. Map lookup rate limits and caches are per process; read [daily map](DAILY_MAP.md) before running more than one web replica.
 

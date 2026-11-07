@@ -44,6 +44,7 @@ If you run your own instance, adapt this notice to your hosting and contact deta
   - your own key;
   - a trip owner's key shared with you, in which case the request also appears in that owner's provider account;
   - or the operator's key, in a trip the operator sponsors.
+- **Flight status checks:** in a trip the operator sponsors, the flight number, airline, airports and planned departure of a flight visible to the whole trip go to OpenAI, with web search, up to eight times in the day before it departs. Nothing else about the trip or its members is sent.
 
   Their own terms apply to what they keep.
 - **Google** receives what is needed for sign-in and, if you connect it, Calendar.

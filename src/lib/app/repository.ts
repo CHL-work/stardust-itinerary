@@ -38,7 +38,8 @@ import {
   tripSettingsSchema,
 } from "@/lib/app/validation";
 import { tripDateErrors } from "@/lib/app/trip-date-range";
-import { readFlightDetails } from "@/lib/app/flight";
+import { readFlightDetails, type FlightChange } from "@/lib/app/flight";
+import type { FlightStatusDecision } from "@/lib/flights/status";
 import { normalizeDestination } from "@/lib/app/trip-destination-defaults";
 import { validatedStoredDestinationDefaults } from "@/lib/app/trip-destination-cache";
 import {
@@ -681,7 +682,8 @@ async function appendAudit(
   client: Queryable,
   input: {
     tripId: string;
-    actorMemberId: string;
+    /** Null for a system change, such as an automatic flight status update (JOB-083). */
+    actorMemberId: string | null;
     entityType: string;
     entityId?: string | null;
     action: string;
@@ -741,6 +743,7 @@ async function readAppOverviewSnapshot(
     disruption_localizations_available: boolean;
     member_payments_available: boolean;
     calendar_imports_available: boolean;
+    flight_status_available: boolean;
   }>(
     `SELECT EXISTS (
               SELECT 1
@@ -752,7 +755,8 @@ async function readAppOverviewSnapshot(
             to_regclass('event_disruption_current') IS NOT NULL AS disruptions_available,
             to_regclass('event_disruption_localizations') IS NOT NULL AS disruption_localizations_available,
             to_regclass('member_payments') IS NOT NULL AS member_payments_available,
-            to_regclass('calendar_import_receipts') IS NOT NULL AS calendar_imports_available`,
+            to_regclass('calendar_import_receipts') IS NOT NULL AS calendar_imports_available,
+            to_regclass('flight_status_changes') IS NOT NULL AS flight_status_available`,
   );
   const liveContext = liveContextResult.rows[0] ?? {
     weather_available: false,
@@ -760,6 +764,7 @@ async function readAppOverviewSnapshot(
     disruption_localizations_available: false,
     member_payments_available: false,
     calendar_imports_available: false,
+    flight_status_available: false,
   };
   const localizedDisruptionProjection = liveContext.disruptions_available && liveContext.disruption_localizations_available
     ? "dl.details AS disruption_localized_details"
@@ -1314,6 +1319,14 @@ async function readAppOverviewSnapshot(
     [session.tripId, itemResult.rows.map((row) => row.id), pendingItineraryRequestResult.rows.map((row) => row.id)]) : null;
   const sourceByItem = new Map((sourceReceipts?.rows ?? []).filter((row) => row.itinerary_item_id).map((row) => [row.itinerary_item_id, row.source_snapshot]));
   const sourceByRequest = new Map((sourceReceipts?.rows ?? []).map((row) => [row.change_request_id, row.source_snapshot]));
+  const flightChangeRows = liveContext.flight_status_available ? (await client.query<{
+    itinerary_item_id: string; kind: "schedule" | "cancelled"; previous: Record<string, unknown>; current: Record<string, unknown>; created_at: Date;
+  }>(`SELECT DISTINCT ON (itinerary_item_id) itinerary_item_id, kind, previous, current, created_at
+        FROM flight_status_changes
+       WHERE trip_id = $1 AND itinerary_item_id = ANY($2::uuid[]) AND kind IN ('schedule', 'cancelled')
+       ORDER BY itinerary_item_id, created_at DESC`,
+    [session.tripId, itemResult.rows.map((row) => row.id)])).rows : [];
+  const flightChangeByItem = new Map(flightChangeRows.map((row) => [row.itinerary_item_id, row]));
   const weatherForecastsByItem = new Map<string, EventWeatherForecast[]>();
   for (const row of weatherRows) {
     const forecasts = weatherForecastsByItem.get(row.itinerary_item_id) ?? [];
@@ -1404,6 +1417,7 @@ async function readAppOverviewSnapshot(
         destinationLocationName: row.destination_location_name,
         destinationMapUrl: row.destination_map_url,
         flight: readFlightDetails(row.flight),
+        flightChange: currentFlightChange(flightChangeByItem.get(row.id), row),
         notes: row.notes,
         createdByMemberId: row.created_by_member_id,
         creatorName: row.creator_name,
@@ -2774,6 +2788,105 @@ export async function updatePendingItineraryRequestWithClient(
       updatedAt: updatedState.updated_at.toISOString(),
       patch: nextDraft,
     };
+}
+
+const isoOrNull = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
+
+/** The latest automatic time change or cancellation, while the event still reflects it (D-095). */
+function currentFlightChange(
+  change: { kind: "schedule" | "cancelled"; previous: Record<string, unknown>; current: Record<string, unknown>; created_at: Date } | undefined,
+  item: { starts_at: Date | null; status: string },
+): FlightChange | null {
+  if (!change) return null;
+  const startsAt = isoOrNull(change.current.startsAt);
+  const stillCurrent = change.kind === "cancelled"
+    ? item.status === "cancelled"
+    : startsAt !== null && item.starts_at?.toISOString() === startsAt && item.status === "planned";
+  if (!stillCurrent) return null;
+  return {
+    kind: change.kind, previousStartsAt: isoOrNull(change.previous.startsAt), previousEndsAt: isoOrNull(change.previous.endsAt),
+    startsAt, endsAt: isoOrNull(change.current.endsAt), checkedAt: change.created_at.toISOString(),
+  };
+}
+
+/**
+ * Applies an automatic flight status update (JOB-083, D-095) as a system revision: new times, a
+ * cancellation or new terminal and gate details. Returns false, changing nothing, when the event moved
+ * on since the check read it (another edit, a different departure, or no longer a planned trip-visible
+ * flight). The event's day follows a new local departure date when the trip has that day.
+ */
+export async function applyFlightStatusUpdate(pool: Pool, input: {
+  tripId: string;
+  itemId: string;
+  expectedRevision: number;
+  expectedStartsAt: string;
+  decision: Extract<FlightStatusDecision, { status: string }>;
+  checkedAt: Date;
+}): Promise<boolean> {
+  return inTransaction(pool, async (client) => {
+    const currentResult = await client.query<Record<string, unknown>>(
+      `SELECT i.*, COALESCE(ARRAY(
+                SELECT iv.member_id FROM itinerary_item_viewers iv
+                 WHERE iv.trip_id = i.trip_id AND iv.itinerary_item_id = i.id ORDER BY iv.member_id
+              ), ARRAY[]::uuid[]) AS viewer_member_ids
+         FROM itinerary_items i
+        WHERE i.trip_id = $1 AND i.id = $2 AND to_jsonb(i)->>'removed_at' IS NULL
+        FOR UPDATE OF i`,
+      [input.tripId, input.itemId],
+    );
+    const current = currentResult.rows[0];
+    if (!current || current.current_revision !== input.expectedRevision || current.item_type !== "transport"
+        || current.status !== "planned" || current.visibility !== "trip"
+        || !(current.starts_at instanceof Date) || current.starts_at.toISOString() !== input.expectedStartsAt) {
+      return false;
+    }
+    const viewerMemberIds = current.viewer_member_ids as string[];
+    const before = itinerarySnapshot(current, viewerMemberIds);
+    const { decision } = input;
+    let tripDayId = current.trip_day_id as string;
+    if (decision.startsAt !== input.expectedStartsAt) {
+      const day = await client.query<{ id: string }>(
+        `SELECT d.id FROM trip_days d JOIN trips t ON t.id = d.trip_id
+          WHERE d.trip_id = $1 AND d.day_date = ($2::timestamptz AT TIME ZONE t.time_zone)::date
+            AND d.day_date BETWEEN t.starts_on AND t.ends_on`,
+        [input.tripId, decision.startsAt],
+      );
+      tripDayId = day.rows[0]?.id ?? tripDayId;
+    }
+    await client.query(
+      `UPDATE itinerary_items SET trip_day_id = $3, starts_at = $4, ends_at = $5, status = $6, flight = $7::jsonb
+        WHERE trip_id = $1 AND id = $2`,
+      [input.tripId, input.itemId, tripDayId, decision.startsAt, decision.endsAt, decision.status, JSON.stringify(decision.flight)],
+    );
+    const nextRevision = Number(current.current_revision) + 1;
+    const afterResult = await client.query<Record<string, unknown>>(
+      `SELECT * FROM itinerary_items WHERE trip_id = $1 AND id = $2`, [input.tripId, input.itemId]);
+    const after = { ...itinerarySnapshot(afterResult.rows[0]!, viewerMemberIds), currentRevision: nextRevision };
+    await client.query(
+      `INSERT INTO itinerary_revisions (trip_id, itinerary_item_id, revision, changed_by_member_id, changed_by_source, snapshot, reason)
+       VALUES ($1, $2, $3, NULL, 'flight_status', $4::jsonb, $5)`,
+      [input.tripId, input.itemId, nextRevision, JSON.stringify(after), `Flight status: ${decision.outcome}`],
+    );
+    await client.query(
+      `UPDATE calendar_event_links SET sync_status = 'stale', updated_at = CURRENT_TIMESTAMP
+        WHERE trip_id = $1 AND itinerary_item_id = $2`,
+      [input.tripId, input.itemId],
+    );
+    await appendAudit(client, {
+      tripId: input.tripId, actorMemberId: null, entityType: "itinerary_item", entityId: input.itemId,
+      action: decision.outcome === "cancelled" ? "cancelled" : "updated", before, after,
+      metadata: { source: "flight_status", outcome: decision.outcome },
+    });
+    await client.query(
+      `INSERT INTO flight_status_changes (trip_id, id, itinerary_item_id, kind, previous, current, source_urls, applied_revision, created_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::text[], $8, $9)`,
+      [input.tripId, randomUUID(), input.itemId, decision.outcome,
+        JSON.stringify({ startsAt: before.startsAt, endsAt: before.endsAt, status: before.status, flight: before.flight ?? null }),
+        JSON.stringify({ startsAt: decision.startsAt, endsAt: decision.endsAt, status: decision.status, flight: decision.flight }),
+        decision.sources.slice(0, 5), nextRevision, input.checkedAt],
+    );
+    return true;
+  });
 }
 
 function itinerarySnapshot(

@@ -72,3 +72,13 @@ export function flightDepartureDetail(flight: FlightDetails | null | undefined):
 export function flightArrivalDetail(flight: FlightDetails | null | undefined): string | null {
   return flight?.arrivalTerminal?.trim() || null;
 }
+
+/** The latest automatic time change or cancellation an event still reflects (JOB-083, D-095). */
+export type FlightChange = {
+  kind: "schedule" | "cancelled";
+  previousStartsAt: string | null;
+  previousEndsAt: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  checkedAt: string;
+};

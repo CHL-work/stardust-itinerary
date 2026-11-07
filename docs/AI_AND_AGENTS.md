@@ -121,6 +121,7 @@ A conservative deterministic scope guard handles only certainly unrelated catego
 ## 8. Separate background and helper AI
 
 - Disruption verification uses Sol/medium, exact public event projection, live official evidence and deterministic high-confidence/material-impact gating. It has no personal context, private events or canonical write tools. Backend cadence and notification limitations are in [architecture](ARCHITECTURE.md) and [qualification](DISRUPTION_CONFIDENCE.md).
+- Flight status checks (JOB-083, D-095) use the same Sol/medium search on the operator's keys, only for trip-visible flights in sponsored trips, sending only the flight number, airline, airports and planned departure. Application code applies a high-confidence time change or cancellation, or a new terminal or gate, as a system revision; the model never writes. [Flight status](FLIGHT_STATUS.md).
 - Calendar missing-place lookup receives explicitly confirmed public venue text only. Signed suggestion use forces owner review; no page-open model calls. [Import](CALENDAR_IMPORT.md).
 - Feedback review uses a separate Astra/medium background worker run by the deployment's scheduler; a deterministic Issues-only publisher handles validated sanitized issue creation. No repository editing, PR, merge or deployment. Whether it runs depends on configured credentials and scheduling. [Feedback](FEEDBACK.md).
 - Destination Auto has its own bounded per-account quota and is tool-free; no planner context or trip-owner access to another account's lookup logs. [Defaults](TRIP_DESTINATION_DEFAULTS.md).

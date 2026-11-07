@@ -23,6 +23,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 | JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
+| JOB-083 | Flight status checks before departure | Done: checks 24 and 12 hours, then hourly from 6 hours, before departure; time changes, cancellations and terminal or gate changes update the flight (D-095) |
 | JOB-082 | Flight details on transport events, and the AI looks up terminals | Done: flight number, airline, terminals and gate on flights; cards show the gate, else the terminal, else the airline (D-094) |
 | JOB-081 | Retire the classic layout and the layout toggle | Done: one layout, light or dark with the system; no toggle, Settings card or stored preference (D-093) |
 | JOB-080 | AI expenses are split between everyone unless the request says otherwise | Done: unnamed sharers mean everyone who can see the expense, parts the request gives become exact shares, and several payers become one expense each (D-092) |
@@ -96,6 +97,12 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 
 - **Daily copy:** the `stardust-offsite-copy` job restores the database into a Neon free-plan project as a dated database, checks every table's row count, and keeps the newest three (D-083).
 - **Free plan:** a 0.25 CU compute awake a few minutes a day, and all copies within 500 MB of the 1 GB of storage.
+
+### JOB-083: flight status checks
+
+Requested by the owner on 7 November 2026 ([job](jobs/JOB-083-flight-status-checks.md)).
+
+- **Before departure:** eight checks from 24 hours to 1 hour out update a flight's times, cancellation, terminal and gate, with a badge saying what changed; the checks follow a changed departure (D-095).
 
 ### JOB-082: flight details
 

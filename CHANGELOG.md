@@ -6,6 +6,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Flight status checks (JOB-083, D-095):** the server checks each trip-visible flight with a flight number 24 and 12 hours before departure, then every hour from 6 hours to 1 hour before, on the operator's keys in sponsored trips. A confirmed time change of 15 minutes or more updates the times and shows a **Changed** badge that says what moved; a cancellation marks the event cancelled with a red warning instead of deleting it; a new terminal or gate updates them quietly. The checks follow a changed departure. Updates are system revisions with an audit entry. Migration 0062 adds the check and change records.
+
 - **Flight details (JOB-082, D-094):** a transport event can carry a flight number, airline, departure terminal, gate and arrival terminal, in the event editor and from the trip AI. The AI looks up a flight's terminals for its date and never guesses a gate. Cards show the departure airport with its gate and terminal, else its terminal, else the airline, and the arrival airport with its terminal. Migration 0061 adds the optional `flight` details.
 
 - **Free guest AI (JOB-071, D-086):** with `GUEST_FREE_AI_ENABLED=true`, guests without a key plan on keyless free models through Kilo's AI Gateway, by default NVIDIA Nemotron 3.5 Super with dots.3 note as a fallback. It is limited to 10 requests per guest a day and instance-wide hourly and daily caps, and has no search, research or pictures. The AI card shows the free model, the requests left, and that free models may keep what guests send. A new funding source `free` arrives with migration 0060.

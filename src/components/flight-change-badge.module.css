@@ -1,0 +1,48 @@
+.badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 28px;
+  padding: 2px 10px;
+  border: 1px solid var(--violet, #a984ff);
+  border-radius: 999px;
+  background: var(--violet-soft, rgba(169, 132, 255, 0.12));
+  color: var(--violet, #a984ff);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+/* A 44px tap area around the badge, without changing the layout. */
+.badge::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.cancelled {
+  padding: 2px 6px;
+  border-color: var(--rose, #ff7b93);
+  background: var(--rose-soft, rgba(255, 123, 147, 0.14));
+  color: var(--rose, #ff7b93);
+}
+
+.badge:focus-visible {
+  outline: 2px solid var(--focus, var(--violet, #a984ff));
+  outline-offset: 2px;
+}
+
+.panel {
+  max-inline-size: min(22rem, calc(100vw - 32px));
+  margin: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  background: var(--panel-raised, #231c31);
+  color: var(--ink, #f7f3ff);
+  font-size: 15px;
+  line-height: 1.5;
+  box-shadow: var(--shadow-raised, 0 12px 36px rgba(0, 0, 0, 0.3));
+}
