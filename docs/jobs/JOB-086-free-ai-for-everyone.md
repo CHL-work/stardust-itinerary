@@ -51,6 +51,7 @@ Accepted, merged and deployed to GKE on November 7, 2026. Main pushes run CI the
 - Implementation commits `73d2de8` and `dffeab3` reached `main` through the authorized fast-forward push. [CI](https://github.com/CHL-work/stardust-itinerary/actions/runs/42416869730) and [GKE deployment](https://github.com/CHL-work/stardust-itinerary/actions/runs/42417096932) succeeded, including backup/migration, rollout, effective free/guest configuration gate and public health check.
 - Post-release read-only checks: public health reported database ready; the new catalog route returned 401 without a session. The sign-in page exposed an enabled guest entry after its normal browser check. No real trips or provider credentials were used in these checks; inference verification used only the disposable synthetic database described above.
 - Temporary local test server and database were stopped. Provider availability can change after this verification; the live catalog and normal fail-closed behavior remain authoritative.
+- Final UI review removed the legacy sponsored quota/unlimited summary from Settings when free AI is available; the free allowance stays visible, and no backend limits or owner trip-limit controls changed. Regression tests cover no-key members and the operator.
 
 ### Behavior and limits
 

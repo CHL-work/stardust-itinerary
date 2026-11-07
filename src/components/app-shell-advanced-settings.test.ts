@@ -130,6 +130,20 @@ describe("collapsed advanced Settings", () => {
     expect(html).not.toContain(escape(formatMessage(messages.en.aiMemberRemaining, { remaining: 17 })));
   });
 
+  it.each(locales)("shows only the applicable free quota for keyless operators and members in %s", (locale) => {
+    for (const isOperator of [true, false]) {
+      const { html, node } = renderAdvanced(locale, { owner: isOperator, canSelectModel: isOperator, ai: {
+        freeAi: { model: "Synthetic free model", limit: 10, remainingToday: 8, isDefault: false },
+      } });
+      expect(html).toContain(escape(formatMessage(aiKeysMessages(locale).freeAccess, { model: "Synthetic free model", remaining: 8, limit: 10 })));
+      expect(html).not.toContain("quota-meter");
+      expect(html).not.toContain(escape(formatMessage(messages[locale].aiMemberRemaining, { remaining: 17 })));
+      expect(html).not.toContain(escape(formatMessage(messages[locale].aiOwnerSummary, { limit: 20 })));
+      // Preserve the owner-only legacy trip-limit configuration; it does not change free-account quota.
+      expect(descendants(node).filter((item) => item.type === "form")).toHaveLength(isOperator ? 1 : 0);
+    }
+  });
+
   it("retains exact member permission callbacks and dependency rules", () => {
     const { node, updatePermissions, unbindMemberIdentity, createMemberInvitation } = renderAdvanced("en");
     const controls = descendants(node).filter((item) => typeof item.type === "function" && item.type.name === "PermissionToggle");
