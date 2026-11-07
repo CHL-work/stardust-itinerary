@@ -23,6 +23,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-066 | Showcase documentation, a private feedback repository, own-key and shared-key usage in Settings | Done: the [case study](CASE_STUDY.md), key usage in Settings, and feedback issues filed in a private repository |
 | JOB-067 | Phone AI button, quick answers that expire, and day-map fixes | Done: Ask AI on phones, ten-minute quick answers, day maps that load when opened and include private places (D-081, D-082) |
 | JOB-068 | Daily off-site copy of the database in Neon | Done: a dated, row-count-verified copy each day in a Neon free-plan project, outside Google Cloud (D-083) |
+| JOB-079 | AI-created events are trip-wide unless clearly solo | Done: the trip AI adds events for the whole trip unless the user asks for privacy, names who may see them, or the event or its expense is clearly just for them (D-091) |
 | JOB-078 | Both of the owner's Google accounts act as the platform operator | Done: `OWNER_GOOGLE_EMAIL` may list several of the operator's accounts, and each runs AI on the server's keys (D-090) |
 | JOB-077 | A one-line guest notice, singular counts, and line breaks in free-model replies | Done: the guest notice mentions the AI key only when free guest AI is off, English says "1 expense", and free-model replies show line breaks instead of `<br/>` tags (D-088) |
 | JOB-076 | A brief README with phone screenshots, and a documentation index | Done: five phone screenshots, a **Find your way** table and a [documentation index](README.md); the diagram moved to [deployment](DEPLOYMENT.md) |
@@ -92,6 +93,12 @@ Requested by the owner on 5 November 2026 ([job](jobs/JOB-068-offsite-copy.md)).
 
 - **Daily copy:** the `stardust-offsite-copy` job restores the database into a Neon free-plan project as a dated database, checks every table's row count, and keeps the newest three (D-083).
 - **Free plan:** a 0.25 CU compute awake a few minutes a day, and all copies within 500 MB of the 1 GB of storage.
+
+### JOB-079: trip-wide AI events
+
+Requested by the owner on 6 November 2026 ([job](jobs/JOB-079-ai-trip-wide-default.md)).
+
+- **Trip-wide by default:** new AI-created events, bookings included, are for the whole trip; they are private only when asked, shared with named people only, or clearly for the requester alone (D-091).
 
 ### JOB-078: several operator accounts
 

@@ -2,6 +2,14 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-091: AI-created events are for the whole trip unless clearly solo (accepted November 6, 2026)
+
+The owner reported that the trip AI tended to create events as private. A reservation rule told it to keep a "personal reservation" private when nobody said otherwise, and nothing set a trip-wide default, so hotels, paid meals and flights often became private. Production showed 40 of 67 AI-created events private, most from requests that never asked for privacy (JOB-079).
+
+- **Default:** a new AI-created event is for the whole trip (`visibility` trip, no viewers), even when one person booked, paid for or is named on it.
+- **Private only when:** the user asks for privacy, shares the event only with named people (private with those viewers), or the event or its expense is clearly for the requester alone. Paying for an event, or an expense split only to the requester by default, does not make it solo. The reply says when the AI chose private unasked.
+- **Unchanged:** who shares an expense keeps its defaults (the requester plus named companions), calendar imports stay private by default, and the server still validates every audience. The server never widens a private proposal to the trip; the creator can change an event's audience in its editor.
+
 ## D-090: The platform operator may use several Google accounts (accepted November 6, 2026)
 
 The owner signs in with two Google accounts and wants AI to run on their own OpenAI, Anthropic and Gemini keys from both. Only one account was the operator, so the AI in trips the other created would ask for a personal key (JOB-078).

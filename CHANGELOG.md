@@ -66,6 +66,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Trip-wide AI events (JOB-079, D-091):** the trip AI adds new events for the whole trip by default, including hotels, flights and meals one person booked or paid for. It makes an event private only when asked, when it is shared with named people only, or when the event or its expense is clearly just for the requester, and its reply says when it chose private unasked. On the same synthetic requests, gpt-6.1-sol and claude-sonnet-5-5 went from 7 and 6 to 9 of 9 correct audiences. Expense-sharing defaults are unchanged.
+
 - **Several operator accounts (JOB-078, D-090):** `OWNER_GOOGLE_EMAIL` may list several comma-separated Google accounts of the same person, and each is the platform operator: the server's keys pay for trips it creates and for its own requests, and it can open the admin page. A list with an entry that is not an email names nobody.
 
 - **Brief README (JOB-076):** the README shows five phone screenshots of a synthetic trip, a short list of highlights and a **Find your way** table. A new [documentation index](docs/README.md) lists every document. The diagram moved to [deployment](docs/DEPLOYMENT.md#what-runs-where) and the stack summary to [architecture](docs/ARCHITECTURE.md#at-a-glance).

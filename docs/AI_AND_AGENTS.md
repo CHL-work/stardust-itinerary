@@ -62,6 +62,8 @@ Every AI create remains pending even for owners, except in a request the request
 
 The topic limit protects the operator's or a sponsor's money; privacy rules for other members, the output schema and the funding rules still apply in full.
 
+**Audience of new events (JOB-079, D-091).** A new AI-created event is for the whole trip by default, including meals, sights, transport, stays and bookings that one person booked, paid for or is named on. The model makes it private only when the user asks for privacy, shares it only with named people, or the event or its expense is clearly for the requester alone, such as their own appointment, an outing alone or a purchase for themselves; its reply says when it chose private unasked. Who shares an expense still follows the defaults in [reservation extraction](#reservation-extraction-and-bounded-validation-repair).
+
 Pending trip-visible event creates are readable by active trip members. Private creates follow selected audiences plus the narrow owner proposal-review exception, not a canonical privacy bypass. Pending expenses are visible only to active requester/payer/split participants/owner reviewer and stay outside totals. Authorized editors may edit visible pending events; only the creator changes audience, and cross-editor modification forces owner review. Linked expenses are preserved by `update_pending`. [Pending edits](AI_PENDING_EVENT_EDITS.md).
 
 Approvals is owner-only, pending-first before 25-row keyset pagination. Rejected items can later be approved only after fresh eligibility/revision/audience checks; approved review is terminal. Overview receives allowlisted pending projections and owner count, not raw patches/audit. [Database rules](DATABASE.md).

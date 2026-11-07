@@ -50,4 +50,14 @@ describe("AI reservation instructions", () => {
     expect(AI_RESERVATION_INSTRUCTIONS).toContain("conversation checkpoints");
     expect(AI_RESERVATION_INSTRUCTIONS).toContain("web-search queries");
   });
+
+  it("keeps a reservation trip-wide unless it is clearly for the requester alone (JOB-079)", () => {
+    expect(AI_RESERVATION_INSTRUCTIONS).toContain(
+      "When visibility is unspecified, a reservation is for the whole trip like any other event (visibility trip, viewerMemberIds [])",
+    );
+    expect(AI_RESERVATION_INSTRUCTIONS).toContain("even when one person booked, paid or is named on it");
+    expect(AI_RESERVATION_INSTRUCTIONS).toContain("make it private only when it is clearly for the requester alone");
+    expect(AI_RESERVATION_INSTRUCTIONS).toContain("Never add people merely to complete a guessed private audience");
+    expect(AI_RESERVATION_INSTRUCTIONS).not.toContain("default a personal reservation to private");
+  });
 });

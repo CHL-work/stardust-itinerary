@@ -344,12 +344,26 @@ describe("AI planner prompt", () => {
     expect(prompt).toContain("draft, planned, cancelled, completed");
     expect(prompt).toContain("Never emit confirmed as status");
     expect(prompt).toContain("visibility, viewerMemberIds");
-    expect(prompt).toContain("An empty viewerMemberIds array means creator-only");
+    expect(prompt).toContain("For a private event, an empty viewerMemberIds array means creator-only");
     expect(prompt).toContain("meal the user explicitly exempts from a private batch");
     expect(prompt).toContain("Every itinerary_item create patch must explicitly include both visibility and viewerMemberIds");
     expect(prompt).toContain("Expense patches must not contain either field");
     expect(prompt).toContain("temporary access to pending or rejected AI-created events solely for review");
     expect(prompt).toContain("never add the owner merely to make review possible");
+  });
+
+  it("creates events for the whole trip unless they are clearly for the requester alone (JOB-079)", () => {
+    const prompt = plannerPrompt("Add this hotel booking. I paid for it.", {});
+
+    expect(prompt).toContain("New events are for the whole trip by default: set visibility to trip and viewerMemberIds to []");
+    expect(prompt).toContain("even when one person books, pays or is named on the booking, and when the request names no one else");
+    expect(prompt).toContain("Set visibility to private only when the user asks for privacy, shares the event only with named people, "
+      + "or the event or its expense is clearly for the requester alone");
+    expect(prompt).toContain("Paying for an event, or an expense split only to the requester, does not by itself make it solo");
+    expect(prompt).toContain("When you choose private without being asked, say so");
+    expect(prompt).toContain("a reservation is for the whole trip like any other event");
+    expect(prompt).not.toContain("default a personal reservation to private");
+    expect(prompt).not.toContain("rely on a default audience");
   });
 
   it("defines separate transport endpoints and their associated times", () => {
