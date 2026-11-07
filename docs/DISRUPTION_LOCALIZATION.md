@@ -4,7 +4,7 @@
 
 Warning eligibility is filtered first by [high-confidence material-impact rules](DISRUPTION_CONFIDENCE.md). Only qualified exact-source observations reach the shared event/phone projection; translations do not qualify legacy or weak evidence. Migration 0039 adds an immutable observation policy version, separate from the localization contract below. Existing unqualified warnings remain stored but hidden pending scheduled recheck, not resolved.
 
-Disruption details follow the route-selected UI language: English (`en`), neutral Hong Kong Cantonese (`zh-HK`), or Japanese (`ja-JP`). The spicy Cantonese selection deliberately uses the same neutral safety text. Sources, checked time, affected services, uncertainty, negation and the advisory disclaimer remain intact.
+Disruption details follow the route-selected UI language: English (`en`), neutral Hong Kong Cantonese (`zh-HK`), or Japanese (`ja-JP`). The spicy Cantonese selection deliberately uses the same neutral safety text, and the languages added in JOB-084 show the English text. Sources, checked time, affected services, uncertainty, negation and the advisory disclaimer remain intact.
 
 The scheduled Sol/medium check emits all three variants alongside its sourced result. This is bounded extra output in the same logged request, not a new model request on page view or language switch. Localization changes neither the current-day/daily-future cadence nor the privacy exclusion of private/pending events.
 
@@ -30,6 +30,6 @@ Run dry first against the reviewed target. The tool loads normal database enviro
 
 ## Verification
 
-Unit tests cover complete/invalid locale maps, legacy evidence compatibility, bounded prompt instructions, fresh/unchanged-observation writes and unchanged notification fingerprints. Rendered tests cover all four UI selections, untranslated fallback, escaped content, retained links/times and no render-triggered network work. Maintenance tests exercise input/target guards, dry-run, bounded selection/locking, exact source matching, append-only inserts, idempotency and rollback. The disposable PostgreSQL integration suite verifies the pre-0032 projection, migration upgrade/idempotency, strict shape/length constraints, composite identity, append-only behavior, and exclusion of old-observation translations.
+Unit tests cover complete/invalid locale maps, legacy evidence compatibility, bounded prompt instructions, fresh/unchanged-observation writes and unchanged notification fingerprints. Rendered tests cover every UI selection, untranslated fallback, escaped content, retained links/times and no render-triggered network work. Maintenance tests exercise input/target guards, dry-run, bounded selection/locking, exact source matching, append-only inserts, idempotency and rollback. The disposable PostgreSQL integration suite verifies the pre-0032 projection, migration upgrade/idempotency, strict shape/length constraints, composite identity, append-only behavior, and exclusion of old-observation translations.
 
 The full gate is `pnpm check` with a newly created disposable loopback test database, confirmed by name through `TEST_DATABASE_CONFIRM_DESTROY`. Its build and smoke steps run locally; they neither deploy anything nor rewrite user itinerary data.

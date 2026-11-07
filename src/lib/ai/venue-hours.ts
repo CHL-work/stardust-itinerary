@@ -1,5 +1,6 @@
 import type { ItineraryPatch } from "@/lib/app/types";
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog, type BaseCatalogs } from "@/lib/locale-packs";
 import { instantDateInTimeZone } from "@/lib/ai/relative-date";
 import { containsReservationSecret } from "@/lib/ai/reservation-secrets";
 import { containsPrivateIdentifier } from "@/lib/disruptions/privacy";
@@ -152,7 +153,7 @@ export function assessVenueHours(
   });
 }
 
-const messages: Record<"en" | "zh-HK" | "ja-JP", Record<VenueHoursStatus, string>> = {
+export const venueHoursMessages: BaseCatalogs<Record<VenueHoursStatus, string>> = {
   en: {
     closed: "Published hours list this venue as closed on the planned date. Change the slot or confirm directly before visiting.",
     outside_hours: "The planned visit is outside the published opening periods or extends past closing. Review the time before visiting.",
@@ -176,7 +177,7 @@ const messages: Record<"en" | "zh-HK" | "ja-JP", Record<VenueHoursStatus, string
   },
 };
 
-const unverifiedMessages: Record<"en" | "zh-HK" | "ja-JP", Record<VenueHoursUnverifiedReason, string>> = {
+export const venueHoursUnverifiedMessages: BaseCatalogs<Record<VenueHoursUnverifiedReason, string>> = {
   en: {
     not_checked: "Opening hours were not checked for this visit.",
     user_disabled: "Hours were not checked because web search was disabled for this request.",
@@ -216,10 +217,11 @@ const unverifiedMessages: Record<"en" | "zh-HK" | "ja-JP", Record<VenueHoursUnve
 };
 
 export function venueHoursNotice(assessment: VenueHoursAssessment, locale: Locale): string {
-  const language = locale === "en" ? "en" : locale === "ja-JP" ? "ja-JP" : "zh-HK";
+  const statusText = localizedCatalog(locale, "venueHours", venueHoursMessages);
+  const unverifiedText = localizedCatalog(locale, "venueHoursUnverified", venueHoursUnverifiedMessages);
   const isConflict = ["closed", "outside_hours", "last_admission"].includes(assessment.status);
   const reason = assessment.unverifiedReason;
-  const text = assessment.status === "unverified" && reason && Object.hasOwn(unverifiedMessages[language], reason)
-    ? unverifiedMessages[language][reason] : messages[language][assessment.status];
+  const text = assessment.status === "unverified" && reason && Object.hasOwn(unverifiedText, reason)
+    ? unverifiedText[reason] : statusText[assessment.status];
   return `${isConflict ? "⚠" : "ℹ"} ${assessment.venueName.slice(0, 240)}${assessment.date ? ` (${assessment.date})` : ""}: ${text}`;
 }

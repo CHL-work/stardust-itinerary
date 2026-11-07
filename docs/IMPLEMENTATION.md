@@ -12,7 +12,7 @@ Source map and safe verification guide. Runtime topology is in [architecture](AR
 - Default-off 24-hour guest accounts with a synthetic demo trip, isolated from real trips and permanently purged (JOB-064).
 - Optional per-member Calendar export/import with duplicate receipts; silent passive refresh and deterministic conflicts.
 - MapLibre/OSM day map that loads when opened, deterministic weather, backend qualified disruptions and bounded read-only public offline itinerary.
-- One light/dark layout (the classic layout was retired in JOB-081), four locales, Advanced settings, owner Activity and private feedback with a separate issue-only pipeline.
+- One light/dark layout (the classic layout was retired in JOB-081), twelve locales (eight of them translation packs, JOB-084), Advanced settings, owner Activity and private feedback with a separate issue-only pipeline.
 - Destination Auto defaults (time zone/currency suggestions) for eligible trip creators.
 
 Not shipped: external MCP connector, structured preference collection (removed), full route-based reminders, Discord/Telegram delivery, closed-app push or automatic feedback fixes. Default-off public signup and operator/funding boundaries still apply.

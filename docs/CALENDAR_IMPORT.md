@@ -51,7 +51,7 @@ Raw Calendar data and imported private/pending records remain outside the offlin
 
 ## Tests and rollback
 
-Synthetic tests cover source/date normalization, all four locale cards/forms, actor-bound tokens, request/permission/AI policy gates, replay, adapter isolation, timeouts and route privacy. The disposable database fixture exercises the ordered migration chain, legacy upgrade, concurrent commits, pending/direct/AI review paths, same/different account reconnects, stale-source races, private visibility and safe removal. It uses encrypted synthetic credentials and mocked Google GETs only; no real Calendar writes or traveler event/expense mutations.
+Synthetic tests cover source/date normalization, every locale's cards/forms, actor-bound tokens, request/permission/AI policy gates, replay, adapter isolation, timeouts and route privacy. The disposable database fixture exercises the ordered migration chain, legacy upgrade, concurrent commits, pending/direct/AI review paths, same/different account reconnects, stale-source races, private visibility and safe removal. It uses encrypted synthetic credentials and mocked Google GETs only; no real Calendar writes or traveler event/expense mutations.
 
 Migration 0042 is additive. Retain its schema and source receipts on any rollback; do not delete source history or down-migrate after imports exist. A recovery target must be schema-compatible, not automatically a build from before imports existed. Deploy and recover with [deployment](DEPLOYMENT.md) or [self-hosting](SELF_HOSTING.md); backup, restore and migration rules are in [database](DATABASE.md).
 

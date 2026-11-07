@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 /**
  * Guest accounts (JOB-064), in one short line (D-088): when the trip is deleted, the AI key only
@@ -25,5 +26,5 @@ const japanese: GuestCopy = {
 };
 
 export function guestMessages(locale: Locale): GuestCopy {
-  return locale === "ja-JP" ? japanese : locale === "zh-HK" || locale === "zh-HK-lihkg" ? cantonese : english;
+  return localizedCatalog(locale, "guest", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }

@@ -25,8 +25,9 @@ export function parseLocalizedDisruptionDetails(value: unknown): LocalizedDisrup
   };
 }
 
+/** The detail shown for a locale: the monitor writes three languages, so the added ones read English (JOB-084). */
 export function disruptionDetailLocale(locale: Locale): keyof LocalizedDisruptionDetails {
-  return locale === "zh-HK-lihkg" ? "zh-HK" : locale;
+  return locale === "zh-HK-lihkg" ? "zh-HK" : locale === "zh-HK" || locale === "ja-JP" ? locale : "en";
 }
 
 export function selectLocalizedDisruptionDetail(value: unknown, locale: Locale): string | null {

@@ -28,7 +28,7 @@ describe("daily map orchestration", () => {
 
   it("uses strict UUID/locale/private input with opt-in off by default", () => {
     expect(dayMapInput.parse({ tripDayId: dayId, locale: "en" }).includePrivate).toBe(false);
-    for (const bad of [{ ...input, tripDayId: "day" }, { ...input, locale: "fr" }, { ...input, includePrivate: "true" }, { ...input, location: "injected" }]) expect(dayMapInput.safeParse(bad).success).toBe(false);
+    for (const bad of [{ ...input, tripDayId: "day" }, { ...input, locale: "ko-KR" }, { ...input, includePrivate: "true" }, { ...input, location: "injected" }]) expect(dayMapInput.safeParse(bad).success).toBe(false);
   });
 
   it("does no provider work without configuration", async () => {

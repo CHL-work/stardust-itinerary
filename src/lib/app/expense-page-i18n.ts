@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   title: "Trip expenses", subtitle: "Your costs across the whole trip", history: "Expenses by date",
@@ -48,5 +49,5 @@ const ja: ExpensePageMessages = {
 };
 
 export function expensePageMessages(locale: Locale): ExpensePageMessages {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "expensePage", { en, "zh-HK": zh, "ja-JP": ja });
 }

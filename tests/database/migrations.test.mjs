@@ -19,6 +19,7 @@ import { testOwnKeyAi } from "./own-key-ai.mjs";
 import { testGuestFreeAi } from "./guest-free-ai.mjs";
 import { testFlightDetails } from "./flight-details.mjs";
 import { testFlightStatus } from "./flight-status.mjs";
+import { testMoreLocales } from "./more-locales.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
 import { testCustomExpenseSplits } from "./custom-expense-splits.mjs";
@@ -7322,6 +7323,7 @@ test(
       await testGuestFreeAi(appPool,connectionString);
       await testFlightDetails(appPool,connectionString);
       await testFlightStatus(appPool,connectionString);
+      await testMoreLocales(appPool,connectionString);
 
     } finally {
       await appPool.end();

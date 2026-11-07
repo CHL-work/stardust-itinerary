@@ -12,6 +12,7 @@ function run(pathname: string) {
 describe("document language bootstrap", () => {
   it.each([
     ["/en", "en"], ["/ja-JP", "ja-JP"], ["/zh-HK", "zh-HK"], ["/zh-HK-lihkg", "zh-HK"], ["/auth/sign-in", "zh-HK"], ["/", "zh-HK"],
+    ["/zh-CN", "zh-CN"], ["/zh-TW", "zh-TW"], ["/es", "es"], ["/pt-BR", "pt-BR"], ["/fr", "fr"], ["/de", "de"], ["/ru", "ru"], ["/id", "id"],
   ])("sets the document language for %s before paint", (pathname, lang) => {
     expect(run(pathname).lang).toBe(lang);
   });

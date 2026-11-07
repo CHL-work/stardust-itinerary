@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 import type { ActivityAction, ActivityCategory, ActivityField } from "./activity-types";
 
 type ActivityCopy = {
@@ -42,4 +43,4 @@ const ja: ActivityCopy = {
   fields: { title: "名称", time: "日時", location: "場所", type: "予定の種類", status: "状態", visibility: "公開範囲", audience: "共有メンバー", amount: "金額", currency: "通貨", payer: "支払者", shares: "分担額", linkedExpense: "関連費用", linkedEvent: "関連予定", notes: "メモ", lock: "オーナーロック" },
   statuses: { pending: "承認待ち", approved: "承認済み", rejected: "却下済み", superseded: "置き換え済み", draft: "下書き", planned: "予定済み", cancelled: "キャンセル済み", completed: "完了", posted: "記録済み", void: "無効" },
 };
-export function activityMessages(locale: Locale): ActivityCopy { return locale === "en" ? en : locale === "ja-JP" ? ja : hk; }
+export function activityMessages(locale: Locale): ActivityCopy { return localizedCatalog(locale, "activity", { en, "zh-HK": hk, "ja-JP": ja }); }

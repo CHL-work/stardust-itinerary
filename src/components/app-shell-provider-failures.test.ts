@@ -33,7 +33,7 @@ describe("direct, recovered and historical provider failures", () => {
   it.each(locales)("shows safe history metadata in %s and leaves older generic messages generic", (locale) => {
     const copy = aiProviderFailureCopy(locale);
     const markup = renderToStaticMarkup(createElement(AiConversationTranscript, { turns: [request, { ...request, requestId: "legacy", providerFailure: undefined, errorCode: "Error" }], locale, timeZone: "Asia/Tokyo", isOwner: true, messages: aiHistoryMessages(locale) }));
-    expect(markup).toContain("Anthropic (Claude)"); expect(markup).toContain("10:00"); expect(markup).toContain("Asia/Tokyo");
+    expect(markup).toContain("Anthropic (Claude)"); expect(markup).toMatch(/10[:.]00/u); expect(markup).toContain("Asia/Tokyo");
     expect(markup).toContain(copy.owner); expect(markup).toContain(copy.unchanged); expect(markup).toContain(aiHistoryMessages(locale).messageFailed);
     expect(markup).not.toContain("Hidden provider diagnostic"); expect(markup).not.toContain(failure.code);
   });

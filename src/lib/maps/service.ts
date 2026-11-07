@@ -1,6 +1,7 @@
 // Server-only orchestration; callers supply a freshly authenticated overview read.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { z } from "zod";
+import { locales } from "@/lib/i18n";
 import { AppInvalidInputError } from "@/lib/app/repository";
 import { projectDayMapStops, type DayMapStop, type MapSource, type PendingMapSource } from "@/lib/maps/day-stops";
 import { chooseMapViewport, type MapCoordinate, type MapViewport } from "@/lib/maps/geometry";
@@ -11,7 +12,7 @@ import type { DayMapLeg } from "@/lib/maps/client";
 import { validMapTileTemplate } from "@/lib/maps/tile-template";
 
 export const dayMapInput = z.object({
-  tripDayId: z.uuid(), includePrivate: z.boolean().default(false), locale: z.enum(["en", "zh-HK", "zh-HK-lihkg", "ja-JP"]),
+  tripDayId: z.uuid(), includePrivate: z.boolean().default(false), locale: z.enum(locales),
 }).strict();
 export type DayMapInput = z.infer<typeof dayMapInput>;
 export type ResolvedDayMapStop = DayMapStop & { coordinate: MapCoordinate | null; resolution: "located" | "missing" | "unresolved" | "limit" };

@@ -1,5 +1,7 @@
+import { documentLanguage, locales } from "@/lib/i18n";
+
 // URL locale segment -> document language (the LIHKG tone pack is Hong Kong Cantonese text).
-const documentLanguages: Record<string, string> = { en: "en", "zh-HK": "zh-HK", "zh-HK-lihkg": "zh-HK", "ja-JP": "ja-JP" };
+const documentLanguages: Record<string, string> = Object.fromEntries(locales.map((locale) => [locale, documentLanguage(locale)]));
 
 /**
  * Runs in `<head>` before first paint and sets `<html lang>` from the locale route, so per-script font

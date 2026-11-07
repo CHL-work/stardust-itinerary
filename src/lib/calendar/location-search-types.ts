@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { locales } from "@/lib/i18n";
 
 export const calendarLocationSearchInput = z.strictObject({
   subject: z.string().trim().min(2).max(140),
   consent: z.literal(true),
-  locale: z.enum(["en", "zh-HK", "zh-HK-lihkg", "ja-JP"]).default("en"),
+  locale: z.enum(locales).default("en"),
   requestId: z.uuid(),
 });
 

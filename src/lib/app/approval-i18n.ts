@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 const english = {
   event: "Event", expense: "Expense", create: "Add", update: "Update", cancel: "Cancel", restore: "Restore", void: "Void", change: "Change",
   date: "Date", starts: "Starts", ends: "Ends", departure: "Departure", arrival: "Arrival", untimed: "Time not set",
@@ -34,5 +35,5 @@ const japanese: ApprovalMessages = {
   historical: "送信時の申請内容です。その後の予定・費用の変更は表示されません。",
 };
 export function approvalMessages(locale: Locale): ApprovalMessages {
-  return locale === "ja-JP" ? japanese : locale.startsWith("zh-HK") ? cantonese : english;
+  return localizedCatalog(locale, "approval", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }

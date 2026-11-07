@@ -1,5 +1,6 @@
 import { parseAiProviderFailureDetails } from "@/lib/ai/provider-failure";
 import { formatMessage, type Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const english = {
   provider: "The AI provider",
@@ -47,7 +48,7 @@ const japanese: FailureCopy = {
 
 export type AiFailurePresentationOptions = { locale: Locale; timeZone: string; isOwner: boolean };
 export function aiProviderFailureCopy(locale: Locale): FailureCopy {
-  return locale === "ja-JP" ? japanese : locale === "zh-HK" || locale === "zh-HK-lihkg" ? cantonese : english;
+  return localizedCatalog(locale, "aiProviderFailure", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }
 
 /** Only fixed categories and validated metadata are rendered, never provider diagnostics. */

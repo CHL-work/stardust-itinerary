@@ -10,6 +10,7 @@ import { AiProviderFailureError, createClaudeProviderFailureTracker } from "@/li
 import { generateWithGemini } from "@/lib/ai/gemini";
 
 import { ownerModelRegistry, type OwnerModel } from "@/lib/app/types";
+import { aiLanguageNames } from "@/lib/ai/languages";
 import { AI_IMAGE_FACTS_MAX_CHARACTERS, AI_IMAGE_MAX_BYTES, AI_IMAGE_MAX_COUNT, AI_IMAGE_MAX_EDGE } from "@/lib/ai/image-types";
 import type { PreparedAiImage } from "@/lib/ai/image-server-types";
 import { inspectReservationSecrets, redactReservationSecrets, type ReservationSecretContext } from "@/lib/ai/reservation-secrets";
@@ -54,7 +55,7 @@ type ExtractionInput = {
 };
 
 function promptForImages(locale: Locale, count: number): string {
-  const language = locale === "ja-JP" ? "Japanese" : locale.startsWith("zh-HK") ? "neutral Hong Kong Cantonese" : "English";
+  const language = aiLanguageNames[locale];
   return [
     "You are a bounded image-to-facts extractor for a private trip planner, not a planning or execution agent.",
     `Inspect the ${count} attached images, in attachment order. Return only the required JSON object. Use ${language} for factual prose and uncertainty; preserve original venue/member names.`,

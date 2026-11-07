@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import { ExpenseDisplayCard, type DisplayExpense } from "@/components/expense-display-card";
 import { mobileCardsMessages } from "@/lib/app/mobile-cards-i18n";
-import { formatMessage, locales, messages, type Locale } from "@/lib/i18n";
+import { baseLocales, documentLanguage, formatMessage, locales, messages, type Locale } from "@/lib/i18n";
+/** A number as this locale groups it ("2,000", "2.000", "2 000" or "2000"). */
+const grouped = (locale: Locale, value: number) => new Intl.NumberFormat(documentLanguage(locale)).format(value);
+
 
 const expense: DisplayExpense = {
   description: "Synthetic restaurant dinner", amountMinor: 6000, currency: "JPY", status: "posted",
@@ -26,7 +29,7 @@ describe("personal-first mobile expense cards", () => {
     const markup = render(expense, "synthetic-member-a", locale);
     const personal = markup.indexOf("data-personal-share");
     expect(personal).toBeGreaterThan(-1);
-    expect(primaryAmount(markup)).toContain("2,000");
+    expect(primaryAmount(markup)).toContain(grouped(locale, 2000));
     expect(markup).toContain(copy.paidMyShare);
     expect(markup.indexOf(copy.total)).toBeGreaterThan(personal);
     expect(markup.indexOf(formatMessage(copy.payer, { name: expense.payerName }))).toBeGreaterThan(markup.indexOf(copy.total));
@@ -130,7 +133,7 @@ describe("personal-first mobile expense cards", () => {
   });
 
   it("uses short Add event labels and side-by-side title/action headings on phones", () => {
-    expect(locales.map((locale) => messages[locale].addPlanItem)).toEqual(locales.map((locale) => locale === "en" ? "Add event" : locale === "ja-JP" ? "予定を追加" : "新增活動"));
+    expect(baseLocales.map((locale) => messages[locale].addPlanItem)).toEqual(baseLocales.map((locale) => locale === "en" ? "Add event" : locale === "ja-JP" ? "予定を追加" : "新增活動"));
     const css = readFileSync("src/app/globals.css", "utf8");
     expect(css).toMatch(/\.section-heading\.day-section-heading\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto;/u);
     expect(css).toMatch(/\.day-section-heading > \.primary-button\s*\{[^}]*justify-self:\s*end;[^}]*width:\s*auto;[^}]*min-height:\s*44px;[^}]*background:\s*var\(--gold\);/u);

@@ -124,6 +124,15 @@
   font-family: "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang HK", "PingFang TC", "Noto Sans HK", "Noto Sans TC", system-ui, sans-serif;
 }
 
+/* Simplified and Taiwanese Traditional Chinese use their own regional fonts first (JOB-084). */
+:root[data-ui="new"]:lang(zh-CN) body {
+  font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+}
+
+:root[data-ui="new"]:lang(zh-TW) body {
+  font-family: "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+}
+
 :root[data-ui="new"]:lang(ja) body {
   font-family: "Segoe UI", "Yu Gothic UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, system-ui, sans-serif;
   /* Break Japanese between phrases (keeps "3 件", "承認待ち" together); long phrases may still break. */

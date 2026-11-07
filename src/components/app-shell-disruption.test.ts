@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DisruptionDetailBody } from "@/components/app-shell";
 import type { EventDisruption } from "@/lib/app/types";
+import { disruptionDetailLocale } from "@/lib/disruptions/localization";
 import { locales, messages, type Locale } from "@/lib/i18n";
 
 const disruption: EventDisruption = {
@@ -34,7 +35,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("selected-language disruption body", () => {
   it.each(locales)("renders %s detail with the original reason, source and checked time", (locale) => {
     const html = render(locale);
-    const detailLocale = locale === "zh-HK-lihkg" ? "zh-HK" : locale;
+    const detailLocale = disruptionDetailLocale(locale);
     expect(html).toContain(`<p lang="${detailLocale}">${disruption.localizedDetails![detailLocale]}</p>`);
     expect(html).not.toContain(disruption.detail);
     expect(html).not.toContain(messages[locale].disruptionTranslationUnavailable);
@@ -43,7 +44,7 @@ describe("selected-language disruption body", () => {
     expect(html).toContain('href="https://example.org/official-notice"');
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noreferrer"');
-    expect(html).toContain("10:05");
+    expect(html).toMatch(/10[:.]05/u);
     expect(html).toContain(messages[locale].disruptionPossibleNotice);
   });
 

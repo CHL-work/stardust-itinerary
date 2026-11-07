@@ -11,7 +11,7 @@ export function OfflineServiceWorkerRegistration() {
         updateViaCache: "none",
       });
       const readyRegistration = await navigator.serviceWorker.ready;
-      const localeMatch = window.location.pathname.match(/^\/(en|zh-HK|zh-HK-lihkg|ja-JP)(?:\/|$)/u);
+      const localeMatch = window.location.pathname.match(/^\/(en|zh-HK|zh-HK-lihkg|ja-JP|zh-CN|zh-TW|es|pt-BR|fr|de|ru|id)(?:\/|$)/u);
       if (localeMatch?.[1]) {
         readyRegistration.active?.postMessage({
           type: "WARM_LOCALE_SHELL",

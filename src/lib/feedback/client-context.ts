@@ -1,4 +1,5 @@
 import { FEEDBACK_ACTIVITY_WINDOW_MS, feedbackActions, feedbackPages, type FeedbackAction, type FeedbackBreadcrumb, type FeedbackDiagnostics, type FeedbackPage } from "./contracts";
+import { isLocale } from "@/lib/i18n";
 
 export type FeedbackClientContext = { tripId: string; memberId: string; page: FeedbackPage; locale: FeedbackDiagnostics["locale"] };
 export const FEEDBACK_CONTEXT_EVENT = "stardust-feedback-context";
@@ -53,7 +54,7 @@ export function verifyFeedbackContext(next: FeedbackClientContext) {
 /** Do not retain full routes, query strings, identifiers or fragments. */
 export function feedbackPageForPath(path: string): FeedbackPage {
   const parts = path.split(/[?#]/, 1)[0].split("/").filter(Boolean);
-  if (["en", "zh-HK", "zh-HK-lihkg", "ja-JP"].includes(parts[0])) parts.shift();
+  if (isLocale(parts[0] ?? "")) parts.shift();
   const page = parts[0];
   if (page === "auth") return "login";
   return ["login", "join", "onboarding", "privacy", "terms"].includes(page) ? page as FeedbackPage : "other";

@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog, type BaseCatalogs } from "@/lib/locale-packs";
 
 export type OffTopicCategory =
   | "coding"
@@ -95,19 +96,25 @@ const CATEGORY_PATTERNS: ReadonlyArray<{
   },
 ];
 
-const OFF_TOPIC_REPLIES: Record<Locale, string> = {
+const OFF_TOPIC_REPLIES: Required<BaseCatalogs<string>> = {
   en: "Wrong app. This is a trip planner, not your all-purpose homework machine. Ask about the trip—even the suitcase knows you wandered off topic.",
   "zh-HK": "問錯地方。呢度係旅程助手，唔係乜都代你做嘅萬能客服。請問返行程相關嘅事，連個行李篋都知你離咗題。",
   "zh-HK-lihkg": "喂，搭錯車呀？呢度係旅程助手，唔係你個免費萬能腦。問返行程啦，連個行李篋都嫌你離題。",
   "ja-JP": "アプリを間違えています。ここは旅行プランナーで、何でも屋ではありません。スーツケースにも呆れられる前に、旅行の話をしてください。",
 };
 
-const SENSITIVE_OFF_TOPIC_REPLIES: Record<Locale, string> = {
+const SENSITIVE_OFF_TOPIC_REPLIES: Required<BaseCatalogs<string>> = {
   en: "That question is outside this trip planner. Please use an appropriate support service; I can continue helping with trip-related matters.",
   "zh-HK": "呢個問題唔屬於旅程規劃範圍。請使用合適嘅支援服務；我可以繼續幫你處理旅程相關事項。",
   "zh-HK-lihkg": "呢個問題唔屬於旅程規劃範圍。請使用合適嘅支援服務；我可以繼續幫你處理旅程相關事項。",
   "ja-JP": "その質問は旅行プランナーの対象外です。適切なサポートサービスをご利用ください。旅行に関することなら引き続きお手伝いできます。",
 };
+
+/** Both replies for a locale; the added languages read them from their packs (JOB-084). */
+export function offTopicReplies(locale: Locale): { reply: string; sensitive: string } {
+  const catalog = (language: keyof typeof OFF_TOPIC_REPLIES) => ({ reply: OFF_TOPIC_REPLIES[language], sensitive: SENSITIVE_OFF_TOPIC_REPLIES[language] });
+  return localizedCatalog(locale, "offTopic", { en: catalog("en"), "zh-HK": catalog("zh-HK"), "zh-HK-lihkg": catalog("zh-HK-lihkg"), "ja-JP": catalog("ja-JP") });
+}
 
 export function classifyOffTopicPrompt(prompt: string): OffTopicDecision {
   const normalized = prompt.normalize("NFKC").trim().replace(/\s+/gu, " ");
@@ -146,7 +153,7 @@ export function offTopicReply(
   restrictedTone = false,
 ): string {
   if (restrictedTone || category === "finance" || category === "relationships") {
-    return SENSITIVE_OFF_TOPIC_REPLIES[locale];
+    return offTopicReplies(locale).sensitive;
   }
-  return OFF_TOPIC_REPLIES[locale];
+  return offTopicReplies(locale).reply;
 }

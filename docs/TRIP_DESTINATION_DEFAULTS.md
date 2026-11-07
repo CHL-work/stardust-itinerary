@@ -13,9 +13,9 @@ Every authenticated account currently eligible to create a trip may use this loo
 - Auto shows a detected zone instead of requiring a normal-case time-zone choice. **Change time zone** exposes an immediate manual fallback.
 - Currency is suggested but remains editable. Manual zone/currency choices are not overwritten by destination changes or late provider replies. The form distinguishes suggested values from manual choices.
 - Unknown, ambiguous, unsupported or unavailable results ask for an explicit supported choice. An unsupported local currency is never silently rounded into the ledger's existing currency set.
-- Stale replies are discarded when destination or request generation changes. Replies contain labels for all four locales; switching language renders the current locale without another costly lookup or stale-language prose. A lookup never submits the form or creates a trip. The final explicit Create action is still required.
+- Stale replies are discarded when destination or request generation changes. Replies contain labels for every locale; switching language renders the current locale without another costly lookup or stale-language prose. A lookup never submits the form or creates a trip. The final explicit Create action is still required.
 - The creation API requires explicit validated `timeZone` and `defaultCurrency`. Strict IANA validation rejects abbreviations/offsets such as `EST` and `GMT+9`, preserves recognized IANA aliases, and is scoped to creation rather than silently changing old Settings semantics.
-- All four UI languages use neutral transactional wording.
+- Every UI language uses neutral transactional wording.
 
 ## Trust, privacy and accounting
 

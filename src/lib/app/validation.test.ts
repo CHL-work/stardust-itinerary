@@ -74,7 +74,7 @@ describe("AI request validation", () => {
   });
 
   it("rejects unsupported response locales", () => {
-    expect(aiRequestSchema.safeParse({ prompt: "Plan dinner", locale: "fr" }).success).toBe(false);
+    expect(aiRequestSchema.safeParse({ prompt: "Plan dinner", locale: "ko-KR" }).success).toBe(false);
   });
 });
 

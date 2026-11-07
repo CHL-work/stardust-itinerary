@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   show: "Show day map", hide: "Hide day map", title: "Day map", load: "Load map", loading: "Loading map…", cancel: "Cancel loading", reload: "Reload map",
@@ -63,4 +64,4 @@ const ja: DayMapCopy = {
 };
 
 // Privacy, approval and failure wording stays neutral in both Cantonese modes.
-export const dayMapMessages = (locale: Locale): DayMapCopy => locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+export const dayMapMessages = (locale: Locale): DayMapCopy => localizedCatalog(locale, "dayMap", { en, "zh-HK": zh, "ja-JP": ja });

@@ -4,7 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { MemberPayment } from "@/lib/app/member-payments";
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
-import { formatMessage, locales } from "@/lib/i18n";
+import { documentLanguage, formatMessage, locales, type Locale } from "@/lib/i18n";
+/** A number as this locale groups it ("2,000", "2.000", "2 000" or "2000"). */
+const grouped = (locale: Locale, value: number) => new Intl.NumberFormat(documentLanguage(locale)).format(value);
+
 import { eligiblePaymentMember, MemberPaymentCard, MemberPaymentDecisionForm, MemberPaymentForm, MemberPaymentHistory, type PaymentDraft } from "./member-payment-controls";
 
 const members = [{ id: "a", displayName: "Sender", status: "active" }, { id: "b", displayName: "Invited recipient", status: "invited" },
@@ -68,7 +71,7 @@ describe("repayment entry and history presentation", () => {
     const html = renderToStaticMarkup(createElement(MemberPaymentCard, { ...cardProps, locale }));
     expect(html).toMatch(/^<article/); expect(html).toContain(`aria-label="${copy.repayment}"`);
     expect(html).toContain(`>${copy.repayment}</p>`); expect(html).toContain("Original sender"); expect(html).toContain("Original recipient");
-    expect(html).toContain("10.25"); expect(html).toContain("HKD"); expect(html).toContain(copy.pending);
+    expect(html).toContain(grouped(locale, 10.25)); expect(html).toContain("HKD"); expect(html).toContain(copy.pending);
     expect(html).not.toContain("<details"); expect(html).not.toContain("<section"); expect(html).not.toContain(copy.history);
     expect(formatMessage(copy.dayCount, { count: 2 })).toContain("2");
     expect(formatMessage(copy.dayCount, { count: 2 })).not.toMatch(/[{}]/);

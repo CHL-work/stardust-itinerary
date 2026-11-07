@@ -1,4 +1,5 @@
 import type { Locale } from "./i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   title: "My expense summary",
@@ -82,7 +83,5 @@ const japanese: ExpenseSummaryCopy = {
 
 /** Financial copy deliberately stays neutral in both Cantonese tone packs. */
 export function expenseSummaryCopy(locale: Locale): ExpenseSummaryCopy {
-  if (locale === "ja-JP") return japanese;
-  if (locale === "zh-HK" || locale === "zh-HK-lihkg") return cantonese;
-  return en;
+  return localizedCatalog(locale, "expense", { en, "zh-HK": cantonese, "ja-JP": japanese });
 }

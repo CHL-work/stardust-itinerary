@@ -1,5 +1,6 @@
 import type { EventWeatherTargetRole } from "@/lib/weather/domain";
 import type { LocalizedDisruptionDetails } from "@/lib/disruptions/localization";
+import type { Locale } from "@/lib/i18n";
 
 export type { EventWeatherTargetRole } from "@/lib/weather/domain";
 
@@ -386,7 +387,7 @@ export type CreateTripInput = {
   destinationName: string;
   timeZone: string;
   destinationLookupId?: string;
-  defaultLocale: "en" | "zh-HK" | "zh-HK-lihkg" | "ja-JP";
+  defaultLocale: Locale;
   defaultCurrency: string;
   startsOn: string;
   endsOn: string;

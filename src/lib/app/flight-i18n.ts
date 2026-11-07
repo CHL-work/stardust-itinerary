@@ -1,5 +1,6 @@
 import { flightArrivalDetail, flightDepartureDetail, type FlightChange, type FlightDetails } from "@/lib/app/flight";
 import { formatMessage, type Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 // Flight details (JOB-082) are transport facts: both Cantonese modes stay neutral.
 const en = {
@@ -56,7 +57,7 @@ const ja: FlightMessages = {
 };
 
 export function flightMessages(locale: Locale): FlightMessages {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "flight", { en, "zh-HK": zh, "ja-JP": ja });
 }
 
 /**

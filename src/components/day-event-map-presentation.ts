@@ -2,6 +2,7 @@ import type { Locale } from "@/lib/i18n";
 import type { DayMapStop } from "@/lib/maps/day-stops";
 import type { DayMapLeg } from "@/lib/maps/client";
 import { dayMapMessages } from "@/lib/maps/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 export type MapTravelMode = "walking" | "driving" | "transit";
 
@@ -32,9 +33,15 @@ export function dayMapTravelDistance(meters: number, locale: Locale): string {
   return meters >= 1000 ? `${format.format(meters / 1000)} ${copy.kilometersShort}` : `${format.format(meters)} ${copy.metersShort}`;
 }
 
+/** Compact travel-time units, written right after the number. */
+export const dayMapTimeUnits = {
+  en: { minute: "m", hour: "h" },
+  "zh-HK": { minute: "分", hour: "時" },
+  "ja-JP": { minute: "分", hour: "時間" },
+};
+
 export function dayMapCompactTime(seconds: number, locale: Locale): string {
   const minutes = Math.ceil(seconds / 60);
-  const minute = locale === "en" ? "m" : "分";
-  const hour = locale === "en" ? "h" : locale === "ja-JP" ? "時間" : "時";
+  const { minute, hour } = localizedCatalog(locale, "dayMapUnits", dayMapTimeUnits);
   return minutes < 60 ? `~${minutes}${minute}` : `~${Math.floor(minutes / 60)}${hour}${minutes % 60 ? `${minutes % 60}${minute}` : ""}`;
 }

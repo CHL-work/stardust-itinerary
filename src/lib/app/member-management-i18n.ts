@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   role: "Trip role", owner: "Owner", editor: "Editor", viewer: "Viewer", saveRole: "Save role",
@@ -84,5 +85,5 @@ const ja: Copy = {
 };
 
 export function memberManagementMessages(locale: Locale): Copy {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "memberManagement", { en, "zh-HK": zh, "ja-JP": ja });
 }

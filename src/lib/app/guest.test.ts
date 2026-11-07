@@ -56,7 +56,19 @@ describe("guest accounts", () => {
   it("writes the demo trip in the browser's language", () => {
     expect(guestLocale("ja")).toBe("ja-JP");
     expect(guestLocale("zh-HK")).toBe("zh-HK");
-    expect(guestLocale("fr-FR")).toBe("en");
+    expect(guestLocale("zh-Hant-HK")).toBe("zh-HK");
+    expect(guestLocale("zh-MO")).toBe("zh-HK");
+    expect(guestLocale("zh-TW")).toBe("zh-TW");
+    expect(guestLocale("zh-Hant")).toBe("zh-TW");
+    expect(guestLocale("zh-CN")).toBe("zh-CN");
+    expect(guestLocale("zh")).toBe("zh-CN");
+    expect(guestLocale("fr-FR")).toBe("fr");
+    expect(guestLocale("es-419")).toBe("es");
+    expect(guestLocale("pt-PT")).toBe("pt-BR");
+    expect(guestLocale("de-AT")).toBe("de");
+    expect(guestLocale("ru")).toBe("ru");
+    expect(guestLocale("in-ID")).toBe("id");
+    expect(guestLocale("ko-KR")).toBe("en");
     expect(guestLocale(undefined)).toBe("en");
   });
 
@@ -89,7 +101,8 @@ describe("guest accounts", () => {
       const { banner, bannerNeedsKey, signIn } = guestMessages(locale);
       expect(banner).toContain("{time}");
       expect(bannerNeedsKey.startsWith(banner)).toBe(true);
-      expect(`${bannerNeedsKey} ${signIn}`.length).toBeLessThan(90);
+      // Latin and Cyrillic translations run about a third longer than the English (JOB-084).
+      expect(`${bannerNeedsKey} ${signIn}`.length).toBeLessThan(/^(?:en|zh|ja)/u.test(locale) ? 90 : 120);
     }
     expect(guestMessages("zh-HK-lihkg")).toBe(guestMessages("zh-HK"));
   });

@@ -9,6 +9,7 @@ import type { AuthConfig } from "@/lib/auth/config";
 import { GUEST_ISSUER } from "@/lib/auth/guest-identity";
 import { insertSession, type AuthenticatedSession, type SessionGrant } from "@/lib/auth/repository";
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog, type BaseCatalogs } from "@/lib/locale-packs";
 
 /**
  * Guest accounts (JOB-064, D-077): a try-it-now account with one synthetic demo trip, permanently
@@ -87,13 +88,14 @@ function tokyoDate(now: Date, offset: number): string {
   return new Date(now.getTime() + (9 * 60 + offset * 24 * 60) * 60_000).toISOString().slice(0, 10);
 }
 
-const demoTitles: Record<"en" | "zh" | "ja", { trip: string; guest: string; events: string[] }> = {
+/** The demo trip's titles; the added languages read theirs from their packs (JOB-084). */
+export const guestDemoTitles: BaseCatalogs<{ trip: string; guest: string; events: string[] }> = {
   en: { trip: "Demo trip to Tokyo", guest: "Guest", events: [
     "Check in at the hotel", "Dinner in Shinjuku", "Morning walk at Meiji Jingu", "Lunch in Harajuku",
     "Shibuya at sunset", "Breakfast at Tsukiji Outer Market", "Train to Haneda Airport"] },
-  zh: { trip: "東京示範旅程", guest: "訪客", events: [
+  "zh-HK": { trip: "東京示範旅程", guest: "訪客", events: [
     "酒店入住", "新宿晚餐", "明治神宮晨早散步", "原宿午餐", "澀谷日落", "築地場外市場早餐", "搭車去羽田機場"] },
-  ja: { trip: "東京デモ旅行", guest: "ゲスト", events: [
+  "ja-JP": { trip: "東京デモ旅行", guest: "ゲスト", events: [
     "ホテルにチェックイン", "新宿で夕食", "明治神宮で朝の散歩", "原宿でランチ", "夕暮れの渋谷", "築地場外市場で朝食", "羽田空港へ電車で移動"] },
 };
 
@@ -119,7 +121,7 @@ export async function createGuestSession(
 ): Promise<{ grant: SessionGrant; tripId: string }> {
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + GUEST_LIFETIME_HOURS * 60 * 60 * 1000);
-  const copy = demoTitles[input.locale === "ja-JP" ? "ja" : input.locale.startsWith("zh") ? "zh" : "en"];
+  const copy = localizedCatalog(input.locale, "guestDemo", guestDemoTitles);
   const origin = guestOriginHash(config, input.address);
   return inTransaction(pool, async (client) => {
     // One lock serializes guest creation, so the capacity checks below are exact.

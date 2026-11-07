@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const english = {
   add: "Add pictures", preview: "Attached picture", saved: "Submitted picture", remove: "Remove picture",
@@ -32,5 +33,5 @@ const japanese: AiImageMessages = {
   safety: "画像は3枚まで。暗証番号やカード番号は隠してください。",
 };
 export function aiImageMessages(locale: Locale): AiImageMessages {
-  return locale === "ja-JP" ? japanese : locale.startsWith("zh-HK") ? cantonese : english;
+  return localizedCatalog(locale, "aiImage", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }

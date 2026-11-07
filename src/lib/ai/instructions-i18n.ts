@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const english = {
   title: "Your AI instructions",
@@ -87,5 +88,5 @@ const japanese: AiInstructionsMessages = {
 };
 
 export function aiInstructionsMessages(locale: Locale): AiInstructionsMessages {
-  return locale === "en" ? english : locale === "ja-JP" ? japanese : cantonese;
+  return localizedCatalog(locale, "aiInstructions", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }

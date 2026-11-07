@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   now: "Now",
@@ -75,7 +76,7 @@ const ja: EventEditorMessages = {
 };
 
 export function eventEditorMessages(locale: Locale): EventEditorMessages {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "eventEditor", { en, "zh-HK": zh, "ja-JP": ja });
 }
 
 export function eventEditorFailureMessage(error: unknown, copy: EventEditorMessages): string {

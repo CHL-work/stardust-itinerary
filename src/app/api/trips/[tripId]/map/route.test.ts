@@ -77,7 +77,7 @@ describe("authenticated daily map POST", () => {
   });
 
   it.each([
-    { tripDayId: "bad", locale: "en" }, { tripDayId, locale: "fr" }, { tripDayId, locale: "en", includePrivate: "true" },
+    { tripDayId: "bad", locale: "en" }, { tripDayId, locale: "ko-KR" }, { tripDayId, locale: "en", includePrivate: "true" },
     { tripDayId, locale: "en", locationName: "browser-injected-location" }, { tripDayId, locale: "en", userId: "forged" },
     { tripDayId, locale: "en", bypassRequestQuota: true }, { tripDayId, locale: "en", isPlatformOperator: true },
   ])("rejects strict malformed input without echoing submitted fields %#", async (body) => {

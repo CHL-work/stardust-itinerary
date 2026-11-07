@@ -7,6 +7,8 @@ Cross-feature rules belong here; feature docs own their detailed labels and beha
 - English/technical: **Stardust Itinerary**.
 - Cantonese: **星塵遠征軍**.
 - Japanese: **スターダスト・イティネラリー**.
+- Simplified Chinese: **星尘远征军**; Traditional Chinese: **星塵遠征軍**.
+- The other added languages keep **Stardust Itinerary** (D-096).
 
 ## 1. Locales
 
@@ -16,12 +18,20 @@ Cross-feature rules belong here; feature docs own their detailed labels and beha
 | `zh-HK` | Clear Hong Kong Cantonese |
 | `zh-HK-lihkg` | Cantonese tone pack, displayed as **廣東話(辛辣)** |
 | `ja-JP` | Japanese |
+| `zh-CN` | Simplified Chinese (mainland China) |
+| `zh-TW` | Traditional Chinese (Taiwan), written standard Mandarin, not Cantonese |
+| `es` | Spanish (neutral, tú) |
+| `pt-BR` | Brazilian Portuguese |
+| `fr` | French |
+| `de` | German |
+| `ru` | Russian |
+| `id` | Indonesian |
 
 `zh-HK-lihkg` is an internal tone identifier, not a standard locale tag. The root route defaults to it unless a valid `DEFAULT_LOCALE` overrides it. Date/number formatting uses the underlying valid locale; HTML language is `zh-HK` for the tone variant. A selected language changes display, not the trip's IANA time zone, money or access rules.
 
 ### Current implementation
 
-Use the existing catalog/helper for each surface, with tests for all four choices. Both Cantonese variants share neutral copy for money, identity, consent, privacy, errors, reliability, safety and review actions.
+Use the existing catalog/helper for each surface, with tests for every choice. Both Cantonese variants share neutral copy for money, identity, consent, privacy, errors, reliability, safety and review actions.
 
 | Surface | Required behavior and detailed contract |
 | --- | --- |
@@ -41,17 +51,28 @@ Original trip/event/venue/member names, addresses, notes, account email hints an
 
 Reservation-expense clarification is a neutral money surface. Missing essential dates/amounts or ambiguous members ask for clarification. A tentative requester payer is allowed only with disclosed assumptions, never described as confirmed payment. Natural answers may complete an exact-identity, unexpired application-owned draft; ordinary history, pure lookup or a fulfilled/expired draft cannot authorize a mutation. See [bounded clarification drafts](AI_AND_AGENTS.md#bounded-clarification-drafts).
 
+### Added languages (JOB-084)
+
+The eight languages added in [D-096](DECISIONS.md) are translation packs, not code:
+
+- **Packs:** one JSON file per language in `src/lib/locale-packs/`, keyed by section. Each section translates one English catalog, with the same keys, lists and placeholders.
+- **Reading text:** catalog code calls `localizedCatalog(locale, section, { en, "zh-HK": ..., "ja-JP": ... })`. The four original locales get their own catalog; an added language gets the English catalog with its pack laid over it, so a gap shows English.
+- **The section list:** `catalogs.ts` names every section and its English catalog. The pack tests fail when code reads a section missing there, or when a pack misses a string, changes a placeholder or leaves an English sentence.
+- **Adding or changing English copy:** add the same key to every pack; for a new catalog, add its section to `catalogs.ts` and every pack.
+- **Terms:** AI is written as each language usually writes it: IA in Spanish, Portuguese and French, KI in German and ИИ in Russian. Chinese and Indonesian keep AI. Product names such as OpenAI stay as they are.
+- **What follows the language:** AI answers, map labels, and country, time zone and currency names, which come from `Intl`. Disruption details show in English, since the monitor writes English, Cantonese and Japanese only.
+
 ## 2. Engineering rules
 
 - Keep copy brief (D-088). A note is one short line or none, with no internal mechanics. An error or confirmation says what happened and what to do in one or two short sentences. An explanation someone may want, about privacy or money, goes behind one "?" button (`src/components/info-tip.tsx`), at most one per section; the complete detail belongs in the privacy notice and the docs. Review copy wherever it lives, not only in `*i18n.ts` files: `src/lib/expense-copy.ts` and some components keep their own copy objects.
 - In English, prefer full forms ("could not", "cannot") to contractions, as the existing copy does.
-- Give every English count a singular form: an `…One` message beside the plural, chosen by `countLabel` (`src/lib/i18n.ts`), so one reads "1 expense", never "1 expenses" or "expense(s)". Cantonese and Japanese use the same text for both.
+- Give every English count a singular form: an `…One` message beside the plural, chosen by `countLabel` (`src/lib/i18n.ts`), so one reads "1 expense", never "1 expenses" or "expense(s)". Cantonese, Japanese, both Chinese packs and Indonesian use the same text for both. The app only picks between one and other, so Russian writes counted words as "label: number"; French and Portuguese use the plural for zero.
 - Keep English keys/code identifiers and parameterized messages; do not concatenate translated sentence fragments.
 - Format dates, times, numbers and currency with locale-aware helpers, preserving exact integer monetary values. Language selection cannot change an allocation.
 - Store IANA time zones, not translated labels. Transport endpoint timing and optional unknown ends must not become guessed travel/departure estimates.
 - Preserve user names/content unless an explicit authorized change follows normal revision/audit rules.
 - Test placeholder parity, missing keys, narrow phone/CJK wrapping, 44px targets and 16px form inputs. Accessible names must contain visible labels and include necessary context.
-- Verify Traditional Chinese/Japanese font coverage and first-paint language behavior. Do not convey financial/status meaning through color alone.
+- Verify Chinese, Japanese and Cyrillic font coverage and first-paint language behavior; Simplified and Taiwanese Chinese have their own font stacks. Do not convey financial/status meaning through color alone.
 - Future Discord or other notification templates should reuse locale catalogs; those planned integrations are not current delivery channels.
 
 ## 3. Tone policy
@@ -85,8 +106,9 @@ These are tone examples, not required replacement strings. Approval, money and t
 1. Write concise English source copy with context.
 2. Draft clear Cantonese and natural Japanese.
 3. Derive spicy variants only for eligible keys; restricted keys must equal neutral Cantonese.
-4. Review the critical path and test all four locales, placeholders, lengths and phone layouts.
-5. Keep any explicit canonical-content translation revisioned, audited and scoped; preserve original evidence rather than overwriting it as a side effect of viewing.
+4. Review the critical path and test every locale, placeholders, lengths and phone layouts.
+5. For the added languages, translate the new strings in every pack; the pack tests list what is missing.
+6. Keep any explicit canonical-content translation revisioned, audited and scoped; preserve original evidence rather than overwriting it as a side effect of viewing.
 
 ## 5. Example glossary
 

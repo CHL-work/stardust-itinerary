@@ -1,8 +1,9 @@
 // Server-only: node:crypto and credential reads must never enter the client bundle.
 import { createHmac } from "node:crypto";
 import type { MapCoordinate, MapViewport } from "@/lib/maps/geometry";
+import type { Locale } from "@/lib/i18n";
 
-export type MapLocale = "en" | "zh-HK" | "zh-HK-lihkg" | "ja-JP";
+export type MapLocale = Locale;
 export type GoogleMapsConfig = { apiKey: string; signingSecret?: string };
 export type MapLocation =
   | { kind: "coordinate"; coordinate: MapCoordinate }
@@ -68,7 +69,12 @@ export function mapLocationInput(input: { locationName: string | null; mapUrl: s
   return { kind: "query", query };
 }
 
-function language(locale: MapLocale): string { return locale === "ja-JP" ? "ja" : locale.startsWith("zh") ? "zh-TW" : "en"; }
+/** The map provider's label language; both Cantonese modes keep the Traditional Chinese labels they had. */
+const mapLanguages: Record<MapLocale, string> = {
+  en: "en", "zh-HK": "zh-TW", "zh-HK-lihkg": "zh-TW", "ja-JP": "ja",
+  "zh-CN": "zh-CN", "zh-TW": "zh-TW", es: "es", "pt-BR": "pt-BR", fr: "fr", de: "de", ru: "ru", id: "id",
+};
+function language(locale: MapLocale): string { return mapLanguages[locale] ?? "en"; }
 
 /** Also bound stalled response bodies; fetch cancellation alone is insufficient
  * for an injected transport that ignores AbortSignal. No raw error escapes. */

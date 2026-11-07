@@ -1,10 +1,11 @@
 import { aiProviderFailureMessage } from "@/lib/ai/provider-failure-presentation";
 import type { AiProviderFailureDetails } from "@/lib/ai/provider-failure";
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 export type ResearchCompletionFailure = "budget_exhausted" | "timeout" | "additional_research" | "provider_failed" | "failed";
 
-const copy = {
+export const researchCompletionCopy = {
   en: {
     budget_exhausted: "There was not enough time left to finish the final answer. Please try again; no trip changes were saved.",
     timeout: "Preparing the final answer timed out. Please try again; no trip changes were saved.",
@@ -33,6 +34,5 @@ export function researchCompletionNotice(reason: ResearchCompletionFailure, opti
     const provider = aiProviderFailureMessage({ errorCode: options.providerFailure.code, providerFailure: options.providerFailure }, options);
     if (provider) return provider;
   }
-  const language = options.locale === "en" ? "en" : options.locale === "ja-JP" ? "ja-JP" : "zh-HK";
-  return copy[language][reason === "provider_failed" ? "failed" : reason];
+  return localizedCatalog<Record<keyof typeof researchCompletionCopy.en, string>>(options.locale, "researchCompletion", researchCompletionCopy)[reason === "provider_failed" ? "failed" : reason];
 }

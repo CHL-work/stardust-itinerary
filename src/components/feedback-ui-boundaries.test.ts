@@ -76,8 +76,12 @@ describe("global private feedback UI boundaries", () => {
   it.each(locales)("discloses eligibility rather than guaranteed delivery and labels the ten-minute attachment (%s)", locale => {
     const copy = feedbackCopy[locale];
     expect(copy.diagnostics).toContain("10"); expect(copy.diagnostics).not.toContain("30");
-    expect(copy.disclosure).toContain("AI"); expect(copy.disclosure).toContain("GitHub");
-    expect(copy.disclosure).toContain(locale === "en" ? "may become" : locale === "ja-JP" ? "場合があります" : "可能");
+    // The added languages write AI in their own way (JOB-084).
+    const ai = ({ es: "IA", "pt-BR": "IA", fr: "IA", de: "KI", ru: "ИИ" } as Record<string, string>)[locale] ?? "AI";
+    expect(copy.disclosure).toContain(ai); expect(copy.disclosure).toContain("GitHub");
+    const mayBecome: Record<string, string> = { en: "may become", "ja-JP": "場合があります", "zh-HK": "可能", "zh-HK-lihkg": "可能" };
+    if (mayBecome[locale]) expect(copy.disclosure).toContain(mayBecome[locale]);
+    else expect(copy.disclosure).not.toBe(feedbackCopy.en.disclosure);
     expect(copy.policy.length).toBeGreaterThan(20); expect(copy.private.length).toBeGreaterThan(0);
     if (locale === "zh-HK-lihkg") expect(copy.disclosure).toBe(feedbackCopy["zh-HK"].disclosure);
   });

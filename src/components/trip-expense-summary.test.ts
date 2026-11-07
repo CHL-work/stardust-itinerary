@@ -4,7 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { expenseSummaryCopy } from "@/lib/expense-copy";
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
-import { locales } from "@/lib/i18n";
+import { documentLanguage, locales, type Locale } from "@/lib/i18n";
+/** A number as this locale groups it ("2,000", "2.000", "2 000" or "2000"). */
+const grouped = (locale: Locale, value: number) => new Intl.NumberFormat(documentLanguage(locale)).format(value);
+
 import type { ExpenseSummaryOverview } from "@/lib/domain/expense-summary";
 import { PersonalExpenseWidget, TripExpenseSummary } from "./trip-expense-summary";
 
@@ -98,8 +101,8 @@ describe("expense summary rendering", () => {
     expect(markup).toContain(copy.settlementHint);
     expect(markup).toContain(copy.ownerScope);
     expect(markup).not.toContain("<details open");
-    expect(markup).toContain("1,000");
-    expect(markup).toContain("4,000");
+    expect(markup).toContain(grouped(locale, 1000));
+    expect(markup).toContain(grouped(locale, 4000));
   });
 
   it.each(locales)("omits owner totals and unrelated settlement identities for members in %s", (locale) => {
@@ -151,8 +154,8 @@ describe("expense summary rendering", () => {
     const copy = expenseSummaryCopy(locale);
     const markup = renderToStaticMarkup(createElement(PersonalExpenseWidget, { overview: overview(true), locale, openExpenses: () => undefined, addExpense: () => undefined }));
     expect(markup).toContain(`<h3>${copy.title}</h3>`);
-    expect(markup.indexOf(copy.myShare)).toBeLessThan(markup.indexOf("1,000"));
-    expect(markup.indexOf("1,000")).toBeLessThan(markup.indexOf("4,000"));
+    expect(markup.indexOf(copy.myShare)).toBeLessThan(markup.indexOf(grouped(locale, 1000)));
+    expect(markup.indexOf(grouped(locale, 1000))).toBeLessThan(markup.indexOf(grouped(locale, 4000)));
     expect(markup).toContain(copy.viewExpenses);
     expect(markup).toContain(copy.addExpense);
     expect(markup).not.toContain(copy.visibleTotal);
@@ -210,7 +213,7 @@ describe("expense summary rendering", () => {
         expect(expanded).toContain(escapedText([copy.myShareHelp, copy.paidHelp, copy.balanceHelp][index]));
       }
       expect(all.filter((element) => element.type === "dt")).toHaveLength(3);
-      expect(metricValues(surface)).toEqual(["1,000", "4,000", "3,000"].map((value) => locale === "en" ? `¥${value}` : expect.stringContaining(value)));
+      expect(metricValues(surface)).toEqual([1000, 4000, 3000].map((value) => locale === "en" ? `¥${grouped(locale, value)}` : expect.stringContaining(grouped(locale, value))));
       const markup = renderToStaticMarkup(surface);
       expect(markup).toContain(escapedText(copy.scope));
       // JOB-075: each figure shows only its amount; what a note used to say is in the figure's help.
@@ -240,13 +243,13 @@ describe("expense summary rendering", () => {
 
   it.each(locales)("keeps payer and someone else's portion distinct after a repayment in %s", (locale) => {
     const copy = expenseSummaryCopy(locale);
-    for (const [memberId, figures, label] of [["a", ["1,000", "4,000", "1,800"], copy.receive], ["b", ["3,000", "0", "1,800"], copy.owe]] as const) {
+    for (const [memberId, figures, label] of [["a", [1000, 4000, 1800], copy.receive], ["b", [3000, 0, 1800], copy.owe]] as const) {
       const data = overview(); data.session.memberId = memberId;
       data.memberPayments = [{ accountingFromMemberId: "b", accountingToMemberId: "a", amountMinor: 1200, currency: "JPY", status: "posted" }];
       for (const surface of [TripExpenseSummary({ overview: data, locale }), PersonalExpenseWidget({ overview: data, locale, openExpenses: vi.fn() })]) {
         const values = metricValues(surface);
         expect(values).toHaveLength(3);
-        for (const [index, value] of values.entries()) expect(value).toContain(figures[index]);
+        for (const [index, value] of values.entries()) expect(value).toContain(grouped(locale, figures[index]!));
         const metricLabels = descendants(surface).filter((element) => element.type === "summary").map((element) => element.props["aria-label"]);
         expect(metricLabels).toEqual([copy.myShare, copy.paid, label].map((name) => `${name}: ${copy.helpLabel}`));
       }

@@ -79,6 +79,14 @@ const responseLanguageInstructions: Record<Locale, string> = {
   "zh-HK": "Write all user-facing natural-language text in clear, natural Traditional Chinese as used in Hong Kong. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
   "zh-HK-lihkg": "Write casual user-facing text in colloquial written Hong Kong Cantonese with the app's playful, spicy LIHKG tone: sarcastic, impatient, and mildly disrespectful toward the shared situation or the group's disorganization, never toward an individual's identity or vulnerability. Keep safety, approval, money, error, and destructive-action wording in clear, neutral Cantonese. Never use hateful, threatening, sexual, or abusive language.",
   "ja-JP": "Write all user-facing natural-language text in concise, natural Japanese. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  "zh-CN": "Write all user-facing natural-language text in clear, natural Simplified Chinese as used in mainland China. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  "zh-TW": "Write all user-facing natural-language text in clear, natural Traditional Chinese as used in Taiwan. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  es: "Write all user-facing natural-language text in clear, natural, neutral Spanish. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  "pt-BR": "Write all user-facing natural-language text in clear, natural Brazilian Portuguese. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  fr: "Write all user-facing natural-language text in clear, natural French. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  de: "Write all user-facing natural-language text in clear, natural German. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  ru: "Write all user-facing natural-language text in clear, natural Russian. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
+  id: "Write all user-facing natural-language text in clear, natural Indonesian. Keep safety, approval, money, error, and destructive-action wording neutral and unambiguous.",
 };
 
 /**

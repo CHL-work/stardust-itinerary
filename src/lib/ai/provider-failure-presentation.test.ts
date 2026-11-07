@@ -22,7 +22,7 @@ describe("safe localized provider failure presentation", () => {
     const time = new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale, { timeZone: "Asia/Tokyo", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(limited.retryAt!));
     expect(message).toContain(formatMessage(copy.reset, { time, timeZone: "Asia/Tokyo" }));
     expect(message).toContain(copy.member); expect(message).not.toContain(copy.owner); expect(message).not.toContain(copy.ownerAccount);
-    expect(message).toContain("10:00");
+    expect(message).toMatch(/10[:.]00/u);
   });
   it("handles OpenAI without assuming every failure is Claude", () => {
     const message = aiProviderFailureMessage({ errorCode: limited.code, providerFailure: { code: limited.code, provider: "openai" } }, { locale: "en", timeZone: "UTC", isOwner: true });

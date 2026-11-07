@@ -2,6 +2,19 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-096: Eight more interface languages, kept as translation packs (accepted November 7, 2026)
+
+The owner asked for Simplified Chinese, Traditional Chinese and six more of the languages most used on the internet, and for the README to call the Cantonese interface just "Cantonese" (JOB-084).
+
+- **Languages:** Simplified Chinese (`zh-CN`), Traditional Chinese as used in Taiwan (`zh-TW`), Spanish (`es`), Brazilian Portuguese (`pt-BR`), French (`fr`), German (`de`), Russian (`ru`) and Indonesian (`id`). The six are among the most used online, by people and by web content, besides the English and Japanese the app had. Arabic, also among them, is left out: the layout is left-to-right only.
+- **Packs, not code:** each added language is one JSON pack of every catalog's text, in `src/lib/locale-packs/`. Code reads a catalog through `localizedCatalog`, which lays the pack over the English catalog, so a gap shows English, never a blank. Tests keep every pack complete: the same keys, lists and placeholders as English, and no English sentence left.
+- **Translation:** AI drafted the packs from the English copy, with the Japanese and Cantonese text for context; a native speaker's review is welcome. Chinese and Indonesian use one form for every count. Russian writes counted words as "label: number", since the app only picks between one and other.
+- **Unchanged:**
+  - Outside Chinese the app keeps its English name; it is 星尘远征军 in Simplified and 星塵遠征軍 in Traditional Chinese.
+  - Disruption details are written in English, Cantonese and Japanese, so the added languages show the English one.
+  - AI answers follow the selected language, as before. The spicy Cantonese mode is unchanged.
+- **Cost:** every pack ships in the client bundle; loading only the selected language can come later.
+
 ## D-095: The server checks flights before departure and updates them (accepted November 7, 2026)
 
 The owner asked for routine checks on the day of a flight: 24 hours before departure, then 12, 6, 5, 4, 3, 2 and 1 hours before. A time change or delay updates the event with a changed badge that says what changed; a cancellation keeps the event, marked cancelled with a red warning; a new gate or terminal just updates them; and the checks follow a changed departure (JOB-083).

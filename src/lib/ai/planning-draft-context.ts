@@ -1,5 +1,6 @@
 import type { PlanningDraft } from "@/lib/ai/planning-draft";
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 import { requestedRelativeDate } from "@/lib/ai/relative-date";
 
 /** Keep relative dates tied to the user submission that introduced them. */
@@ -40,10 +41,10 @@ export function previousDraftRelativeDate(draft: PlanningDraft | null, current: 
 }
 
 export function detachedPlanningClarification(locale: Locale): string {
-  return {
-    en: "There is no unfinished create request to attach this answer to. If the item was already proposed, review that pending item; otherwise tell me what new event or expense you want to create.",
-    "zh-HK": "而家冇未完成嘅新增要求可以接住呢個答案。如果之前已經建立待批項目，請查看嗰個項目；否則請話我知要新增邊個活動或開支。",
-    "zh-HK-lihkg": "而家冇未完成嘅新增要求可以接住呢個答案。如果之前已經建立待批項目，請查看嗰個項目；否則請話我知要新增邊個活動或開支。",
-    "ja-JP": "この回答を追加できる未完了の新規作成リクエストはありません。すでに提案済みなら承認待ちの項目を確認してください。そうでなければ、新しく作成する予定や費用を教えてください。",
-  }[locale];
+  return localizedCatalog(locale, "planningDraft", {
+    en: { detached: "There is no unfinished create request to attach this answer to. If the item was already proposed, review that pending item; otherwise tell me what new event or expense you want to create." },
+    "zh-HK": { detached: "而家冇未完成嘅新增要求可以接住呢個答案。如果之前已經建立待批項目，請查看嗰個項目；否則請話我知要新增邊個活動或開支。" },
+    "zh-HK-lihkg": { detached: "而家冇未完成嘅新增要求可以接住呢個答案。如果之前已經建立待批項目，請查看嗰個項目；否則請話我知要新增邊個活動或開支。" },
+    "ja-JP": { detached: "この回答を追加できる未完了の新規作成リクエストはありません。すでに提案済みなら承認待ちの項目を確認してください。そうでなければ、新しく作成する予定や費用を教えてください。" },
+  }).detached;
 }

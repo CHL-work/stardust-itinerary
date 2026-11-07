@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 // Destructive confirmation: both Cantonese modes stay neutral.
 const en = {
@@ -85,5 +86,5 @@ const ja: Copy = {
 };
 
 export function tripDeletionMessages(locale: Locale): Copy {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "tripDeletion", { en, "zh-HK": zh, "ja-JP": ja });
 }

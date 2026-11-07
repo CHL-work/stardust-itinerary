@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 /** Settings → AI keys. Security and billing copy stays neutral in every tone. */
 const english = {
@@ -162,5 +163,5 @@ const japanese: AiKeysCopy = {
 };
 
 export function aiKeysMessages(locale: Locale): AiKeysCopy {
-  return locale === "ja-JP" ? japanese : locale === "zh-HK" || locale === "zh-HK-lihkg" ? cantonese : english;
+  return localizedCatalog(locale, "aiKeys", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }

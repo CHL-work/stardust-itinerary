@@ -38,7 +38,9 @@ describe("personal expense explanation copy", () => {
     expect(Object.keys(copy).filter((key) => /Hint$/u.test(key) && key !== "settlementHint")).toEqual([]);
     expect(copy).not.toHaveProperty("excluded");
     expect(copy).not.toHaveProperty("recordedOnly");
-    for (const field of ["settlementHint", "ownerScope"]) expect(copy[field].length).toBeLessThan(locale === "en" ? 60 : 30);
+    // Chinese and Japanese are about half as long as English; the other added languages a little longer (JOB-084).
+    const limit = locale === "en" ? 60 : /^(?:zh|ja)/u.test(locale) ? 30 : 75;
+    for (const field of ["settlementHint", "ownerScope"]) expect(copy[field].length).toBeLessThan(limit);
   });
   it("moves the balance note into the balance help in every language (JOB-075)", () => {
     expect(expenseSummaryCopy("en").balanceHelp).toMatch(/^This is the balance left after posted member repayments, not your total spending\. Balance = /u);

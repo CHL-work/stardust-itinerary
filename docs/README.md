@@ -17,7 +17,7 @@ Every document in this repository, by area, with one line each. The [README](../
 - [Decisions](DECISIONS.md): accepted decisions (D-numbers), trade-offs and pushbacks.
 - [Screen layout](UI_LAYOUTS.md): the one layout, its phone and desktop rules and its CSS.
 - [Mobile cards](MOBILE_CARDS.md): event and expense cards on phones, and cancelled-event removal.
-- [Localization](LOCALIZATION.md): English, two Cantonese tones and Japanese; voice and brief UI copy.
+- [Localization](LOCALIZATION.md): English, two Cantonese tones, Japanese and the eight languages kept as translation packs; voice and brief UI copy.
 
 ## Architecture and code
 

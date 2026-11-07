@@ -67,6 +67,7 @@ describe("database migration contracts", () => {
       "0060_guest_free_ai.sql",
       "0061_flight_details.sql",
       "0062_flight_status.sql",
+      "0063_more_locales.sql",
     ]);
 
     const sql = await Promise.all(

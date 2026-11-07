@@ -63,7 +63,7 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 | Trip expense ledger, repayments and entry | `docs/TRIP_EXPENSES.md`, `docs/MEMBER_PAYMENTS.md` |
 | Mobile cards and cancelled-event removal | `docs/MOBILE_CARDS.md` |
 | Screen layout | `docs/UI_LAYOUTS.md` |
-| Localization | `docs/LOCALIZATION.md` |
+| Localization and translation packs | `docs/LOCALIZATION.md`, `src/lib/locale-packs/` |
 | Evidence and policy | `docs/SOURCES.md`, this file |
 | Work queue | `docs/JOB_SYSTEM.md`, job records under `docs/jobs/` (new work starts at JOB-058; JOB-001 to JOB-057 are in a private archive) |
 | Agent skill | `.agents/skills/stardust-job-runner/SKILL.md`, its `agents/openai.yaml` if interface metadata changes |

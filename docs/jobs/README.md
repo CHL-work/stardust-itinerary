@@ -30,3 +30,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-081 | Retire the classic layout and the layout toggle | done |
 | JOB-082 | Flight details on transport events, and the AI looks up terminals | done |
 | JOB-083 | Flight status checks before departure | done |
+| JOB-084 | Eight more languages, and "Cantonese" in the README | done |

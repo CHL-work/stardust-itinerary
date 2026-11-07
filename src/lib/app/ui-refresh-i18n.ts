@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 // Layout controls (JOB-048) are display/accessibility surfaces: both Cantonese modes stay neutral.
 const en = {
@@ -34,5 +35,5 @@ const ja: Copy = {
 };
 export type UiRefreshCopy = Copy;
 export function uiRefreshMessages(locale: Locale): Copy {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "uiRefresh", { en, "zh-HK": zh, "ja-JP": ja });
 }

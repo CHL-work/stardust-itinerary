@@ -74,8 +74,8 @@
   letter-spacing: 0.05em;
 }
 
-/* In English it only repeats the brand name. */
-:root[data-ui="new"]:lang(en) .brand-subtitle {
+/* Where the app keeps its English name, the subtitle only repeats it. */
+:root[data-ui="new"]:is(:lang(en), :lang(es), :lang(pt), :lang(fr), :lang(de), :lang(ru), :lang(id)) .brand-subtitle {
   display: none;
 }
 
@@ -325,8 +325,12 @@
   top: calc(100% + 6px);
   right: 0;
   gap: 2px;
-  width: 184px;
+  width: 208px;
   max-width: calc(100vw - 24px);
+  /* Twelve languages (JOB-084): scroll inside the menu on short screens. */
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -1475,6 +1479,8 @@
     /* Wrap only between words; never split a label like "Approvals" mid-word. */
     overflow-wrap: normal;
     word-break: keep-all;
+    /* A word still too long for its tab breaks at a syllable with a hyphen rather than running into the next (JOB-084). */
+    hyphens: auto;
   }
 
   /* Six owner tabs: let longer labels take more width than "AI". */
@@ -1703,6 +1709,11 @@
   /* Six owner tabs: 12px labels (the brief's bottom-bar minimum) keep every word on one line. */
   :root[data-ui="new"] .new-bottom-nav[data-count="6"] .new-bottom-item {
     font-size: 0.75rem;
+  }
+
+  /* Latin and Cyrillic tab labels run longer (JOB-084): a narrower icon pill leaves them more room. */
+  :root[data-ui="new"]:is(:lang(es), :lang(pt), :lang(fr), :lang(de), :lang(ru), :lang(id)) .new-bottom-nav[data-count="6"] .new-bottom-icon {
+    width: 44px;
   }
 }
 

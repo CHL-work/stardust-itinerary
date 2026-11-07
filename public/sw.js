@@ -9,7 +9,7 @@ const STATIC_PRECACHE = [
   "/icons/stardust-512.png",
   "/stardust-mark.png",
 ];
-const LOCALE_SHELL_PATH = /^\/(en|zh-HK|zh-HK-lihkg|ja-JP)\/?$/;
+const LOCALE_SHELL_PATH = /^\/(en|zh-HK|zh-HK-lihkg|ja-JP|zh-CN|zh-TW|es|pt-BR|fr|de|ru|id)\/?$/;
 
 function isCacheableResponse(response) {
   return response.ok && response.type === "basic";

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { locales } from "@/lib/i18n";
 
 export const FEEDBACK_ACTIVITY_WINDOW_MS = 10 * 60_000;
 
@@ -13,7 +14,7 @@ export const feedbackBreadcrumbSchema = z.strictObject({
   page: z.enum(feedbackPages), action: z.enum(feedbackActions), at: z.iso.datetime({ offset: true }),
 });
 export const feedbackDiagnosticsSchema = z.strictObject({
-  page: z.enum(feedbackPages), locale: z.enum(["en", "zh-HK", "zh-HK-lihkg", "ja-JP"]),
+  page: z.enum(feedbackPages), locale: z.enum(locales),
   formFactor: z.enum(["phone", "tablet", "desktop", "unknown"]),
   osFamily: z.enum(["windows", "macos", "ios", "android", "linux", "other"]),
   browserFamily: z.enum(["chrome", "edge", "firefox", "safari", "other"]), online: z.boolean(),

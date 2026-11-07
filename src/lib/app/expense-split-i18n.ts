@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   title: "Split amounts", equal: "Equal", custom: "Custom amounts", equalHint: "Split equally among the selected people.",
@@ -20,5 +21,5 @@ const ja: ExpenseSplitMessages = {
   totalFirst: "費用総額を入力すると負担額を確認できます。", unavailable: "選択できないメンバー", share: "負担額", error: "各自の金額を入力してください。合計は総額と一致する必要があります。",
 };
 export function expenseSplitMessages(locale: Locale): ExpenseSplitMessages {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "expenseSplit", { en, "zh-HK": zh, "ja-JP": ja });
 }

@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const english = {
   tab: "AI",
@@ -90,8 +91,6 @@ const japanese: AiHistoryMessages = {
 };
 
 export function aiHistoryMessages(locale: Locale): AiHistoryMessages {
-  if (locale === "ja-JP") return japanese;
   // Privacy and request reliability copy stays neutral in both Cantonese modes.
-  if (locale === "zh-HK" || locale === "zh-HK-lihkg") return cantonese;
-  return english;
+  return localizedCatalog(locale, "aiHistory", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }

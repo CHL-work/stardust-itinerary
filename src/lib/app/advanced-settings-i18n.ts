@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   advanced: "Advanced settings",
@@ -63,7 +64,7 @@ const ja: Copy = {
 };
 
 export function advancedSettingsMessages(locale: Locale): Copy {
-  return locale === "ja-JP" ? ja : locale === "en" ? en : zh;
+  return localizedCatalog(locale, "advancedSettings", { en, "zh-HK": zh, "ja-JP": ja });
 }
 
 export function advancedRequestStatus(status: string, locale: Locale): string {

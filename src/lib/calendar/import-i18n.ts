@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 const en = {
   personal: "Personal Calendar", allDay: "All day", continues: "Continues from an earlier day", until: "Until", add: "Add to trip", open: "View in Calendar",
   title: "Import Calendar event", loading: "Loading this Calendar event…", failed: "Could not load this event. Refresh Calendar and try again.", reconnect: "Reconnect Google Calendar in Settings, then try again.",
@@ -45,4 +46,4 @@ const ja: CalendarImportCopy = {
   saved: "予定を追加してリンクしました。", requested: "取り込みをオーナーに承認依頼しました。", invalidMap: "有効な Google マップのリンクを入力するか、空欄にしてください。",
   calendarCount: "個人カレンダーの予定 {count} 件", activity: "アクティビティ", meal: "食事", lodging: "宿泊", note: "メモ",
 };
-export const calendarImportMessages = (locale: Locale): CalendarImportCopy => locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+export const calendarImportMessages = (locale: Locale): CalendarImportCopy => localizedCatalog(locale, "calendarImport", { en, "zh-HK": zh, "ja-JP": ja });

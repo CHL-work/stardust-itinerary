@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog, type BaseCatalogs } from "@/lib/locale-packs";
 
 export const reservationExpenseAssumptionReasons = [
   "payer_not_explicit",
@@ -199,15 +200,15 @@ export function assessReservationExpense(
 }
 
 export function reservationExpenseReviewNotice(locale: Locale): string {
-  return {
-    en: "Please confirm the proposed payer and split members before approving. They are a draft interpretation, not confirmation of payment.",
-    "zh-HK": "批准前請確認草稿嘅付款人及分帳成員；呢啲安排係暫定，唔代表已確認付款。",
-    "zh-HK-lihkg": "批准前請確認草稿嘅付款人及分帳成員；呢啲安排係暫定，唔代表已確認付款。",
-    "ja-JP": "承認前に支払者と分担メンバーを確認してください。これは仮の割り当てで、支払い済みの確認ではありません。",
-  }[locale];
+  return localizedCatalog(locale, "reservationReview", {
+    en: { notice: "Please confirm the proposed payer and split members before approving. They are a draft interpretation, not confirmation of payment." },
+    "zh-HK": { notice: "批准前請確認草稿嘅付款人及分帳成員；呢啲安排係暫定，唔代表已確認付款。" },
+    "zh-HK-lihkg": { notice: "批准前請確認草稿嘅付款人及分帳成員；呢啲安排係暫定，唔代表已確認付款。" },
+    "ja-JP": { notice: "承認前に支払者と分担メンバーを確認してください。これは仮の割り当てで、支払い済みの確認ではありません。" },
+  }).notice;
 }
 
-const clarificationMessages: Record<Locale, Record<ReservationExpenseAssumptionReason, string>> = {
+export const reservationClarificationMessages: BaseCatalogs<Record<ReservationExpenseAssumptionReason, string>> = {
   en: {
     payer_not_explicit: "Which trip member paid or will pay for this reservation?",
     member_name_ambiguous: "More than one eligible trip member has that name. Which member do you mean?",
@@ -238,5 +239,5 @@ export function reservationExpenseClarification(
   reason: ReservationExpenseAssumptionReason,
   locale: Locale = "en",
 ): string {
-  return clarificationMessages[locale][reason];
+  return localizedCatalog(locale, "reservationClarification", reservationClarificationMessages)[reason];
 }

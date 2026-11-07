@@ -14,7 +14,7 @@ Trip-member removal preserves picture bytes and immutable request identity while
 
 ## Use
 
-In the AI tab or quick composer, choose **Add pictures**, select up to three JPEG/PNG/WebP pictures, and write what to create. For example: “Create this hotel stay and expense. DDB paid; split with Pat.” Review previews and send. Selecting a picture alone never submits anything. Both composers support all four locales; HEIC/PDF need conversion first.
+In the AI tab or quick composer, choose **Add pictures**, select up to three JPEG/PNG/WebP pictures, and write what to create. For example: “Create this hotel stay and expense. DDB paid; split with Pat.” Review previews and send. Selecting a picture alone never submits anything. Both composers support every locale; HEIC/PDF need conversion first.
 
 Pictures can contain bookings, tickets, menus or receipts. Crop irrelevant parts and hide credentials/card details first. AI may misread or ask for missing information. All image-derived changes await owner review, including owner-submitted updates; expense math and canonical writes remain deterministic. Model choice follows the trip's [AI funding rules](PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role): only the platform operator acting as a trip owner can select a model; everyone else uses Sol with the trip's daily limit. A submission counts once despite separate extraction/planning calls.
 

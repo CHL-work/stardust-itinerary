@@ -1,6 +1,33 @@
-export const locales = ["en", "zh-HK", "zh-HK-lihkg", "ja-JP"] as const;
+import { packLocales, packSection } from "@/lib/locale-packs";
+
+/** The four original locales, whose catalogs are written in code. */
+export const baseLocales = ["en", "zh-HK", "zh-HK-lihkg", "ja-JP"] as const;
+
+/** The original locales, then the eight languages added in JOB-084 (D-096), whose text lives in locale packs. */
+export const locales = [...baseLocales, ...packLocales] as const;
 
 export type Locale = (typeof locales)[number];
+
+/** Each language's name in itself, for the language menus. */
+export const localeNames: Record<Locale, string> = {
+  en: "English",
+  "zh-HK": "廣東話",
+  "zh-HK-lihkg": "廣東話(辛辣)",
+  "ja-JP": "日本語",
+  "zh-CN": "简体中文",
+  "zh-TW": "繁體中文",
+  es: "Español",
+  "pt-BR": "Português (Brasil)",
+  fr: "Français",
+  de: "Deutsch",
+  ru: "Русский",
+  id: "Bahasa Indonesia",
+};
+
+/** The document language of a locale: the spicy Cantonese mode is Hong Kong Cantonese text. */
+export function documentLanguage(locale: Locale): string {
+  return locale === "zh-HK-lihkg" ? "zh-HK" : locale;
+}
 
 export type Messages = {
   appName: string;
@@ -1540,6 +1567,7 @@ export const messages: Record<Locale, Messages> = {
   "zh-HK": zhHk,
   "zh-HK-lihkg": zhHkLihkg,
   "ja-JP": jaJp,
+  ...Object.fromEntries(packLocales.map((locale) => [locale, packSection(locale, "messages", en)])) as Record<(typeof packLocales)[number], Messages>,
 };
 
 export const restrictedToneKeys = [

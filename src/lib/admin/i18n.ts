@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 /**
  * The operator's admin page (JOB-069). Identity and security wording stays neutral, so both
@@ -352,9 +353,7 @@ const japanese: AdminCopy = {
 };
 
 export function adminCopy(locale: Locale): AdminCopy {
-  if (locale === "ja-JP") return japanese;
-  if (locale === "zh-HK" || locale === "zh-HK-lihkg") return cantonese;
-  return english;
+  return localizedCatalog(locale, "admin", { en: english, "zh-HK": cantonese, "ja-JP": japanese });
 }
 
 /** A readable name for a refusal scope; unknown scopes show as they are. */

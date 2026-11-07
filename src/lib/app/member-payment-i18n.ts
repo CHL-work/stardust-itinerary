@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   record: "Record repayment", repayment: "Repayment", dayCountOne: "{count} repayment", dayCount: "{count} repayments", history: "Repayment history", reviewTitle: "Repayment approvals",
@@ -95,5 +96,5 @@ const ja: MemberPaymentCopy = {
   resume: "未確認の記録を再開", saving: "保存中…", incoming: "から", sent: "支払った精算額", received: "受け取った精算額",
 };
 export function memberPaymentMessages(locale: Locale): MemberPaymentCopy {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "memberPayment", { en, "zh-HK": zh, "ja-JP": ja });
 }

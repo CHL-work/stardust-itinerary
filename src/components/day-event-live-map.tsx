@@ -71,7 +71,7 @@ export function dayMapLiveCallouts(legs: LiveMapLeg[], groups: LiveMapGroup[], w
   return legs.map(leg => {
     const modes = dayMapTravelModes(leg.estimate);
     const modeWidth = modes.reduce((sum, mode) => sum + 36 + [...dayMapCompactTime(mode.seconds, locale)].reduce((sum, letter) => sum + (letter.codePointAt(0)! > 127 ? 13 : 8), 0), 0);
-    const cardWidth = Math.min(Math.max(128, width - 24), Math.max(128, modeWidth + (locale === "en" ? 78 : 68)));
+    const cardWidth = Math.min(Math.max(128, width - 24), Math.max(128, modeWidth + (/^(?:zh|ja)/u.test(locale) ? 68 : 78)));
     const cardHeight = Math.max(modeWidth + 78 > cardWidth ? 64 : 44, measuredHeights[leg.key] ?? 0);
     const candidates: LiveCallout[] = [];
     for (const [fraction, offset] of [[0.5, 0], [0.35, -40], [0.65, 40], [0.5, -76], [0.5, 76], [0.2, 0], [0.8, 0], [0.35, -112], [0.65, 112]]) {

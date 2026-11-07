@@ -138,7 +138,8 @@ describe("PendingItineraryList", () => {
     "keeps short ordered owner/editor actions and stable loading labels in %s for %s", (locale, operation) => {
       const copy = mobileCardsMessages(locale);
       const expectedLabels = locale === "en" ? ["Edit", "Approve", "Reject"]
-        : locale === "ja-JP" ? ["編集", "承認", "却下"] : ["編輯", "批准", "拒絕"];
+        : locale === "ja-JP" ? ["編集", "承認", "却下"] : locale === "zh-HK" || locale === "zh-HK-lihkg" ? ["編輯", "批准", "拒絕"]
+          : [copy.editShort, copy.approveShort, copy.rejectShort];
       expect([copy.editShort, copy.approveShort, copy.rejectShort]).toEqual(expectedLabels);
       for (const owner of [false, true]) {
         for (const opening of [false, true]) {

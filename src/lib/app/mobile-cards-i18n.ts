@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { localizedCatalog } from "@/lib/locale-packs";
 
 const en = {
   editShort: "Edit", approveShort: "Approve", rejectShort: "Reject",
@@ -38,5 +39,5 @@ const ja: Copy = {
   draftApproved: "下書きを承認し、費用合計に含めました。", draftRejected: "下書きを却下し、無効にしました。費用合計には含まれません。",
 };
 export function mobileCardsMessages(locale: Locale): Copy {
-  return locale === "en" ? en : locale === "ja-JP" ? ja : zh;
+  return localizedCatalog(locale, "mobileCards", { en, "zh-HK": zh, "ja-JP": ja });
 }

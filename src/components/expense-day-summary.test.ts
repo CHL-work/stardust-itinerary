@@ -9,7 +9,10 @@ import { currencyFactor } from "@/lib/app/event-expense-editor";
 import { DayAccordion } from "@/components/current-day-groups";
 import { expensePageMessages } from "@/lib/app/expense-page-i18n";
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
-import { countLabel, formatMessage, locales, messages, type Locale } from "@/lib/i18n";
+import { countLabel, documentLanguage, formatMessage, locales, messages, type Locale } from "@/lib/i18n";
+/** A number as this locale groups it ("2,000", "2.000", "2 000" or "2000"). */
+const grouped = (locale: Locale, value: number) => new Intl.NumberFormat(documentLanguage(locale)).format(value);
+
 
 const source = readFileSync("src/components/app-shell.tsx", "utf8");
 const tree = ts.createSourceFile("app-shell.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -61,9 +64,9 @@ describe("side-by-side expense day heading", () => {
     expect(markup).toContain(formatMessage(messages[locale].pendingExpenseCountOne, { count: 1 }));
     expect(markup).toContain(formatMessage(memberPaymentMessages(locale).dayCount, { count: 2 }));
     expect(markup).toContain(expensePageMessages(locale).myDayTotal);
-    expect(markup).toContain("1,234");
-    expect(markup).toContain("67.89");
-    expect(markup).not.toContain("69.12");
+    expect(markup).toContain(grouped(locale, 1234));
+    expect(markup).toContain(grouped(locale, 67.89));
+    expect(markup).not.toContain(grouped(locale, 69.12));
     expect(markup).toContain('open=""');
   });
 

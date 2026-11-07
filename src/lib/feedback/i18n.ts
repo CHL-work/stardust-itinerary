@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { isPackLocale, packLocales, packSection, type PackLocale } from "@/lib/locale-packs";
 import type { FeedbackAction } from "./contracts";
 
 const en = {
@@ -28,7 +29,10 @@ const ja: Copy = {
   pages: { today: "概要", itinerary: "日程", expenses: "支出", ai: "AI", requests: "承認", settings: "設定", permissions: "設定", usage: "設定", activity: "操作履歴", login: "ログイン", join: "旅行に参加", onboarding: "アカウント設定", privacy: "プライバシー", terms: "規約", other: "その他" },
   verbs: { navigate: "ページを表示", event: "予定の操作", expense: "支出の操作", calendar: "カレンダーの操作", ai: "AI の操作", trip: "旅行を切り替え", member: "メンバーの操作", settings: "設定の変更", feedback: "報告の操作", error: "リクエスト失敗", login: "ログイン", logout: "ログアウト", generic: "ボタン・フォーム操作" },
 };
-export const feedbackCopy: Record<Locale, Copy> = { en, "zh-HK": hk, "zh-HK-lihkg": spicy, "ja-JP": ja };
+export const feedbackCopy: Record<Locale, Copy> = {
+  en, "zh-HK": hk, "zh-HK-lihkg": spicy, "ja-JP": ja,
+  ...Object.fromEntries(packLocales.map((locale) => [locale, packSection(locale, "feedback", en)])) as Record<PackLocale, Copy>,
+};
 const actionNames: Record<FeedbackAction, readonly [string, string, string]> = {
   navigate: ["View page", "查看頁面", "ページを表示"], page_view: ["View page", "查看頁面", "ページを表示"],
   dialog_open: ["Open dialog", "開啟視窗", "ダイアログを開く"], dialog_close: ["Close dialog", "關閉視窗", "ダイアログを閉じる"],
@@ -42,9 +46,16 @@ const actionNames: Record<FeedbackAction, readonly [string, string, string]> = {
   login: ["Sign in", "登入", "ログイン"], logout: ["Sign out", "登出", "ログアウト"], form_submit: ["Submit form", "提交表單", "フォームを送信"], locale_change: ["Change language", "切換語言", "言語を変更"],
   settings_save: ["Save settings", "儲存設定", "設定を保存"], member_invite: ["Member invitation", "操作成員邀請", "メンバー招待"], member_change: ["Manage member", "管理成員", "メンバーを管理"], button: ["Button / link action", "按鈕／連結操作", "ボタン・リンク操作"],
 };
+const environmentNames: Record<string, readonly [string, string, string]> = { phone: ["Phone", "電話", "スマートフォン"], tablet: ["Tablet", "平板電腦", "タブレット"], desktop: ["Computer", "電腦", "パソコン"], unknown: ["Unknown", "未能辨識", "不明"], other: ["Other", "其他", "その他"] };
+/** English action and device names: the added languages' packs translate these (JOB-084). */
+export const englishFeedbackActionNames = Object.fromEntries(Object.entries(actionNames).map(([key, names]) => [key, names[0]])) as Record<FeedbackAction, string>;
+export const englishFeedbackEnvironmentNames: Record<string, string> = Object.fromEntries(Object.entries(environmentNames).map(([key, names]) => [key, names[0]]));
+function baseName(names: readonly [string, string, string], locale: Locale): string {
+  return names[locale === "en" ? 0 : locale === "ja-JP" ? 2 : 1];
+}
 export function feedbackActionLabel(action: string, locale: Locale): string {
-  const exact = actionNames[action as FeedbackAction];
-  if (exact) return exact[locale === "en" ? 0 : locale === "ja-JP" ? 2 : 1];
+  const exact = Object.hasOwn(actionNames, action) ? actionNames[action as FeedbackAction] : undefined;
+  if (exact) return isPackLocale(locale) ? packSection(locale, "feedbackActions", englishFeedbackActionNames)[action as FeedbackAction] : baseName(exact, locale);
   const verbs = feedbackCopy[locale].verbs;
   if (action.includes("error")) return verbs.error;
   if (action === "navigate" || action === "page_view") return verbs.navigate;
@@ -53,7 +64,7 @@ export function feedbackActionLabel(action: string, locale: Locale): string {
   return verbs.generic;
 }
 export function feedbackEnvironmentLabel(value: string, locale: Locale): string {
-  const names: Record<string, readonly [string, string, string]> = { phone: ["Phone", "電話", "スマートフォン"], tablet: ["Tablet", "平板電腦", "タブレット"], desktop: ["Computer", "電腦", "パソコン"], unknown: ["Unknown", "未能辨識", "不明"], other: ["Other", "其他", "その他"] };
-  const translated = names[value];
-  return translated ? translated[locale === "en" ? 0 : locale === "ja-JP" ? 2 : 1] : ({ ios: "iOS", macos: "macOS", android: "Android", windows: "Windows", linux: "Linux", chrome: "Chrome", edge: "Edge", firefox: "Firefox", safari: "Safari" } as Record<string, string>)[value] ?? feedbackCopy[locale].pages.other;
+  const translated = Object.hasOwn(environmentNames, value) ? environmentNames[value] : undefined;
+  if (translated) return isPackLocale(locale) ? packSection(locale, "feedbackEnvironment", englishFeedbackEnvironmentNames)[value] ?? translated[0] : baseName(translated, locale);
+  return ({ ios: "iOS", macos: "macOS", android: "Android", windows: "Windows", linux: "Linux", chrome: "Chrome", edge: "Edge", firefox: "Firefox", safari: "Safari" } as Record<string, string>)[value] ?? feedbackCopy[locale].pages.other;
 }

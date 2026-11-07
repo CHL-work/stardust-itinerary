@@ -43,6 +43,7 @@ describe("destination defaults validation", () => {
   it("only emits local labels and bounds the maximum response below the database cap", () => {
     const result = resolveDeterministicDestination("USA")!;
     expect(result.countryLabels?.["zh-HK-lihkg"]).toBe(result.countryLabels?.["zh-HK"]);
-    expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(4096);
+    // Labels for twelve locales (JOB-084) still leave half of the 16 KiB database cap free.
+    expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(8192);
   });
 });

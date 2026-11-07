@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type { Locale } from "@/lib/i18n";
 
 type TurnstileApi = { render: (element: HTMLElement, options: Record<string, unknown>) => string };
 declare global {
@@ -10,10 +11,22 @@ declare global {
 
 const TURNSTILE_SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
-/** The browser's language mapped to one the app supports; the demo trip is written in it. */
-export function guestLocale(language: string | undefined): "en" | "zh-HK" | "ja-JP" {
+/**
+ * The browser's language mapped to one the app supports; the demo trip is written in it. Chinese follows the
+ * region or script: Hong Kong and Macau read Cantonese, Taiwan and other Traditional Chinese read Traditional
+ * Chinese, and the rest Simplified Chinese.
+ */
+export function guestLocale(language: string | undefined): Locale {
   const value = (language ?? "").toLowerCase();
-  return value.startsWith("ja") ? "ja-JP" : value.startsWith("zh") ? "zh-HK" : "en";
+  const primary = value.split(/[-_]/u)[0] ?? "";
+  if (primary === "zh") {
+    if (/(?:^|[-_])(?:hk|mo)(?:$|[-_])/u.test(value)) return "zh-HK";
+    return /(?:^|[-_])(?:tw|hant)(?:$|[-_])/u.test(value) ? "zh-TW" : "zh-CN";
+  }
+  if (primary === "ja") return "ja-JP";
+  if (primary === "pt") return "pt-BR";
+  if (primary === "in") return "id";
+  return primary === "es" || primary === "fr" || primary === "de" || primary === "ru" || primary === "id" ? primary : "en";
 }
 
 /**

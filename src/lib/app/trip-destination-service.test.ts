@@ -5,6 +5,7 @@ import type { AuthConfig } from "@/lib/auth/config";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 import { AppConflictError } from "@/lib/app/repository";
 import type { DestinationDefaults } from "@/lib/app/trip-destination-contract";
+import { locales } from "@/lib/i18n";
 import { validateLookupOutput } from "@/lib/app/trip-destination-defaults";
 
 const mocks = vi.hoisted(() => ({ provider: vi.fn(), operator: vi.fn() }));
@@ -113,7 +114,7 @@ describe("account-scoped destination lookups", () => {
   it("regenerates cached display labels and refuses malformed cached codes", async () => {
     const db = database(); const request = input();
     await runTripDestinationLookup(db.pool, config, principal, request);
-    db.rows[0].response_json!.countryLabels = { en: "private corrupt label", "zh-HK": "private", "zh-HK-lihkg": "private", "ja-JP": "private" };
+    db.rows[0].response_json!.countryLabels = Object.fromEntries(locales.map((locale) => [locale, locale === "en" ? "private corrupt label" : "private"])) as Record<(typeof locales)[number], string>;
     const safe = await runTripDestinationLookup(db.pool, config, principal, input());
     expect(safe.source).toBe("cache"); expect(safe.countryLabels?.en).toBe("Japan");
     expect(JSON.stringify(safe)).not.toContain("private");
