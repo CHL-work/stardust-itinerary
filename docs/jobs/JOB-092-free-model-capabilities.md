@@ -11,7 +11,7 @@ started: 2026-11-08
 
 ## Outcome and authority
 
-The user requests the other free models/routes from `dsh-our-free-model` for every account, including guests. Local implementation and synthetic verification are authorized; push and production deployment require separate approval.
+The user requests the other free models/routes from `dsh-our-free-model` for every account, including guests. The follow-up explicitly approves up to eight free requests across Reflection Beam and Cohere North Mini Code using synthetic trips, and GitHub push/GKE deployment after tests pass. No paid keys or real trip data are authorized for testing.
 
 ## Scope
 

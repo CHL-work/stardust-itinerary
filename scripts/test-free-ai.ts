@@ -21,6 +21,9 @@ async function main() {
   const database = decodeURIComponent(target.pathname.slice(1));
   assert.match(database, /^stardust_test_free_[a-z0-9_]+$/u);
   assert.equal(process.env.TEST_DATABASE_CONFIRM_DESTROY, database);
+  const maxAttempts = Number(process.env.STARDUST_FREE_AI_MAX_ATTEMPTS ?? "4");
+  assert.ok(Number.isSafeInteger(maxAttempts) && maxAttempts >= 1 && maxAttempts <= 8,
+    "STARDUST_FREE_AI_MAX_ATTEMPTS must be 1–8; use a separate, approved budget for each run.");
   for (const name of ["DATABASE_URL", "DATABASE_DIRECT_URL"]) {
     const value = process.env[name];
     if (value) {
@@ -34,8 +37,9 @@ async function main() {
       "Refusing a nonempty database; create a new one for each smoke.");
     process.env.FREE_AI_ENABLED = "true";
     process.env.FREE_AI_PER_USER_DAILY = "10";
-    process.env.FREE_AI_HOURLY = "20";
-    process.env.FREE_AI_DAILY = "20";
+    // Every format/timestamp retry reserves against this durable cap before HTTP I/O.
+    process.env.FREE_AI_HOURLY = String(maxAttempts);
+    process.env.FREE_AI_DAILY = String(maxAttempts);
     process.env.GUEST_MODE_ENABLED = "true";
     assert.ok(freeAiSettings().enabled);
     await migrate({ connectionString });
@@ -107,7 +111,12 @@ async function main() {
     assert.ok(receipts.every((row) => row.provider === "kilo" && row.credential_source === "free"));
     console.log(JSON.stringify({ case: "guest-event", passed: true, proposals: guestResult.proposalCount,
       attempts: (await pool.query("SELECT count(*)::int AS count FROM ai_request_events WHERE event_type='provider.free.attempt.started'")).rows[0].count }));
-  } finally { await pool.end(); }
+  } finally {
+    const attempts = await pool.query("SELECT count(*)::int AS count FROM ai_request_events WHERE event_type='provider.free.attempt.started'")
+      .then((result) => result.rows[0].count as number).catch(() => null);
+    console.log(JSON.stringify({ case: "attempt-budget", attempts, maxAttempts }));
+    await pool.end();
+  }
 }
 
 main().catch((error: unknown) => {
