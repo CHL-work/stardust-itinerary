@@ -1,13 +1,13 @@
 # JOB-088: Lightweight event type icons
 
-- **Status:** review
+- **Status:** done
 - **Priority:** P2
 - **Dependencies:** JOB-081 and JOB-082 (done)
 - **Claimant:** Codex event-type-icons agent
 - **Started:** 2026-11-07 UTC
 - **Branch:** `agent/JOB-088-event-type-icons`
-- **Integrated review branch:** `agent/account-keys-and-icons-review` (includes JOB-087 and final verification; continue there)
-- **Authority:** the user's request for small, performant event icons; no push or deployment authorized.
+- **Integrated branch:** `agent/account-keys-and-icons-review` (merged to `main` with JOB-087 and final verification)
+- **Authority:** the user's request for small, performant event icons, followed by explicit approval to push and deploy both changes.
 
 ## Outcome and scope
 
@@ -33,9 +33,11 @@ Out of scope: changing event types, inferring travel modes from titles, maps, ex
 
 ## Rollback and handoff
 
-Presentation only; revert this job without a schema migration. No production changes or provider calls are required.
+Presentation only; revert this job without a schema migration. No provider calls are required.
 
-Implementation is local, not pushed or deployed. The safe approval projection adds an optional derived `isFlight` boolean; it does not expose the flight number or additional booking data. Existing approval and membership checks are unchanged. Offline cards deliberately keep generic transport because snapshots do not include structured flight data. Unimported Google Calendar events keep their existing Calendar icon.
+Accepted, merged and deployed to GKE on November 8, 2026 UTC as part of `cacf021`. [CI](https://github.com/CHL-work/stardust-itinerary/actions/runs/42441663915) and [deployment](https://github.com/CHL-work/stardust-itinerary/actions/runs/42441828012) passed, and the public health endpoint reported the database ready. The separate JOB-087 storage activation remains pending; it does not block these icons.
+
+The safe approval projection adds an optional derived `isFlight` boolean; it does not expose the flight number or additional booking data. Existing approval and membership checks are unchanged. Offline cards deliberately keep generic transport because snapshots do not include structured flight data. Unimported Google Calendar events keep their existing Calendar icon.
 
 ## Documentation impact
 
