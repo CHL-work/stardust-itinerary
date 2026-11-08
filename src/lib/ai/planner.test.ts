@@ -2193,8 +2193,7 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.applyOwnKeyAiCreate).not.toHaveBeenCalled();
   });
 
-  it("preserves the selected free model through provider calls, audit and response", async () => {
-    const freeModel = "liquid/lfm-3-1.7b:free";
+  it.each(["liquid/lfm-3-1.7b:free", "reflection/beam-free", "cohere/north-mini-code:free"])("preserves selected free model %s through provider calls, audit and response", async (freeModel) => {
     mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
     mocks.freeModel.mockResolvedValue({ text: JSON.stringify({ message: "Tell me which day.", proposals: [], sources: [], memoryCheckpoint: null }),
       model: freeModel, inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
@@ -2204,6 +2203,38 @@ describe("AI planner live-search and approval policy", () => {
     const started = mocks.query.mock.calls.find(([sql]) => String(sql).includes("'request.started'") && !String(sql).includes("'request.rejected'"));
     expect(JSON.stringify(started)).toContain(freeModel);
     expect(mocks.readAiCredentialSecret).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("retries invalid free JSON once without replaying it and records cumulative usage (unknown=%s)", async (unknownUsage) => {
+    const freeModel = "reflection/beam-free";
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValueOnce({ text: "INVALID_OUTPUT_CANARY", model: freeModel,
+      inputTokens: unknownUsage ? null : 40, outputTokens: 9, cachedInputTokens: 0 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ message: "Which date?", proposals: [], sources: [] }),
+        model: freeModel, inputTokens: 50, outputTokens: 10, cachedInputTokens: 2 });
+    await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "add dinner", "guest-free", "en", undefined, undefined, [], freeModel);
+    expect(mocks.freeModel).toHaveBeenCalledTimes(2);
+    const retry = mocks.freeModel.mock.calls[1]![0];
+    expect(retry.selectedModel).toBe(freeModel);
+    expect(retry.prompt).toContain("OUTPUT_FORMAT_RETRY");
+    expect(retry.prompt).not.toContain("INVALID_OUTPUT_CANARY");
+    const stored = mocks.query.mock.calls.find(([sql]) => String(sql).includes("SET result_text"));
+    expect(stored?.[1]?.slice(5, 8)).toEqual([unknownUsage ? null : 90, 19, 2]);
+    expect(mocks.runCodex).not.toHaveBeenCalled();
+    expect(mocks.claudeQuery).not.toHaveBeenCalled();
+    expect(mocks.readAiCredentialSecret).not.toHaveBeenCalled();
+  });
+
+  it("fails closed after two invalid free outputs without creating any proposal", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValue({ text: "Not JSON", model: "cohere/north-mini-code:free", inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    await expect(runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "add dinner", "guest-free", "en", undefined, undefined, [], "cohere/north-mini-code:free"))
+      .rejects.toMatchObject({ details: { code: "AI_PROVIDER_OUTPUT_INVALID" } });
+    expect(mocks.freeModel).toHaveBeenCalledTimes(2);
+    expect(mocks.createChangeRequest).not.toHaveBeenCalled();
+    expect(mocks.createChangeRequestsAtomically).not.toHaveBeenCalled();
+    expect(mocks.applyPermittedChangeRequest).not.toHaveBeenCalled();
+    expect(mocks.applyOwnKeyAiCreate).not.toHaveBeenCalled();
   });
 
   it("runs an own-key request on that user's key only, in a private provider directory", async () => {

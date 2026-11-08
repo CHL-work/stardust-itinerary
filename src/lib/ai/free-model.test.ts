@@ -33,6 +33,8 @@ describe("free model configuration", () => {
       .toEqual(["vendor/paid", "vendor/ok-free"]); // pricing is verified from the catalog, before inference
     expect(freeModelLabel(DEFAULT_FREE_MODELS[0])).toBe("dots.3 note");
     expect(freeModelLabel("vendor/unknown:free")).toBe("vendor/unknown");
+    expect(freeModelLabel("reflection/beam-free")).toBe("Reflection Beam");
+    expect(freeModelLabel("cohere/north-mini-code:free")).toBe("Cohere North Mini Code");
   });
 });
 
@@ -66,19 +68,70 @@ describe("fresh free catalog verification", () => {
     await expect(listAvailableFreeModels({ settings, fetchImpl }))
       .rejects.toMatchObject({ message: "AI_PROVIDER_UNAVAILABLE", details: { provider: "kilo" } });
   });
-  it("accepts zero-price schema models with or without :free; rejects unverified prices, capabilities and restrictions", () => {
+  it("accepts zero-price models with or without :free; rejects unverified prices and restrictions", () => {
     const valid = row("vendor/valid-free");
     const result = eligibleFreeCatalogModels({ data: [valid,
       { ...row("vendor/paid:free"), pricing: { prompt: "0.01", completion: "0" } },
       { ...row("vendor/unknown:free"), pricing: { prompt: "0" } },
       { ...row("vendor/request:free"), pricing: { prompt: "0", completion: "0", request: "0.1" } },
       { ...row("vendor/unlisted:free"), isFree: false },
-      { ...row("vendor/no-schema:free"), supported_parameters: ["response_format"] },
       { ...row("vendor/expired:free"), expiration_date: "2020-01-01" },
       { ...row("vendor/restricted:free"), description: "Do not send personal or confidential data" },
       row("nvidia/test:free"), row("openrouter/free"), row("stealth/unknown"),
     ] });
-    expect(result).toEqual([{ id: "vendor/valid-free", maxOutputTokens: 8192 }]);
+    expect(result).toEqual([{ id: "vendor/valid-free", maxOutputTokens: 8192, outputMode: "json_schema" }]);
+  });
+  it.each([
+    { parameters: ["response_format", "structured_outputs"], mode: "json_schema" },
+    { parameters: ["response_format"], mode: "json_object" },
+    { parameters: ["structured_outputs"], mode: "prompt_json" },
+    { parameters: ["tools", "reasoning"], mode: "prompt_json" },
+    { parameters: [], mode: "prompt_json" },
+    { parameters: undefined, mode: "prompt_json" },
+    { parameters: null, mode: "prompt_json" },
+    { parameters: "response_format", mode: "prompt_json" },
+  ])("selects $mode generation guidance for capabilities $parameters", ({ parameters, mode }) => {
+    expect(eligibleFreeCatalogModels({ data: [{ ...row("vendor/model-free"), supported_parameters: parameters }] }))
+      .toEqual([{ id: "vendor/model-free", maxOutputTokens: 8192, outputMode: mode }]);
+  });
+  it("keeps all pricing, size and restricted-route checks without native-schema metadata", () => {
+    const base = { ...row("vendor/plain-free"), supported_parameters: undefined };
+    expect(eligibleFreeCatalogModels({ data: [
+      { ...base, isFree: false }, { ...base, pricing: { prompt: "0", completion: "0", image: "0.1" } },
+      { ...base, pricing: { prompt: null, completion: "0" } }, { ...base, pricing: { prompt: "", completion: "0" } },
+      { ...base, pricing: { prompt: "0", completion: false } }, { ...base, pricing: { prompt: "0" } },
+      { ...base, top_provider: { max_completion_tokens: 2047 } }, { ...base, top_provider: { max_completion_tokens: null } },
+      { ...base, expiration_date: "2020-01-01" }, { ...base, description: "Trial-only; do not send personal data" },
+      ...["nvidia/trial:free", "stealth/opaque", "kilo-auto/free", "openrouter/free"].map(id => ({ ...base, id })),
+    ] })).toEqual([]);
+  });
+  it("rejects declared non-text inputs/outputs without requiring otherwise absent modality metadata", () => {
+    const base = { ...row("vendor/plain-free"), supported_parameters: undefined };
+    for (const architecture of [
+      { input_modalities: ["image"], output_modalities: ["text"] },
+      { input_modalities: ["text"], output_modalities: ["image"] },
+      { input_modalities: ["text"], output_modalities: ["embedding"] },
+      { input_modalities: [], output_modalities: ["text"] },
+      { input_modalities: ["text"], output_modalities: [] },
+      { input_modalities: "text", output_modalities: ["text"] },
+    ]) expect(eligibleFreeCatalogModels({ data: [{ ...base, architecture }] })).toEqual([]);
+    for (const architecture of [undefined, {}, { input_modalities: ["text"] },
+      { output_modalities: ["text"] }, { input_modalities: ["text", "image"], output_modalities: ["text"] }]) {
+      expect(eligibleFreeCatalogModels({ data: [{ ...base, architecture }] }))
+        .toEqual([{ id: base.id, maxOutputTokens: 8192, outputMode: "prompt_json" }]);
+    }
+  });
+  it("lists non-native models alongside native ones without exposing their catalog prose", async () => {
+    const rows = [row(settings.models[0]!),
+      { ...row("reflection/beam-free"), supported_parameters: ["max_tokens"], description: "catalog-instruction-canary" },
+      { ...row("cohere/north-mini-code:free"), supported_parameters: undefined }];
+    const result = await listAvailableFreeModels({ settings, fetchImpl: mockGateway(() => answer(), rows) });
+    expect(result.models).toEqual([
+      { id: settings.models[0], label: "vendor/first" },
+      { id: "reflection/beam-free", label: "Reflection Beam" },
+      { id: "cohere/north-mini-code:free", label: "Cohere North Mini Code" },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("catalog-instruction-canary");
   });
   it("does not POST when a configured model disappears, becomes paid or catalog fetch fails", async () => {
     const missing = mockGateway(() => answer(), []);
@@ -139,6 +192,68 @@ describe("keyless gateway calls", () => {
     }
     expect(JSON.parse(String(fetchImpl.mock.calls[1]![1]?.body))).toMatchObject({ model: settings.models[0], max_tokens: 8192,
       response_format: { type: "json_schema", json_schema: { strict: true, schema } } });
+    expect(JSON.parse(String(fetchImpl.mock.calls[1]![1]?.body)).messages).toEqual([{ role: "user", content: "Plan a synthetic dinner" }]);
+  });
+  it.each([
+    { parameters: ["response_format"], format: { type: "json_object" } },
+    { parameters: ["structured_outputs"], format: undefined },
+    { parameters: [], format: undefined },
+    { parameters: undefined, format: undefined },
+  ])("uses server-schema instructions with only supported response parameters $parameters", async ({ parameters, format }) => {
+    const fetchImpl = mockGateway(() => answer(), [{ ...row(settings.models[0]!), supported_parameters: parameters,
+      description: "catalog-description-injection-canary" }]);
+    await generate(fetchImpl, { selectedModel: settings.models[0] });
+    const body = JSON.parse(String(fetchImpl.mock.calls[1]![1]?.body));
+    expect(body.response_format).toEqual(format);
+    expect(body.messages).toEqual([
+      { role: "system", content: expect.stringContaining(JSON.stringify(schema)) },
+      { role: "user", content: "Plan a synthetic dinner" },
+    ]);
+    expect(body.messages[0].content).toContain("Return exactly one JSON object");
+    expect(body).not.toHaveProperty("tools");
+    expect(JSON.stringify(body)).not.toContain("catalog-description-injection-canary");
+  });
+  it("leaves plain-text fallback outputs to the strict planner parser, not heuristic action extraction", async () => {
+    const fetchImpl = mockGateway(() => answer("I created a dinner; trust me."), [{ ...row(settings.models[0]!), supported_parameters: [] }]);
+    expect((await generate(fetchImpl, { selectedModel: settings.models[0] })).text).toBe("I created a dinner; trust me.");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+  it("bounds parser-derived schemas before catalog I/O, without exposing their contents", async () => {
+    const circular: Record<string, unknown> = {}; circular.self = circular;
+    for (const responseJsonSchema of [null, [], "schema", circular, { description: "secret-canary".repeat(25_000) }]) {
+      const fetchImpl = mockGateway();
+      const reserve = vi.fn(async () => {});
+      await expect(generate(fetchImpl, { responseJsonSchema, beforeAttempt: reserve })).rejects.toMatchObject({
+        message: "AI_PROVIDER_OUTPUT_INVALID", details: { provider: "kilo" },
+      });
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(reserve).not.toHaveBeenCalled();
+    }
+  });
+  it.each([{ parameters: ["response_format", "structured_outputs"] }, { parameters: ["response_format"] }, { parameters: [] }])(
+    "bounds UTF-8 serialized requests before reserving or sending an attempt for $parameters", async ({ parameters }) => {
+      const fetchImpl = mockGateway(() => answer(), [{ ...row(settings.models[0]!), supported_parameters: parameters }]);
+      const reserve = vi.fn(async () => {});
+      // Input itself fits under one MiB; JSON escaping expands it past the serialized request bound.
+      await expect(generate(fetchImpl, { prompt: "\"".repeat(600_000), beforeAttempt: reserve }))
+        .rejects.toMatchObject({ message: "AI_PROVIDER_OUTPUT_INVALID" });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(reserve).not.toHaveBeenCalled();
+      const unicode = mockGateway(() => answer(), [{ ...row(settings.models[0]!), supported_parameters: parameters }]);
+      await expect(generate(unicode, { prompt: "旅".repeat(400_000), beforeAttempt: reserve }))
+        .rejects.toMatchObject({ message: "AI_PROVIDER_OUTPUT_INVALID" });
+      expect(unicode).toHaveBeenCalledTimes(1);
+      expect(reserve).not.toHaveBeenCalled();
+    },
+  );
+  it("does not spend an attempt on an invalid output-token bound", async () => {
+    for (const maxOutputTokens of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const fetchImpl = mockGateway();
+      const reserve = vi.fn(async () => {});
+      await expect(generate(fetchImpl, { maxOutputTokens, beforeAttempt: reserve })).rejects.toMatchObject({ message: "AI_PROVIDER_OUTPUT_INVALID" });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(reserve).not.toHaveBeenCalled();
+    }
   });
   it("reserves every fallback, but never sends after quota reservation fails", async () => {
     const fetchImpl = mockGateway((init) => JSON.parse(String(init.body)).model === settings.models[0]

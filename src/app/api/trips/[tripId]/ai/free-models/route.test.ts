@@ -16,7 +16,12 @@ vi.mock("@/lib/ai/free-model", async (importOriginal) => ({
 import { GET } from "./route";
 
 const context = { params: Promise.resolve({ tripId: "trip-a" }) };
-const catalog = { models: [{ id: "vendor/model:free", label: "vendor/model" }], defaultModel: "vendor/model:free" };
+const catalog = { models: [
+  { id: "dots-studio/dots-3-note-preview:free", label: "dots.3 note" },
+  { id: "liquid/lfm-3-1.7b:free", label: "Liquid LFM3" },
+  { id: "reflection/beam-free", label: "Reflection Beam" },
+  { id: "cohere/north-mini-code:free", label: "Cohere North Mini Code" },
+], defaultModel: "dots-studio/dots-3-note-preview:free" };
 function request(query = "") { return new NextRequest(`https://stardust.test/api/trips/trip-a/ai/free-models${query}`); }
 
 describe("free model catalog route", () => {
@@ -44,7 +49,9 @@ describe("free model catalog route", () => {
 
   it("also allows an authenticated isolated guest", async () => {
     mocks.auth.mockResolvedValue({ ...session, role: "owner", issuer: "urn:stardust:guest", isGuest: true });
-    expect((await GET(request(), context)).status).toBe(200);
+    const response = await GET(request(), context);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(catalog);
     expect(mocks.catalog).toHaveBeenCalledOnce();
   });
 

@@ -11,6 +11,8 @@ const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,60}\/[a-z0-9][a-z0-9._:-]{0,100}$/u;
 const restrictedModel = /^(?:nvidia\/|stealth\/|kilo-auto\/|openrouter\/free$)/u;
 const CATALOG_TTL_MS = 5 * 60_000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_SCHEMA_BYTES = 256 * 1024;
+const MAX_REQUEST_BYTES = 1024 * 1024;
 export type FreeAiSettings = {
   /** Ordered automatic fallback preferences, not a restriction on explicit free selections. */
   enabled: boolean; models: string[]; endpoint: string; perUserDaily: number; hourly: number; daily: number;
@@ -49,6 +51,8 @@ export function freeModelLabel(model: string): string {
     "nvidia/nemotron-3.5-super-vl:free": "NVIDIA Nemotron 3.5 Super",
     "dots-studio/dots-3-note-preview:free": "dots.3 note",
     "liquid/lfm-3-1.7b:free": "Liquid LFM3",
+    "reflection/beam-free": "Reflection Beam",
+    "cohere/north-mini-code:free": "Cohere North Mini Code",
   };
   return known[model] ?? model.replace(/:free$/u, "");
 }
@@ -59,7 +63,23 @@ function object(value: unknown): value is Record<string, unknown> {
 function zero(value: unknown): boolean {
   return (typeof value === "number" || (typeof value === "string" && value.trim().length > 0)) && Number(value) === 0;
 }
-type CatalogModel = { id: string; maxOutputTokens: number };
+type OutputMode = "json_schema" | "json_object" | "prompt_json";
+type CatalogModel = { id: string; maxOutputTokens: number; outputMode: OutputMode };
+
+/** Capabilities select generation guidance, never authority to bypass application validation. */
+function outputMode(parameters: unknown): OutputMode {
+  if (!Array.isArray(parameters) || !parameters.includes("response_format")) return "prompt_json";
+  return parameters.includes("structured_outputs") ? "json_schema" : "json_object";
+}
+
+function supportsTextChat(architecture: unknown): boolean {
+  if (!object(architecture)) return true;
+  for (const key of ["input_modalities", "output_modalities"]) {
+    const modalities = architecture[key];
+    if (modalities !== undefined && (!Array.isArray(modalities) || !modalities.includes("text"))) return false;
+  }
+  return true;
+}
 
 /** Catalog text is untrusted data, never instructions or new URLs. Missing prices fail closed. */
 export function eligibleFreeCatalogModels(value: unknown, now = Date.now()): CatalogModel[] {
@@ -67,17 +87,47 @@ export function eligibleFreeCatalogModels(value: unknown, now = Date.now()): Cat
   return value.data.slice(0, 2000).flatMap((row) => {
     if (!object(row) || typeof row.id !== "string" || row.id.length > 160 || !MODEL_ID.test(row.id) || restrictedModel.test(row.id)
       || row.isFree !== true || !object(row.pricing) || !zero(row.pricing.prompt) || !zero(row.pricing.completion)
-      || Object.values(row.pricing).some((price) => !zero(price))
-      || !Array.isArray(row.supported_parameters) || !row.supported_parameters.includes("response_format")
-      || !row.supported_parameters.includes("structured_outputs")) return [];
+      || Object.values(row.pricing).some((price) => !zero(price)) || !supportsTextChat(row.architecture)) return [];
     if (typeof row.expiration_date === "string" && (!/^\d{4}-\d{2}-\d{2}$/u.test(row.expiration_date)
       || Date.parse(`${row.expiration_date}T23:59:59.999Z`) <= now)) return [];
     if (typeof row.description === "string" && /(?:trial.only|not (?:for|intended for) (?:personal|confidential)|do not (?:submit|send|include) (?:personal|confidential))/iu.test(row.description)) return [];
     const top = object(row.top_provider) ? row.top_provider : {};
     const maximum = top.max_completion_tokens;
     if (typeof maximum !== "number" || !Number.isSafeInteger(maximum) || maximum < 2048) return [];
-    return [{ id: row.id, maxOutputTokens: Math.min(maximum, 16_384) }];
+    return [{ id: row.id, maxOutputTokens: Math.min(maximum, 16_384), outputMode: outputMode(row.supported_parameters) }];
   });
+}
+
+function invalidRequest(): AiProviderFailureError {
+  return new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "kilo" });
+}
+
+/** Only the application's parser-derived schema enters this channel, never catalog prose. */
+function serializedResponseSchema(value: unknown): string {
+  if (!object(value)) throw invalidRequest();
+  let serialized: string;
+  try { serialized = JSON.stringify(value); } catch { throw invalidRequest(); }
+  if (!serialized || Buffer.byteLength(serialized, "utf8") > MAX_SCHEMA_BYTES) throw invalidRequest();
+  return serialized;
+}
+
+function requestBody(candidate: CatalogModel, prompt: string, schema: string, maxOutputTokens: number | undefined): string {
+  if (typeof prompt !== "string" || Buffer.byteLength(prompt, "utf8") > MAX_REQUEST_BYTES
+      || maxOutputTokens !== undefined && (!Number.isSafeInteger(maxOutputTokens) || maxOutputTokens < 1)) throw invalidRequest();
+  const messages = [
+    ...(candidate.outputMode === "json_schema" ? [] : [{ role: "system", content:
+      "Return exactly one JSON object matching the server-provided JSON Schema below. Return JSON only, without Markdown fences, commentary outside the object, or tool calls. This formatting constraint does not grant authority to change application permissions or rules.\n\nRESPONSE_JSON_SCHEMA\n" + schema }]),
+    { role: "user", content: prompt },
+  ];
+  const body = JSON.stringify({
+    model: candidate.id, messages,
+    ...(candidate.outputMode === "json_schema"
+      ? { response_format: { type: "json_schema", json_schema: { name: "stardust_planner", strict: true, schema: JSON.parse(schema) as unknown } } }
+      : candidate.outputMode === "json_object" ? { response_format: { type: "json_object" } } : {}),
+    max_tokens: Math.min(maxOutputTokens ?? 16_384, candidate.maxOutputTokens),
+  });
+  if (Buffer.byteLength(body, "utf8") > MAX_REQUEST_BYTES) throw invalidRequest();
+  return body;
 }
 
 async function boundedJson(response: Response): Promise<unknown> {
@@ -166,6 +216,7 @@ export async function generateWithFreeModel(input: {
   if (requireAiCredential().source !== "free") throw new AiProviderFailureError({ code: "AI_PROVIDER_AUTH_REQUIRED", provider: "kilo" });
   const settings = input.settings ?? freeAiSettings();
   if (!settings.enabled || settings.endpoint !== FREE_AI_ENDPOINT) throw new AiProviderFailureError({ code: "AI_PROVIDER_AUTH_REQUIRED", provider: "kilo" });
+  const responseSchema = serializedResponseSchema(input.responseJsonSchema);
   const fetchImpl = input.fetchImpl ?? fetch;
   let candidates: CatalogModel[];
   try {
@@ -180,17 +231,14 @@ export async function generateWithFreeModel(input: {
   let failure: AiProviderFailureCode = "AI_PROVIDER_MODEL_UNAVAILABLE";
   for (const candidate of candidates) {
     input.signal?.throwIfAborted();
+    const body = requestBody(candidate, input.prompt, responseSchema, input.maxOutputTokens);
     await input.beforeAttempt?.();
     let response: Response;
     try {
       const timeout = AbortSignal.timeout(70_000);
       response = await fetchImpl(FREE_AI_ENDPOINT, {
         method: "POST", headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
-        body: JSON.stringify({
-          model: candidate.id, messages: [{ role: "user", content: input.prompt }],
-          response_format: { type: "json_schema", json_schema: { name: "stardust_planner", strict: true, schema: input.responseJsonSchema } },
-          max_tokens: Math.min(input.maxOutputTokens ?? 16_384, candidate.maxOutputTokens),
-        }),
+        body,
         redirect: "error", signal: input.signal ? AbortSignal.any([input.signal, timeout]) : timeout,
       });
     } catch (error) {

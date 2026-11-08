@@ -4,6 +4,8 @@ Upstream provider failures are distinct from Stardust's own permission, quota an
 
 Free AI (JOB-086) uses a named `freeModel` exactly or reports failure; it never substitutes another choice. Legacy automatic requests may try the next configured, freshly verified zero-price model within Kilo only, for eligible unavailability/output failures. Every attempt is capped and audited before I/O; authentication, billing and rate-limit responses stop fallback. A valid `Retry-After` becomes safe retry metadata, not a silent sleep/replay. Catalog failure, exhausted caps or unavailable models never enable a paid key or a different gateway. Raw upstream text is not shown or logged as diagnostics.
 
+JOB-092 supports models without native schema output. At most one format-only retry uses a fixed reminder, never raw invalid provider text or a relaxed validator. Both returned attempts contribute to successful-turn usage; any unknown component stays unknown. A second unusable envelope reports `AI_PROVIDER_OUTPUT_INVALID` without proposals. Schema/body bounds reject oversized input before reserving an inference attempt.
+
 The same safe localized formatter is used when the final no-tools answer after research encounters a known provider failure. The application saves a no-proposal explanatory answer through the existing completion path, with the safe provider category in finalization audit metadata; it does not misclassify the lookup as failed verification. Other finalization failures distinguish remaining-budget exhaustion, timeout, unsupported repeat research and generic completion failure. No partial model patch or new preference candidate is published. Existing historical answers are not rewritten.
 
 ## Diagnosis and behavior

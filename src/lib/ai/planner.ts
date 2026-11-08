@@ -948,10 +948,17 @@ async function runFreeTurn(
   ) + (control.repair ? `\n\n${timestampRepairInstructions(control.repair)}` : "") + FREE_PATCH_FORMAT_NOTE;
   let result: Awaited<ReturnType<typeof generateWithFreeModel>> | null = null;
   let output: PlannerOutput | null = null;
-  // One more try when the answer still cannot be used; free models vary from run to run.
+  let inputTokens: number | null = 0;
+  let outputTokens: number | null = 0;
+  let cachedInputTokens: number | null = 0;
+  // One format-only retry; never replay raw invalid output or relax proposal validation.
   for (let attempt = 0; attempt < 2 && !output; attempt += 1) {
-    result = await generateWithFreeModel({ prompt: turnPrompt, responseJsonSchema: responseSchema,
+    const formatReminder = attempt === 0 ? "" : "\n\nOUTPUT_FORMAT_RETRY: The previous response did not match the required JSON envelope. Return only one JSON object matching the supplied schema, without Markdown or surrounding prose. Keep the original request, facts and permissions unchanged; do not invent missing values to satisfy the schema. If clarification is needed, ask in message with an empty proposals array.";
+    result = await generateWithFreeModel({ prompt: turnPrompt + formatReminder, responseJsonSchema: responseSchema,
       signal: control.abortController.signal, beforeAttempt: control.beforeFreeAttempt, selectedModel: control.freeModel });
+    inputTokens = inputTokens === null || result.inputTokens === null ? null : inputTokens + result.inputTokens;
+    outputTokens = outputTokens === null || result.outputTokens === null ? null : outputTokens + result.outputTokens;
+    cachedInputTokens = cachedInputTokens === null || result.cachedInputTokens === null ? null : cachedInputTokens + result.cachedInputTokens;
     try { output = parseOutput(freeOutputAsPlannerJson(result.text)); } catch { /* try once more */ }
   }
   if (!output || !result) throw new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "kilo" });
@@ -962,9 +969,9 @@ async function runFreeTurn(
     provider: "kilo",
     transport: "kilo_gateway",
     authenticationMode: "anonymous",
-    inputTokens: result.inputTokens,
-    outputTokens: result.outputTokens,
-    cachedInputTokens: result.cachedInputTokens,
+    inputTokens,
+    outputTokens,
+    cachedInputTokens,
     webSearchQueries: [],
     sourceUrls: [],
   };

@@ -12,6 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
+| JOB-092 | Capability-aware free models and full upstream route audit | Review: full local checks passed; same catalog for users/guests, live inference and release awaiting separate approval (D-104) |
 | JOB-091 | Location-local times for all events | Implemented and verified; location-aware editing/display, UTC instants preserved (D-103) |
 | JOB-090 | Flight icons and airport-local endpoint times | Review: local checks passed; authorized CI-gated release (D-102) |
 | JOB-089 | Empty-trip onboarding, remembered language and Google key setup | Review: local checks passed; authorized CI-gated release |
