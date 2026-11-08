@@ -12,9 +12,10 @@ import { formatMessage, type Locale, type Messages } from "@/lib/i18n";
 import "./approval-request-cards.css";
 
 function displayLocale(locale: Locale) { return locale === "zh-HK-lihkg" ? "zh-HK" : locale; }
-function dateTime(value: string | null, locale: Locale, timeZone: string, unknown: string, showZone = false) {
+/** On the event place's clock, with no zone name such as "GMT+9" (D-109). */
+function dateTime(value: string | null, locale: Locale, timeZone: string, unknown: string) {
   if (!value || !Number.isFinite(Date.parse(value))) return unknown;
-  return new Intl.DateTimeFormat(displayLocale(locale), { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", ...(showZone ? { timeZoneName: "short" as const } : {}) }).format(new Date(value));
+  return new Intl.DateTimeFormat(displayLocale(locale), { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 function dayLabel(value: string, locale: Locale) {
   return new Intl.DateTimeFormat(displayLocale(locale), { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" }).format(new Date(`${value}T00:00:00Z`));
@@ -60,8 +61,8 @@ function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending
   const flight = resolveEventTimeZones({ ...event,
     flightPresentation: event.flightPresentation ?? (event.isFlight ? { isFlight: true } : undefined) }, timeZone);
   const endpoints = event.itemType === "transport" ? [
-    event.departureLocationName ? { kind: "departure" as const, label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt, zone: flight.departureTimeZone, known: flight.departureZoneKnown } : null,
-    event.destinationLocationName ? { kind: "arrival" as const, label: copy.arrival, name: event.destinationLocationName, map: event.destinationMapUrl, at: event.endsAt, zone: flight.arrivalTimeZone, known: flight.arrivalZoneKnown } : null,
+    event.departureLocationName ? { kind: "departure" as const, label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt, zone: flight.departureTimeZone } : null,
+    event.destinationLocationName ? { kind: "arrival" as const, label: copy.arrival, name: event.destinationLocationName, map: event.destinationMapUrl, at: event.endsAt, zone: flight.arrivalTimeZone } : null,
   ].filter((endpoint) => endpoint !== null) : [];
   return <>
     <div className="approval-event-badges"><span className="status-tag"><EventTypeIcon itemType={event.itemType} isFlight={flight.isFlight} size={16} />{flight.isFlight ? flightMessages(locale).fields : labelEventType(event.itemType, messages)}</span>
@@ -69,11 +70,11 @@ function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending
       {event.isLocked ? <span className="status-tag"><Lock size={12} aria-hidden="true" />{copy.locked}</span> : null}</div>
     {event.dayDate ? <p className="approval-event-date"><CalendarDays size={16} aria-hidden="true" /><time dateTime={event.dayDate}>{dayLabel(event.dayDate, locale)}</time></p> : null}
     {endpoints.length ? <div className="approval-transport-points">{endpoints.map((endpoint) => <div className="approval-transport-point" key={endpoint.label}>
-      <div><EventTypeIcon itemType={event.itemType} isFlight={flight.isFlight} endpoint={endpoint.kind} size={17} /><strong>{endpoint.label}</strong><time dateTime={endpoint.at ?? undefined}>{dateTime(endpoint.at, locale, endpoint.zone, copy.untimed, true)}{endpoint.at && !endpoint.known ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></div>
+      <div><EventTypeIcon itemType={event.itemType} isFlight={flight.isFlight} endpoint={endpoint.kind} size={17} /><strong>{endpoint.label}</strong><time dateTime={endpoint.at ?? undefined}>{dateTime(endpoint.at, locale, endpoint.zone, copy.untimed)}</time></div>
       <a href={mapLink(endpoint.name, endpoint.map)} target="_blank" rel="noopener noreferrer"><MapPin size={15} aria-hidden="true" />{endpoint.name}</a>
     </div>)}</div> : <>
-      <div className="approval-event-times"><p><strong>{copy.starts}</strong><time>{dateTime(event.startsAt, locale, flight.departureTimeZone, copy.untimed, true)}{event.startsAt && !flight.departureZoneKnown ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></p>
-        {event.endsAt ? <p><strong>{copy.ends}</strong><time>{dateTime(event.endsAt, locale, flight.arrivalTimeZone, copy.untimed, true)}{!flight.arrivalZoneKnown ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></p> : null}</div>
+      <div className="approval-event-times"><p><strong>{copy.starts}</strong><time>{dateTime(event.startsAt, locale, flight.departureTimeZone, copy.untimed)}</time></p>
+        {event.endsAt ? <p><strong>{copy.ends}</strong><time>{dateTime(event.endsAt, locale, flight.arrivalTimeZone, copy.untimed)}</time></p> : null}</div>
       {event.locationName ? <a className="approval-event-location" href={mapLink(event.locationName, event.mapUrl)} target="_blank" rel="noopener noreferrer"><MapPin size={16} aria-hidden="true" />{event.locationName}</a> : null}
     </>}
     {event.visibility === "private" ? <p className="approval-event-audience"><strong>{copy.audience}:</strong> {event.audienceNames.map((name) => name ?? copy.memberUnavailable).join(" · ")}</p> : null}

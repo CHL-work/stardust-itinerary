@@ -31,6 +31,24 @@ export const commonTimeZoneLabels = {
   },
 } as const;
 
+/**
+ * A place's time zone as people name it ("Japan / Tokyo", "Central European Time"), never an offset such as
+ * "GMT+9" (JOB-097, D-109): the common labels first, then the locale's generic name, then the zone's city.
+ */
+export function timeZoneDisplayName(zone: string, locale: Locale): string {
+  const commonLabels = localizedCatalog<Record<keyof typeof commonTimeZoneLabels.en, string>>(locale, "tripTimeZones", commonTimeZoneLabels);
+  const common = commonLabels[zone as keyof typeof commonLabels];
+  if (common) return common;
+  try {
+    const name = new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale, { timeZone: zone, timeZoneName: "longGeneric" })
+      .formatToParts(labelInstant).find((part) => part.type === "timeZoneName")?.value;
+    if (name && !/^(?:GMT|UTC)(?:[+\-−\d]|$)/u.test(name)) return name;
+  } catch {
+    // An unknown zone falls through to its own name.
+  }
+  return zone.split("/").pop()?.replaceAll("_", " ") || zone;
+}
+
 const optionsByLocale = new Map<Locale, TripCreationOptions>();
 
 /** Generate in the server page and pass plain option data to the client.

@@ -100,6 +100,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Plain local times (JOB-097, D-109):** times show each place's own clock without a zone name such as "GMT+9" or a "Trip time" suffix, in the itinerary, map, approvals, Activity, Calendar previews and flight change notes; the time column no longer wraps over five lines. The event editor names zones in words instead of IDs such as `Asia/Tokyo`. The itinerary and AI proposal screenshots were retaken.
 - **Routine check defaults (JOB-096, D-108):** GPT-6 Astra, Claude Opus 5.5 and Gemini 4 Argon at medium effort, instead of the low-cost Terra, Haiku and Flash; a model you chose for the same provider is kept.
 - **AI tab (JOB-096):** Chat moved into Conversations at the bottom: the chat sits above your past conversations in one section, open at first.
 - **Apache License 2.0 (JOB-095, D-107):** the application is relicensed from MIT to Apache 2.0, with a NOTICE for bundled data.
@@ -156,6 +157,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Removed
 
+- **Refresh models button (JOB-097):** the free model list in the AI conversation reloads by itself when you come back to the AI tab.
 - **Classic layout (JOB-081, D-093):** the original dark layout, the layout toggle in the header and the Settings **Screen layout** card are gone; everyone gets the one layout, light or dark with the system. The classic phone bottom bar, Overview date selector and swipe hint, the sidebar's placeholder progress bar, their classic-only styles and the stored `stardust.ui-mode.v1` preference went with them. The README screenshots were retaken without the toggle.
 
 ### Fixed

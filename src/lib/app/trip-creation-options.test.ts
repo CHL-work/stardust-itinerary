@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { getTripCreationOptions } from "@/lib/app/trip-creation-options";
+import { getTripCreationOptions, timeZoneDisplayName } from "@/lib/app/trip-creation-options";
 import { createTripSchema } from "@/lib/app/validation";
 import { isSupportedLedgerCurrency, supportedLedgerCurrencies } from "@/lib/app/supported-currencies";
 import { locales } from "@/lib/i18n";
@@ -10,6 +10,21 @@ const dallasTrip = {
   startsOn: "2026-10-08", endsOn: "2026-10-31", timeZone: "America/Chicago",
   defaultCurrency: "USD", defaultLocale: "en", maxMembers: 10,
 };
+
+describe("friendly time zone names (JOB-097, D-109)", () => {
+  it("names common zones, then each locale's generic name, then the zone's city", () => {
+    expect(timeZoneDisplayName("Asia/Tokyo", "en")).toBe("Japan / Tokyo");
+    expect(timeZoneDisplayName("Asia/Hong_Kong", "zh-HK")).toBe("香港");
+    expect(timeZoneDisplayName("Europe/Paris", "en")).toBe("Central European Time");
+    expect(timeZoneDisplayName("Not/A_Real_Zone", "en")).toBe("A Real Zone");
+  });
+
+  it.each(locales)("never names a city time zone by its offset in %s", (locale) => {
+    const offsetNamed = Intl.supportedValuesOf("timeZone").filter((zone) => zone.includes("/") && !zone.startsWith("Etc/"))
+      .filter((zone) => /^(?:GMT|UTC)(?:[+\-−\d]|$)/u.test(timeZoneDisplayName(zone, locale)));
+    expect(offsetNamed).toEqual([]);
+  });
+});
 
 describe("server-generated trip creation options", () => {
   it.each(locales)("offers valid, unique, code-sorted choices with Japan defaults for %s", (locale) => {

@@ -730,7 +730,6 @@
     "freeModelsLoading": "正在載入免費模型…",
     "freeModelsFailed": "無法載入免費模型，請再試一次。",
     "freeModelsEmpty": "目前沒有可用的免費模型。",
-    "freeModelsRefresh": "重新載入模型",
     "chooseModel": "選擇模型",
     "freePrivacy": "供應商可能保留你的問題、公開行程內容與免費聊天紀錄。請勿輸入敏感資訊。",
     "freeTextOnly": "僅限文字 · 不支援網路搜尋或圖片。",

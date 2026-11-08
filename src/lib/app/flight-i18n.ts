@@ -120,9 +120,10 @@ export function flightPointLocation(
   return shown.length ? shown.join(" · ") : locationName;
 }
 
+/** On the given place's clock, with no zone name such as "GMT+9" (D-109). */
 function shortDateTime(iso: string, locale: Locale, timeZone: string): string {
   return new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale, {
-    timeZone, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+    timeZone, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   }).format(new Date(iso));
 }
 

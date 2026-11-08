@@ -41,7 +41,7 @@ Application code (`src/lib/flights/status.ts`) decides from the answer; the mode
 | New terminal or gate | medium or high confidence | Flight details updated quietly; cards show the gate, else the terminal, else the airline (D-094). |
 | Anything else | | No change. A drift under 15 minutes, a departed or landed flight, low confidence, another flight or date, or no usable source changes nothing, and unknown details never clear known ones. |
 
-A badge shows only while the event still reflects that change. A member who edits the time or restores the event clears it. Zone labels never reinterpret stored UTC instants or change check scheduling; status updates retain the flight's saved endpoint zones.
+A badge shows only while the event still reflects that change. A member who edits the time or restores the event clears it. Local clocks never reinterpret stored UTC instants or change check scheduling; status updates retain the flight's saved endpoint zones.
 
 ## Records and audit
 

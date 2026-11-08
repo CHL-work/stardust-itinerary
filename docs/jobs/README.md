@@ -4,6 +4,7 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 
 | Job | Title | Status |
 | --- | --- | --- |
+| [JOB-097](JOB-097-plain-local-times.md) | Plain local times without zone names, retaken screenshots, and no free-model refresh button | done |
 | [JOB-096](JOB-096-routine-checks-on-by-themselves.md) | Routine checks that turn on by themselves, capable default models, and Chat inside Conversations | done |
 | [JOB-095](JOB-095-readme-and-license.md) | README story and features, English screenshots, phone install, and the Apache 2.0 license | done |
 | [JOB-094](JOB-094-routine-checks-on-your-key.md) | Routine checks on your own key, effort settings, and trip setup on your key or a free model | done |

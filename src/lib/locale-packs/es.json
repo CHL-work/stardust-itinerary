@@ -730,7 +730,6 @@
     "freeModelsLoading": "Cargando modelos gratuitos…",
     "freeModelsFailed": "No se pudieron cargar los modelos gratuitos. Inténtalo de nuevo.",
     "freeModelsEmpty": "No hay modelos gratuitos disponibles ahora.",
-    "freeModelsRefresh": "Actualizar modelos",
     "chooseModel": "Elige un modelo",
     "freePrivacy": "El proveedor puede conservar tu pregunta, el contexto público del viaje y el historial del chat gratuito. Evita datos sensibles.",
     "freeTextOnly": "Solo texto · sin búsquedas web ni imágenes.",

@@ -4,7 +4,6 @@ import type { DayMapLeg } from "@/lib/maps/client";
 import { dayMapMessages } from "@/lib/maps/i18n";
 import { localizedCatalog } from "@/lib/locale-packs";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
-import { flightMessages } from "@/lib/app/flight-i18n";
 import { tripLocalDateKey } from "@/lib/app/day-view";
 
 export type MapTravelMode = "walking" | "driving" | "transit";
@@ -14,13 +13,12 @@ export function dayMapStopTime(stop: DayMapStop, locale: Locale, timeZone: strin
   if (stop.allDay) return copy.allDay;
   if (!stop.at || !Number.isFinite(Date.parse(stop.at))) return copy.noTime;
   const zone = canonicalTripTimeZone(stop.timeZone ?? "") ?? timeZone;
-  const formatted = new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale, {
+  // The stop's own clock with no zone name (D-109); a differing local date is shown with it.
+  return new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale, {
     timeZone: zone, hour: "2-digit", minute: "2-digit",
-    timeZoneName: "short",
     ...(stop.isFlight || tripLocalDateKey(stop.at, zone) !== tripLocalDateKey(stop.at, timeZone)
       ? { month: "short", day: "numeric" } as const : {}),
   }).format(new Date(stop.at));
-  return stop.timeZoneKnown === false ? `${formatted} · ${flightMessages(locale).tripTimeFallback}` : formatted;
 }
 
 export function dayMapTravelModes(leg?: DayMapLeg): Array<{ mode: MapTravelMode; seconds: number; meters: number }> {

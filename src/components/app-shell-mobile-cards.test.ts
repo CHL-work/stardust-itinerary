@@ -98,10 +98,12 @@ describe("consistent pending and cancelled event cards", () => {
     for (const markup of [html, proposed]) {
       const rows = markup.split('<article').slice(1);
       expect(rows).toHaveLength(2);
+      // Each endpoint's own clock (Dallas, then Salt Lake City), with no zone name (D-109).
       expect(rows[0]).toContain('data-event-icon="flight-departure"');
-      expect(rows[0]).toContain("10:00 AM CDT");
+      expect(rows[0]).toContain("10:00 AM");
       expect(rows[1]).toContain('data-event-icon="flight-arrival"');
-      expect(rows[1]).toContain("11:00 AM MDT");
+      expect(rows[1]).toContain("11:00 AM");
+      expect(markup).not.toMatch(/CDT|MDT|GMT/u);
       expect(markup.match(/data-feedback-action="event_edit"/gu)).toHaveLength(1);
     }
   });

@@ -94,6 +94,7 @@ import { eventEditorFailureMessage, eventEditorMessages } from "@/lib/app/event-
 import { isFlightNumber, normalizeFlightNumber, type FlightChange, type FlightDetails } from "@/lib/app/flight";
 import { FlightChangeBadge } from "@/components/flight-change-badge";
 import { flightMessages, flightPointLocation } from "@/lib/app/flight-i18n";
+import { timeZoneDisplayName } from "@/lib/app/trip-creation-options";
 import {
   constrainNewEventExpense,
   currencyFactor,
@@ -3137,7 +3138,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     reply={aiQuickReplyGone ? null : aiReply} sources={aiQuickReplyGone ? [] : aiSources} memory={aiQuickReplyGone ? null : aiMemory}
     busy={busy || aiThinking || aiState.activeConversationId === undefined} thinking={aiThinking} statusText={aiStatusText}
     selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice} submit={askQuickAi}
-    freeCatalog={freeModels.catalog} refreshFreeCatalog={freeModels.refresh}
+    freeCatalog={freeModels.catalog}
     newConversation={() => setAiConversationResetOpen(true)} openHistory={() => { setQuickAiScope(null); setSection("ai"); }}
     historyLabel={aiHistoryCopy.viewHistory} imagePicker={overview.session.isGuest ? undefined : { ...aiImages, locale }}
     heading={!inSheet} autoFocus={inSheet && (aiQuickReplyGone || !aiReply)} />;
@@ -3253,7 +3254,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             prompt={aiPrompt} setPrompt={setAiPrompt} reply={aiState.error ? aiReply : null}
             sources={[]} memory={null} busy={busy || aiThinking} thinking={aiThinking}
             statusText={aiStatusText} selectedModel={selectedModel} setModel={updateModel} ownKeyChoice={ownKeyChoice} setOwnKeyChoice={setOwnKeyChoice}
-            freeCatalog={freeModels.catalog} refreshFreeCatalog={freeModels.refresh}
+            freeCatalog={freeModels.catalog}
             imagePicker={overview.session.isGuest ? undefined : { ...aiImages, locale }}
             submit={(event) => askAi(event, conversationId, purpose)} />}
         />}
@@ -3433,8 +3434,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <label>{messages.eventTitleField}<input required value={eventDraft.title} onChange={(event) => updateEventIdentity({ ...eventDraft, title: event.target.value })} /></label>
             <label>{messages.eventTypeField}<select value={eventDraft.itemType} onChange={(event) => updateEventType(event.target.value as EventDraft["itemType"])}>{["activity", "meal", "transport", "lodging", "note"].map((type) => <option value={type} key={type}>{eventTypeLabel(type, messages)}</option>)}</select></label>
             <EventTimeFields
-              startsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportDepartureTimeField : messages.eventStartsField, { timeZone: `${editorZones?.departureTimeZone ?? overview.trip.timeZone}${editorZones?.departureZoneKnown ? "" : ` · ${flightMessages(locale).tripTimeFallback}`}` })}
-              endsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportArrivalTimeField : messages.eventEndsField, { timeZone: `${editorZones?.arrivalTimeZone ?? overview.trip.timeZone}${editorZones?.arrivalZoneKnown ? "" : ` · ${flightMessages(locale).tripTimeFallback}`}` })}
+              startsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportDepartureTimeField : messages.eventStartsField, { timeZone: `${timeZoneDisplayName(editorZones?.departureTimeZone ?? overview.trip.timeZone, locale)}${editorZones?.departureZoneKnown ? "" : ` · ${flightMessages(locale).tripTimeFallback}`}` })}
+              endsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportArrivalTimeField : messages.eventEndsField, { timeZone: `${timeZoneDisplayName(editorZones?.arrivalTimeZone ?? overview.trip.timeZone, locale)}${editorZones?.arrivalZoneKnown ? "" : ` · ${flightMessages(locale).tripTimeFallback}`}` })}
               startTimeZone={editorZones?.departureTimeZone}
               endTimeZone={editorZones?.arrivalTimeZone}
               durationLabel={messages.eventDurationMinutesField} copy={eventEditorCopy}
@@ -4086,10 +4087,12 @@ export function parseFreeModelCatalog(value: unknown): FreeModelCatalog {
     ? requestedDefault as string : models[0]?.id ?? null };
 }
 
-/** One independent catalog request per AI scope; it never blocks the overview request. */
+/**
+ * One independent catalog request per AI scope; it never blocks the overview request. A failed load is not
+ * cached, so returning to the AI tab tries again (there is no refresh button, JOB-097).
+ */
 function useFreeModelCatalog(scope: string | null, tripId: string | null, enabled: boolean, active: boolean) {
   const [state, setState] = useState<{ scope: string; catalog: FreeModelCatalog } | null>(null);
-  const [refreshVersion, setRefreshVersion] = useState(0);
   const cache = useRef<{ scope: string; catalog: FreeModelCatalog; loadedAt: number } | null>(null);
   useEffect(() => {
     if (!scope || !tripId || !enabled || !active) return;
@@ -4116,9 +4119,8 @@ function useFreeModelCatalog(scope: string | null, tripId: string | null, enable
       } finally { window.clearTimeout(timeout); }
     }, 0);
     return () => { cancelled = true; abort.abort(); window.clearTimeout(start); window.clearTimeout(timeout); };
-  }, [scope, tripId, enabled, active, refreshVersion]);
-  const refresh = useCallback(() => { cache.current = null; setRefreshVersion((version) => version + 1); }, []);
-  return { catalog: state?.scope === scope && enabled ? state.catalog : freeCatalogLoading, refresh };
+  }, [scope, tripId, enabled, active]);
+  return { catalog: state?.scope === scope && enabled ? state.catalog : freeCatalogLoading };
 }
 
 /** Every visible paid model needs the viewer's own key. No hidden shared/operator fallback. */
@@ -4151,7 +4153,7 @@ export function aiFundingNote(ai: Overview["ai"], messages: Messages, keysCopy: 
   return keysCopy.ownKeyAccess;
 }
 
-export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, ownKeyChoice = "", setOwnKeyChoice, freeCatalog, refreshFreeCatalog, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale, heading = true, autoFocus = false }: {
+export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, memory, busy, thinking, statusText, selectedModel, ownKeyChoice = "", setOwnKeyChoice, freeCatalog, submit, newConversation, openHistory, historyLabel, imagePicker, readOnly = false, locale, heading = true, autoFocus = false }: {
   overview: Overview;
   messages: Messages;
   prompt: string;
@@ -4167,7 +4169,6 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
   ownKeyChoice?: string;
   setOwnKeyChoice?: (model: string) => void;
   freeCatalog?: FreeModelCatalog;
-  refreshFreeCatalog?: () => void;
   submit: (event: FormEvent) => Promise<void>;
   newConversation?: () => void;
   openHistory?: () => void;
@@ -4218,9 +4219,8 @@ export function AiCard({ overview, messages, prompt, setPrompt, reply, sources, 
         {newConversation ? <button data-feedback-action="ai_new" type="button" className="ai-conversation-button" disabled={busy} onClick={newConversation}><Plus size={14} /> {messages.newAiConversation}</button> : null}
       </div>
       {modelSelect}
-      {overview.ai.enabled && overview.ai.freeAi ? <div className="free-model-status">
-        {catalogNote ? <p className="policy-note" role="status">{catalogNote}</p> : null}
-        {refreshFreeCatalog ? <button type="button" className="mini-button" disabled={busy || freeCatalog?.status === "loading"} onClick={refreshFreeCatalog}><RefreshCw size={13} />{keysCopy.freeModelsRefresh}</button> : null}
+      {overview.ai.enabled && overview.ai.freeAi && catalogNote ? <div className="free-model-status">
+        <p className="policy-note" role="status">{catalogNote}</p>
       </div> : null}
       {choice.free ? <div className="free-ai-notice" role="note"><p className="policy-note">{idleMessage}</p><p className="policy-note">{keysCopy.freePrivacy}</p><p className="policy-note">{freeImages ? keysCopy.freeRemoveImages : keysCopy.freeTextOnly}</p></div> : null}
       {openHistory ? <button data-feedback-action="navigate" type="button" className="ghost-button" onClick={openHistory}>{historyLabel}<ChevronRight size={16} /></button> : null}

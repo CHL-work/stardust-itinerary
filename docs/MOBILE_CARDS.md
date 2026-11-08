@@ -12,7 +12,7 @@ These card and safe-removal rules add no provider or payment processing.
 
 Icons are decorative and non-focusable; localized titles/type/status text stays. Private and owner-locked events show their type as well as the separate lock label, and pending/cancelled indicators are unchanged. Offline cards retain only safe flight-kind/known-zone metadata, never flight numbers, terminals, gates or booking facts; unimported Calendar candidates keep their Calendar icon. Static imports add no image downloads, extra requests, animation or new dependency.
 
-Every event's clocks use its location's IANA zone, including hotels, meals and non-flight transport endpoints. Labels show the zone and any differing local date, with an honest **Trip time** fallback. Both transport rows remain one event/action set. [Resolution, editing and compatibility](EVENT_LOCAL_TIME.md) define the shared behavior; UTC ordering and trip-calendar grouping are unchanged.
+Every event's clocks use its location's IANA zone, including hotels, meals and non-flight transport endpoints. Times show any differing local date but no zone name (D-109); an unknown place uses the trip's clock. Both transport rows remain one event/action set. [Resolution, editing and compatibility](EVENT_LOCAL_TIME.md) define the shared behavior; UTC ordering and trip-calendar grouping are unchanged.
 
 ## Reading and actions
 

@@ -34,16 +34,16 @@ describe("private Calendar import form", () => {
     const local = { ...preview, source: { ...preview.source, startsAt: "2030-04-01T21:00:00Z", endsAt: "2030-04-02T17:00:00Z",
       location: "Synthetic hotel", timeZones: { start: "America/Denver", end: "America/Denver" } } };
     const html = renderToStaticMarkup(createElement(CalendarImportForm, { ...base, preview: local, timeZone: "America/Chicago" }));
-    expect(html).toContain("Apr 1, 03:00 PM MDT"); expect(html).toContain("Apr 2, 11:00 AM MDT");
-    expect(html).not.toContain("Trip time");
+    expect(html).toContain("Apr 1, 03:00 PM"); expect(html).toContain("Apr 2, 11:00 AM");
+    expect(html).not.toMatch(/MDT|Trip time/u);
     expect(calendarImportPayload(local, draft)).not.toHaveProperty("timeZones");
   });
   it("uses the known venue zone rather than the Calendar owner's display zone", () => {
     const local = { ...preview, source: { ...preview.source, startsAt: "2030-04-01T21:00:00Z", endsAt: "2030-04-02T17:00:00Z",
       location: "Synthetic hotel, Salt Lake City, Utah", timeZones: { start: "America/Chicago", end: "America/Chicago" } } };
     const html = renderToStaticMarkup(createElement(CalendarImportForm, { ...base, preview: local, timeZone: "America/Chicago" }));
-    expect(html).toContain("Apr 1, 03:00 PM MDT"); expect(html).toContain("Apr 2, 11:00 AM MDT");
-    expect(html).not.toContain("CDT");
+    expect(html).toContain("Apr 1, 03:00 PM"); expect(html).toContain("Apr 2, 11:00 AM");
+    expect(html).not.toMatch(/CDT|MDT/u);
   });
   it.each(locales)("has localized read-only source and explicit sharing in %s", (locale) => {
     const html = renderToStaticMarkup(createElement(CalendarImportForm, { ...base, locale })); const copy = calendarImportMessages(locale);

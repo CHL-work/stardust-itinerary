@@ -730,7 +730,6 @@
     "freeModelsLoading": "正在加载免费模型…",
     "freeModelsFailed": "无法加载免费模型，请重试。",
     "freeModelsEmpty": "目前没有可用的免费模型。",
-    "freeModelsRefresh": "刷新模型",
     "chooseModel": "选择模型",
     "freePrivacy": "提供商可能保留你的问题、公开行程内容和免费聊天记录。请勿输入敏感信息。",
     "freeTextOnly": "仅限文字 · 不支持网络搜索或图片。",

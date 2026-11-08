@@ -12,6 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
+| JOB-097 | Plain local times without zone names, retaken screenshots, and no free-model refresh button | Done: every time shows its place's clock without "GMT+9" or "Trip time"; the editor names zones in words; itinerary and AI proposal screenshots retaken (D-109) |
 | JOB-096 | Routine checks that turn on by themselves, capable default models, and Chat inside Conversations | Done, deployed and verified on GKE: a saved key's web search check starts by itself and turns routine checks on; GPT-6 Astra, Claude Opus 5.5 and Gemini 4 Argon at medium by default; Chat merged into Conversations (D-108) |
 | JOB-095 | README story and features, English screenshots, phone install, and the Apache 2.0 license | Done: why the app exists, key features, phone install, hosting and feedback in the README; five English screenshots; Apache 2.0 with a NOTICE (D-107) |
 | JOB-094 | Routine checks on your own key, effort settings, and trip setup on your key or a free model | Done, deployed and verified on GKE: member-funded flight and disruption checks in the web server behind a web search check, chosen model and effort, chat effort, lookups on own key or free model (D-106) |

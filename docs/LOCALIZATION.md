@@ -77,7 +77,7 @@ The eight languages added in [D-096](DECISIONS.md) are translation packs, not co
 - Keep English keys/code identifiers and parameterized messages; do not concatenate translated sentence fragments.
 - Format dates, times, numbers and currency with locale-aware helpers, preserving exact integer monetary values. Language selection cannot change an allocation.
 - Store IANA time zones, not translated labels. Transport endpoint timing and optional unknown ends must not become guessed travel/departure estimates.
-- All event clocks use their location/endpoint zone and localized short zone label; show the local date when it differs from the trip date. Unknown zones explicitly use the localized Trip time fallback. Auto, zone controls and DST errors are translated in all twelve locales. [Event-local time contract](EVENT_LOCAL_TIME.md).
+- All event clocks use their location/endpoint zone with no zone name (D-109), and show the local date when it differs from the trip date. Unknown zones use the trip's clock; the editor's time fields say the localized Trip time and name zones in words. Auto, zone controls and DST errors are translated in all twelve locales. [Event-local time contract](EVENT_LOCAL_TIME.md).
 - Preserve user names/content unless an explicit authorized change follows normal revision/audit rules.
 - Test placeholder parity, missing keys, narrow phone/CJK wrapping, 44px targets and 16px form inputs. Accessible names must contain visible labels and include necessary context.
 - Verify Chinese, Japanese and Cyrillic font coverage and first-paint language behavior; Simplified and Taiwanese Chinese have their own font stacks. Do not convey financial/status meaning through color alone.

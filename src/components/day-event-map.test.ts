@@ -37,14 +37,17 @@ function closure<T>(name: string, bindings: Record<string, unknown>): T {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("map-only daily journey presentation", () => {
-  it("labels flights and ordinary events with their local zone", () => {
+  it("shows flights and ordinary events on their local clock, with no zone name (D-109)", () => {
     const departure = { ...stop, at: "2026-09-27T14:00:00Z", isFlight: true, timeZoneKnown: true, timeZone: "Asia/Tokyo" };
     const arrival = { ...departure, kind: "arrival" as const, at: "2026-09-27T23:00:00Z", timeZone: "America/Los_Angeles" };
-    expect(dayMapStopTime(departure, "en", "Asia/Tokyo")).toBe("Sep 27, 11:00 PM GMT+9");
-    expect(dayMapStopTime(arrival, "en", "Asia/Tokyo")).toBe("Sep 27, 04:00 PM PDT");
-    expect(dayMapStopTime(stop, "en", "Asia/Tokyo")).toBe("10:00 AM GMT+9");
-    for (const locale of locales) expect(dayMapStopTime({ ...arrival, timeZoneKnown: false }, locale, "Asia/Tokyo"))
-      .toContain(flightMessages(locale).tripTimeFallback);
+    expect(dayMapStopTime(departure, "en", "Asia/Tokyo")).toBe("Sep 27, 11:00 PM");
+    expect(dayMapStopTime(arrival, "en", "Asia/Tokyo")).toBe("Sep 27, 04:00 PM");
+    expect(dayMapStopTime(stop, "en", "Asia/Tokyo")).toBe("10:00 AM");
+    for (const locale of locales) {
+      const unknown = dayMapStopTime({ ...arrival, timeZoneKnown: false }, locale, "Asia/Tokyo");
+      expect(unknown).not.toContain(flightMessages(locale).tripTimeFallback);
+      expect(unknown).not.toMatch(/GMT|UTC/u);
+    }
   });
   it.each(locales)("starts collapsed without a provider request or private content in %s", locale => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
@@ -109,7 +112,7 @@ describe("map-only daily journey presentation", () => {
     expect(unknown).toContain(dayMapMessages("en").noLocations); expect(unknown).toContain(missing.title); expect(unknown).toContain(dayMapMessages("en").unplotted); expect(unknown).not.toContain("<img");
   });
   it("retains trip-local and all-day times and neutral Cantonese privacy text", () => {
-    expect(dayMapStopTime(stop, "en", "Asia/Tokyo")).toBe("10:00 AM GMT+9"); expect(dayMapStopTime({ ...stop, at: null }, "en", "Asia/Tokyo")).toBe("Time not set"); expect(dayMapStopTime({ ...stop, allDay: true }, "ja-JP", "America/Chicago")).toBe("終日"); expect(dayMapMessages("zh-HK-lihkg")).toEqual(dayMapMessages("zh-HK"));
+    expect(dayMapStopTime(stop, "en", "Asia/Tokyo")).toBe("10:00 AM"); expect(dayMapStopTime({ ...stop, at: null }, "en", "Asia/Tokyo")).toBe("Time not set"); expect(dayMapStopTime({ ...stop, allDay: true }, "ja-JP", "America/Chicago")).toBe("終日"); expect(dayMapMessages("zh-HK-lihkg")).toEqual(dayMapMessages("zh-HK"));
   });
   it("preserves image aspect, attribution, keyboard styles and all-card resize measurement", () => {
     const css = readFileSync("src/components/day-event-map.module.css", "utf8"); expect(css).toContain("min-height: 44px"); expect(css).toContain(":focus-visible"); expect(css).toContain("height: auto"); expect(css).toContain("overflow-wrap: anywhere"); expect(css).not.toContain("object-fit: cover");

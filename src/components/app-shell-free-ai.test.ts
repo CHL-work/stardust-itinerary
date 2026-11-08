@@ -22,7 +22,7 @@ function render(overrides: Partial<Props["overview"]["ai"]> = {}, props: Partial
     overview: { session: { isOwner: false }, ai: { ...ai, ...overrides } } as Props["overview"],
     locale, messages: messages[locale], prompt: "Add ramen tomorrow", setPrompt: vi.fn(), reply: null,
     sources: [], memory: null, busy: false, thinking: false, selectedModel: "gpt-6.1-sol",
-    setModel: vi.fn(), setOwnKeyChoice: vi.fn(), submit: vi.fn(), freeCatalog: catalog, refreshFreeCatalog: vi.fn(), ...props,
+    setModel: vi.fn(), setOwnKeyChoice: vi.fn(), submit: vi.fn(), freeCatalog: catalog, ...props,
   }));
 }
 
@@ -112,14 +112,16 @@ describe("free model choice for every member (JOB-086)", () => {
     expect(aiRequestModelChoice(ai, "gpt-6.1-sol", `free:${liquid}`, { ...catalog, status: "error" }).unavailable).toBe(true);
   });
 
-  it.each(locales)("shows localized catalog loading, failure, empty and refresh states in %s", (locale) => {
+  it.each(locales)("shows localized catalog loading, failure and empty states in %s, with no refresh button (JOB-097)", (locale) => {
     const copy = aiKeysMessages(locale);
     for (const [status, message] of [["loading", copy.freeModelsLoading], ["error", copy.freeModelsFailed], ["ready", copy.freeModelsEmpty]] as const) {
       const html = render({}, { freeCatalog: { status, models: [], defaultModel: null } }, locale);
       expect(html).toContain(escape(message));
-      if (status !== "loading") expect(html).toContain(escape(copy.freeModelsRefresh));
+      expect(html).not.toContain('class="mini-button"');
       expect(html).toContain(`<button disabled="" aria-label="${messages[locale].sendAiPrompt}"`);
     }
+    // A ready catalog with models needs no status line at all.
+    expect(render({}, {}, locale)).not.toContain('class="free-model-status"');
   });
 
   it("validates the catalog response before putting identifiers into request bodies", () => {

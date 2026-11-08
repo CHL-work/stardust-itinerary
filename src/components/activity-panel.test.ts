@@ -27,10 +27,10 @@ describe("localized owner Settings Activity", () => {
       eventTimeZones: { start: "America/Denver", end: "America/Denver" } };
     const html = renderToStaticMarkup(createElement(ActivityPanel, { ...props, timeZone: "America/Chicago", entries: [event] }));
     expect(html).toContain("Jul 15, 2030, 04:00 PM"); // Recorded timestamp, trip time.
-    expect(html).toContain("Jul 15, 03:00 PM MDT"); expect(html).toContain("Jul 17, 11:00 AM MDT");
+    expect(html).toContain("Jul 15, 03:00 PM"); expect(html).toContain("Jul 17, 11:00 AM"); expect(html).not.toContain("MDT");
     const unresolved = renderToStaticMarkup(createElement(ActivityPanel, { ...props, timeZone: "America/Chicago",
       entries: [{ ...event, eventTimeZones: { start: null, end: null } }] }));
-    expect(unresolved).toContain("04:00 PM CDT · Trip time");
+    expect(unresolved).toContain("04:00 PM"); expect(unresolved).not.toMatch(/CDT|Trip time/u);
     const bill = renderToStaticMarkup(createElement(ActivityPanel, { ...props, timeZone: "America/Chicago",
       entries: [{ ...entry, startsAt: event.startsAt }] }));
     expect(bill).toContain("Jul 15, 2030, 04:00 PM"); expect(bill).not.toContain("MDT");

@@ -9,7 +9,9 @@ Hotels, meals, activities, notes and transport display their location's local ti
 1. An explicit validated `timeZones.start` / `timeZones.end` correction wins. Non-transport uses `start` for both ends.
 2. Existing flight endpoint zones and unambiguous airport codes remain supported.
 3. Saved venue coordinates or unambiguous locality/address evidence resolve offline. A Maps camera center or short link is not coordinate evidence; links are never followed.
-4. Unknown or contradictory evidence uses the trip zone with a **Trip time** label. Users can correct the zone in the event editor. The app never claims that fallback is verified local time.
+4. Unknown or contradictory evidence uses the trip zone. The event editor says **Trip time** beside its time fields, where users can correct the zone; the app never claims that fallback is verified local time.
+
+**Display (JOB-097, D-109).** Every time shows its place's own clock with no zone name: no `GMT+9`, `UTC`, `CST` or "Trip time" beside it, because the airport or place shown with it already says where. A local date that differs from the trip date still appears. The event editor, where times are typed and corrected, names the zone in words ("Japan / Tokyo", "Central European Time"; `timeZoneDisplayName`), never as an offset.
 
 The compact coordinate grid is approximate, especially near borders. The locality catalog covers cities of at least 50,000 people and capitals, retaining conflicting namesakes from the source; it is not a universal venue database. A hotel name without geographic evidence may need an explicit zone. No location, private title or booking is sent to a provider for these lookups, and there are no per-render API/model calls.
 

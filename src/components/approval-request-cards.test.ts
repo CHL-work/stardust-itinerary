@@ -26,10 +26,10 @@ describe("readable approval cards", () => {
       display: { kind: "itinerary", event: { ...event, itemType, timeZones: { start: "America/Denver", end: "America/Denver" },
         startsAt: "2030-07-15T21:00:00Z", endsAt: "2030-07-16T17:00:00Z", linkedExpense: null } } }],
       locale: "en", timeZone: "America/Chicago", messages: messages.en, busy: false, review: vi.fn() }));
-    expect(html).toContain("Jul 15, 2030, 03:00 PM MDT");
-    expect(html).toContain("Jul 16, 2030, 11:00 AM MDT");
-    expect(html).not.toContain("04:00 PM CDT");
-    expect(html).not.toContain("Trip time");
+    expect(html).toContain("Jul 15, 2030, 03:00 PM");
+    expect(html).toContain("Jul 16, 2030, 11:00 AM");
+    expect(html).not.toContain("04:00 PM");
+    expect(html).not.toMatch(/MDT|CDT|GMT|Trip time/u);
   });
   it("shows a meal icon beside the localized type without replacing privacy or approval labels", () => {
     const html = render();
@@ -44,25 +44,26 @@ describe("readable approval cards", () => {
     expect(html).toContain('data-event-icon="flight-departure"');
     expect(html).toContain('data-event-icon="flight-arrival"');
     expect(html).toContain("Flight");
-    expect(html).toContain("Trip time");
+    // Unknown airports use the trip clock, unlabeled (D-109).
+    expect(html).not.toContain("Trip time");
   });
-  it("shows each flight endpoint's local date, clock and zone without exposing flight metadata", () => {
+  it("shows each flight endpoint's local date and clock, with no zone name, without exposing flight metadata", () => {
     const html = render({ display: { kind: "itinerary", event: { ...event, itemType: "transport", isFlight: true,
       startsAt: "2030-07-15T05:30:00Z", endsAt: "2030-07-15T07:30:00Z",
       departureLocationName: "Airport Alpha", destinationLocationName: "Airport Beta",
       flightPresentation: { isFlight: true, departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" } } } });
-    expect(html).toContain("12:30 AM CDT");
-    expect(html).toContain("01:30 AM MDT");
-    expect(html).not.toContain("Trip time");
+    expect(html).toContain("12:30 AM");
+    expect(html).toContain("01:30 AM");
+    expect(html).not.toMatch(/CDT|MDT|GMT|Trip time/u);
     expect(html).not.toContain("flightNumber");
     expect(html).toContain('dateTime="2030-07-15T05:30:00Z"');
   });
-  it("labels a preceding local calendar date and retains unknown-zone fallback on historical flights", () => {
+  it("labels a preceding local calendar date on historical flights", () => {
     const html = render({ display: { kind: "itinerary", event: { ...event, itemType: "transport", isFlight: true,
       startsAt: "2030-07-15T03:30:00Z", endsAt: "2030-07-15T05:30:00Z",
       departureLocationName: "DFW", destinationLocationName: "SLC" } } });
-    expect(html).toContain("Jul 14, 2030, 10:30 PM CDT");
-    expect(html).toContain("Jul 14, 2030, 11:30 PM MDT");
+    expect(html).toContain("Jul 14, 2030, 10:30 PM");
+    expect(html).toContain("Jul 14, 2030, 11:30 PM");
   });
   it.each(["pending", "rejected"] as const)("binds %s history actions to the exact rendered proposal version", (status) => {
     const review = vi.fn(); const current = { ...request, status, proposalRevision: 3 };

@@ -2,6 +2,14 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-109: Plain local times, and no free-model refresh button (accepted November 8, 2026)
+
+The owner asked that the app stop showing time zones such as "GMT 0", noticed the itinerary screenshot was out of date, and asked to remove the refresh-models button from the AI conversation (JOB-097).
+
+- **Times:** every time shows its place's own clock with no zone name: no `GMT+9`, `UTC`, `CST` or "Trip time" in the itinerary, map, approvals, Activity, Calendar previews or flight change notes. The airport or place beside a time says where, as on a boarding pass. D-102 and D-103's zone resolution, DST handling, local dates and UTC ordering are unchanged; only the label goes.
+- **Editor:** the time fields name the zone in words ("Japan / Tokyo", "Central European Time"), never as an offset or raw IANA ID, and still say Trip time for a guessed zone, because that is where it can be corrected.
+- **Free models:** the Refresh models button is gone. A failed list is not cached, so it loads again when the AI tab is opened again. [Contract](EVENT_LOCAL_TIME.md).
+
 ## D-108: Routine checks turn on by themselves, with capable defaults, and Chat joins Conversations (accepted November 8, 2026)
 
 The owner asked that routine checks turn on automatically when a member enters an OpenAI, Claude or Gemini key that passes the check, by default with GPT-6 Astra, Claude Opus 5.5 or Gemini 4 Argon at medium effort, and that the AI tab's Chat section merge into Conversations at the bottom (JOB-096). The owner authorized deploying without further approval.
@@ -40,11 +48,11 @@ JOB-092 broadens D-098's catalog eligibility: native JSON-schema metadata is no 
 
 ## D-103: Every event uses its location's clock (accepted November 8, 2026)
 
-JOB-091 extends D-102 beyond flights: hotels, meals, activities and non-flight transport resolve location-local IANA zones. Optional explicit start/end corrections, existing flight evidence, offline coordinates and unambiguous city/address evidence precede a labeled trip-time fallback. No render-time provider lookup or historic timestamp rewrite. Location changes clear stale explicit zones, including flight overrides; UTC instants, trip-calendar grouping and financial dates remain unchanged. The owner approved pushing/deploying after tests and requested current concise feature docs, not a separate handover document. [Contract](EVENT_LOCAL_TIME.md).
+JOB-091 extends D-102 beyond flights: hotels, meals, activities and non-flight transport resolve location-local IANA zones. Optional explicit start/end corrections, existing flight evidence, offline coordinates and unambiguous city/address evidence precede a trip-time fallback (labeled only in the editor since D-109). No render-time provider lookup or historic timestamp rewrite. Location changes clear stale explicit zones, including flight overrides; UTC instants, trip-calendar grouping and financial dates remain unchanged. The owner approved pushing/deploying after tests and requested current concise feature docs, not a separate handover document. [Contract](EVENT_LOCAL_TIME.md).
 
 ## D-102: Airport-local flight clocks (accepted November 7, 2026)
 
-Flights show takeoff/landing icons and each endpoint's local clock and zone, not the trip zone at both airports (JOB-090). Optional validated IANA zones in `flight` override a compact, pinned MIT airport-code catalog; unknown endpoints explicitly say Trip time. No render-time lookup or model call. UTC instants, elapsed duration, countdowns and trip-calendar day grouping stay unchanged; a differing endpoint-local date is displayed.
+Flights show takeoff/landing icons and each endpoint's local clock and zone, not the trip zone at both airports (JOB-090); D-109 dropped the zone name from the display. Optional validated IANA zones in `flight` override a compact, pinned MIT airport-code catalog; unknown endpoints explicitly say Trip time. No render-time lookup or model call. UTC instants, elapsed duration, countdowns and trip-calendar day grouping stay unchanged; a differing endpoint-local date is displayed.
 
 This narrowly refines D-100: legacy transport titles with an explicit flight/airline marker, valid flight designator and exactly one unambiguous known IATA route may select flight presentation. Generic transfers/trains/buses do not. This never backfills metadata or enables flight monitoring. Offline/approval projections retain only a flight flag and known zones, not booking facts.
 
