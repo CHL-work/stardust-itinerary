@@ -42,7 +42,7 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 | Security and identity | `docs/IDENTITY_AND_SECURITY.md`, `docs/THREAT_MODEL.md`, `docs/PRIVACY.md` (the public instance's privacy notice) |
 | Public-ready accounts and member removal | `docs/PUBLIC_TRIPS_AND_MEMBERS.md` |
 | Create Trip destination defaults | `docs/TRIP_DESTINATION_DEFAULTS.md` |
-| AI | `docs/AI_AND_AGENTS.md` |
+| AI | `docs/AI_AND_AGENTS.md`, `docs/AI_KEYS.md` |
 | Personal AI instructions and retired preference schema | `docs/AI_CUSTOM_INSTRUCTIONS.md`, historical `docs/AI_PREFERENCE_CONVERSATIONS.md` |
 | Settings audit presentation | `docs/ACTIVITY.md` |
 | Advanced settings, private feedback and issue-only daily triage | `docs/FEEDBACK.md` |

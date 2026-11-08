@@ -17,11 +17,11 @@ Up to 20 people share one trip: day-by-day events, private events visible only t
 - **Container:** one container image runs the web server, workers, migrations, encrypted backups and a provider smoke check, selected by an entrypoint mode.
 - **Self-hosting:** Docker Compose runs it on one machine.
 - **The public instance** runs on GKE Autopilot:
-  - Everything in Google Cloud is OpenTofu (`infra/`). Everything in the cluster is Kustomize.
+  - Infrastructure is OpenTofu (`infra/`) and Kustomize; per-user secret resources, when enabled, are application-owned lifecycle data.
   - There are no service-account keys. Nodes, workloads and GitHub Actions authenticate with Workload Identity.
-  - Secret Manager secrets are mounted as files, and each workload may read only its own. The key that decrypts users' AI keys is mounted only in the web server.
+  - Configuration secrets are mounted from Secret Manager, with per-workload access. The web server alone can use the non-exportable KMS key; optional per-user Secret Manager payloads are fetched directly, not mounted.
   - Pods run as non-root with read-only file systems and no Kubernetes token.
-  - NetworkPolicies block the metadata server, give the guest-purge job only the database and DNS, and the off-site copy only the database, DNS and PostgreSQL's port.
+  - NetworkPolicies allow metadata only for web KMS/secret access and the optional delete-only secret cleaner; guest purge gets only the database and DNS, and the off-site copy only the database, DNS and PostgreSQL's port.
   - Traffic arrives through an outbound-only Cloudflare Tunnel: no load balancer, no public IP.
   - PostgreSQL 17 runs in the cluster, with daily age-encrypted, verified backups, and a daily copy outside Google Cloud, in a Neon free-plan project, that is restored and checked table by table.
 - **Release:** every push to `main` builds an image, after CI runs lint, typecheck, about 4,700 unit tests, a database suite on real PostgreSQL, a production build, a smoke test and gitleaks. When CI passes, the image is built and deployed without manual steps. The deploy takes a pre-migration backup, runs migrations as a job that must succeed, then rolls out.
@@ -42,6 +42,7 @@ Up to 20 people share one trip: day-by-day events, private events visible only t
     - An IAM deny policy also refuses the project's owners, so the person running the site cannot quietly decrypt users' keys. Every use is in the audit log.
     - Settings tells users exactly that, and that the server still decrypts a key to send their requests.
   - A request on a user's key runs inside an `AsyncLocalStorage` context. Its subprocess sees only that key and a private, per-request state directory, never the operator's keys or another request's files. A test runs two users concurrently to prove it.
+  - Optional Secret Manager storage (JOB-087) moves KMS ciphertext out of PostgreSQL without weakening this protection. Version references are pinned and account-bound; replacement commits only after cloud verification and access/revision rechecks. A delete-only worker cleans retired resources, and guest secrets expire with the guest. [Contract](AI_KEYS.md).
   - One resolver decides who pays (own key, an owner's shared key, operator sponsorship, or explicit keyless Free AI). The composer offers each eligible free model and only the user's own-key paid models, defaulting to free without an own key; legacy automatic funding remains compatible. No free failure silently charges a key (JOB-086).
 - **Free without hidden billing** (JOB-086): a live catalog confirms zero prices and structured-output support, a keyless context cannot use keyed adapters, and database locks cap both admitted requests and actual upstream attempts. The narrower context excludes private events, expenses, notes and paid-chat memory, with retention disclosed; free changes stay pending review.
 - **Key sharing** (JOB-063): an owner can let chosen members use their key in one trip. A checkbox on the invite or join link, and a per-member switch, control it. Every use re-checks that the sponsor is still an owner who holds a key, and is recorded with whose key paid.

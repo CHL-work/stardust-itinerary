@@ -4,6 +4,8 @@ Current implementation reference. [Architecture](ARCHITECTURE.md#ai-transport-bo
 
 ## 1. Separate planning, provider and development trust domains
 
+User keys belong to immutable accounts, entered through Settings. Optional Secret Manager storage preserves KMS account/provider binding, with only references in PostgreSQL; it does not change funding or sharing. See [key storage and lifecycle](AI_KEYS.md). The in-app AI never gets access to the secret-store API.
+
 The provider-neutral planner uses the official OpenAI Codex SDK and Claude Agent SDK adapters and a direct Gemini REST adapter. Each request runs on the key `getAiPolicy` chooses:
 - the requester's own key (JOB-061);
 - a trip owner's key shared with them (JOB-063);

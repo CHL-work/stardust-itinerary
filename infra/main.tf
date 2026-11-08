@@ -13,13 +13,14 @@ locals {
   # runs no model; the reviewer runs as stardust-worker. Only the off-site copy job holds the
   # off-site database's connection string (D-083).
   secrets = {
-    "stardust-app-env"            = ["stardust-web", "stardust-worker", "stardust-feedback", "stardust-migrate"]
-    "stardust-ai-env"             = ["stardust-web", "stardust-worker"]
-    "stardust-credential-env"     = ["stardust-web"]
-    "stardust-feedback-env"       = ["stardust-feedback"]
-    "stardust-db-admin-password"  = ["stardust-db", "stardust-migrate", "stardust-backup", "stardust-offsite-copy", "stardust-guest-purge"]
-    "stardust-offsite-env"        = ["stardust-offsite-copy"]
-    "stardust-tunnel-credentials" = ["stardust-tunnel"]
+    "stardust-app-env"                = ["stardust-web", "stardust-worker", "stardust-feedback", "stardust-migrate"]
+    "stardust-ai-env"                 = ["stardust-web", "stardust-worker"]
+    "stardust-credential-env"         = ["stardust-web"]
+    "stardust-credential-cleanup-env" = ["stardust-credential-cleanup"]
+    "stardust-feedback-env"           = ["stardust-feedback"]
+    "stardust-db-admin-password"      = ["stardust-db", "stardust-migrate", "stardust-backup", "stardust-offsite-copy", "stardust-guest-purge"]
+    "stardust-offsite-env"            = ["stardust-offsite-copy"]
+    "stardust-tunnel-credentials"     = ["stardust-tunnel"]
   }
   secret_grants = merge([
     for secret, accounts in local.secrets : {

@@ -43,7 +43,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/component
                 operator: In
-                values: ["web", "disruption", "feedback", "feedback-publish", "migrate", "backup", "offsite-copy", "guest-purge"]
+                values: ["web", "disruption", "feedback", "feedback-publish", "migrate", "backup", "offsite-copy", "guest-purge", "credential-secret-cleanup"]
       ports:
         - port: 5432
           protocol: TCP

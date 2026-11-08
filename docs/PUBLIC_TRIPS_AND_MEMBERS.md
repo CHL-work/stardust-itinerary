@@ -44,6 +44,8 @@ The operator is verified through the stored Google identity and configured `OWNE
 
 ### Your own API keys
 
+Keys belong to the account, not a particular trip. The optional [Secret Manager backend](AI_KEYS.md) changes storage only: no automatic operator-key import or new sponsorship grant.
+
 Any member can add their own OpenAI, Anthropic or Gemini API key in **Settings → AI keys** (JOB-061). The key is checked with the provider, stored encrypted and never shown again; only its last four characters are. An explicit paid-model choice uses the requester's matching key. Without a choice, an unsponsored trip uses their key when available; a sponsored trip keeps its sponsorship, so saving a key never silently starts charging a member. Own-key requests do not consume the trip's daily prompt limit. Unsupported explicit paid choices are refused, never silently replaced. Trip owners never see or use other members' keys; on the public instance only the web server may use the Cloud KMS key that seals them (D-084). Suspension stops own and shared funding until the account is restored. Trip AI off disables every funding route.
 
 In the app:

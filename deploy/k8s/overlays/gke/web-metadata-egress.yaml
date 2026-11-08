@@ -1,7 +1,8 @@
 # The web server may reach the GKE metadata server for its Kubernetes identity's token, which it
 # uses only to act as the service account that seals users' AI keys with Cloud KMS (JOB-069). The
-# base app-egress policy keeps every other pod away from the metadata server. Ports as documented
-# for Workload Identity Federation for GKE, including GKE Dataplane V2.
+# base app-egress policy keeps other application pods away from metadata. The optional delete-only
+# credential cleanup worker has its own narrow policy. Ports as documented for Workload Identity
+# Federation for GKE, including GKE Dataplane V2.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

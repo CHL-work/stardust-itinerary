@@ -90,6 +90,8 @@ Sync uses deterministic provider IDs/private linkage plus an item advisory lock.
 
 ## 6. Audit and privacy
 
+Account-owned AI key storage supports pinned Secret Manager references with KMS-encrypted payloads (JOB-087), without broadening sharing, operator access or provider environments. Save completion rechecks live session/account/membership and credential revision; cleanup has delete-only cloud rights. Legacy encrypted rows remain readable. [Full key lifecycle](AI_KEYS.md).
+
 All itinerary/financial mutations are revisioned/audited. The one automatic canonical write, a flight status update, is a revision with `changed_by_source = 'flight_status'` and no member, and an audit event with no actor ([flight status](FLIGHT_STATUS.md)). Never log bearer tokens, cookies, OAuth secrets, API keys or payment credentials. Full AI prompts/results remain in the restricted request store under owner-audit policy; users' private history/recovery/image APIs have no cross-user owner bypass. Generic lifecycle/search/audit records contain bounded metadata, not duplicated prompt/patch contents.
 
 [Personal instructions](AI_CUSTOM_INSTRUCTIONS.md) are self-only, manually saved and revision-checked. Only current text/revision is stored; audit contains count/revision/cleared state, not text snapshots. Model output cannot modify instructions. Each admitted request reuses one snapshot through repair/research finalization; replies may reflect it and therefore be visible in the existing owner audit. Legacy preference chats remain read-only; old backups/Git/chats may retain historical facts.

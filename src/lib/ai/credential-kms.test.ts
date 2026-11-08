@@ -129,5 +129,10 @@ describe("Cloud KMS sealing of users' AI keys", () => {
     expect(aiKeyProtection({ CREDENTIAL_ENCRYPTION_KEY: localKey, CREDENTIAL_KMS_KEY: keyName })).toBe("kms");
     expect(aiKeyProtection({ CREDENTIAL_KMS_KEY: keyName })).toBe("kms");
     expect(aiKeyProtection({ CREDENTIAL_ENCRYPTION_KEY: localKey, CREDENTIAL_KMS_KEY: "not-a-key" })).toBeNull();
+    expect(aiKeyProtection({ CREDENTIAL_SECRET_MANAGER_PROJECT: "synthetic-project", CREDENTIAL_KMS_KEY: keyName })).toBe("secret_manager");
+    expect(aiKeyProtection({ CREDENTIAL_SECRET_MANAGER_PROJECT: "synthetic-project", CREDENTIAL_ENCRYPTION_KEY: localKey })).toBeNull();
+    expect(aiKeyProtection({ CREDENTIAL_SECRET_MANAGER_PROJECT: "synthetic-project", CREDENTIAL_KMS_KEY: "not-a-key", CREDENTIAL_ENCRYPTION_KEY: localKey })).toBeNull();
+    expect(aiKeyProtection({ CREDENTIAL_SECRET_MANAGER_PROJECT: "invalid/project", CREDENTIAL_KMS_KEY: keyName })).toBeNull();
+    expect(aiKeyProtection({ CREDENTIAL_SECRET_MANAGER_SERVICE_ACCOUNT: serviceAccount, CREDENTIAL_KMS_KEY: keyName })).toBeNull();
   });
 });

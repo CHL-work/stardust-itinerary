@@ -12,6 +12,8 @@ If you run your own instance, adapt this notice to your hosting and contact deta
 
 ## What is stored
 
+The optional account-key storage backend keeps encrypted key material in Google Secret Manager, with references only in the database. It preserves the KMS protection below and is not activated merely by deploying its code. Settings identifies the storage configured for new keys. Removing a key stops new app use immediately; cloud cleanup follows, while guests' secrets expire with their account. Historical backups may retain older encrypted copies. [Storage details](AI_KEYS.md).
+
 - **Your account:**
   - Your Google account's subject identifier, email address and display name, used to sign you in.
   - A guest account has none of these. It has a random identifier, plus a keyed hash of the network address that created it, used to limit guests per address.

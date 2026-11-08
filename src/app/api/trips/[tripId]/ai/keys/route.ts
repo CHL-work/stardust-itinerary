@@ -16,7 +16,7 @@ import { getPool } from "@/lib/db/pool";
 /**
  * The signed-in account's own AI provider keys. Responses carry only the provider, the last four
  * characters and timestamps; a key is never returned after it has been saved. `protection` says how
- * this server seals keys ("kms", "local" or null), so Settings can tell the user (JOB-069).
+ * this server stores new keys ("secret_manager", "kms", "local" or null), so Settings can tell the user.
  */
 type Context = { params: Promise<{ tripId: string }> };
 const headers = { "Cache-Control": "private, no-store" };

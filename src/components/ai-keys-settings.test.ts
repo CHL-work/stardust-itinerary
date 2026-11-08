@@ -56,4 +56,18 @@ describe("Settings → AI keys", () => {
       expect(render(locale)).toContain(copy.title);
     }
   });
+
+  it("shows account-bound Secret Manager storage without claiming the server cannot decrypt", () => {
+    for (const locale of locales) {
+      const copy = aiKeysMessages(locale);
+      const html = renderToStaticMarkup(createElement(AiKeysView, {
+        copy, locale, keys: [saved], protection: "secret_manager", phase: "ready", busy: null, notice: null,
+        drafts: { openai: empty, anthropic: empty, google: empty },
+        edit: () => undefined, save: () => () => undefined, remove: () => () => undefined, reload: () => undefined,
+      }));
+      expect(html).toContain(copy.privacySecretManager);
+      expect(html).not.toContain(copy.privacyKms);
+      expect(html).not.toContain("No one can read them");
+    }
+  });
 });

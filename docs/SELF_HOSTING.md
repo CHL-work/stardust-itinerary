@@ -7,6 +7,8 @@ Runs everything on one machine: PostgreSQL 17, the web app and a scheduler for b
 
 Kubernetes is covered in [deployment](DEPLOYMENT.md).
 
+User keys remain account-owned regardless of hosting. Local Compose uses the existing encryption ring or KMS; optional [Secret Manager storage](AI_KEYS.md) needs workload identity, KMS and a delete-only cleanup schedule. Do not enable its variables without those prerequisites or use static service-account keys as a shortcut.
+
 ## 1. Get the code and configure it
 
 ```bash

@@ -34,7 +34,7 @@ The `Dockerfile` builds the standalone server into a non-root image listening on
 | Identity | `src/lib/auth/`: Google binding, account/trip sessions, invitation admission, operator distinction, account suspension. |
 | Administration | `src/lib/admin/`: the operator-only admin page (metadata and counts), suspension, the daily sign-up cap and daily counters (JOB-069). |
 | Trip transactions | `src/lib/app/`: canonical records, permissions, proposals, optimistic revisions and audits; `src/lib/domain/` supplies deterministic accounting/conflict primitives. |
-| AI | `src/lib/ai/`: adapters, schema-derived prompts, memory/drafts, recovery, privacy-limited research; users' keys sealed by the local ring or Cloud KMS (`credential-crypto.ts`, `credential-kms.ts`). |
+| AI | `src/lib/ai/`: adapters, prompts, memory/drafts, recovery and privacy-limited research; user keys sealed by the local ring or KMS, optionally stored as KMS ciphertext in Secret Manager (`credential-secret-manager.ts`) with a delete-only lifecycle worker. [Key contract](AI_KEYS.md). |
 | Database | `src/lib/db/`, `database/migrations/`: pool, checksummed ordered SQL and constraints. |
 | Integrations | `src/lib/calendar/`, `src/lib/maps/`, `src/lib/weather/`, `src/lib/disruptions/`. |
 | Feedback / activity | `src/lib/feedback/`, `src/lib/app/`: private diagnostics, safe review links, separate issue-only publication. |

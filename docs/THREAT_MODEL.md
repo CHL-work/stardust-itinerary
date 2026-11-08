@@ -17,6 +17,8 @@ What could go wrong when strangers can use the public instance, and what stops i
 
 ## Who might attack
 
+**Optional Secret Manager backend (JOB-087):** KMS ciphertext moves out of the database into pinned, account/provider-bound resources; the KMS deny policy remains unchanged. The web identity can create resources but can only add/read payloads in its user-key prefix, not change IAM. Cleanup has prefix-scoped delete-only permission, no payload/KMS access, and never deletes a referenced resource. Durable registry rows cover failed saves and guest purges; guest expiry also exists in Google. Setup is separately authorized, not enabled by this change. [Lifecycle, restore limitations and costs](AI_KEYS.md).
+
 - **Anonymous visitors**, including guests (JOB-064): they can start guest accounts and use their own key or the optional free service.
 - **Signed-in users:** with public sign-up on, anyone with a Google account. They may try to reach other trips, other users' keys, or the operator's funding.
 - **Prompt-injected content:** web pages, reservation emails and images processed by the models.

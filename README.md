@@ -19,7 +19,7 @@ A mobile-first planner for group trips, where AI proposes and application code d
 - **Expenses that add up:** equal or exact shares, totals per currency, repayments and suggested settlements, all calculated by code, not by a model.
 - **AI that proposes:** chat, or paste a booking screenshot or an event link. The model drafts events and expenses; the app checks them, and changes wait for review. On your own key, new items you could add yourself go straight in.
 - **Maps and weather:** numbered OpenStreetMap day maps with walking and driving times, a forecast for each stop and checks for official disruption notices.
-- **Choose free or bring a key:** free text planning is available to signed-in members and guests where enabled, with limits and a retention notice. OpenAI, Anthropic and Gemini keys stay encrypted; the public instance uses Cloud KMS.
+- **Choose free or bring a key:** free text planning is available to signed-in members and guests where enabled, with limits and a retention notice. OpenAI, Anthropic and Gemini keys belong to your account and stay encrypted; optional [Secret Manager storage](docs/AI_KEYS.md) preserves Cloud KMS protection.
 - **Made for phones:** swipeable days, a read-only offline copy, and AI requests that survive the phone going to sleep.
 
 ## Find your way

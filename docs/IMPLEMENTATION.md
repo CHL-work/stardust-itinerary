@@ -59,6 +59,8 @@ The exact filesystem routes under `src/app/api/` are authoritative. Authenticati
 
 ## 6. Code map and configuration
 
+Account-owned Secret Manager support (JOB-087) is opt-in and not yet activated by this release. `credential-secret-manager.ts` owns bounded cloud access; `credential-secret-lifecycle.ts` and `scripts/cleanup-credential-secrets.ts` remove unreferenced resources. Migration 0064 stores references and lifecycle metadata. [Setup, compatibility and security](AI_KEYS.md).
+
 | Path | Purpose |
 | --- | --- |
 | `src/components/app-shell.tsx` | Shared app orchestration/presentation; topic components isolate newer controls. |

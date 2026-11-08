@@ -6,6 +6,7 @@ resources:
   - ../../base
   - secret-provider-classes.yaml
   - web-metadata-egress.yaml
+  - credential-secret-cleanup.yaml
 images:
   - name: stardust-itinerary
     newName: asia-northeast1-docker.pkg.dev/stardust-itinerary-live/stardust/stardust-itinerary

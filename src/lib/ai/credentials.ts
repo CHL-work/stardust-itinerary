@@ -8,7 +8,9 @@ import {
   openCredential, sealCredential, type AiCredentialProvider,
 } from "@/lib/ai/credential-crypto";
 import { CredentialKmsUnavailableError, kmsOpen, kmsSeal, kmsSettings, type KmsSettings } from "@/lib/ai/credential-kms";
-import { AppForbiddenError, AppInvalidInputError, appendAudit, assertTrip, inTransaction } from "@/lib/app/repository";
+import { assertCredentialSecretName, createCredentialSecretName, readCredentialSecret, secretManagerSettings,
+  storeCredentialSecret, CredentialSecretManagerUnavailableError, type SecretManagerSettings } from "@/lib/ai/credential-secret-manager";
+import { AppConflictError, AppForbiddenError, AppInvalidInputError, appendAudit, assertTrip, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 
@@ -44,20 +46,23 @@ export class AiKeysUnavailableError extends AppForbiddenError {
 const VALIDATION_TIMEOUT_MS = 8_000;
 
 /**
- * How this server seals users' keys (JOB-069): with Cloud KMS when `CREDENTIAL_KMS_KEY` is set,
- * otherwise with the local key ring, or null when neither is configured (or KMS is misconfigured),
- * in which case keys cannot be saved. Settings shows users which one applies.
+ * New keys go to Secret Manager when configured (KMS ciphertext; JOB-087), otherwise KMS or the
+ * local ring in PostgreSQL. Malformed configured backends fail closed. Settings shows which applies.
  */
-export type AiKeyProtection = "kms" | "local";
+export type AiKeyProtection = "secret_manager" | "kms" | "local";
 export function aiKeyProtection(env: Record<string, string | undefined> = process.env): AiKeyProtection | null {
   const kms = kmsSettings(env);
+  const manager = secretManagerSettings(env);
+  if (manager === "invalid") return null;
+  // Secret Manager holds KMS ciphertext, preserving the existing web-only cryptographic boundary.
+  if (manager) return kms && kms !== "invalid" ? "secret_manager" : null;
   if (kms === "invalid") return null;
   if (kms) return "kms";
   return credentialEncryptionConfigured(env) ? "local" : null;
 }
 
 type StoredSeal = { sealedWith: "local"; ciphertext: Buffer; nonce: Buffer; keyVersion: number } | { sealedWith: "kms"; ciphertext: Buffer };
-type StoredRow = { ciphertext: Buffer; nonce: Buffer | null; key_version: number | null; sealed_with?: string | null };
+type StoredRow = { ciphertext: Buffer | null; nonce: Buffer | null; key_version: number | null; sealed_with?: string | null; secret_version?: string | null };
 
 function activeKms(env: Record<string, string | undefined>): KmsSettings {
   const kms = kmsSettings(env);
@@ -67,7 +72,7 @@ function activeKms(env: Record<string, string | undefined>): KmsSettings {
 
 async function sealForStorage(secret: string, owner: { userId: string; provider: AiCredentialProvider },
   env: Record<string, string | undefined> = process.env): Promise<StoredSeal> {
-  if (aiKeyProtection(env) === "kms") {
+  if (["kms", "secret_manager"].includes(aiKeyProtection(env) ?? "")) {
     return { sealedWith: "kms", ciphertext: await kmsSeal(secret, credentialAssociatedData(owner.userId, owner.provider), activeKms(env)) };
   }
   return { sealedWith: "local", ...sealCredential(secret, owner, env) };
@@ -76,6 +81,14 @@ async function sealForStorage(secret: string, owner: { userId: string; provider:
 /** Rows saved before migration 0059 have no `sealed_with`; they are all local. */
 async function openStored(row: StoredRow, owner: { userId: string; provider: AiCredentialProvider },
   env: Record<string, string | undefined> = process.env): Promise<string> {
+  if (row.sealed_with === "secret_manager") {
+    const manager = secretManagerSettings(env);
+    if (!manager || manager === "invalid" || !row.secret_version) throw new CredentialEncryptionUnavailableError();
+    assertCredentialSecretName(row.secret_version.split("/versions/")[0]!, manager, owner);
+    const ciphertext = await readCredentialSecret(row.secret_version, manager);
+    return kmsOpen(ciphertext, credentialAssociatedData(owner.userId, owner.provider), activeKms(env));
+  }
+  if (!row.ciphertext) throw new Error("Credential ciphertext is malformed.");
   if (row.sealed_with === "kms") return kmsOpen(row.ciphertext, credentialAssociatedData(owner.userId, owner.provider), activeKms(env));
   if (!row.nonce || row.key_version === null) throw new Error("Credential ciphertext is malformed.");
   return openCredential({ ciphertext: row.ciphertext, nonce: row.nonce, keyVersion: row.key_version }, owner, env);
@@ -148,6 +161,8 @@ export async function saveAiCredential(
   assertTrip(session, tripId);
   const value = aiCredentialInputSchema.parse(input);
   if (!aiKeyProtection()) throw new AiKeysUnavailableError();
+  const manager = secretManagerSettings();
+  if (manager && manager !== "invalid") return saveSecretManagerCredential(pool, session, tripId, value, manager, validate);
   // Validate and seal before any transaction: the provider and KMS calls can take seconds.
   if (!await validate(value)) throw new AiCredentialRejectedError();
   const sealed = await sealForStorage(value.apiKey, { userId: session.userId, provider: value.provider });
@@ -182,6 +197,64 @@ export async function saveAiCredential(
          RETURNING provider, key_hint, vertex_project, validated_at, updated_at`,
       sealedColumn ? [...values, sealed.sealedWith] : values,
     );
+    await appendAudit(client, { tripId, actorMemberId: session.memberId, entityType: "ai_credential",
+      action: "ai.credential.saved", metadata: { provider: value.provider } });
+    return summary(result.rows[0]!);
+  });
+}
+
+/** Current account state, not the browser's cached identity or trip-owner role. */
+async function credentialOwnerState(client: PoolClient, session: AuthenticatedSession) {
+  await lockCurrentTripActor(client, session);
+  const activeSession = await client.query(`SELECT id FROM auth_sessions
+    WHERE id = $1 AND trip_id = $2 AND member_id = $3 AND user_id = $4 AND generation = $5
+      AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP AND absolute_expires_at > CURRENT_TIMESTAMP
+    FOR SHARE`, [session.sessionId, session.tripId, session.memberId, session.userId, session.generation]);
+  if (!activeSession.rowCount) throw new AppForbiddenError("Your session has changed. Sign in again.");
+  const account = await client.query<{ guest_expires_at: Date | null }>(`SELECT guest_expires_at FROM app_users
+    WHERE id = $1 AND suspended_at IS NULL
+      AND (guest_expires_at IS NULL OR guest_expires_at > CURRENT_TIMESTAMP + interval '90 seconds') FOR SHARE`, [session.userId]);
+  if (!account.rows[0]) throw new AppForbiddenError("This account cannot save a key right now. Sign in again.");
+  return account.rows[0];
+}
+
+/** Network calls stay outside trip/account locks. A durable resource lease covers abandoned saves. */
+async function saveSecretManagerCredential(pool: Pool, session: AuthenticatedSession, tripId: string,
+  value: AiCredentialInput, manager: SecretManagerSettings,
+  validate: (input: AiCredentialInput) => Promise<boolean>): Promise<AiCredentialSummary> {
+  const before = await inTransaction(pool, async (client) => {
+    const account = await credentialOwnerState(client, session);
+    const prior = await client.query<{ revision: string }>(`SELECT updated_at::text AS revision FROM user_ai_credentials
+      WHERE user_id = $1 AND provider = $2`, [session.userId, value.provider]);
+    return { expiresAt: account.guest_expires_at ?? undefined, revision: prior.rows[0]?.revision ?? null };
+  });
+  if (!await validate(value)) throw new AiCredentialRejectedError();
+  const owner = { userId: session.userId, provider: value.provider };
+  const ciphertext = await kmsSeal(value.apiKey, credentialAssociatedData(owner.userId, owner.provider), activeKms(process.env));
+  const name = createCredentialSecretName(manager, owner);
+  // Commit this before the external side effect, so a process crash cannot lose the cleanup task.
+  await pool.query("INSERT INTO ai_credential_secret_resources(secret_name) VALUES ($1)", [name]);
+  const version = await storeCredentialSecret(name, ciphertext, manager, { expiresAt: before.expiresAt });
+  // Verify the exact pinned payload before replacing a working key.
+  if (!(await readCredentialSecret(version, manager)).equals(ciphertext)) throw new CredentialSecretManagerUnavailableError("save_verification");
+  return inTransaction(pool, async (client) => {
+    await credentialOwnerState(client, session);
+    const lease = await client.query(`SELECT secret_name FROM ai_credential_secret_resources
+      WHERE secret_name = $1 AND cleanup_after > clock_timestamp() FOR UPDATE`, [name]);
+    if (!lease.rowCount) throw new AppConflictError("The key save expired. Try again.");
+    const prior = await client.query<{ revision: string }>(`SELECT updated_at::text AS revision FROM user_ai_credentials
+      WHERE user_id = $1 AND provider = $2 FOR UPDATE`, [session.userId, value.provider]);
+    if ((prior.rows[0]?.revision ?? null) !== before.revision) throw new AppConflictError("Your key changed in another request. Refresh and try again.");
+    const result = await client.query<CredentialRow>(`INSERT INTO user_ai_credentials
+      (user_id, provider, sealed_with, secret_version, key_hint, vertex_project, vertex_location, validated_at)
+      VALUES ($1, $2, 'secret_manager', $3, $4, $5, $6, CURRENT_TIMESTAMP)
+      ON CONFLICT (user_id, provider) DO UPDATE SET sealed_with = 'secret_manager', secret_version = EXCLUDED.secret_version,
+        ciphertext = NULL, nonce = NULL, key_version = NULL, key_hint = EXCLUDED.key_hint,
+        vertex_project = EXCLUDED.vertex_project, vertex_location = EXCLUDED.vertex_location,
+        validated_at = EXCLUDED.validated_at, updated_at = clock_timestamp()
+      RETURNING provider, key_hint, vertex_project, validated_at, updated_at`,
+    [session.userId, value.provider, version, credentialHint(value.apiKey), value.vertexProject ?? null,
+      value.vertexProject ? value.vertexLocation ?? "global" : null]);
     await appendAudit(client, { tripId, actorMemberId: session.memberId, entityType: "ai_credential",
       action: "ai.credential.saved", metadata: { provider: value.provider } });
     return summary(result.rows[0]!);
@@ -258,7 +331,8 @@ export async function readAiCredentialSecret(
     console.warn("A stored AI key could not be decrypted", {
       provider, sealedWith: row.sealed_with ?? "local", keyVersion: row.key_version,
       reason: error instanceof CredentialEncryptionUnavailableError ? "encryption_unavailable"
-        : error instanceof CredentialKmsUnavailableError ? `kms_${error.step}` : "decrypt_failed",
+        : error instanceof CredentialKmsUnavailableError ? `kms_${error.step}`
+          : error instanceof CredentialSecretManagerUnavailableError ? `secret_manager_${error.step}` : "decrypt_failed",
     });
     return null;
   }

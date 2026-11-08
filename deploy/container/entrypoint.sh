@@ -63,6 +63,10 @@ case "$mode" in
     # Key rotation for users' saved AI keys; needs the web server's secrets (see docs/DEPLOYMENT.md).
     # shellcheck disable=SC2086
     exec node $env_flags --import tsx scripts/reencrypt-credentials.ts "$@" ;;
+  credential-secret-cleanup)
+    # Delete only retired/abandoned Secret Manager resources; no KMS or provider credentials.
+    # shellcheck disable=SC2086
+    exec node $env_flags --import tsx scripts/cleanup-credential-secrets.ts "$@" ;;
   scheduler)
     # Single-host stand-in for the Kubernetes CronJobs: disruption checks every 5 minutes, the
     # feedback worker and the guest purge once an hour. Failures are logged and retried later.
@@ -80,6 +84,6 @@ case "$mode" in
       sleep 300
     done ;;
   *)
-    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|credential-reencrypt|migrate|backup|offsite-copy|scheduler|provider-smoke|verify-free-ai-config" >&2
+    echo "usage: entrypoint.sh web|disruption|feedback|guest-purge|credential-reencrypt|credential-secret-cleanup|migrate|backup|offsite-copy|scheduler|provider-smoke|verify-free-ai-config" >&2
     exit 64 ;;
 esac

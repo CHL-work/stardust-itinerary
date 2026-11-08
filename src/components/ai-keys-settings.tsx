@@ -107,7 +107,7 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
 
 type ViewProps = {
   copy: AiKeysCopy; locale: Locale; keys: AiCredentialSummary[] | null; usage?: AiKeyUsage | null; phase: "loading" | "ready" | "failed";
-  /** How the server seals keys; "kms" switches to the Cloud KMS wording (JOB-069). */
+  /** Storage for new keys; legacy saved keys may still use an earlier supported backend. */
   protection?: AiKeyProtection | null;
   drafts: Record<Provider, { apiKey: string; vertexProject: string }>; busy: Provider | null; notice: Notice | null;
   edit: (provider: Provider, field: "apiKey" | "vertexProject", value: string) => void;
@@ -120,7 +120,7 @@ export function AiKeysView({ copy, locale, keys, usage = null, protection = null
   return <article className="settings-card" aria-busy={phase === "loading" || busy !== null}>
     <h2>{copy.title}</h2>
     <p>{copy.description}</p>
-    <p id="ai-keys-privacy">{protection === "kms" ? copy.privacyKms : copy.privacy}<InfoTip label={infoTipLabel(locale)}>{copy.keyAdvice}</InfoTip></p>
+    <p id="ai-keys-privacy">{protection === "secret_manager" ? copy.privacySecretManager : protection === "kms" ? copy.privacyKms : copy.privacy}<InfoTip label={infoTipLabel(locale)}>{copy.keyAdvice}</InfoTip></p>
     {phase === "loading" ? <p role="status">{copy.loading}</p> : null}
     {phase === "failed" ? <><p role="alert">{copy.loadFailed}</p><button type="button" className="ghost-button" onClick={reload}>{copy.retry}</button></> : null}
     {phase === "ready" ? aiKeyProviders.map((provider) => {
