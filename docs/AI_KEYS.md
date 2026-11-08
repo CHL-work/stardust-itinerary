@@ -1,6 +1,6 @@
 # Account-owned AI keys
 
-Users paste OpenAI, Anthropic or Gemini API keys in **Settings → AI keys**. A key belongs to the immutable app account and provider, not an email, trip or owner role. Saving it makes that provider's models available across the user's trips. Free AI remains selectable without a key. No server keys are imported and no sharing is enabled by saving a key; existing explicit sharing grants still apply.
+Users paste OpenAI, Anthropic or Gemini API keys in **AI → API keys** ([the AI tab](AI_TAB.md)). A key belongs to the immutable app account and provider, not an email, trip or owner role. Saving it makes that provider's models available across the user's trips. Free AI remains selectable without a key. No server keys are imported and no sharing is enabled by saving a key; existing explicit sharing grants still apply.
 
 ## Google key setup (JOB-089)
 
@@ -26,7 +26,7 @@ Secret Manager is enabled for new account-key saves on the public instance; its 
 
 `CREDENTIAL_SECRET_MANAGER_SERVICE_ACCOUNT` optionally selects the web-only workload identity impersonation account. Secret Manager cannot silently fall back to database storage if configuration or a cloud call fails. It never accepts `latest`, arbitrary URLs or another account/provider's resource. Payload CRC32C, the returned resource/version and guest expiry are verified. KMS authenticated data also binds the account/provider, so changing a database reference cannot transfer a key.
 
-The existing KMS deny policy remains intact. Secret Manager stores **already-encrypted** payloads, so its administrators do not gain plaintext access. The web server necessarily decrypts a key in memory to send an authorized request: it is not honest to promise that an operator who changes the running server can never reach a key. Provider keys, cloud tokens and payloads are never returned to browsers or copied into prompts, GitHub, logs or audit metadata.
+The existing KMS deny policy remains intact. Secret Manager stores **already-encrypted** payloads, so its administrators do not gain plaintext access. The web server necessarily decrypts a key in memory to send an authorized request, including the routine checks the key's owner turned on (JOB-094), which therefore run inside the web server and never in a worker: it is not honest to promise that an operator who changes the running server can never reach a key. Provider keys, cloud tokens and payloads are never returned to browsers or copied into prompts, GitHub, logs or audit metadata.
 
 ## Save, replace, remove
 

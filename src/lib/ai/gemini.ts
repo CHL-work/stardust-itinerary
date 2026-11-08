@@ -126,6 +126,8 @@ export async function generateWithGemini(input: {
   systemInstruction?: string;
   responseJsonSchema?: unknown;
   googleSearch?: boolean;
+  /** The user's chosen effort (JOB-094); omitted, the model's own default thinking level applies. */
+  thinkingLevel?: "low" | "medium" | "high";
   maxOutputTokens?: number;
   signal?: AbortSignal;
   endpoint?: GeminiEndpoint | null;
@@ -140,6 +142,7 @@ export async function generateWithGemini(input: {
     ...(input.googleSearch ? { tools: [{ googleSearch: {} }] } : {}),
     generationConfig: {
       ...(input.responseJsonSchema ? { responseMimeType: "application/json", responseJsonSchema: input.responseJsonSchema } : {}),
+      ...(input.thinkingLevel ? { thinkingConfig: { thinkingLevel: input.thinkingLevel } } : {}),
       maxOutputTokens: input.maxOutputTokens ?? 16_384,
     },
   };

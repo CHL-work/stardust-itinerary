@@ -7,13 +7,12 @@ Before a flight departs, the server looks up its current status and keeps the ev
 - **Schedule:** 24 and 12 hours before departure, then every hour from 6 hours to 1 hour before: eight checks in all.
 - **Follows the departure:** check times come from the event's current departure. When a check, or a member, moves the departure, the remaining checks move with it. The check that found a new time counts as the new time's current check, so the next one follows the new schedule instead of running again at once.
 - **No replays:** a check missed while the worker was down is not run late; only the latest due one runs.
-- **Bounded:** the disruption CronJob, which wakes every 5 minutes, runs at most `FLIGHT_STATUS_MAX_CHECKS` (default 2) flight checks first and leaves the disruption monitor the rest of its time. Each check is one row in `flight_status_checks`, so a slot runs once per departure time. A check that never finished gives up its slot after 10 minutes.
+- **Bounded:** the disruption CronJob, which wakes every 5 minutes, runs at most `FLIGHT_STATUS_MAX_CHECKS` (default 2) operator-funded flight checks first and leaves the disruption monitor the rest of its time. Member-funded checks run in the web server every 5 minutes, at most `ROUTINE_FLIGHT_MAX_CHECKS` (default 4) a pass ([the AI tab](AI_TAB.md#routine-checks-on-your-own-key)). Each check is one row in `flight_status_checks`, so a slot runs once per departure time whoever pays. A check that never finished gives up its slot after 10 minutes.
 
 ## Which flights
 
 All of these must hold:
-- the trip is sponsored by the operator, so the operator's keys pay;
-- the trip's background checks are on, the same switch the disruption monitor uses;
+- someone pays: in a trip sponsored by the operator, the operator's keys, with the trip's background checks on (the same switch the disruption monitor uses); in any other trip, one member's own key after that member turned routine checks on (JOB-094, D-106; owners first, then whoever turned them on earliest);
 - the event is a trip-visible, planned transport event with a flight number;
 - the event departs within the next 24 hours.
 
@@ -22,14 +21,14 @@ Legacy title-only flight recognition is presentation only (JOB-090, D-102); it d
 
 ## The lookup
 
-`gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it, on the operator's keys. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports, planned departure instant and departure-local date/time. The departure zone uses the [shared event resolver](EVENT_LOCAL_TIME.md), honoring new explicit corrections ahead of legacy flight zones and airport/location evidence, including DST. An unresolved zone is labeled as a trip-zone fallback, not claimed as airport-local. Local resolution never adds map URLs, titles, notes, people or booking details to the prompt. The answer is structured JSON:
+On the operator's keys, `gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it. On a member's key, the model and effort that member chose (default `gpt-6.1-terra`, `claude-haiku-5-5` or `gemini-3.8-flash` at medium), with that provider's web search. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports, planned departure instant and departure-local date/time. The departure zone uses the [shared event resolver](EVENT_LOCAL_TIME.md), honoring new explicit corrections ahead of legacy flight zones and airport/location evidence, including DST. An unresolved zone is labeled as a trip-zone fallback, not claimed as airport-local. Local resolution never adds map URLs, titles, notes, people or booking details to the prompt. The answer is structured JSON:
 - status;
 - scheduled and estimated departure and arrival;
 - terminals and gate;
 - confidence;
 - up to five sources and a one-line summary.
 
-Each lookup is recorded as a system AI request (`feature = 'flight_status'`).
+Each lookup is recorded as a system AI request (`feature = 'flight_status'`); a member-funded one also names the paying member (`credential_member_id`, `credential_source = 'own'`) and its search count.
 
 ## What changes
 
@@ -55,7 +54,7 @@ A pending proposal on the event goes stale as after any edit. History stays comp
 
 ## Limits
 
-Source-backed extraction can still be wrong; check the airline before acting on a change. There are no phone notifications for flight changes. Flights without a flight number, flights in unsponsored trips and guests' trips are not checked.
+Source-backed extraction can still be wrong; check the airline before acting on a change. There are no phone notifications for flight changes. Flights without a flight number are not checked, nor are flights in unsponsored or guest trips where no member pays with their own key.
 
 ## Rollback
 

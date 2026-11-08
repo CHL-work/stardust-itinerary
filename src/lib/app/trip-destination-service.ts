@@ -1,9 +1,16 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 
-import { withOperatorAiCredential } from "@/lib/ai/credential-context";
-import { DESTINATION_LOOKUP_PROMPT_VERSION, DESTINATION_LOOKUP_TIMEOUT_MS, lookupTripDestination } from "@/lib/ai/trip-destination-provider";
+import { withFreeAiCredential, withOperatorAiCredential, withUserAiCredential } from "@/lib/ai/credential-context";
+import { readAiCredentialSecret } from "@/lib/ai/credentials";
+import { lookupModels, modelProvider } from "@/lib/ai/effort";
+import { freeAiSettings } from "@/lib/ai/free-model";
+import { lookupTripDestinationWith, type DestinationLookupChoice } from "@/lib/ai/trip-destination-models";
+import {
+  DESTINATION_LOOKUP_MODEL, DESTINATION_LOOKUP_PROMPT_VERSION, DESTINATION_LOOKUP_TIMEOUT_MS, type TripDestinationLookupResult,
+} from "@/lib/ai/trip-destination-provider";
 import { AppConflictError } from "@/lib/app/repository";
+import { ownerModelRegistry, type KeyedModelProvider } from "@/lib/app/types";
 import { unavailableDestination, type DestinationDefaults, type DestinationLookupReason,
   type DestinationLookupResponse } from "@/lib/app/trip-destination-contract";
 import { normalizeDestination, validateDestinationInput } from "@/lib/app/trip-destination-defaults";
@@ -16,6 +23,52 @@ import type { Locale } from "@/lib/i18n";
 
 type Principal = AuthenticatedSession | AccountPrincipal;
 type Db = Pick<PoolClient, "query">;
+type LookupProvider = (input: { destination: string; locale: Locale; signal?: AbortSignal }, choice: DestinationLookupChoice)
+  => Promise<TripDestinationLookupResult>;
+
+/** Free models answer slowly; a crashed lookup releases the account after the longest of these. */
+const FREE_LOOKUP_TIMEOUT_MS = 60_000;
+const KEYED_LOOKUP_TIMEOUT_MS = 40_000;
+/** All free lookups on the instance per UTC day, besides each account's own daily ten. */
+const FREE_LOOKUPS_PER_INSTANCE_DAILY = 200;
+
+/**
+ * Who pays for one lookup (JOB-094, D-106): the platform operator keeps the operator's key; anyone else
+ * uses their own saved key, first of OpenAI, Anthropic, Google, with that provider's lightest model; without
+ * a key, a free model when free AI is on; otherwise the earlier operator-funded creator lookup.
+ */
+/** Databases from before migration 0068 record only operator-funded lookups. */
+async function fundingColumnsExist(client: Db): Promise<boolean> {
+  const schema = await client.query<{ funding: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'account_ai_lookups'
+       AND column_name = 'credential_source') AS funding`);
+  return schema.rows[0]?.funding === true;
+}
+
+async function lookupChoice(client: Db, userId: string, access: Entitlement): Promise<DestinationLookupChoice> {
+  if (access === "platform_operator") return { kind: "operator" };
+  const keys = await client.query<{ provider: KeyedModelProvider }>("SELECT provider FROM user_ai_credentials WHERE user_id = $1", [userId]);
+  const provider = (["openai", "anthropic", "google"] as const).find((candidate) => keys.rows.some((row) => row.provider === candidate));
+  if (provider) return { kind: "own", model: lookupModels[provider] };
+  return freeAiSettings().enabled ? { kind: "free" } : { kind: "operator" };
+}
+
+function choiceColumns(choice: DestinationLookupChoice) {
+  if (choice.kind === "free") {
+    return { model: "guest-free", provider: "kilo", transport: "kilo_gateway", authentication: "anonymous", source: "free" };
+  }
+  if (choice.kind === "own") {
+    const profile = ownerModelRegistry[choice.model];
+    return { model: choice.model, provider: profile.provider, transport: profile.transport, authentication: "api_key", source: "own" };
+  }
+  return { model: DESTINATION_LOOKUP_MODEL, provider: "openai", transport: "codex_sdk", authentication: "api_key", source: "operator" };
+}
+
+function choiceTimeout(choice: DestinationLookupChoice): number {
+  if (choice.kind === "free") return FREE_LOOKUP_TIMEOUT_MS;
+  if (choice.kind === "own" && modelProvider(choice.model) !== "openai") return KEYED_LOOKUP_TIMEOUT_MS;
+  return DESTINATION_LOOKUP_TIMEOUT_MS;
+}
 type LookupRow = { id: string; request_payload_hash: Buffer; response_json: DestinationDefaults | null;
   status: "started" | "succeeded" | "failed"; error_code: string | null };
 type Entitlement = "platform_operator" | "trip_creator";
@@ -114,14 +167,14 @@ async function throttle(client: Db, config: AuthConfig, userId: string): Promise
 export async function runTripDestinationLookup(
   pool: Pool, config: AuthConfig, principal: Principal,
   input: { destination: string; locale: Locale; requestId: string },
-  options: { provider?: typeof lookupTripDestination; timeoutMs?: number } = {},
+  options: { provider?: LookupProvider; timeoutMs?: number } = {},
 ): Promise<DestinationLookupResponse> {
   const unavailable = (reason: DestinationLookupReason) => response(input.requestId, unavailableDestination(reason));
   if (!validateDestinationInput(input.destination)) return unavailable("private_text");
   const normalized = normalizeDestination(input.destination);
   const inputHash = digest(config, "input", normalized);
   const payloadHash = digest(config, "payload", JSON.stringify([input.destination.trim(), input.locale]));
-  const admission = await transaction(pool, async (client): Promise<{ id: string } | DestinationLookupResponse> => {
+  const admission = await transaction(pool, async (client): Promise<{ id: string; choice: DestinationLookupChoice } | DestinationLookupResponse> => {
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [JSON.stringify([principal.userId, "destination-lookup"])]);
     if (!await currentPrincipal(client, principal)) return unavailable("not_entitled");
     const access = await entitlement(client, principal.userId);
@@ -129,7 +182,7 @@ export async function runTripDestinationLookup(
     // A crashed worker cannot permanently keep this account busy. Only started
     // rows may change, and the original worker cannot overwrite this terminal.
     await client.query(`UPDATE account_ai_lookups SET status='failed',error_code='TIMEOUT',completed_at=CURRENT_TIMESTAMP
-      WHERE user_id=$1 AND status='started' AND created_at<=CURRENT_TIMESTAMP-interval '60 seconds'`, [principal.userId]);
+      WHERE user_id=$1 AND status='started' AND created_at<=CURRENT_TIMESTAMP-interval '120 seconds'`, [principal.userId]);
     const replay = await client.query<LookupRow>(
       "SELECT id,request_payload_hash,response_json,status,error_code FROM account_ai_lookups WHERE user_id=$1 AND client_request_id=$2",
       [principal.userId, input.requestId],
@@ -157,28 +210,51 @@ export async function runTripDestinationLookup(
        FROM account_ai_lookups WHERE user_id=$1`, [principal.userId],
     );
     if (counts.rows[0]?.busy) return unavailable("busy");
-    if (access !== "platform_operator" && counts.rows[0].daily >= 10) return unavailable("quota");
+    const funding = await fundingColumnsExist(client);
+    const choice: DestinationLookupChoice = funding ? await lookupChoice(client, principal.userId, access) : { kind: "operator" };
+    // On their own key the requester pays, so only the hourly throttle applies.
+    if (access !== "platform_operator" && choice.kind !== "own" && counts.rows[0].daily >= 10) return unavailable("quota");
+    if (choice.kind === "free") {
+      const instance = await client.query<{ daily: number }>(
+        `SELECT count(*)::integer AS daily FROM account_ai_lookups
+          WHERE credential_source = 'free' AND created_at >= date_trunc('day', CURRENT_TIMESTAMP AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`);
+      if (instance.rows[0].daily >= FREE_LOOKUPS_PER_INSTANCE_DAILY) return unavailable("quota");
+    }
+    const columns = choiceColumns(choice);
     const id = randomUUID();
-    await client.query(
-      `INSERT INTO account_ai_lookups(id,user_id,client_request_id,request_payload_hash,input_hash,destination_text,
-        display_locale,prompt_version,entitlement) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, principal.userId, input.requestId, payloadHash, inputHash, normalized, input.locale, DESTINATION_LOOKUP_PROMPT_VERSION, access],
-    );
-    return { id };
+    const values = [id, principal.userId, input.requestId, payloadHash, inputHash, normalized, input.locale, DESTINATION_LOOKUP_PROMPT_VERSION, access];
+    await client.query(funding
+      ? `INSERT INTO account_ai_lookups(id,user_id,client_request_id,request_payload_hash,input_hash,destination_text,
+          display_locale,prompt_version,entitlement,requested_model,provider,transport,authentication_mode,credential_source)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`
+      : `INSERT INTO account_ai_lookups(id,user_id,client_request_id,request_payload_hash,input_hash,destination_text,
+          display_locale,prompt_version,entitlement) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    funding ? [...values, columns.model, columns.provider, columns.transport, columns.authentication, columns.source] : values);
+    return { id, choice };
   });
   if (!("id" in admission)) return admission;
 
+  const { choice } = admission;
   const controller = new AbortController();
   const startedAt = Date.now();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let result: Awaited<ReturnType<typeof lookupTripDestination>> | null = null;
+  let result: TripDestinationLookupResult | null = null;
   let errorCode: string | null = null;
+  const runLookup: LookupProvider = options.provider ?? ((lookupInput, lookupChoice) => lookupTripDestinationWith(lookupChoice, lookupInput));
+  const lookup = () => runLookup({ destination: normalized, locale: input.locale, signal: controller.signal }, choice);
   try {
     result = await Promise.race([
-      // Operator-funded for eligible creators (D-071).
-      withOperatorAiCredential(() => (options.provider ?? lookupTripDestination)({ destination: normalized, locale: input.locale, signal: controller.signal })),
+      (async () => {
+        if (choice.kind === "operator") return withOperatorAiCredential(lookup);
+        if (choice.kind === "free") return withFreeAiCredential(lookup);
+        const provider = modelProvider(choice.model);
+        const key = await readAiCredentialSecret(pool, principal.userId, provider);
+        if (!key) throw { code: "PROVIDER_UNAVAILABLE" };
+        return withUserAiCredential({ source: "own", provider, apiKey: key.apiKey, vertex: key.vertex,
+          ...(key.vertexExpress ? { vertexExpress: true } : {}) }, lookup);
+      })(),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => { controller.abort(); reject({ code: "TIMEOUT" }); }, options.timeoutMs ?? DESTINATION_LOOKUP_TIMEOUT_MS);
+        timer = setTimeout(() => { controller.abort(); reject({ code: "TIMEOUT" }); }, options.timeoutMs ?? choiceTimeout(choice));
       }),
     ]);
   } catch (error) {

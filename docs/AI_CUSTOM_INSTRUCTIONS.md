@@ -4,7 +4,7 @@ One explicitly user-edited Settings field replaces the former structured prefere
 
 ## User workflow
 
-Every active signed-in member, including viewers, can open **Settings → AI instructions**, enter their preferences or planning requirements, and Save. Clear removes the saved text. The field starts empty; old profiles are not converted automatically. Examples include preferred pace, budgets expressed as planning guidance, favorite fictional works, meal preferences or how the assistant should explain recommendations. Do not enter passwords, booking PINs or other secrets.
+Every active signed-in member, including viewers, can open **AI → AI instructions** (moved from Settings in JOB-093; [the AI tab](AI_TAB.md)), enter their preferences or planning requirements, and Save. Clear removes the saved text. The field starts empty; old profiles are not converted automatically. Examples include preferred pace, budgets expressed as planning guidance, favorite fictional works, meal preferences or how the assistant should explain recommendations. Do not enter passwords, booking PINs or other secrets.
 
 The text belongs to the signed-in account and follows it across trips. Updates apply to the next admitted paid-provider planning request, including an existing trip conversation and a change of model. Free AI intentionally omits saved instructions to reduce data sent to retention-enabled providers (JOB-086); the saved text is not erased. A request already processing keeps its original snapshot. Saving does not invoke a model or consume a prompt. AI cannot modify this field and there is no automatic preference extraction, inferred-profile confirmation workflow or catalog import.
 

@@ -1,6 +1,6 @@
 # Settings Activity
 
-Saving [personal AI instructions](AI_CUSTOM_INSTRUCTIONS.md) adds only revision, character count and clear-state audit metadata; the private instruction text is never an Activity snapshot.
+Saving [personal AI instructions](AI_CUSTOM_INSTRUCTIONS.md) adds only revision, character count and clear-state audit metadata; the private instruction text is never an Activity snapshot. Changing [AI preferences](AI_TAB.md) records chat effort and routine-check on/off, model and effort, never a key, and appears as a generic system change.
 
 Activity is not part of the primary desktop/mobile navigation. Owners open it from **Settings → Advanced settings → View activity**. Activity keeps a distinct page title and a return-to-Settings action. The entry and the feed are owner-only; members receive no Activity entries.
 

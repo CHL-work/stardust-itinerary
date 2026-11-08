@@ -3,15 +3,19 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 
 import { withOperatorAiCredential } from "@/lib/ai/credential-context";
+import { AiProviderFailureError } from "@/lib/ai/provider-failure";
+import { createRoutineCheckProvider } from "@/lib/ai/routine-check-provider";
 import { buildDisruptionPromptBatches } from "@/lib/disruptions/prompt";
 import {
   createCodexDisruptionProvider,
-  DISRUPTION_MODEL,
   DisruptionProviderCleanupError,
   DisruptionProviderInvocationError,
   DisruptionProviderToolError,
   DISRUPTION_TIMEOUT_MS,
 } from "@/lib/disruptions/provider";
+import {
+  loadRoutinePayer, routinePayerParameters, routinePayerSql, routineRequestColumns, withRoutinePayerKey, type RoutineFunding,
+} from "@/lib/routine-checks/funding";
 import {
   sanitizePublicSourceUrl,
   sanitizePublicText,
@@ -92,6 +96,8 @@ type ClaimedTrip = {
   timeZone: string;
   intervalMinutes: number;
   lookaheadHours: number;
+  /** Whose key pays: the operator's in sponsored trips, else the member chosen at claim time (JOB-094). */
+  funding: RoutineFunding;
 };
 
 function asDate(value: Date | string): Date {
@@ -142,6 +148,14 @@ function classifyProviderFailure(error: unknown, signal: AbortSignal): ProviderF
   }
   const invocationError = error instanceof DisruptionProviderInvocationError;
   const providerError = invocationError ? error.providerError : error;
+  // Gemini and Claude routine checks (JOB-094) report safe, typed provider failures.
+  if (providerError instanceof AiProviderFailureError) {
+    const code = providerError.details.code;
+    if (code === "AI_PROVIDER_AUTH_REQUIRED" || code === "AI_PROVIDER_BILLING") return { code: "DISRUPTION_PROVIDER_AUTH", retryable: false };
+    if (code === "AI_PROVIDER_RATE_LIMITED") return { code: "DISRUPTION_PROVIDER_RATE_LIMIT", retryable: false };
+    if (code === "AI_PROVIDER_MODEL_UNAVAILABLE") return { code: "DISRUPTION_PROVIDER_CONFIGURATION", retryable: false };
+    if (code === "AI_PROVIDER_UNAVAILABLE") return { code: "DISRUPTION_PROVIDER_UNAVAILABLE", retryable: invocationError };
+  }
   const name = providerError instanceof Error ? providerError.name : "";
   const message = providerError instanceof Error
     ? providerError.message.toLocaleLowerCase("en-US")
@@ -269,7 +283,18 @@ function alertEvidenceMatchesCandidate(
   return true;
 }
 
-async function claimNextDueTrip(pool: Pool, now: Date): Promise<ClaimedTrip | null> {
+/**
+ * Sponsored trips use the trip's background-check switch and the operator's keys. Unsponsored trips are
+ * checked only when a member pays with their own key (JOB-094); that member's opt-in replaces the switch.
+ */
+const OPERATOR_TRIP_CONDITION = `settings.enabled
+          AND trip.deleted_at IS NULL
+          AND COALESCE((to_jsonb(ai_settings)->>'host_subscription_enabled')::boolean, true)`;
+const MEMBER_TRIP_CONDITION = `trip.deleted_at IS NULL
+          AND NOT COALESCE((to_jsonb(ai_settings)->>'host_subscription_enabled')::boolean, true)
+          AND EXISTS (${routinePayerSql("trip.id", 3, 4)})`;
+
+async function claimNextDueTrip(pool: Pool, now: Date, mode: "operator" | "member" = "operator"): Promise<ClaimedTrip | null> {
   const client = await pool.connect();
   let advisoryLockHeld = false;
   let advisoryLockTripId: string | null = null;
@@ -282,9 +307,7 @@ async function claimNextDueTrip(pool: Pool, now: Date): Promise<ClaimedTrip | nu
          FROM trip_disruption_settings settings
          JOIN trips trip ON trip.id = settings.trip_id
          JOIN trip_ai_settings ai_settings ON ai_settings.trip_id = trip.id
-        WHERE settings.enabled
-          AND trip.deleted_at IS NULL
-          AND COALESCE((to_jsonb(ai_settings)->>'host_subscription_enabled')::boolean, true)
+        WHERE ${mode === "member" ? MEMBER_TRIP_CONDITION : OPERATOR_TRIP_CONDITION}
           AND settings.next_due_at <= $1
           AND trip.ends_on >= ($1::timestamptz AT TIME ZONE trip.time_zone)::date
           AND trip.starts_on <= (($1::timestamptz + interval '7 days') AT TIME ZONE trip.time_zone)::date
@@ -348,7 +371,7 @@ async function claimNextDueTrip(pool: Pool, now: Date): Promise<ClaimedTrip | nu
         LIMIT 1
         FOR UPDATE OF settings SKIP LOCKED
         FOR KEY SHARE OF trip SKIP LOCKED`,
-      [now, MAX_LOOKAHEAD_HOURS],
+      mode === "member" ? [now, MAX_LOOKAHEAD_HOURS, ...routinePayerParameters()] : [now, MAX_LOOKAHEAD_HOURS],
     );
     const row = result.rows[0];
     if (!row) {
@@ -367,6 +390,18 @@ async function claimNextDueTrip(pool: Pool, now: Date): Promise<ClaimedTrip | nu
       await client.query("ROLLBACK");
       client.release();
       return null;
+    }
+    let funding: RoutineFunding = { kind: "operator" };
+    if (mode === "member") {
+      const payer = await loadRoutinePayer(client, row.trip_id);
+      if (!payer) {
+        await client.query("ROLLBACK");
+        await client.query(`SELECT pg_advisory_unlock(hashtextextended($1, 0))`, [`stardust-disruption:${row.trip_id}`]);
+        advisoryLockHeld = false;
+        client.release();
+        return null;
+      }
+      funding = { kind: "member", payer };
     }
 
     const abandoned = await client.query<{ id: string; ai_request_id: string | null }>(
@@ -443,6 +478,7 @@ async function claimNextDueTrip(pool: Pool, now: Date): Promise<ClaimedTrip | nu
       timeZone: row.time_zone,
       intervalMinutes: Number(row.interval_minutes),
       lookaheadHours: Number(row.lookahead_hours),
+      funding,
     };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
@@ -615,26 +651,28 @@ async function startAiRequest(
   now: Date,
 ): Promise<string> {
   const requestId = randomUUID();
+  const paid = routineRequestColumns(claim.funding);
   await claim.client.query("BEGIN");
   try {
     await claim.client.query(
       `INSERT INTO ai_requests (
          trip_id, id, actor_member_id, actor_user_id, conversation_id, actor_role,
          initiator_kind, feature, prompt_text, requested_model, provider, transport,
-         authentication_mode, billing_basis, status, created_at
+         authentication_mode, billing_basis, status, created_at, credential_source, credential_member_id
        ) VALUES (
          $1,$2,NULL,NULL,NULL,'system','system','disruption_monitor',$3,$4,
-         'openai','codex_sdk','api_key','api','started',$5
+         $6,$7,'api_key','api','started',$5,$8,$9
        )`,
-      [claim.tripId, requestId, prompt, DISRUPTION_MODEL, now],
+      [claim.tripId, requestId, prompt, paid.model, now, paid.provider, paid.transport, paid.credentialSource, paid.credentialMemberId],
     );
     await claim.client.query(
       `INSERT INTO ai_request_events (trip_id, ai_request_id, sequence, event_type, payload, created_at)
        VALUES ($1,$2,1,'request.started',$3::jsonb,$4)`,
       [claim.tripId, requestId, JSON.stringify({
         feature: "disruption_monitor",
-        model: DISRUPTION_MODEL,
-        reasoningEffort: "medium",
+        model: paid.model,
+        reasoningEffort: paid.effort,
+        funding: claim.funding.kind,
         webSearchMode: "live",
         monitorRunId: claim.runId,
         batchCandidateCount,
@@ -697,12 +735,13 @@ async function recordSuccessfulAiRequest(input: {
       `UPDATE ai_requests
           SET result_text = $3, effective_model = $4, status = 'succeeded',
               input_tokens = $5, output_tokens = $6, cached_input_tokens = $7,
-              latency_ms = $8, completed_at = $9
+              latency_ms = $8, completed_at = $9, web_search_count = $10
         WHERE trip_id = $1 AND id = $2`,
       [claim.tripId, input.requestId, resultText, input.providerResult.effectiveModel,
         input.providerResult.inputTokens, input.providerResult.outputTokens,
         input.providerResult.cachedInputTokens,
-        Math.max(0, Date.now() - input.startedMs), input.completedAt],
+        Math.max(0, Date.now() - input.startedMs), input.completedAt,
+        Math.min(10_000, Math.max(0, Math.trunc(input.providerResult.webSearchCount)))],
     );
     await claim.client.query(
       `INSERT INTO ai_request_events (trip_id, ai_request_id, sequence, event_type, payload, created_at)
@@ -713,7 +752,7 @@ async function recordSuccessfulAiRequest(input: {
       [claim.tripId, input.requestId,
         input.eventSequenceStart, input.eventSequenceStart + 1, input.eventSequenceStart + 2,
         JSON.stringify({
-          provider: "openai",
+          provider: routineRequestColumns(claim.funding).provider,
           required: true,
           searched: true,
           toolCount: input.providerResult.webSearchCount,
@@ -1320,17 +1359,22 @@ async function finalizeUnhandledClaimFailure(
   }
 }
 
-/** Background checks run only in operator-sponsored trips, so always on the operator's keys. */
+/**
+ * Background disruption checks. The operator's keys pay in sponsored trips, from the background worker.
+ * With `funding: "member"`, the web server checks unsponsored trips on a member's own key (JOB-094, D-106).
+ */
 export function runDueDisruptionMonitors(
   pool: Pool,
   options: RunDisruptionMonitorOptions = {},
 ): Promise<DisruptionMonitorSummary> {
-  return withOperatorAiCredential(() => runDueDisruptionMonitorsAsOperator(pool, options));
+  if (options.funding === "member") return runDueDisruptionMonitorsFor(pool, options, "member");
+  return withOperatorAiCredential(() => runDueDisruptionMonitorsFor(pool, options, "operator"));
 }
 
-async function runDueDisruptionMonitorsAsOperator(
+async function runDueDisruptionMonitorsFor(
   pool: Pool,
   options: RunDisruptionMonitorOptions,
+  mode: "operator" | "member",
 ): Promise<DisruptionMonitorSummary> {
   const now = options.now ? new Date(options.now) : new Date();
   if (!Number.isFinite(now.getTime())) throw new Error("A valid monitor time is required.");
@@ -1354,7 +1398,7 @@ async function runDueDisruptionMonitorsAsOperator(
     15 * 60_000,
   );
   const deadlineAtMs = performance.now() + maxRunDurationMs;
-  const provider = options.provider ?? createCodexDisruptionProvider();
+  const operatorProvider = mode === "operator" ? options.provider ?? createCodexDisruptionProvider() : null;
   const summary: DisruptionMonitorSummary = {
     claimedTrips: 0,
     succeededTrips: 0,
@@ -1365,15 +1409,26 @@ async function runDueDisruptionMonitorsAsOperator(
 
   for (let index = 0; index < maxTrips; index += 1) {
     if (performance.now() >= deadlineAtMs) break;
-    const claim = await claimNextDueTrip(pool, now);
+    const claim = await claimNextDueTrip(pool, now, mode);
     if (!claim) break;
     summary.claimedTrips += 1;
     try {
-      const outcome = await processClaim(
-        claim,
-        { provider, maxCandidatesPerBatch, maxCandidatesPerRun, deadlineAtMs },
-        now,
-      );
+      const limits = { maxCandidatesPerBatch, maxCandidatesPerRun, deadlineAtMs };
+      let outcome: Awaited<ReturnType<typeof processClaim>>;
+      if (claim.funding.kind === "member") {
+        const { payer } = claim.funding;
+        const provider = options.memberProvider?.(payer) ?? createRoutineCheckProvider({ model: payer.model, effort: payer.effort });
+        const ran = await withRoutinePayerKey(claim.client, payer, () => processClaim(claim, { provider, ...limits }, now));
+        if (ran) {
+          outcome = ran.value;
+        } else {
+          // The key no longer opens: nothing ran and nobody paid. The trip is due again in a few minutes.
+          await completeSkipped(claim, now);
+          outcome = { status: "skipped", observations: 0 };
+        }
+      } else {
+        outcome = await processClaim(claim, { provider: operatorProvider ?? createCodexDisruptionProvider(), ...limits }, now);
+      }
       if (outcome.status === "succeeded") summary.succeededTrips += 1;
       if (outcome.status === "failed") summary.failedTrips += 1;
       if (outcome.status === "skipped") summary.skippedTrips += 1;

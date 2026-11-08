@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ChevronLeft, MessageCircle, Plus, RefreshCw } from "lucide-react";
+import { ArrowDown, ChevronLeft, Plus, RefreshCw } from "lucide-react";
 
 import { AiReadableText } from "@/components/ai-readable-text";
+import { AiSection, useAiSectionOpen } from "@/components/ai-section";
+import { aiTabMessages } from "@/lib/ai/ai-tab-i18n";
 import { createAiConversationHistoryClient, emptyAiHistoryState, type AiConversationHistoryClient, type AiHistoryState, type AiHistoryTurn } from "@/lib/ai/conversation-history-client";
 import type { AiConversationListResponse, AiConversationMessagesResponse, AiConversationSummary } from "@/lib/ai/conversation-history-types";
 import type { AiHistoryMessages } from "@/lib/ai/history-i18n";
@@ -29,6 +31,10 @@ export type AiConversationPageProps = {
   resumeConversation: (conversationId: string) => Promise<boolean | void>;
   activeConversationChanged?: (conversationId: string | null) => void;
   onAuthorizationLost?: () => void;
+  /** Under the composer in the Chat section, such as the chat effort picker (JOB-094). */
+  chatFooter?: ReactNode;
+  /** The AI tab's other sections, between Chat and the Conversations list at the bottom (JOB-093). */
+  sections?: ReactNode;
 };
 
 function localTime(instant: string, locale: Locale, timeZone: string): string {
@@ -108,6 +114,10 @@ export function AiConversationTranscript({ turns, locale, timeZone, messages, tr
 export function AiConversationPage(props: AiConversationPageProps) {
   const { tripId, locale, messages, timeZone, recovery, refreshToken, request, activeConversationChanged, onAuthorizationLost } = props;
   const instructionsCopy = aiInstructionsMessages(locale);
+  const tabCopy = aiTabMessages(locale);
+  const [chatOpen, setChatOpen] = useAiSectionOpen("chat", true);
+  const [listOpen, setListOpen] = useAiSectionOpen("conversations", true);
+  const chatSection = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<{ tripId: string; value: AiHistoryState } | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState(false);
@@ -176,6 +186,9 @@ export function AiConversationPage(props: AiConversationPageProps) {
     olderScroll.current = null;
     setActionError(false);
     void historyClient.current?.select(id);
+    // The list sits at the bottom of the tab: open Chat and bring it into view to read the conversation.
+    setChatOpen(true);
+    window.requestAnimationFrame(() => chatSection.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   };
   const loadOlder = () => {
     const node = transcript.current;
@@ -202,19 +215,9 @@ export function AiConversationPage(props: AiConversationPageProps) {
     } finally { if (historyClient.current === client) setActionBusy(false); }
   };
 
-  return <section className="ai-conversation-page" aria-label={messages.title}>
-    <header className="ai-history-heading"><div><h2>{messages.title}</h2><p>{messages.privateNotice}</p></div>
-      <div className="ai-history-actions"><button data-feedback-action="ai_new" type="button" className="ghost-button" disabled={!canChangeConversation} onClick={() => void changeConversation()}><Plus size={16} />{messages.newConversation}</button></div></header>
-    <div className="ai-history-layout">
-      <aside className="ai-history-sidebar" aria-label={messages.conversations}>
-        <h3><MessageCircle size={18} />{messages.conversations}</h3>
-        {history.listError ? <div className="ai-history-feedback" role="status"><p>{messages.loadFailed}</p>
-          {!history.accessDenied ? <button type="button" className="ghost-button" onClick={() => void historyClient.current?.refresh()}>{messages.retry}</button> : null}</div> : null}
-        {!history.conversations.length && !history.listLoading && !history.listError ? <p>{messages.emptyConversations}</p> : null}
-        <AiConversationList conversations={history.conversations} selectedId={history.selectedConversationId} locale={locale} timeZone={timeZone} messages={messages} select={select} />
-        {history.listLoading ? <p className="ai-history-feedback" role="status">{messages.loading}</p> : null}
-        {history.listCursor ? <button type="button" className="ghost-button ai-history-more" disabled={history.listLoading} onClick={() => void historyClient.current?.loadMoreConversations()}>{messages.loadMoreConversations}</button> : null}
-      </aside>
+  return <section className="ai-conversation-page ai-tab" aria-label={messages.title}>
+    <div className="ai-tab-chat" ref={chatSection}><AiSection id="chat" title={tabCopy.chatSection} open={chatOpen} onOpenChange={setChatOpen}>
+      <div className="ai-history-actions ai-chat-actions"><button data-feedback-action="ai_new" type="button" className="ghost-button" disabled={!canChangeConversation} onClick={() => void changeConversation()}><Plus size={16} />{messages.newConversation}</button></div>
       <div className="ai-history-main">
         <div className="ai-history-conversation-heading"><div><h3>{history.conversation?.title || (selectedActive ? messages.currentConversation : messages.selectConversation)}</h3>
           {archived ? <span className="ai-purpose-badge">{instructionsCopy.archived}</span> : null}</div>
@@ -236,7 +239,21 @@ export function AiConversationPage(props: AiConversationPageProps) {
           : history.conversation ? <div className="ai-history-continue"><p>{messages.continueNotice}</p>
             {history.conversation.canResume && history.conversation.purpose !== "preferences" ? <button data-feedback-action="ai_resume" type="button" className="primary-button fit-button" disabled={!canChangeConversation} onClick={() => void changeConversation(history.conversation!.conversationId)}>{messages.continueConversation}</button> : null}</div>
             : null : null}
+        {props.chatFooter}
       </div>
-    </div>
+    </AiSection></div>
+    {props.sections}
+    <AiSection id="conversations" title={tabCopy.conversationsSection} open={listOpen} onOpenChange={setListOpen}
+      summary={history.conversations.length ? String(history.conversations.length) + (history.listCursor ? "+" : "") : undefined}>
+      <div className="ai-conversation-section" aria-label={messages.conversations}>
+        <p className="muted-copy">{messages.privateNotice}</p>
+        {history.listError ? <div className="ai-history-feedback" role="status"><p>{messages.loadFailed}</p>
+          {!history.accessDenied ? <button type="button" className="ghost-button" onClick={() => void historyClient.current?.refresh()}>{messages.retry}</button> : null}</div> : null}
+        {!history.conversations.length && !history.listLoading && !history.listError ? <p>{messages.emptyConversations}</p> : null}
+        <AiConversationList conversations={history.conversations} selectedId={history.selectedConversationId} locale={locale} timeZone={timeZone} messages={messages} select={select} />
+        {history.listLoading ? <p className="ai-history-feedback" role="status">{messages.loading}</p> : null}
+        {history.listCursor ? <button type="button" className="ghost-button ai-history-more" disabled={history.listLoading} onClick={() => void historyClient.current?.loadMoreConversations()}>{messages.loadMoreConversations}</button> : null}
+      </div>
+    </AiSection>
   </section>;
 }

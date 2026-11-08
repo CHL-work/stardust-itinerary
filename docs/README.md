@@ -4,7 +4,7 @@ Every document in this repository, by area, with one line each. The [README](../
 
 ## Start here
 
-- [README](../README.md): what Stardust is, with screenshots.
+- [README](../README.md): what Stardust is and why, its features, phone install and screenshots.
 - [AGENTS.md](../AGENTS.md): rules for every human and AI contributor. [CLAUDE.md](../CLAUDE.md) points there.
 - [Contributing](../CONTRIBUTING.md): setup, checks and pull requests.
 - [Case study](CASE_STUDY.md): the engineering choices, in one page.
@@ -46,6 +46,7 @@ Every document in this repository, by area, with one line each. The [README](../
 ## AI
 
 - [AI and agents](AI_AND_AGENTS.md): how requests flow, proposals instead of direct writes, and trust boundaries. Start here.
+- [The AI tab](AI_TAB.md): usage and estimated cost, routine checks on your own key, effort, keys, instructions and conversations.
 - [Account-owned AI keys](AI_KEYS.md): user-bound Secret Manager storage, legacy encryption, cleanup and recovery.
 - [Automatic research](AI_AUTOMATIC_RESEARCH.md): public facts looked up without being asked.
 - [Booking prices](AI_BOOKING_PRICES.md): ordinary prices backed by sources.
@@ -74,4 +75,5 @@ Every document in this repository, by area, with one line each. The [README](../
 
 - [Documentation policy](DOCUMENTATION_POLICY.md): what every change must keep accurate, including this index.
 - [Sources](SOURCES.md): dated research bibliography.
-- [Screenshots](screenshots/): the README's phone screenshots, synthetic data only ([how they were made](jobs/JOB-076-readme-screenshots.md#how-the-screenshots-were-made)).
+- [License](../LICENSE) and [notice](../NOTICE): the Apache License 2.0 and attributions for bundled data.
+- [Screenshots](screenshots/): the README's phone screenshots, synthetic data only ([how they were made](jobs/JOB-095-readme-and-license.md#how-the-screenshots-were-made)).

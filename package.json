@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Stardust Itinerary (星塵遠征軍): an AI-first group trip planner with shared itineraries, expenses and disruption checks",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@11.19.0",
   "engines": {
     "node": ">=24.0.0 <25"

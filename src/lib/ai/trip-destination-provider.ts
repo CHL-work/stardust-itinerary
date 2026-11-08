@@ -25,15 +25,21 @@ export class TripDestinationProviderError extends Error {
 }
 
 /**
- * The operator's OpenAI API key and runtime settings only. Never pass application secrets or
- * base-URL overrides. The lookup is operator-funded, so it runs only in an operator context.
+ * Runtime settings plus exactly one OpenAI key: the operator's, in an operator context, or the requester's
+ * own key with a per-request Codex home (JOB-094). Never application secrets or base-URL overrides.
  */
 export function tripDestinationProviderEnvironment(source: Record<string, string | undefined> = process.env): Record<string, string> {
-  if (requireAiCredential().source !== "operator") throw new AiCredentialContextMissingError();
+  const credential = requireAiCredential();
+  const own = credential.source === "own" && credential.provider === "openai";
+  if (credential.source !== "operator" && !own) throw new AiCredentialContextMissingError();
   const allowed = /^(?:PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|TMPDIR|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|APPDATA|LOCALAPPDATA|LANG|LC_ALL|TZ|CODEX_HOME|HTTPS_PROXY|HTTP_PROXY|NO_PROXY|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE)$/iu;
   const providerKey = /^(?:CODEX_API_KEY|OPENAI_API_KEY)$/u;
-  return Object.fromEntries(Object.entries(source).filter((entry): entry is [string, string] => entry[1] !== undefined
-    && (allowed.test(entry[0]) || providerKey.test(entry[0]))));
+  const runtime = Object.fromEntries(Object.entries(source).filter((entry): entry is [string, string] => entry[1] !== undefined
+    && (allowed.test(entry[0]) || (!own && providerKey.test(entry[0])))));
+  if (!own || credential.source !== "own") return runtime;
+  // The per-request directory replaces the server's home and Codex profile.
+  return { ...runtime, HOME: credential.stateDirectory, CODEX_HOME: join(credential.stateDirectory, "codex"),
+    CODEX_API_KEY: credential.apiKey, OPENAI_API_KEY: credential.apiKey };
 }
 
 export function buildTripDestinationPrompt(destination: string): string {
@@ -125,12 +131,16 @@ function tokenCount(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
-export async function lookupTripDestination(input: { destination: string; locale: Locale; signal?: AbortSignal }): Promise<{
+export type TripDestinationLookupResult = {
   defaults: DestinationDefaults;
   usage: { inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null };
   effectiveModel: string;
   latencyMs: number;
-}> {
+};
+
+/** The pinned, tool-free Codex lookup: the operator's Sol, or an OpenAI model on the requester's own key. */
+export async function lookupTripDestination(input: { destination: string; locale: Locale; signal?: AbortSignal; model?: string }): Promise<TripDestinationLookupResult> {
+  const model = input.model ?? DESTINATION_LOOKUP_MODEL;
   const prompt = buildTripDestinationPrompt(input.destination);
   if (input.signal?.aborted) throw new TripDestinationProviderError("TIMEOUT");
   const started = Date.now();
@@ -156,7 +166,7 @@ export async function lookupTripDestination(input: { destination: string; locale
       const mcpOverride = await disabledMcpOverride(binary, workDirectory, env, controller.signal);
       if (controller.signal.aborted) throw new TripDestinationProviderError("TIMEOUT");
       const codex = new Codex({ codexPathOverride: binary, env, config: isolatedConfiguration(instructionFile), configOverrides: [mcpOverride] });
-      const thread = codex.startThread({ model: DESTINATION_LOOKUP_MODEL, modelReasoningEffort: "low",
+      const thread = codex.startThread({ model, modelReasoningEffort: "low",
         sandboxMode: "read-only", workingDirectory: workDirectory, skipGitRepoCheck: true,
         networkAccessEnabled: false, webSearchMode: "disabled", approvalPolicy: "never" });
       const stream = await thread.runStreamed(prompt, { outputSchema: z.toJSONSchema(destinationLookupOutputSchema), signal: controller.signal });
@@ -195,7 +205,7 @@ export async function lookupTripDestination(input: { destination: string; locale
         throw new TripDestinationProviderError("INVALID_OUTPUT");
       }
       return { defaults, usage: { inputTokens: tokenCount(usage?.input_tokens), outputTokens: tokenCount(usage?.output_tokens),
-        cachedInputTokens: tokenCount(usage?.cached_input_tokens) }, effectiveModel: DESTINATION_LOOKUP_MODEL, latencyMs: Date.now() - started };
+        cachedInputTokens: tokenCount(usage?.cached_input_tokens) }, effectiveModel: model, latencyMs: Date.now() - started };
     };
     return await Promise.race([run(), aborted]);
   } catch (error) {

@@ -7,6 +7,7 @@ import { aiKeysMessages } from "@/lib/ai/keys-i18n";
 import { offTopicReplies } from "@/lib/ai/off-topic";
 import { detachedPlanningClarification } from "@/lib/ai/planning-draft-context";
 import { aiProviderFailureCopy } from "@/lib/ai/provider-failure-presentation";
+import { aiTabMessages } from "@/lib/ai/ai-tab-i18n";
 import { researchCompletionCopy } from "@/lib/ai/research-completion";
 import { reservationClarificationMessages, reservationExpenseReviewNotice } from "@/lib/ai/reservation-assumptions";
 import { venueHoursMessages, venueHoursUnverifiedMessages } from "@/lib/ai/venue-hours";
@@ -48,6 +49,7 @@ export const packCatalogs: Record<string, unknown> = {
   aiInstructions: aiInstructionsMessages("en"),
   aiKeys: aiKeysMessages("en"),
   aiProviderFailure: aiProviderFailureCopy("en"),
+  aiTab: aiTabMessages("en"),
   approval: approvalMessages("en"),
   calendarImport: calendarImportMessages("en"),
   createTrip: createTripCopy("en"),

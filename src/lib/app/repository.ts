@@ -4198,12 +4198,12 @@ async function freeAiPolicy(
   const used = usage.rows[0] ?? { mine: 0, hour: 0, day: 0 };
   if (used.mine >= free.perUserDaily) {
     throw new AiPolicyDeniedError(
-      `You have used today's ${free.perUserDaily} free AI requests. Try tomorrow, or choose your own key in Settings → AI keys.`,
+      `You have used today's ${free.perUserDaily} free AI requests. Try tomorrow, or choose your own key in AI → API keys.`,
       "daily_limit_reached", GUEST_FREE_MODEL,
     );
   }
   if (used.hour >= free.hourly || used.day >= free.daily) {
-    throw new AiPolicyDeniedError("Free AI is busy right now. Try later, or choose your own key in Settings → AI keys.",
+    throw new AiPolicyDeniedError("Free AI is busy right now. Try later, or choose your own key in AI → API keys.",
       "daily_limit_reached", GUEST_FREE_MODEL);
   }
   return { enabled: true, model: GUEST_FREE_MODEL, usedToday: used.mine, limit: free.perUserDaily, credentialSource: "free" };
@@ -4306,7 +4306,7 @@ export async function getAiPolicy(
   }
   if (!row.sponsored) {
     throw new AiPolicyDeniedError(
-      "Add your own API key for this model's provider in Settings → AI keys to use AI in this trip.",
+      "Add your own API key for this model's provider in AI → API keys to use AI in this trip.",
       "ai_key_required", requestedModel ?? model,
     );
   }
@@ -4360,7 +4360,7 @@ export function assertNotGuest(session: { issuer: string }, action: string): voi
 /** Refuse to share keys the acting owner does not hold: the grant would silently do nothing. */
 export async function requireKeysToShare(client: Queryable, userId: string): Promise<void> {
   if ((await aiCredentialProviders(client, userId)).size === 0) {
-    throw new AppInvalidInputError("Add your own API key in Settings → AI keys before sharing it.");
+    throw new AppInvalidInputError("Add your own API key in AI → API keys before sharing it.");
   }
 }
 

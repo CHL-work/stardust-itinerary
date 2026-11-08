@@ -10,7 +10,9 @@ import { formatMessage, type Locale } from "@/lib/i18n";
 type Provider = AiCredentialSummary["provider"];
 type Request = <T>(url: string, init?: RequestInit) => Promise<T>;
 /** `changed` runs after a key is saved or removed, so the page can refresh what AI it offers. */
-type Props = { tripId: string; scope: string; locale: Locale; request: Request; changed?: () => void };
+type Props = { tripId: string; scope: string; locale: Locale; request: Request; changed?: () => void;
+  /** Inside an AI tab section, which already shows the title (JOB-093). */
+  embedded?: boolean };
 type Notice = { provider: Provider; kind: "savedNotice" | "removedNotice" | "rejected" | "failed" | "unavailable" | "limited" | "providerLimited" | "providerUnavailable" | "googleConfiguration" | "invalidProject" };
 type GoogleMode = "gemini" | "express" | "vertex";
 type KeyDraft = { apiKey: string; vertexProject: string; vertexLocation?: string; googleMode?: GoogleMode };
@@ -40,12 +42,12 @@ export function savedKeyLine(copy: AiKeysCopy, locale: Locale, key: AiCredential
   return formatMessage(key.vertex ? copy.vertexKey : copy.savedKey, { hint: key.hint, date });
 }
 
-/** Settings → AI keys. The key remounts the editor before another identity can see its state. */
+/** AI tab → API keys. The key remounts the editor before another identity can see its state. */
 export function AiKeysSettings(props: Props) {
   return <AiKeysEditor key={props.scope} {...props} />;
 }
 
-function AiKeysEditor({ tripId, locale, request, changed }: Props) {
+function AiKeysEditor({ tripId, locale, request, changed, embedded = false }: Props) {
   const copy = aiKeysMessages(locale);
   const url = `/api/trips/${encodeURIComponent(tripId)}/ai/keys`;
   const [keys, setKeys] = useState<AiCredentialSummary[] | null>(null);
@@ -127,7 +129,7 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
     }
   };
 
-  return <AiKeysView copy={copy} locale={locale} keys={keys} usage={usage} protection={protection} phase={phase} drafts={drafts} busy={busy} notice={notice}
+  return <AiKeysView copy={copy} locale={locale} keys={keys} usage={usage} protection={protection} phase={phase} drafts={drafts} busy={busy} notice={notice} embedded={embedded}
     edit={(provider, field, value) => setDrafts((current) => ({ ...current, [provider]: { ...current[provider], [field]: value } }))}
     save={save} remove={remove} reload={reload} />;
 }
@@ -141,11 +143,13 @@ type ViewProps = {
   save: (provider: Provider) => (event: FormEvent) => void;
   remove: (provider: Provider) => () => void;
   reload: () => void;
+  embedded?: boolean;
 };
 
-export function AiKeysView({ copy, locale, keys, usage = null, protection = null, phase, drafts, busy, notice, edit, save, remove, reload }: ViewProps) {
-  return <article className="settings-card" aria-busy={phase === "loading" || busy !== null}>
-    <h2>{copy.title}</h2>
+export function AiKeysView({ copy, locale, keys, usage = null, protection = null, phase, drafts, busy, notice, edit, save, remove, reload, embedded = false }: ViewProps) {
+  const Container = embedded ? "div" : "article";
+  return <Container className={embedded ? "settings-card ai-embedded-settings ai-keys" : "settings-card"} aria-busy={phase === "loading" || busy !== null}>
+    {embedded ? null : <h2>{copy.title}</h2>}
     <p>{copy.description}</p>
     <p id="ai-keys-privacy">{protection === "secret_manager" ? copy.privacySecretManager : protection === "kms" ? copy.privacyKms : copy.privacy}<InfoTip label={infoTipLabel(locale)}>{copy.keyAdvice}</InfoTip></p>
     {phase === "loading" ? <p role="status">{copy.loading}</p> : null}
@@ -197,5 +201,5 @@ export function AiKeysView({ copy, locale, keys, usage = null, protection = null
           : null}
       </section>;
     }) : null}
-  </article>;
+  </Container>;
 }

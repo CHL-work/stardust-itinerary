@@ -2,6 +2,14 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 8, 2026 model prices and effort
+
+Checked for JOB-093 and JOB-094; the AI tab's estimates use these values (`src/lib/ai/model-prices.ts`):
+
+- [OpenAI pricing](https://developers.openai.com/api/docs/pricing): standard per-million-token input, cached input and output for `gpt-6.1-sol` ($2, $0.10, $10), `gpt-6-astra` ($10, $1, $50), `gpt-6.1-terra` ($1, $0.05, $5) and `gpt-6-luna` ($0.10, $0.01, $0.50); web search $10 per thousand calls, with search content billed as tokens. The [Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) and [Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra) pages list low, medium and high among supported reasoning efforts.
+- [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing): Haiku 5.5 ($0.10, $0.01 cache hit, $0.50, for prompts up to 100,000 tokens), Sonnet 5.5 ($2, $0.10, $10), Opus 5.5 ($4, $0.20, $20) and Fable 5.1 ($10, $0.25, $50); web search $10 per thousand searches plus tokens. Effort levels low to max apply to every current model.
+- [Gemini pricing](https://aistudio.google.com/docs/pricing): `gemini-4-argon` $2/$10 (cache $0.10) through November 30, 2026, then $4/$20; `gemini-3.8-flash` $0.75/$3.75 (cache $0.075) through December 31, 2026, then $1.50/$7.50; `gemini-3.5-flash-lite` $0.30/$2.50 (cache $0.03). Grounding with Google Search: 5,000 free requests a month shared across Gemini 3 and later, then $14 per thousand. The [thinking guide](https://aistudio.google.com/docs/thinking) lists low, medium and high thinking levels for all three.
+
 ## November 8, 2026 free-model comparison
 
 Read-only review for JOB-091, expanded across the upstream route families for JOB-092. The latest upstream commit when checked was [`363c62115bc19803e44c2890c2c93582b95ff839`](https://github.com/Ebony-Vinyl/dsh-our-free-model/tree/363c62115bc19803e44c2890c2c93582b95ff839) (November 8, 06:36 UTC). Public source, documentation and catalog metadata were read; no upstream plugin execution, credential import, sign-in or inference was part of this audit.

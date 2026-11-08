@@ -6,6 +6,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **One AI tab (JOB-093, D-105):** Chat, Usage, Routine checks, API keys, AI instructions and Conversations as collapsible sections, each remembered per browser. Usage charts 30 days of tokens by service and lists them by model, with an estimated cost for requests on your own keys from a published price table. API keys and AI instructions moved from Settings; past conversations sit at the bottom.
+- **Routine checks on your own key (JOB-094, D-106):** flight status and disruption checks run in trips the operator does not sponsor when a member turns them on in the AI tab, on that member's key, with the model and effort they choose (defaults `gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.8-flash` at medium). A one-time live web search on the key gates them; owners pay first; the web server runs them in small batches (`ROUTINE_CHECKS_ENABLED`). A "?" explains what they check.
+- **Chat effort (JOB-094):** Default, Low, Medium or High for chat on your own key; Default keeps each model's tuned effort. Gemini requests can now carry a thinking level.
 - **More compatible free models (JOB-092, D-104):** users and guests can select eligible zero-price models without native JSON-schema support, including Reflection Beam and Cohere North Mini Code in the dated catalog. Capability-aware requests preserve strict validation, pending approval, privacy filtering, quotas and no paid fallback. One format-only retry never replays invalid output; returned-attempt usage is accumulated. The source audit distinguishes genuine anonymous access from client-only, signed-in, subsidy and local-runtime routes; this is not a promise of every advertised frontier model for free.
   The opt-in synthetic smoke now has an explicit 1–8 upstream-attempt budget (default four), covering format and timestamp retries, and reports the count even on failure.
 
@@ -96,6 +99,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Apache License 2.0 (JOB-095, D-107):** the application is relicensed from MIT to Apache 2.0, with a NOTICE for bundled data.
+- **README (JOB-095):** why the app exists, what it does, phone install, how to try the public instance and send feedback, and five new English screenshots: overview, a flight time changed by a routine check, an AI proposal, a three-stop day map and the API keys section.
+- **Trip setup on your key or a free model (JOB-094, D-106):** the create-trip destination lookup uses the creator's own key with its provider's lightest model, else a free model where free AI is on, else the operator's key; the platform operator keeps the operator's key. Lookups record who paid.
+- **Copy points at the AI tab:** messages that named Settings → AI keys now name AI → API keys, in every language.
 - **Only the selected language is downloaded (JOB-085, D-097):**
   - Browser code no longer carries any language pack, which saves about 185 KB compressed for every visitor. A page in an added language sends only its own pack.
   - The create-trip page sends only the selected language's time zone and currency choices; choosing another language reloads them and keeps what was typed.
@@ -150,6 +157,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **CI secret scan download:** GitHub's release-download URL for gitleaks was returning gateway errors, so CI now fetches the pinned release through the REST API with the workflow's own token, retries a dropped transfer, and checks the archive against the published checksum before the scan runs.
+- **French AI status lines:** a missing space after « L’IA » in two conversation messages.
 - **Deterministic route-rate verification:** OSRM walking/driving requests recheck the one-second deadline after an early timer wake. Fake-clock tests preserve the full 1,000 ms spacing assertion and cover cancellation, removing a 999 ms CI timing flake.
 
 - **Guest notice, counts and free-model line breaks (JOB-077, D-088):**

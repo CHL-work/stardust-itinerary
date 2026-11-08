@@ -27,7 +27,7 @@ The optional account-key storage backend keeps encrypted key material in Google 
   - Only this site's server may use the KMS key, an access rule that binds the operator too, and Google logs every use.
   - The server decrypts your key only to send your own requests, and members' requests if you share the key with them. Whoever runs a server could change it, so use a key made for Stardust with a spending limit at your provider.
   - Never shown again after you save it; only the last four characters are.
-  - You can remove a key at any time in Settings → AI keys.
+  - You can remove a key at any time in AI → API keys.
 - **Google Calendar**, if you connect it: encrypted tokens, and which of your calendar entries were imported.
 - **Feedback you send:**
   - the report itself, and, if you agree, recent diagnostic context;
@@ -48,6 +48,8 @@ The optional account-key storage backend keeps encrypted key material in Google 
   - a trip owner's key shared with you, in which case the request also appears in that owner's provider account;
   - or the operator's key, in a trip the operator sponsors.
 - **Flight status checks:** in a trip the operator sponsors, the flight number, airline, airports and planned departure of a flight visible to the whole trip go to OpenAI, with web search, up to eight times in the day before it departs. Nothing else about the trip or its members is sent.
+- **Routine checks on a member's key:** in other trips, if a member turns on routine checks in the AI tab, the same public flight facts, and the names, places and times of trip-visible events in the coming week for disruption checks, go to that member's chosen provider (OpenAI, Anthropic or Google) under their key, with web search. Private events are never sent.
+- **Trip setup:** the destination you type on Create Trip goes to your own key's provider, or, without a key, to Kilo Code's AI Gateway and a free model's provider, which may keep it.
 
   Their own terms apply to what they keep.
 - **Google** receives what is needed for sign-in and, if you connect it, Calendar.
@@ -86,7 +88,7 @@ The optional account-key storage backend keeps encrypted key material in Google 
 - It is a personal project. It comes with no guarantee of availability, and may change or stop.
 - Requests on your own AI key are billed to your provider account, under your provider's terms.
 - Do not use it to attack the service or other people. The operator may suspend accounts that abuse it, pause new sign-ups or turn off guest mode. A suspended account cannot sign in until the operator restores it, and keys it shared stop working for others.
-- The software is open source under the MIT license.
+- The software is open source under the Apache License 2.0.
 
 ## Contact
 

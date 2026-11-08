@@ -23,7 +23,7 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 - `AGENTS.md` owns repository rules; [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md) own operating commands; the [roadmap](ROADMAP.md) and job records own planned work; topic documents own feature contracts. Link instead of copying them into every entry point.
 - README is a brief overview and navigation page, not a rollout journal. Details belong in the topic documents it links to.
 - The [documentation index](README.md) lists every document. Add, rename or remove a document there in the same change.
-- README screenshots show synthetic data only, from a local build. Replace one when its screen changes visibly, the way [JOB-076](jobs/JOB-076-readme-screenshots.md#how-the-screenshots-were-made) made them.
+- README screenshots show synthetic data only, from a local build. Replace one when its screen changes visibly, the way [JOB-095](jobs/JOB-095-readme-and-license.md#how-the-screenshots-were-made) made them.
 - Remove superseded commands and implementation narratives from active guides. Keep necessary historical evidence in labeled job records, CHANGELOG and Git history; old approval or test results never grant present authority or prove current runtime health.
 - Label proposal-only features and outstanding decisions. Never describe an approved design as implemented without code/release evidence.
 - This repository is public. Never commit personal emails, cloud project IDs, host names, IP addresses, local machine paths, bucket names, secrets, real traveler data, or deployment evidence from a private instance; describe hosting generically and link to the hosting documents.

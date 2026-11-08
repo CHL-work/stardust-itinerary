@@ -7,14 +7,16 @@ import { AI_INSTRUCTIONS_MAX_CHARACTERS, createAiInstructionsController, emptyAi
   type AiInstructionsRequest, type AiInstructionsState } from "@/components/ai-instructions-state";
 import styles from "./ai-instructions-settings.module.css";
 
-type Props = { tripId: string; scope: string; locale: Locale; request: AiInstructionsRequest; onDirtyChange?: (dirty: boolean) => void };
+type Props = { tripId: string; scope: string; locale: Locale; request: AiInstructionsRequest; onDirtyChange?: (dirty: boolean) => void;
+  /** Inside an AI tab section, which already shows the title (JOB-093). */
+  embedded?: boolean };
 
 /** The key remounts the editor before a different identity can see its draft. */
 export function AiInstructionsSettings(props: Props) {
   return <AiInstructionsEditor key={props.scope} {...props} />;
 }
 
-function AiInstructionsEditor({ tripId, locale, request, onDirtyChange }: Props) {
+function AiInstructionsEditor({ tripId, locale, request, onDirtyChange, embedded = false }: Props) {
   const copy = aiInstructionsMessages(locale);
   const [state, setState] = useState<AiInstructionsState>(emptyAiInstructionsState);
   const controller = useRef<ReturnType<typeof createAiInstructionsController> | null>(null);
@@ -37,8 +39,9 @@ function AiInstructionsEditor({ tripId, locale, request, onDirtyChange }: Props)
   const clear = () => { if (window.confirm(copy.clearConfirm)) void controller.current?.clear(); };
   const ready = state.phase === "ready";
   const blocked = state.notice === "conflict";
-  return <article className={`settings-card ${styles.card}`} aria-busy={state.phase === "loading" || state.phase === "saving"}>
-    <h2>{copy.title}</h2>
+  const Container = embedded ? "div" : "article";
+  return <Container className={embedded ? `settings-card ai-embedded-settings ${styles.card}` : `settings-card ${styles.card}`} aria-busy={state.phase === "loading" || state.phase === "saving"}>
+    {embedded ? null : <h2>{copy.title}</h2>}
     <p>{copy.description}</p>
     <p id="ai-instructions-privacy">{copy.privacy}</p>
     <form data-feedback-action="settings_save" className={styles.form} onSubmit={save}>
@@ -55,5 +58,5 @@ function AiInstructionsEditor({ tripId, locale, request, onDirtyChange }: Props)
     {state.phase === "loading" ? <p role="status">{copy.loading}</p> : null}
     {state.notice ? <p role={state.notice === "saved" || state.notice === "cleared" ? "status" : "alert"}>{copy[state.notice]}</p> : null}
     {state.phase === "failed" || blocked ? <button type="button" className="ghost-button" onClick={reload}>{copy.reload}</button> : null}
-  </article>;
+  </Container>;
 }
