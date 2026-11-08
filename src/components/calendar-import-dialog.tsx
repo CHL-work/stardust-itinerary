@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { isTrustedGoogleMapsUrl } from "@/lib/app/transport";
 import { calendarImportMessages } from "@/lib/calendar/import-i18n";
+import { formatEventLocalTime } from "@/lib/app/timeline-time";
+import { calendarFallbackTimeZones } from "@/lib/calendar/event-time-zones";
 import type { CalendarImportInput, CalendarImportPreview, CalendarImportResult } from "@/lib/calendar/import-contracts";
 import type { CalendarLocationSearchResult } from "@/lib/calendar/location-search-types";
 import type { Locale } from "@/lib/i18n";
@@ -31,12 +33,15 @@ export function CalendarImportForm({ preview, draft, members, memberId, locale, 
 }) {
   const copy = calendarImportMessages(locale);
   const source = preview.source;
-  const date = (value: string) => new Intl.DateTimeFormat(locale, { timeZone: source.allDay ? "UTC" : timeZone,
-    dateStyle: "medium", ...(source.allDay ? {} : { timeStyle: "short" as const }) }).format(new Date(source.allDay ? `${value}T00:00:00Z` : value));
+  const fallbackZones = calendarFallbackTimeZones(source.location, source.timeZones);
+  const date = (value: string, endpoint: "start" | "end" = "start") => source.allDay
+    ? new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale, { timeZone: "UTC", dateStyle: "medium" }).format(new Date(`${value}T00:00:00Z`))
+    : formatEventLocalTime({ itemType: "activity", locationName: source.location,
+      timeZones: { start: fallbackZones?.[endpoint] ?? fallbackZones?.start } }, value, locale, timeZone, "start", true);
   const lastDate = source.endDateExclusive ? new Date(Date.parse(`${source.endDateExclusive}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10) : null;
   return <form className={styles.form} onSubmit={submit}>
     <div className={styles.source}><h3>{source.title}</h3><p>{source.allDay && source.startDate && lastDate
-      ? `${copy.allDay} · ${date(source.startDate)} — ${date(lastDate)}` : `${date(source.startsAt)} — ${date(source.endsAt)}`}</p><p className={styles.hint}>{copy.source}</p></div>
+      ? `${copy.allDay} · ${date(source.startDate)} — ${date(lastDate)}` : `${date(source.startsAt)} — ${date(source.endsAt, "end")}`}</p><p className={styles.hint}>{copy.source}</p></div>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     <fieldset disabled={busy || locked}>
       <label>{copy.type}<select value={draft.itemType} onChange={(event) => change({ ...draft, itemType: event.target.value as CalendarImportDraft["itemType"] })}>{(["activity", "meal", "lodging", "note"] as const).map((type) => <option key={type} value={type}>{copy[type]}</option>)}</select></label>

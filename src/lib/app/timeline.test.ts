@@ -314,11 +314,11 @@ describe("flight endpoint presentation", () => {
     expect(new Intl.DateTimeFormat("en-CA", { timeZone: points[1]!.timeZone }).format(new Date(points[1]!.at!))).toBe("2026-09-06");
   });
 
-  it("labels unknown flight endpoint zones as trip fallback and leaves generic transport alone", () => {
+  it("labels unknown flight and generic endpoint zones as trip fallback", () => {
     const [unknown, train] = [true, false].map((isFlight) => projectTimelinePoints([item({ itemType: "transport",
       flight: isFlight ? { flightNumber: "ZZ123" } : null, departureLocationName: "Synthetic terminal" })], options)[0]!);
     expect(unknown).toMatchObject({ timeZone: "Asia/Tokyo", isFlight: true, timeZoneKnown: false });
-    expect(train).toMatchObject({ timeZone: "Asia/Tokyo", isFlight: false, timeZoneKnown: true });
+    expect(train).toMatchObject({ timeZone: "Asia/Tokyo", isFlight: false, timeZoneKnown: false });
   });
 });
 

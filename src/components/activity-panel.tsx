@@ -2,6 +2,7 @@ import { Activity, ArrowLeft, ArrowUpRight, RefreshCw } from "lucide-react";
 import type { ActivityEntry } from "@/lib/app/activity-types";
 import { activityMessages } from "@/lib/app/activity-i18n";
 import { formatPaymentMoney } from "@/lib/app/member-payment-format";
+import { formatEventLocalTime } from "@/lib/app/timeline-time";
 import type { Locale } from "@/lib/i18n";
 import styles from "./activity-panel.module.css";
 
@@ -19,6 +20,9 @@ export function ActivityPanel({ entries, locale, timeZone, isOwner, openingId, b
   const copy = activityMessages(locale);
   const date = (value: string) => new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale,
     { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  const eventDate = (entry: ActivityEntry, value: string, endpoint: "start" | "end") => entry.eventTimeZones
+    ? formatEventLocalTime({ itemType: "transport", timeZones: entry.eventTimeZones }, value, locale, timeZone, endpoint, true)
+    : date(value);
   return <section className={`page-panel ${styles.panel}`}>
     <div className={styles.heading}><div><p className="eyebrow">{copy.latest}</p><h2>{copy.title}</h2></div>
       <div className={styles.actions}><button type="button" className="ghost-button" onClick={back}><ArrowLeft size={16} aria-hidden="true" />{copy.back}</button>
@@ -28,8 +32,8 @@ export function ActivityPanel({ entries, locale, timeZone, isOwner, openingId, b
         <small>{copy.recordedAt}: <time dateTime={entry.createdAt}>{date(entry.createdAt)}</time></small></header>
       {entry.title ? <h4>{entry.title}</h4> : null}
       {entry.target ? <><p className={styles.hint}>{entry.target.kind === "request" ? copy.requestCurrent : copy.current}</p>
-        <dl>{entry.startsAt ? <div><dt>{copy.startsAt}</dt><dd><time dateTime={entry.startsAt}>{date(entry.startsAt)}</time></dd></div> : null}
-          {entry.endsAt ? <div><dt>{copy.endsAt}</dt><dd><time dateTime={entry.endsAt}>{date(entry.endsAt)}</time></dd></div> : null}
+        <dl>{entry.startsAt ? <div><dt>{copy.startsAt}</dt><dd><time dateTime={entry.startsAt}>{eventDate(entry, entry.startsAt, "start")}</time></dd></div> : null}
+          {entry.endsAt ? <div><dt>{copy.endsAt}</dt><dd><time dateTime={entry.endsAt}>{eventDate(entry, entry.endsAt, "end")}</time></dd></div> : null}
           {entry.amount ? <div><dt>{copy.amount}</dt><dd>{formatPaymentMoney(entry.amount.amountMinor, entry.amount.currency, locale)}</dd></div> : null}
           {entry.status ? <div><dt>{copy.status}</dt><dd>{copy.statuses[entry.status]}</dd></div> : null}</dl>
         {entry.changedFields.length ? <p>{copy.changed}: {entry.changedFields.map((field) => copy.fields[field]).join(" · ")}</p> : null}

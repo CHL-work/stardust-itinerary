@@ -14,6 +14,28 @@ function claims(): CalendarPreviewClaims { return { version: 1, ...session, acco
 afterEach(() => vi.useRealTimers());
 
 describe("Calendar import source times", () => {
+  it("retains provider zones only as unknown-location fallbacks without reinterpreting instants or all-day dates", () => {
+    const input = { id: "source123", location: "Synthetic unrecognized venue",
+      start: { dateTime: "2031-04-01T15:00:00-06:00", timeZone: "America/Denver" },
+      end: { dateTime: "2031-04-02T11:00:00-06:00", timeZone: "America/Denver" } };
+    const result = normalizeCalendarImportSource(input, "source123", "America/Chicago");
+    expect(result.startsAt).toBe("2031-04-01T21:00:00.000Z");
+    expect(result.timeZones).toEqual({ start: "America/Denver", end: "America/Denver" });
+    const expected = { ...claims(), source: result };
+    expect(verifyCalendarImportToken("synthetic-test-secret", session, createCalendarImportToken("synthetic-test-secret", expected)).source.timeZones)
+      .toEqual(result.timeZones);
+    expect(calendarSourceDigest(result, null)).not.toBe(calendarSourceDigest({ ...result, timeZones: { start: "America/Chicago" } }, null));
+    expect(normalizeCalendarImportSource({ ...input, start: { date: "2031-04-01", timeZone: "America/Denver" },
+      end: { date: "2031-04-02", timeZone: "America/Denver" } }, "source123", "America/Chicago")).not.toHaveProperty("timeZones");
+  });
+  it("does not pin a known Salt Lake City venue to the originating Chicago calendar zone", () => {
+    const result = normalizeCalendarImportSource({ id: "source123", location: "Synthetic hotel, Salt Lake City",
+      start: { dateTime: "2031-04-01T16:00:00-05:00", timeZone: "America/Chicago" },
+      end: { dateTime: "2031-04-02T12:00:00-05:00", timeZone: "America/Chicago" } }, "source123", "America/Chicago");
+    expect(result).not.toHaveProperty("timeZones");
+    expect(result.startsAt).toBe("2031-04-01T21:00:00.000Z");
+    expect(result.endsAt).toBe("2031-04-02T17:00:00.000Z");
+  });
   it("normalizes exact source timestamps without copying description, attendees or booking data", () => {
     expect(source.startsAt).toBe("2030-04-01T01:00:00.000Z");
     expect(Object.keys(source).sort()).toEqual(["allDay", "endDateExclusive", "endsAt", "eventId", "location", "startDate", "startsAt", "title"]);

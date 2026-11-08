@@ -103,6 +103,7 @@ import {
 import { extractLinkedUrls, fetchLinkedPages } from "@/lib/ai/linked-pages";
 import { isPlatformOperator } from "@/lib/auth/operator-access";
 import { instantDateInTimeZone, requestedRelativeDate } from "@/lib/ai/relative-date";
+import { itineraryProposalLocalDate } from "@/lib/ai/itinerary-local-date";
 import type { Locale } from "@/lib/i18n";
 import {
   aiRequestPayloadHash, findAiRequestReplay, assertAiRequestWritable,
@@ -1486,7 +1487,8 @@ export async function runAiPlanner(
              'title', i.title, 'itemType', i.item_type, 'startsAt', i.starts_at,
              'endsAt', i.ends_at, 'locationName', i.location_name, 'visibility', i.visibility, 'mapUrl', i.map_url,
              'departureLocationName', i.departure_location_name,
-             'destinationLocationName', i.destination_location_name, 'flight', to_jsonb(i)->'flight', 'notes', i.notes,
+             'destinationLocationName', i.destination_location_name, 'departureMapUrl', i.departure_map_url,
+             'destinationMapUrl', i.destination_map_url, 'flight', to_jsonb(i)->'flight', 'timeZones', to_jsonb(i)->'time_zones', 'notes', i.notes,
              'status', i.status, 'isLocked', i.is_locked
            ) ORDER BY i.starts_at NULLS LAST, i.id)
              FROM itinerary_items i
@@ -1534,8 +1536,11 @@ export async function runAiPlanner(
         visibility?: "trip" | "private";
         mapUrl?: string | null;
         departureLocationName?: string | null;
+        departureMapUrl?: string | null;
         destinationLocationName?: string | null;
-        flight?: { flightNumber?: string } | null;
+        destinationMapUrl?: string | null;
+        flight?: ItineraryPatch["flight"];
+        timeZones?: ItineraryPatch["timeZones"];
       }>;
     } & Awaited<ReturnType<typeof getAiPendingItineraryContext>>;
     const clarificationReply = isDraftClarificationReply(
@@ -2164,17 +2169,18 @@ export async function runAiPlanner(
             mapUrl: safeAiMapUrl(patchValue.mapUrl, patchValue.locationName),
           };
         }
-        const selectedDay = contextRecord.days?.find((day) => day.id === (patchValue.tripDayId ?? pendingTarget?.patch.tripDayId));
+        const selectedDay = contextRecord.days?.find((day) => day.id === (patchValue.tripDayId ?? existingItem?.tripDayId));
         if (patchValue.tripDayId && !contextRecord.days?.some((day) => day.id === patchValue.tripDayId)) {
           throw new AppConflictError(`AI proposal ${index + 1} references a day outside this trip.`);
         }
-        const effectiveStartsAt = patchValue.startsAt !== undefined ? patchValue.startsAt : pendingTarget?.patch.startsAt;
+        const effectiveStartsAt = patchValue.startsAt !== undefined ? patchValue.startsAt : existingItem?.startsAt;
         const proposedDate = effectiveStartsAt && timeZone
           ? instantDateInTimeZone(effectiveStartsAt, timeZone)
           : selectedDay?.date;
-        if (relativeDate && proposedDate !== relativeDate) {
+        const localDeparture = itineraryProposalLocalDate(patchValue, existingItem, timeZone ?? "UTC");
+        if (relativeDate && (localDeparture.date ?? proposedDate) !== relativeDate) {
           throw new AppConflictError(
-            `The AI resolved the relative date incorrectly. The requested date is ${relativeDate} in ${timeZone ?? "the trip time zone"}; no change was applied.`,
+            `The AI resolved the relative date incorrectly. The requested date is ${relativeDate} in ${localDeparture.timeZone}; no change was applied.`,
           );
         }
         if (patchValue.startsAt && timeZone) {

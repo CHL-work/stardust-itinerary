@@ -3,7 +3,8 @@ import type { ApprovalDisplay, ApprovalExpenseDisplay } from "@/lib/app/approval
 import { expensePatchSchema, itineraryPatchSchema } from "@/lib/app/validation";
 import { resolveItineraryLocationState, transportHasEndpoint } from "@/lib/app/transport";
 import { expenseSplitsForPatch } from "@/lib/app/expense-split-patch";
-import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
+import { resolveEventTimeZonesPatch, resolveLegacyFlightTimeZonesPatch } from "@/lib/app/event-time-zone-contract";
 
 export type ApprovalPresentationSource = {
   entity_type: string;
@@ -115,10 +116,14 @@ export function projectApprovalDisplay(source: ApprovalPresentationSource, membe
   const linkedExpense = isRecord(source.proposed_patch.linkedExpense)
     ? expenseDisplay(source.proposed_patch.linkedExpense, null, "create", members) : null;
   if (source.proposed_patch.linkedExpense && !linkedExpense) return unavailable;
-  const flight = resolveFlightPresentation({ ...locations, title: patch.title, flight: patch.flight }, "UTC");
+  const timeZones = resolveEventTimeZonesPatch(submitted.data, before.data);
+  const flight = resolveEventTimeZones({ ...locations, title: patch.title,
+    flight: resolveLegacyFlightTimeZonesPatch(submitted.data, before.data), timeZones }, "UTC");
   return { kind: "itinerary", event: {
     title: patch.title, ...locations,
     isFlight: flight.isFlight,
+    timeZones: { start: flight.departureZoneKnown ? flight.departureTimeZone : null,
+      end: flight.arrivalZoneKnown ? flight.arrivalTimeZone : null },
     ...(flight.isFlight ? { flightPresentation: { isFlight: true,
       departureTimeZone: flight.departureZoneKnown ? flight.departureTimeZone : null,
       arrivalTimeZone: flight.arrivalZoneKnown ? flight.arrivalTimeZone : null } } : {}),

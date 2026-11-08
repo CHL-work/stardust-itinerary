@@ -21,6 +21,20 @@ function buttons(node: ReactNode): Array<{ onClick?: () => void; disabled?: bool
   return node.type === "button" ? [node.props] : buttons(node.props.children);
 }
 describe("localized owner Settings Activity", () => {
+  it("shows event clocks in the safe venue zones while audit and expense times remain trip-local", () => {
+    const event = { ...entry, category: "event" as const, amount: null, target: { kind: "itinerary" as const, id: "event" },
+      createdAt: "2030-07-15T21:00:00Z", startsAt: "2030-07-15T21:00:00Z", endsAt: "2030-07-17T17:00:00Z",
+      eventTimeZones: { start: "America/Denver", end: "America/Denver" } };
+    const html = renderToStaticMarkup(createElement(ActivityPanel, { ...props, timeZone: "America/Chicago", entries: [event] }));
+    expect(html).toContain("Jul 15, 2030, 04:00 PM"); // Recorded timestamp, trip time.
+    expect(html).toContain("Jul 15, 03:00 PM MDT"); expect(html).toContain("Jul 17, 11:00 AM MDT");
+    const unresolved = renderToStaticMarkup(createElement(ActivityPanel, { ...props, timeZone: "America/Chicago",
+      entries: [{ ...event, eventTimeZones: { start: null, end: null } }] }));
+    expect(unresolved).toContain("04:00 PM CDT · Trip time");
+    const bill = renderToStaticMarkup(createElement(ActivityPanel, { ...props, timeZone: "America/Chicago",
+      entries: [{ ...entry, startsAt: event.startsAt }] }));
+    expect(bill).toContain("Jul 15, 2030, 04:00 PM"); expect(bill).not.toContain("MDT");
+  });
   it.each(locales)("provides readable truthful details and a read-only destination in %s", (locale) => {
     const copy = activityMessages(locale);
     const html = renderToStaticMarkup(createElement(ActivityPanel, { ...props, locale }));

@@ -6,7 +6,7 @@ Source map and safe verification guide. Runtime topology is in [architecture](AR
 
 - Google-bound accounts, revocable rolling sessions, assigned/reusable invitations, trip switching, owner trip creation/date settings, safe member removal and owner trip deletion that keeps records.
 - Shared/private canonical events and visible pending projections, owner review/history, endpoint-specific transport rows, revisioned editing and cancelled-event tombstones.
-- Flight details on transport events (JOB-082), airport-local endpoint clocks and distinct plane icons (JOB-090), and flight status checks before departure in sponsored trips that update a flight's times, cancellation, terminal or gate (JOB-083).
+- Flight details on transport events (JOB-082), distinct plane icons (JOB-090), [location-local clocks for all events](EVENT_LOCAL_TIME.md) (JOB-091), and flight status checks in sponsored trips (JOB-083).
 - Per-person expense summaries, equal/exact splits, multiple bills per event, atomic linked-event bills and manual repayments.
 - AI through the official Codex SDK, Claude Agent SDK and Gemini REST API: text/pictures, typed proposals, private browseable history, bounded memory/clarification drafts, manual account instructions, isolated public research and recoverable delivery. AI-created events are trip-wide unless clearly solo (JOB-079), and AI expenses are split between everyone unless the request gives the parts (JOB-080).
 - Bring-your-own provider keys, encrypted at rest and isolated per request (JOB-061). Trip owners can share them with chosen members (JOB-063).
@@ -60,13 +60,14 @@ The exact filesystem routes under `src/app/api/` are authoritative. Authenticati
 
 ## 6. Code map and configuration
 
-Account-owned Secret Manager support (JOB-087) is opt-in and not yet activated by this release. `credential-secret-manager.ts` owns bounded cloud access; `credential-secret-lifecycle.ts` and `scripts/cleanup-credential-secrets.ts` remove unreferenced resources. Migration 0064 stores references and lifecycle metadata. [Setup, compatibility and security](AI_KEYS.md).
+Account-owned Secret Manager support (JOB-087) is opt-in for self-hosted instances and enabled on the public instance. `credential-secret-manager.ts` owns bounded cloud access; `credential-secret-lifecycle.ts` and `scripts/cleanup-credential-secrets.ts` remove unreferenced resources. Migration 0064 stores references and lifecycle metadata. [Setup, compatibility and security](AI_KEYS.md).
 
 | Path | Purpose |
 | --- | --- |
 | `src/components/app-shell.tsx` | Shared app orchestration/presentation; topic components isolate newer controls. |
 | `src/components/event-type-icon.tsx` | Fixed-size decorative inline SVGs selected from event type/resolved flight state, shared by canonical/pending/approval cards; no image fetch or added dependency. |
 | `src/lib/app/flight-presentation.ts`, `airport-time-zones.ts`, `zoned-event-time.ts` | Offline airport/explicit-zone resolution, conservative legacy flight display, and DST-safe manual editing; canonical UTC instants and trip-date grouping stay unchanged. Catalog source/license are pinned by `scripts/generate-airport-time-zones.mjs`. |
+| `src/lib/app/event-time-zones.ts`, `event-time-zone-contract.ts`, `place-time-zones.ts` | Shared all-event location-local resolution and correction lifecycle; pinned offline locality/coordinate data, no provider lookup. [Contract and generation](EVENT_LOCAL_TIME.md). |
 | `src/components/new-ui/` | Layout components; layout styles in `src/app/new-ui/` stay scoped to `:root[data-ui="new"]`. |
 | `src/lib/app/repository.ts`, `validation.ts`, `types.ts` | Canonical transactions, proposal policy, model registry and shared contract. |
 | `src/lib/auth/` | Google binding, account/trip sessions, invitation and operator authority, suspension checks. |
@@ -81,7 +82,7 @@ Server secrets come from runtime configuration (environment or the deployment's 
 
 ## 7. Schema, release and rollback
 
-Current source has **62 SQL files through 0066**. Numeric gaps 0045–0048 are not missing migrations to invent: they belong to unrelated historical work. Applied checksums cannot be rewritten. Migration 0049 removed structured preferences and is incompatible with pre-0049 runtime rollback; later migrations add account-owned keys, sharing, flight checks, Secret Manager references, language preferences and Vertex express metadata. Review the [database compatibility checkpoints](DATABASE.md#compatibility-checkpoints) before choosing an older runtime, including the optional flight-zone JSON contract that needs no migration.
+Current source has **63 SQL files through 0067**. Numeric gaps 0045–0048 are historical, not missing migrations to invent. Applied checksums cannot be rewritten. Review the [database compatibility checkpoints](DATABASE.md#compatibility-checkpoints) before choosing an older runtime; 0067 adds optional event-zone corrections and must retain a zone-aware writer after use.
 
 Release and rollback procedures depend on the hosting option: see [deployment](DEPLOYMENT.md) and [self-hosting](SELF_HOSTING.md). Take and verify a backup before migrating a database that holds real data.
 

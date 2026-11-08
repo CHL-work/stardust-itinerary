@@ -36,6 +36,17 @@ describe("immutable approval presentation", () => {
     expect(projectApprovalDisplay({ ...source, operation: "update", base_patch: { ...baseEvent, mapUrl: "https://www.google.com/maps/search/?api=1&query=old" }, proposed_patch: { locationName: "New restaurant" } }, members))
       .toMatchObject({ kind: "itinerary", event: { locationName: "New restaurant", mapUrl: null } });
   });
+  it("uses new venue evidence instead of retaining a stale explicit local zone", () => {
+    const row = { ...source, operation: "update", base_patch: { ...baseEvent,
+      locationName: "Synthetic Dallas restaurant", timeZones: { start: "America/Chicago" } } };
+    expect(projectApprovalDisplay({ ...row, proposed_patch: { locationName: "Synthetic restaurant, Salt Lake City, Utah" } }, members))
+      .toMatchObject({ kind: "itinerary", event: { timeZones: { start: "America/Denver", end: "America/Denver" },
+        startsAt: baseEvent.startsAt, endsAt: baseEvent.endsAt, visibility: "private" } });
+    expect(projectApprovalDisplay({ ...row, proposed_patch: { notes: "Title-only correction" } }, members))
+      .toMatchObject({ kind: "itinerary", event: { timeZones: { start: "America/Chicago", end: "America/Chicago" } } });
+    expect(projectApprovalDisplay({ ...row, proposed_patch: { locationName: "Synthetic restaurant, Salt Lake City, Utah", timeZones: { start: "UTC" } } }, members))
+      .toMatchObject({ kind: "itinerary", event: { timeZones: { start: "UTC", end: "UTC" } } });
+  });
   it("strips credential-bearing maps and internal audience metadata from the display", () => {
     const display = projectApprovalDisplay({ ...source, proposed_patch: { ...baseEvent, mapUrl: "https://private:secret@www.google.com/maps", itineraryAudienceSnapshot: { secret: "internal" } } }, members);
     expect(display).toMatchObject({ kind: "itinerary", event: { mapUrl: null } });

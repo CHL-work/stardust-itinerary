@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 
 import { withOperatorAiCredential } from "@/lib/ai/credential-context";
 import { readFlightDetails } from "@/lib/app/flight";
+import { readEventTimeZones } from "@/lib/app/event-time-zone-contract";
 import { applyFlightStatusUpdate } from "@/lib/app/repository";
 import { createCodexDisruptionProvider, DISRUPTION_MODEL, DISRUPTION_TIMEOUT_MS } from "@/lib/disruptions/provider";
 import type { DisruptionProvider } from "@/lib/disruptions/types";
@@ -25,8 +26,11 @@ type DueFlightRow = {
   ends_at: Date | null;
   current_revision: number;
   flight: unknown;
+  time_zones?: unknown;
   departure_location_name: string | null;
+  departure_map_url?: string | null;
   destination_location_name: string | null;
+  destination_map_url?: string | null;
   time_zone: string;
   slot_minutes: number;
 };
@@ -49,7 +53,9 @@ async function runAsOperator(pool: Pool, options: RunFlightStatusOptions): Promi
       WHERE status = 'running' AND lease_expires_at < $1`, [now]);
   const due = await pool.query<DueFlightRow>(
     `SELECT i.trip_id, i.id AS item_id, i.title, i.starts_at, i.ends_at, i.current_revision, i.flight,
-            i.departure_location_name, i.destination_location_name, trip.time_zone, slot.minutes AS slot_minutes
+            to_jsonb(i)->'time_zones' AS time_zones,
+            i.departure_location_name, i.departure_map_url, i.destination_location_name, i.destination_map_url,
+            trip.time_zone, slot.minutes AS slot_minutes
        FROM itinerary_items i
        JOIN trips trip ON trip.id = i.trip_id
        JOIN trip_ai_settings ai_settings ON ai_settings.trip_id = trip.id
@@ -106,9 +112,11 @@ async function checkFlight(pool: Pool, provider: DisruptionProvider, row: DueFli
     return "failed" as const;
   }
 
-  // The title is used only by the local airport-code resolver, never sent to the provider.
+  // Title, saved map evidence and zone metadata are local resolver inputs, never sent to the provider.
   const departureTime = flightStatusDepartureTime({ itemType: "transport", title: row.title, flight,
-    departureLocationName: row.departure_location_name, destinationLocationName: row.destination_location_name }, row.starts_at, row.time_zone);
+    timeZones: readEventTimeZones(row.time_zones),
+    departureLocationName: row.departure_location_name, departureMapUrl: row.departure_map_url,
+    destinationLocationName: row.destination_location_name, destinationMapUrl: row.destination_map_url }, row.starts_at, row.time_zone);
   const prompt = flightStatusPrompt({
     flightNumber: flight.flightNumber,
     airline: publicLookupText(flight.airline, 80),

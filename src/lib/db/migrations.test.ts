@@ -71,6 +71,7 @@ describe("database migration contracts", () => {
       "0064_user_secret_manager.sql",
       "0065_account_language.sql",
       "0066_vertex_express_credentials.sql",
+      "0067_event_time_zones.sql",
     ]);
 
     const sql = await Promise.all(

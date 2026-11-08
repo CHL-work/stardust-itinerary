@@ -14,6 +14,8 @@ export type ActivityEntry = {
   title: string | null;
   startsAt: string | null;
   endsAt: string | null;
+  /** Safe presentation only; null endpoints mean unresolved trip-time fallback. */
+  eventTimeZones?: { start: string | null; end: string | null } | null;
   amount: { amountMinor: number; currency: string } | null;
   status: "pending" | "approved" | "rejected" | "superseded" | "draft" | "planned" | "cancelled" | "completed" | "posted" | "void" | null;
   changedFields: ActivityField[];

@@ -2,6 +2,18 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 8, 2026 free-model comparison
+
+Read-only review for JOB-091; no upstream plugin execution or inference calls:
+
+- [`dsh-our-free-model` Kilo adapter at `363c62115bc19803e44c2890c2c93582b95ff839`](https://github.com/Ebony-Vinyl/dsh-our-free-model/blob/363c62115bc19803e44c2890c2c93582b95ff839/src/kilo.js) uses the same anonymous gateway as Stardust. Its [other adapter](https://github.com/Ebony-Vinyl/dsh-our-free-model/blob/363c62115bc19803e44c2890c2c93582b95ff839/src/upstream.js) shapes client fingerprints; Stardust does not.
+- [Kilo authentication](https://kilo.ai/docs/gateway/authentication#anonymous-access) permits anonymous free-model access, currently capped at 200 requests/hour/IP. [Model/privacy rules](https://kilo.ai/docs/gateway/models-and-providers#free-models) constrain some trials; [OpenCode](https://opencode.ai/docs/console/models/#endpoints) restricts its free chat endpoint to its own clients.
+- A metadata-only call through Stardust's actual catalog selector returned `dots-studio/dots-3-note-preview:free` and `liquid/lfm-3-1.7b:free`. Other free catalog entries failed Stardust's privacy/structured-output/known-route checks. This is not an inference-quality result or a promise of continued capacity, unlimited usage, or free GPT/Claude/Gemini access. Existing app quotas/funding are unchanged.
+
+## November 8, 2026 event-local time data
+
+GeoNames' [extract format/license](https://download.geonames.org/export/dump/readme.txt) supplies locality IANA zones under CC BY 4.0. The reviewed source checksum and deterministic transform are in `scripts/generate-place-time-zones.mjs`; attribution ships beside the generated data. [PhotoStructure tz-lookup](https://github.com/photostructure/tz-lookup) is a pinned CC0 offline coordinate grid with documented approximate boundaries. Explicit corrections and an honest unknown fallback remain essential. [Contract](EVENT_LOCAL_TIME.md).
+
 ## November 8, 2026 Google key setup
 
 Reviewed for JOB-089 with synthetic tests only, no saved provider keys:

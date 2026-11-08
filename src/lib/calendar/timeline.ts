@@ -6,6 +6,7 @@ export type PersonalCalendarEvent = {
   id: string; title: string; startsAt: string | null; endsAt: string | null; location: string | null; htmlLink: string | null;
   linkedItineraryItemId: string | null; allDay?: boolean; startDate?: string | null; endDateExclusive?: string | null;
   invalidTime?: boolean; importState?: { status: string; requestId?: string | null; itemId?: string | null } | null;
+  timeZones?: { start?: string | null; end?: string | null } | null;
 };
 export type PersonalCalendarPoint = {
   key: string; event: PersonalCalendarEvent; date: string; at: string | null; allDay: boolean; continued: boolean; ownsActions: boolean;

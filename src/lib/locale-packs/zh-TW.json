@@ -1230,7 +1230,7 @@
     "arrivalTerminal": "抵達航廈",
     "departureTimeZone": "出發時區",
     "arrivalTimeZone": "抵達時區",
-    "automaticZone": "自動（機場）",
+    "automaticZone": "自動（地點）",
     "tripTimeFallback": "行程時間",
     "invalidTimeZone": "請選擇有效時區。",
     "ambiguousTime": "這個時間出現兩次。請選擇 UTC，並輸入對應的 UTC 時間。",

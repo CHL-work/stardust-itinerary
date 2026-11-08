@@ -8,7 +8,7 @@ import { eventEditorFailureMessage, eventEditorMessages } from "@/lib/app/event-
 import * as expenseHelpers from "@/lib/app/event-expense-editor";
 import { isFlightNumber, normalizeFlightNumber } from "@/lib/app/flight";
 import { flightMessages } from "@/lib/app/flight-i18n";
-import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { eventExpenseTimeFromStart, eventTimeInputsFromInstants, rebaseFlightTimeInputs } from "@/lib/app/flight-editor-time";
 import { isoToWallTime, wallTimeToIso, ZonedEventTimeError } from "@/lib/app/zoned-event-time";
 import { tripLocalDateKey } from "@/lib/app/day-view";
@@ -68,7 +68,7 @@ const flightHelpers = evaluate<Record<string, unknown>>(["flightDraft", "flightF
   "({flightDraft, flightFromDraft, flightTimeSource})", { normalizeFlightNumber });
 const baseBindings = { ...expenseHelpers, ...splitHelpers, expenseAmountInput, parseExpenseAmount, ...timing, overview, messages: messages.en,
   eventEditorCopy: eventEditorMessages("en"), eventEditorFailureMessage, addMinutesToWallTime, minutesBetweenWallTimes,
-  ...flightHelpers, normalizeFlightNumber, isFlightNumber, flightMessages, resolveFlightPresentation,
+  ...flightHelpers, normalizeFlightNumber, isFlightNumber, flightMessages, resolveEventTimeZones,
   eventExpenseTimeFromStart, eventTimeInputsFromInstants, rebaseFlightTimeInputs, isoToWallTime, wallTimeToIso, ZonedEventTimeError, tripLocalDateKey, locale: "en" };
 function editor(initial: Draft | null = null, context = overview) {
   let draft = initial;
@@ -94,6 +94,12 @@ function editor(initial: Draft | null = null, context = overview) {
     },
     location(endpoint: "departure" | "destination", value: string) {
       closure<(endpoint: string, value: string) => void>("updateTransportLocation", bindings())(endpoint, value);
+    },
+    zone(field: "start" | "end", value: string) {
+      closure<(field: string, value: string) => void>("updateEventZone", bindings())(field, value);
+    },
+    mapUrl(value: string) {
+      closure<(field: string, value: string) => void>("updateEventMapUrl", bindings())("mapUrl", value);
     },
     now(field: "startsAt" | "endsAt") {
       closure<(field: string) => void>("fillEventTimeNow", { ...bindings(),
@@ -342,6 +348,65 @@ describe("airport-local clocks in actual manual and pending editors", () => {
     run.location("departure", "HND");
     expect(run.draft).toEqual(before);
     expect(run.setEventSaveError).toHaveBeenLastCalledWith(flightMessages("en").ambiguousTime);
+  });
+});
+
+describe("all event editors use the event location's clock", () => {
+  const dallasOverview = { ...overview, trip: { ...overview.trip, timeZone: "America/Chicago" } };
+  const saltLakeEvent = { ...item, locationName: "Synthetic venue, Salt Lake City, Utah",
+    startsAt: "2030-04-01T21:00:37.123Z", endsAt: "2030-04-02T17:00:54.321Z" };
+  it.each(["meal", "lodging", "activity", "note"])("opens and saves %s in SLC time, not the Dallas trip clock", async (itemType) => {
+    const target = { ...saltLakeEvent, itemType };
+    const run = editor(null, dallasOverview); run.open(target);
+    expect(run.draft).toMatchObject({ startsAt: "2030-04-01T15:00", endsAt: "2030-04-02T11:00" });
+    run.draft.title = "Synthetic corrected title";
+    expect(patchFrom(await run.save(target)).patch).toMatchObject({ startsAt: target.startsAt, endsAt: target.endsAt,
+      timeZones: { start: null, end: null } });
+  });
+  it("lets a timezone correction preserve exact instants, audience and expense dates", async () => {
+    const target = { ...saltLakeEvent, visibility: "private", viewerMemberIds: [id(1)],
+      timeZones: { start: "America/Denver" } };
+    const run = editor(null, dallasOverview); run.open(target);
+    run.draft.linkedExpense.occurredAt = "2030-04-01T13:45";
+    run.zone("start", "UTC");
+    expect(run.draft).toMatchObject({ startsAt: "2030-04-01T21:00", endsAt: "2030-04-02T17:00",
+      timeZones: { start: "UTC", end: null }, visibility: "private", viewerMemberIds: [id(1)],
+      linkedExpense: { occurredAt: "2030-04-01T13:45" } });
+    run.zone("start", "");
+    expect(run.draft).toMatchObject({ startsAt: "2030-04-01T15:00", endsAt: "2030-04-02T11:00" });
+    expect(patchFrom(await run.save(target)).patch).toMatchObject({ startsAt: target.startsAt, endsAt: target.endsAt });
+  });
+  it("retains a manual zone when only changing between ordinary event categories", async () => {
+    const target = { ...saltLakeEvent, timeZones: { start: "UTC" } };
+    const run = editor(null, dallasOverview); run.open(target);
+    run.update("updateEventType", "lodging");
+    expect(run.draft).toMatchObject({ itemType: "lodging", timeZones: { start: "UTC", end: null },
+      startsAt: "2030-04-01T21:00", endsAt: "2030-04-02T17:00" });
+    expect(patchFrom(await run.save(target)).patch).toMatchObject({ startsAt: target.startsAt, endsAt: target.endsAt });
+  });
+  it("clears a stale explicit zone on map changes and keeps the same instant", async () => {
+    const target = { ...saltLakeEvent, timeZones: { start: "UTC" } };
+    const run = editor(null, dallasOverview); run.open(target);
+    run.mapUrl("https://www.google.com/maps/search/?api=1&query=Salt%20Lake%20City%2CUtah");
+    expect(run.draft).toMatchObject({ startsAt: "2030-04-01T15:00", endsAt: "2030-04-02T11:00",
+      timeZones: { start: null, end: null } });
+    expect(patchFrom(await run.save(target)).patch).toMatchObject({ startsAt: target.startsAt, endsAt: target.endsAt });
+  });
+  it("uses local Now but retains the trip clock for a linked expense date", () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2030-04-01T21:01:45Z"));
+    const run = editor(null, dallasOverview); run.open({ ...saltLakeEvent, startsAt: null, endsAt: null });
+    run.now("startsAt");
+    expect(run.draft).toMatchObject({ startsAt: "2030-04-01T15:01", preferredStartsAt: "2030-04-01T21:01:45.000Z", endsAt: "" });
+    run.expenseEnabled(true);
+    expect(run.draft.linkedExpense.occurredAt).toBe("2030-04-01T16:01");
+  });
+  it("preserves pending local zones and review revision", async () => {
+    const detail = { requestId: id(4), proposalRevision: 7, createdByMemberId: id(1), operation: "create",
+      patch: { ...saltLakeEvent, timeZones: { start: "America/Denver" }, linkedExpense: null } };
+    const run = editor(null, dallasOverview); await run.openPending(detail);
+    expect(run.draft.startsAt).toBe("2030-04-01T15:00");
+    expect(patchFrom(await run.save({ kind: "pending", detail }))).toMatchObject({ proposalRevision: 7,
+      patch: { startsAt: saltLakeEvent.startsAt, endsAt: saltLakeEvent.endsAt, timeZones: { start: "America/Denver", end: null } } });
   });
 });
 

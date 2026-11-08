@@ -1,4 +1,4 @@
-import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 
 const OFFLINE_ITINERARY_VERSION = 2 as const;
@@ -37,6 +37,7 @@ export type OfflineItineraryItem = Readonly<{
   visibility: "trip";
   /** Presentation only; flight numbers, booking facts, terminals and notes stay online. */
   flightPresentation?: Readonly<{ isFlight: boolean; departureTimeZone: string | null; arrivalTimeZone: string | null }>;
+  timeZones?: Readonly<{ start: string | null; end: string | null }>;
 }>;
 
 export type OfflineTripDay = Readonly<{
@@ -100,6 +101,7 @@ export type OfflineItinerarySource = {
     status: string;
     visibility: string;
     flight?: unknown;
+    timeZones?: { start?: string | null; end?: string | null } | null;
   }>;
 };
 
@@ -175,6 +177,10 @@ function parseItem(value: unknown, dayIds: ReadonlySet<string>): OfflineItinerar
     ? Object.freeze({ isFlight: true, departureTimeZone: canonicalTripTimeZone(boundedString(value.flightPresentation.departureTimeZone, 80) ?? ""),
       arrivalTimeZone: canonicalTripTimeZone(boundedString(value.flightPresentation.arrivalTimeZone, 80) ?? "") })
     : undefined;
+  const savedZones = isRecord(value.timeZones) ? Object.freeze({
+    start: canonicalTripTimeZone(boundedString(value.timeZones.start, 80) ?? ""),
+    end: canonicalTripTimeZone(boundedString(value.timeZones.end, 80) ?? ""),
+  }) : undefined;
 
   if (
     !id
@@ -212,6 +218,7 @@ function parseItem(value: unknown, dayIds: ReadonlySet<string>): OfflineItinerar
     status: value.status as OfflineItineraryItem["status"],
     visibility: "trip",
     ...(savedFlight ? { flightPresentation: savedFlight } : {}),
+    ...(savedZones ? { timeZones: savedZones } : {}),
   });
 }
 
@@ -319,7 +326,7 @@ export function createOfflineItinerarySnapshot(
       // browser can never inherit creator/selected-viewer private events.
       .filter((item) => sourceDayIds.has(item.tripDayId) && item.visibility === "trip")
       .map((item) => {
-        const flight = resolveFlightPresentation(item, source.trip.timeZone);
+        const flight = resolveEventTimeZones(item, source.trip.timeZone);
         return {
           id: item.id,
           tripDayId: item.tripDayId,
@@ -335,6 +342,8 @@ export function createOfflineItinerarySnapshot(
           destinationMapUrl: item.destinationMapUrl,
           status: item.status,
           visibility: item.visibility,
+          timeZones: { start: flight.departureZoneKnown ? flight.departureTimeZone : null,
+            end: flight.arrivalZoneKnown ? flight.arrivalTimeZone : null },
           ...(flight.isFlight ? { flightPresentation: {
             isFlight: true,
             departureTimeZone: flight.departureZoneKnown ? flight.departureTimeZone : null,

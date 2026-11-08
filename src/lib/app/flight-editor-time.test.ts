@@ -37,9 +37,9 @@ describe("flight editor local time initialization", () => {
     expect(wallTimeToIso(inputs.startsAt, "America/Chicago", inputs.preferredStartsAt)).toBe(exact.startsAt);
     expect(wallTimeToIso(inputs.endsAt, "America/Denver", inputs.preferredEndsAt)).toBe(exact.endsAt);
   });
-  it("keeps missing ends unknown and generic transport in the trip zone", () => {
+  it("keeps missing ends unknown and generic transport in its endpoint zone", () => {
     const generic = { ...flight, flight: null, title: "Airport shuttle", startsAt: exact.startsAt, endsAt: null };
-    expect(eventTimeInputsFromInstants(generic, "Asia/Tokyo")).toEqual({ startsAt: "2026-09-12T00:00", endsAt: "",
+    expect(eventTimeInputsFromInstants(generic, "Asia/Tokyo")).toEqual({ startsAt: "2026-09-11T10:00", endsAt: "",
       preferredStartsAt: exact.startsAt, preferredEndsAt: null });
     expect(eventTimeInputsFromInstants({ ...flight, startsAt: null, endsAt: null }, "Asia/Tokyo"))
       .toEqual({ startsAt: "", endsAt: "", preferredStartsAt: null, preferredEndsAt: null });

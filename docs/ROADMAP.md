@@ -12,6 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
+| JOB-091 | Location-local times for all events | Implemented and verified; location-aware editing/display, UTC instants preserved (D-103) |
 | JOB-090 | Flight icons and airport-local endpoint times | Review: local checks passed; authorized CI-gated release (D-102) |
 | JOB-089 | Empty-trip onboarding, remembered language and Google key setup | Review: local checks passed; authorized CI-gated release |
 | JOB-087 | Account-owned keys in Google Secret Manager | Done: activated on GKE with verified workload isolation, preserved KMS protection and 15-minute cleanup (D-099) |

@@ -14,6 +14,7 @@ export type ApprovalEventDisplay = {
   itemType: "activity" | "meal" | "transport" | "lodging" | "note";
   isFlight?: boolean;
   flightPresentation?: import("@/lib/app/flight-presentation").SafeFlightPresentation;
+  timeZones?: { start: string | null; end: string | null };
   dayDate: string | null;
   startsAt: string | null;
   endsAt: string | null;

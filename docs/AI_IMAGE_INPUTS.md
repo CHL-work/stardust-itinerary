@@ -6,7 +6,7 @@ Preference conversations and their picture/text composers have been removed. Leg
 
 Extraction keeps each booking/menu row's branch, service, duration, date/time and labeled price together. Unknown is not zero and a published tariff is not a receipt total. Eligible public price research happens only in the separate bounded researcher, never image extraction; the existing private-context gates remain. The planner receives the count of new attachments, reuses selected earlier facts and must not claim an upload failed solely because none arrived. See [booking prices](AI_BOOKING_PRICES.md).
 
-Flight extraction preserves departure/arrival airport codes and each printed local date/time separately. Different airports need not share the trip's zone; explicit offsets/IANA zones are preserved when supplied, never fabricated by extraction (D-102).
+Extraction preserves each venue's local dates/times and transport endpoint codes separately. Hotels and restaurants need not share the trip's base zone either; preserve supplied offsets/IANA zones, never fabricate them. [Event-local times](EVENT_LOCAL_TIME.md).
 
 The shared image-request work budget is 225 seconds, with extraction capped at 45 seconds. The browser allows up to 245 seconds for POST delivery, with a 300-second route ceiling and a ten-minute in-flight fence; provider-free recovery remains independently available. Later public research/final-answer feedback uses the same bounded workflow as text; this does not widen image-derived search permissions, attachment access, storage or approval rules. Old picture conversations are not replayed or rewritten.
 
@@ -20,7 +20,7 @@ Trip-member removal preserves picture bytes and immutable request identity while
 
 In the AI tab or quick composer, choose **Add pictures**, select up to three JPEG/PNG/WebP pictures, and write what to create. For example: “Create this hotel stay and expense. DDB paid; split with Pat.” Review previews and send. Selecting a picture alone never submits anything. Both composers support every locale; HEIC/PDF need conversion first.
 
-Pictures can contain bookings, tickets, menus or receipts. Crop irrelevant parts and hide credentials/card details first. AI may misread or ask for missing information. All image-derived changes await owner review, including owner-submitted updates; expense math and canonical writes remain deterministic. Model choice follows the trip's [AI funding rules](PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role): only the platform operator acting as a trip owner can select a model; everyone else uses Sol with the trip's daily limit. A submission counts once despite separate extraction/planning calls.
+Pictures can contain bookings, tickets, menus or receipts. Crop irrelevant parts and hide credentials/card details first. AI may misread or ask for clarification. Model choice and direct-creation versus review follow the current [AI funding rules](PUBLIC_TRIPS_AND_MEMBERS.md#ai-funding-is-not-a-trip-role); Free AI has no images. Expense math and canonical writes remain deterministic. A submission counts once despite separate extraction/planning calls.
 
 ## Input and execution
 

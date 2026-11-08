@@ -4,7 +4,7 @@ Saving [personal AI instructions](AI_CUSTOM_INSTRUCTIONS.md) adds only revision,
 
 Activity is not part of the primary desktop/mobile navigation. Owners open it from **Settings → Advanced settings → View activity**. Activity keeps a distinct page title and a return-to-Settings action. The entry and the feed are owner-only; members receive no Activity entries.
 
-The feed is the latest 50 currently authorized entries, not a full audit export. Entries describe the actor, localized action/category, trip-local timestamp and allowlisted changed field names. Relevant current authorized event titles/times or expense descriptions/amounts make the record recognizable. Raw audit metadata, previous/current snapshots, prompts, booking secrets and private preference contents are never rendered.
+The feed is the latest 50 currently authorized entries, not a full audit export. Entries describe the actor, localized action/category, trip-local recorded timestamp and allowlisted changed field names. Relevant current authorized event times use [location-local zones](EVENT_LOCAL_TIME.md); expense and audit timestamps stay in trip time. Only safe display-zone metadata reaches the browser, not extra venue/booking details. Raw audit metadata, previous/current snapshots, prompts, booking secrets and private preference contents are never rendered.
 
 ## Links and privacy
 

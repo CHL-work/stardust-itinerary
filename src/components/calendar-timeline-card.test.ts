@@ -14,6 +14,14 @@ function buttons(node: ReactNode): Array<{ onClick?: () => void; disabled?: bool
 }
 const defaults = { point, locale: "en" as const, timeZone: "Asia/Tokyo", canImport: true, busy: false, openImport: vi.fn() };
 describe("personal Calendar timeline card", () => {
+  it("shows a Salt Lake City hotel in local time inside a Dallas trip", () => {
+    const event = { ...point.event, startsAt: "2030-04-01T21:00:00Z", endsAt: "2030-04-02T17:00:00Z",
+      location: "Synthetic hotel, Salt Lake City, Utah", timeZones: { start: "America/Chicago", end: "America/Chicago" } };
+    const localPoint = projectPersonalCalendarEvents([event], ["2030-04-01", "2030-04-02"], "America/Chicago")[0];
+    const html = renderToStaticMarkup(createElement(CalendarTimelineCard, { ...defaults, point: localPoint, timeZone: "America/Chicago" }));
+    expect(html).toContain("03:00 PM MDT"); expect(html).toContain("Apr 2, 11:00 AM MDT");
+    expect(html).not.toContain("Trip time"); expect(localPoint.date).toBe("2030-04-01");
+  });
   it.each(locales)("renders a private source, real local range and explicit import in %s", (locale) => {
     const openImport = vi.fn(); const node = CalendarTimelineCard({ ...defaults, locale, openImport });
     const html = renderToStaticMarkup(node); const copy = calendarImportMessages(locale);

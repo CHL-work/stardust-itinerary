@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projectTimelinePoints, type TimelineSource } from "./timeline";
-import { formatTimelinePointTime } from "./timeline-time";
+import { formatEventLocalTime, formatTimelinePointTime } from "./timeline-time";
 import { flightMessages } from "./flight-i18n";
 import { locales } from "@/lib/i18n";
 
@@ -48,11 +48,12 @@ describe("airport-local timeline clock labels",()=>{
     const value=formatTimelinePointTime(departure,locale,"Asia/Tokyo");
     expect(value).toContain(flightMessages(locale).tripTimeFallback);expect(value).not.toContain("Invalid Date");
   });
-  it("keeps generic transport in the trip zone without flight badges or fallback prose",()=>{
-    const [departure,arrival]=points({...base,title:"Airport shuttle",flight:null});
+  it("uses local endpoint clocks for nonflight transport without flight badges",()=>{
+    const [departure,arrival]=points({...base,title:"Airport shuttle",flight:null,
+      timeZones:{start:"America/Chicago",end:"America/Denver"}});
     expect(departure.isFlight).toBe(false);expect(arrival.isFlight).toBe(false);
-    expect(formatTimelinePointTime(departure,"en","Asia/Tokyo")).toBe("01:00 AM");
-    expect(formatTimelinePointTime(arrival,"en","Asia/Tokyo")).toBe("03:00 AM");
+    expect(formatTimelinePointTime(departure,"en","Asia/Tokyo")).toContain("10:00 AM CST");
+    expect(formatTimelinePointTime(arrival,"en","Asia/Tokyo")).toContain("11:00 AM MST");
   });
   it("uses safe offline endpoint projections without needing private flight details",()=>{
     const [departure,arrival]=points({...base,title:"Transport",flight:null,
@@ -64,5 +65,29 @@ describe("airport-local timeline clock labels",()=>{
   it("keeps an untimed arrival empty instead of fabricating a clock or timezone warning",()=>{
     const arrival=points({...base,endsAt:null}).find(point=>point.kind==="arrival")!;
     expect(formatTimelinePointTime(arrival,"en","Asia/Tokyo")).toBe("");
+  });
+});
+
+describe("every event uses its location clock", () => {
+  it.each(["meal", "lodging", "activity", "note"])("shows %s in Salt Lake City time in a Dallas trip", (itemType) => {
+    const item = { ...base, itemType, flight: null, locationName: "Synthetic venue, Salt Lake City, Utah",
+      timeZones: { start: "America/Denver" }, startsAt: "2030-07-15T21:00:00Z", endsAt: "2030-07-17T17:00:00Z" };
+    const [point] = points(item, "America/Chicago");
+    expect(point.timeZone).toBe("America/Denver");
+    expect(formatTimelinePointTime(point, "en", "America/Chicago")).toBe("03:00 PM MDT");
+    expect(formatEventLocalTime(item, item.endsAt, "en", "America/Chicago", "end", true)).toContain("Jul 17, 11:00 AM MDT");
+    expect(point.at).toBe(item.startsAt);
+  });
+  it("shows a preceding event-local date without reassigning the canonical trip group", () => {
+    const item = { ...base, itemType: "meal", flight: null, startsAt: "2030-07-15T05:30:00Z", endsAt: null,
+      timeZones: { start: "America/Denver" } };
+    const [point] = points(item, "America/Chicago");
+    expect(point.tripDayId).toBe("summer-day");
+    expect(formatTimelinePointTime(point, "en", "America/Chicago")).toBe("Jul 14, 11:30 PM MDT");
+  });
+  it("honestly labels an unresolved nonflight location as trip time", () => {
+    const [point] = points({ ...base, itemType: "meal", flight: null, locationName: "Synthetic unnamed venue" }, "America/Chicago");
+    expect(point.timeZoneKnown).toBe(false);
+    expect(formatTimelinePointTime(point, "en", "America/Chicago")).toContain("Trip time");
   });
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { calendarSourceSchema, type CalendarSource, type CalendarSourceMetadata } from "./import-contracts";
 import type { GoogleEvent } from "./repository";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
+import { calendarFallbackTimeZones } from "./event-time-zones";
 
 const previewSchema = z.object({
   version: z.literal(1), tripId: z.uuid(), memberId: z.uuid(), userId: z.uuid(),
@@ -45,8 +46,11 @@ export function normalizeCalendarImportSource(event: GoogleEvent, eventId: strin
     endsAt = new Date(dateTime.parse(event.end?.dateTime)).toISOString();
   }
   if (Date.parse(endsAt) <= Date.parse(startsAt)) throw new Error("Calendar source has no positive duration.");
+  const timeZones = !allDay && (event.start?.timeZone || event.end?.timeZone)
+    ? calendarFallbackTimeZones(event.location, { start: event.start?.timeZone ?? null, end: event.end?.timeZone ?? null }) : null;
   return calendarSourceSchema.parse({ eventId, title: event.summary?.trim() || "Calendar event",
     location: event.location?.trim() || null, startsAt, endsAt, allDay,
+    ...(timeZones ? { timeZones } : {}),
     startDate: allDay ? event.start!.date! : null, endDateExclusive: allDay ? event.end!.date! : null });
 }
 

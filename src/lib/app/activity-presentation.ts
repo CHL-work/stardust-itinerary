@@ -1,4 +1,6 @@
 import type { ActivityAction, ActivityCategory, ActivityEntry, ActivityField } from "./activity-types";
+import { resolveEventTimeZones } from "./event-time-zones";
+import { readEventTimeZones } from "./event-time-zone-contract";
 
 /** This source contains current authorized display facts, never historical audit values. */
 export type ActivityRow = {
@@ -6,6 +8,7 @@ export type ActivityRow = {
   target_id: string | null; target_kind: string | null; target_removed: boolean;
   target_title: unknown; target_starts_at: unknown; target_ends_at: unknown;
   target_amount_minor: unknown; target_currency: unknown; target_status: unknown; changed_keys: string[] | null;
+  target_event_clock?: unknown;
 };
 const categoryByEntity: Record<string, ActivityCategory> = {
   itinerary_item: "event", expense: "expense", change_request: "request", trip_member: "member",
@@ -22,7 +25,7 @@ const actionByCode: Record<string, ActivityAction> = {
   edited: "updated", confirmed: "updated", forgotten: "removed", reset: "updated", resumed: "updated",
 };
 const fieldByKey: Record<string, ActivityField> = {
-  title: "title", description: "title", startsAt: "time", endsAt: "time", tripDayId: "time", occurredAt: "time",
+  title: "title", description: "title", startsAt: "time", endsAt: "time", tripDayId: "time", occurredAt: "time", timeZones: "time",
   locationName: "location", mapUrl: "location", departureLocationName: "location", departureMapUrl: "location",
   destinationLocationName: "location", destinationMapUrl: "location", flight: "location", itemType: "type", status: "status",
   visibility: "visibility", viewerMemberIds: "audience", amountMinor: "amount", currency: "currency",
@@ -45,6 +48,13 @@ export function projectActivityEntry(row: ActivityRow): ActivityEntry {
   const target: ActivityEntry["target"] = !removed && kind && row.target_id && uuid.test(row.target_id) ? { kind, id: row.target_id } : null;
   const hasEntityTarget = ["itinerary_item", "expense", "change_request", "calendar_event_link"].includes(row.entity_type);
   const display = Boolean(target);
+  const clock = display && (kind === "itinerary" || kind === "request") && row.target_event_clock && typeof row.target_event_clock === "object" && !Array.isArray(row.target_event_clock)
+    ? row.target_event_clock as Record<string, unknown> : null;
+  const zones = clock ? resolveEventTimeZones({ itemType: text(clock.itemType, 20) ?? "activity",
+    title: text(row.target_title, 500), locationName: text(clock.locationName, 500), mapUrl: text(clock.mapUrl, 2048),
+    departureLocationName: text(clock.departureLocationName, 500), departureMapUrl: text(clock.departureMapUrl, 2048),
+    destinationLocationName: text(clock.destinationLocationName, 500), destinationMapUrl: text(clock.destinationMapUrl, 2048),
+    flight: clock.flight, timeZones: readEventTimeZones(clock.timeZones) }, "UTC") : null;
   const amount = typeof row.target_amount_minor === "string" && /^\d+$/u.test(row.target_amount_minor)
     ? Number(row.target_amount_minor) : row.target_amount_minor;
   const currency = text(row.target_currency, 3);
@@ -57,6 +67,8 @@ export function projectActivityEntry(row: ActivityRow): ActivityEntry {
     actorName: text(row.actor_name, 120), createdAt: row.created_at.toISOString(),
     title: display ? text(row.target_title, 500) : null,
     startsAt: display ? timestamp(row.target_starts_at) : null, endsAt: display ? timestamp(row.target_ends_at) : null,
+    eventTimeZones: zones ? { start: zones.departureZoneKnown ? zones.departureTimeZone : null,
+      end: zones.arrivalZoneKnown ? zones.arrivalTimeZone : null } : null,
     amount: display && Number.isSafeInteger(amount) && Number(amount) >= 0 && validCurrency
       ? { amountMinor: Number(amount), currency: currency! } : null,
     status: display && typeof row.target_status === "string" && statuses.has(row.target_status)

@@ -5,6 +5,8 @@ import { instantDateInTimeZone } from "@/lib/ai/relative-date";
 import { containsReservationSecret } from "@/lib/ai/reservation-secrets";
 import { containsPrivateIdentifier } from "@/lib/disruptions/privacy";
 import { sanitizeVenueHoursSource } from "@/lib/ai/venue-hours-sources";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
+import { resolveEventTimeZonesPatch } from "@/lib/app/event-time-zone-contract";
 
 export const VENUE_HOURS_MAX_TARGETS = 4;
 export const VENUE_HOURS_BUDGET_MS = 60_000;
@@ -20,7 +22,7 @@ export type VenueHoursCandidate = {
   endsAt: string | null;
   public: boolean;
 };
-type EventState = Pick<ItineraryPatch, "itemType" | "locationName" | "startsAt" | "endsAt" | "visibility" | "tripDayId">;
+type EventState = Pick<ItineraryPatch, "itemType" | "locationName" | "mapUrl" | "timeZones" | "startsAt" | "endsAt" | "visibility" | "tripDayId">;
 type Prepared = { proposal: { entityType: string; action: string; entityId: string | null }; patch: unknown };
 function localDate(instant: string, timeZone: string): string | null {
   try { return instantDateInTimeZone(instant, timeZone); } catch { return null; }
@@ -43,16 +45,18 @@ export function venueHoursCandidates(prepared: readonly Prepared[], context: Ven
       ? context.pendingItinerary.find((item) => item.requestId === proposal.entityId)?.patch
       : context.itinerary.find((item) => item.id === proposal.entityId);
     if (["update", "update_pending"].includes(proposal.action)
-      && !(["itemType", "locationName", "mapUrl", "startsAt", "endsAt", "tripDayId", "visibility"] as const)
+      && !(["itemType", "locationName", "mapUrl", "timeZones", "startsAt", "endsAt", "tripDayId", "visibility"] as const)
         .some((key) => Object.hasOwn(patch, key) && patch[key] !== (base as ItineraryPatch | undefined)?.[key])) continue;
     const effective = { ...base, ...patch };
     // A multi-night hotel stay is not a restaurant visit; check-in rules need a different contract.
     if (!effective.locationName?.trim() || !["meal", "activity"].includes(effective.itemType ?? "")) continue;
+    const timeZone = resolveEventTimeZones({ ...effective, itemType: effective.itemType ?? "activity",
+      timeZones: resolveEventTimeZonesPatch(patch, base) }, context.timeZone).departureTimeZone;
     const startsAt = effective.startsAt ?? null;
-    const date = startsAt ? localDate(startsAt, context.timeZone)
+    const date = startsAt ? localDate(startsAt, timeZone)
       : context.days.find((day) => day.id === effective.tripDayId)?.date ?? null;
     candidates.push({ proposalIndex, key: `V${candidates.length + 1}`, venueName: effective.locationName.trim(),
-      date, timeZone: context.timeZone, startsAt, endsAt: effective.endsAt ?? null,
+      date, timeZone, startsAt, endsAt: effective.endsAt ?? null,
       // Privacy narrowing/widening must not send the previous private venue to an unsolicited lookup.
       public: effective.visibility === "trip" && (!base || base.visibility === "trip") });
   }

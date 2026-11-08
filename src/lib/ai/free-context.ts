@@ -51,6 +51,10 @@ function nameIsMentioned(name: string, request: string): boolean {
 
 function eventProjection(value: DataRecord): DataRecord {
   const output = scalarFields(value, eventFields);
+  if (value.timeZones === null) output.timeZones = null;
+  else if (value.timeZones && typeof value.timeZones === "object" && !Array.isArray(value.timeZones)) {
+    output.timeZones = scalarFields(record(value.timeZones), ["start", "end"]);
+  }
   if (value.flight === null) output.flight = null;
   else if (value.flight && typeof value.flight === "object" && !Array.isArray(value.flight)) {
     output.flight = scalarFields(record(value.flight), flightFields);

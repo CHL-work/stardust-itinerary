@@ -2,7 +2,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
-import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
+import { readEventTimeZones } from "@/lib/app/event-time-zone-contract";
+import { calendarFallbackTimeZones } from "./event-time-zones";
 
 import {
   AppConflictError,
@@ -441,6 +443,7 @@ async function listCalendarStateInternal(
         title: event.summary ?? "Busy",
         startsAt,
         endsAt,
+        timeZones: calendarFallbackTimeZones(event.location, { start: event.start?.timeZone ?? null, end: event.end?.timeZone ?? null }),
         invalidTime: (suppliedStart && startsAt === null) || (suppliedEnd && endsAt === null),
         location: event.location ?? null,
         htmlLink: event.htmlLink ?? null,
@@ -680,17 +683,21 @@ async function syncItineraryItemToCalendarInternal(
     starts_at: Date | null;
     ends_at: Date | null;
     location_name: string | null;
+    map_url: string | null;
     departure_location_name: string | null;
+    departure_map_url: string | null;
     destination_location_name: string | null;
+    destination_map_url: string | null;
     notes: string | null;
     status: string;
     current_revision: number;
     time_zone: string;
     flight: unknown;
+    time_zones?: unknown;
   }>(
-    `SELECT i.id, i.title, i.item_type, i.starts_at, i.ends_at, i.location_name,
-            i.departure_location_name, i.destination_location_name, i.notes,
-            i.status, i.current_revision, t.time_zone, i.flight
+    `SELECT i.id, i.title, i.item_type, i.starts_at, i.ends_at, i.location_name, i.map_url,
+            i.departure_location_name, i.departure_map_url, i.destination_location_name, i.destination_map_url, i.notes,
+            i.status, i.current_revision, t.time_zone, i.flight, to_jsonb(i)->'time_zones' AS time_zones
        FROM itinerary_items i
        JOIN trips t ON t.id = i.trip_id
       WHERE i.trip_id = $1 AND i.id = $2
@@ -736,8 +743,10 @@ async function syncItineraryItemToCalendarInternal(
   const calendarLocation = item.item_type === "transport"
     ? item.destination_location_name ?? item.departure_location_name
     : item.location_name;
-  const presentation = resolveFlightPresentation({ itemType: item.item_type, title: item.title, flight: item.flight,
-    departureLocationName: item.departure_location_name, destinationLocationName: item.destination_location_name }, item.time_zone);
+  const presentation = resolveEventTimeZones({ itemType: item.item_type, title: item.title, flight: item.flight,
+    timeZones: readEventTimeZones(item.time_zones), locationName: item.location_name, mapUrl: item.map_url,
+    departureLocationName: item.departure_location_name, departureMapUrl: item.departure_map_url,
+    destinationLocationName: item.destination_location_name, destinationMapUrl: item.destination_map_url }, item.time_zone);
   const eventBody: CalendarEventBody = {
     summary: item.status === "cancelled" ? `[Cancelled] ${item.title}` : item.title,
     description: [

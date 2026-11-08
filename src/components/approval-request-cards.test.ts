@@ -21,6 +21,16 @@ function renderedButtons(node: ReactNode): Array<{ onClick?: () => void }> {
 }
 
 describe("readable approval cards", () => {
+  it.each(["meal", "lodging"] as const)("shows pending %s times in the event zone rather than the trip zone", (itemType) => {
+    const html = renderToStaticMarkup(createElement(ApprovalRequestCards, { requests: [{ ...request,
+      display: { kind: "itinerary", event: { ...event, itemType, timeZones: { start: "America/Denver", end: "America/Denver" },
+        startsAt: "2030-07-15T21:00:00Z", endsAt: "2030-07-16T17:00:00Z", linkedExpense: null } } }],
+      locale: "en", timeZone: "America/Chicago", messages: messages.en, busy: false, review: vi.fn() }));
+    expect(html).toContain("Jul 15, 2030, 03:00 PM MDT");
+    expect(html).toContain("Jul 16, 2030, 11:00 AM MDT");
+    expect(html).not.toContain("04:00 PM CDT");
+    expect(html).not.toContain("Trip time");
+  });
   it("shows a meal icon beside the localized type without replacing privacy or approval labels", () => {
     const html = render();
     expect(html).toContain('data-event-icon="meal"');

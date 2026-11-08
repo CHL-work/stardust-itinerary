@@ -1,5 +1,5 @@
 import { tripLocalDateKey } from "./day-view";
-import { resolveFlightPresentation } from "./flight-presentation";
+import { resolveEventTimeZones } from "./event-time-zones";
 
 export type TimelineWeatherTargetRole = "location" | "departure" | "destination";
 
@@ -17,6 +17,7 @@ export type TimelineSource<TWeather = unknown> = {
   itemType: string;
   title?: string;
   flight?: unknown;
+  timeZones?: { start?: string | null; end?: string | null } | null;
   flightPresentation?: { isFlight: boolean; departureTimeZone?: string | null; arrivalTimeZone?: string | null };
   startsAt: string | null;
   endsAt: string | null;
@@ -137,14 +138,14 @@ function point<TItem extends TimelineSource>(input: {
   ownsActions: boolean;
   weather: WeatherValue<TItem> | null;
 }): TimelinePoint<TItem> {
-  const flight = resolveFlightPresentation(input.item, input.timeZone);
+  const flight = resolveEventTimeZones(input.item, input.timeZone);
   const arrival = input.kind === "arrival";
   return {
     key: `${input.item.id}:${input.kind}`,
     kind: input.kind,
     at: input.at,
     timeZone: arrival ? flight.arrivalTimeZone : flight.departureTimeZone,
-    timeZoneKnown: !flight.isFlight || (arrival ? flight.arrivalZoneKnown : flight.departureZoneKnown),
+    timeZoneKnown: arrival ? flight.arrivalZoneKnown : flight.departureZoneKnown,
     isFlight: flight.isFlight,
     tripDayId: resolveTripDayId(
       input.at,

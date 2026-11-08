@@ -22,7 +22,7 @@ Legacy title-only flight recognition is presentation only (JOB-090, D-102); it d
 
 ## The lookup
 
-`gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it, on the operator's keys. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports, planned departure instant and departure-local date/time. The departure zone comes from a validated explicit zone or the bundled airport lookup, including DST. An unresolved zone is labeled as a trip-zone fallback, not claimed as airport-local. It never includes titles, notes, people or booking details. The answer is structured JSON:
+`gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it, on the operator's keys. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports, planned departure instant and departure-local date/time. The departure zone uses the [shared event resolver](EVENT_LOCAL_TIME.md), honoring new explicit corrections ahead of legacy flight zones and airport/location evidence, including DST. An unresolved zone is labeled as a trip-zone fallback, not claimed as airport-local. Local resolution never adds map URLs, titles, notes, people or booking details to the prompt. The answer is structured JSON:
 - status;
 - scheduled and estimated departure and arrival;
 - terminals and gate;

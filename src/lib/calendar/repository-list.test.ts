@@ -95,6 +95,18 @@ function rows(state: Record<string, unknown>): EventRow[] {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Google Calendar conflict projection", () => {
+  it("uses author time zones only for unresolved venues and never changes the provider instant", async () => {
+    const times = { start: { dateTime: "2030-04-01T16:00:00-05:00", timeZone: "America/Chicago" },
+      end: { dateTime: "2030-04-01T18:00:00-05:00", timeZone: "America/Chicago" } };
+    const fixture = mockList([], [[
+      event({ id: "slc", location: "Synthetic hotel, Salt Lake City", ...times }),
+      event({ id: "unknown", location: "Synthetic unrecognized venue", ...times }),
+    ]]);
+    const result = rows(await listCalendarState(fixture.pool, config, session));
+    expect(result.find(row => row.id === "slc")).toMatchObject({ startsAt: "2030-04-01T21:00:00.000Z", timeZones: null });
+    expect(result.find(row => row.id === "unknown")).toMatchObject({ startsAt: "2030-04-01T21:00:00.000Z",
+      timeZones: { start: "America/Chicago", end: "America/Chicago" } });
+  });
   it("hides proven removed-event copies without deleting remote or unrelated Calendar entries", async () => {
     const fixture = mockList([item()], [[
       event({ id: "stored-removed-copy" }),

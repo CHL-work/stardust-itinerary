@@ -37,6 +37,13 @@ export async function loadActivityEntries(
          WHEN cr.entity_type='itinerary_item' THEN cr.proposed_patch->>'startsAt'
          WHEN cr.entity_type='expense' THEN cr.proposed_patch->>'occurredAt' END AS target_starts_at,
        CASE WHEN i.id IS NOT NULL THEN i.ends_at::text WHEN cr.entity_type='itinerary_item' THEN cr.proposed_patch->>'endsAt' END AS target_ends_at,
+       CASE WHEN i.id IS NOT NULL THEN jsonb_build_object('itemType',i.item_type,'timeZones',to_jsonb(i)->'time_zones','flight',to_jsonb(i)->'flight',
+         'locationName',i.location_name,'mapUrl',i.map_url,'departureLocationName',i.departure_location_name,
+         'departureMapUrl',i.departure_map_url,'destinationLocationName',i.destination_location_name,'destinationMapUrl',i.destination_map_url)
+         WHEN cr.entity_type='itinerary_item' THEN COALESCE((SELECT jsonb_object_agg(key,value)
+           FROM jsonb_each(CASE WHEN jsonb_typeof(cr.proposed_patch)='object' THEN cr.proposed_patch ELSE '{}'::jsonb END) AS proposed(key,value)
+           WHERE key IN ('itemType','timeZones','flight','locationName','mapUrl','departureLocationName','departureMapUrl','destinationLocationName','destinationMapUrl')), '{}'::jsonb)
+         END AS target_event_clock,
        CASE WHEN e.id IS NOT NULL THEN e.amount_minor::text WHEN cr.entity_type='expense' THEN cr.proposed_patch->>'amountMinor' END AS target_amount_minor,
        CASE WHEN e.id IS NOT NULL THEN e.currency WHEN cr.entity_type='expense' THEN cr.proposed_patch->>'currency' END AS target_currency,
        CASE WHEN i.id IS NOT NULL THEN i.status WHEN e.id IS NOT NULL THEN e.status ELSE cr.status END AS target_status,

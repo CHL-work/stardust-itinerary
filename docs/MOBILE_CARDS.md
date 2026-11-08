@@ -12,7 +12,7 @@ These card and safe-removal rules add no provider or payment processing.
 
 Icons are decorative and non-focusable; localized titles/type/status text stays. Private and owner-locked events show their type as well as the separate lock label, and pending/cancelled indicators are unchanged. Offline cards retain only safe flight-kind/known-zone metadata, never flight numbers, terminals, gates or booking facts; unimported Calendar candidates keep their Calendar icon. Static imports add no image downloads, extra requests, animation or new dependency.
 
-Flight departure and arrival clocks use their own IANA zones: explicit saved zone, then a confident bundled airport lookup, else a labeled **Trip time** fallback. Labels include the zone and show the endpoint-local date when it differs from the trip date. Stored UTC instants, elapsed duration, chronological ordering and trip-calendar date grouping do not change. Both endpoint rows still represent one event and one action set. Generic transport remains in the trip zone.
+Every event's clocks use its location's IANA zone, including hotels, meals and non-flight transport endpoints. Labels show the zone and any differing local date, with an honest **Trip time** fallback. Both transport rows remain one event/action set. [Resolution, editing and compatibility](EVENT_LOCAL_TIME.md) define the shared behavior; UTC ordering and trip-calendar grouping are unchanged.
 
 ## Reading and actions
 
@@ -30,7 +30,7 @@ Pending-event review controls keep their own grid: one equal-width row uses **Ed
 
 ## Event time editor
 
-Create/edit/pending event forms permit blank end time and duration. New events do not assume one hour; clearing either field clears both, and saved unknown ends stay unknown. Entered valid end/duration calculate one another using elapsed time. Start and end have distinct 44px Now buttons beside their labels, using the corresponding endpoint zone for flights and the trip zone otherwise, without submitting. Changing an airport/zone preserves existing instants while rebasing the clock fields. Unchanged edits retain seconds and the existing DST occurrence; nonexistent or newly ambiguous local times are refused, not silently shifted. At phone widths the fields stack and use 16px input text. Invalid ranges/outside-trip times keep the draft and localized feedback. A known start remains required; these controls do not extend trips or change owner-review rules.
+Create/edit/pending forms permit blank end/duration and never assume one hour. Clearing either clears both; valid inputs calculate elapsed duration. Every event has an Auto/location-zone selector, with separate endpoints for transport, and 44px Now buttons. Zone/location changes preserve instants while rebasing fields; saved seconds/DST occurrences survive unchanged edits and new ambiguous/nonexistent times are refused. Phone fields stack with 16px text. Invalid ranges retain the draft. A known start remains required; no trip extension or review-rule change is implied.
 
 ## Expense cards
 

@@ -1230,7 +1230,7 @@
     "arrivalTerminal": "Terminal kedatangan",
     "departureTimeZone": "Zona waktu keberangkatan",
     "arrivalTimeZone": "Zona waktu kedatangan",
-    "automaticZone": "Otomatis (bandara)",
+    "automaticZone": "Otomatis (lokasi)",
     "tripTimeFallback": "Waktu perjalanan",
     "invalidTimeZone": "Pilih zona waktu yang valid.",
     "ambiguousTime": "Waktu ini terjadi dua kali. Pilih UTC dan masukkan waktu UTC yang sesuai.",

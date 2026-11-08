@@ -25,7 +25,8 @@ function narrowPatch(value: unknown, members: string[], days: string[], events: 
     // their answer yet omit its end timestamp from an otherwise valid patch.
     const eventFieldGuidance: Record<string, string> = {
       itemType: "Include the event category on create: meal for breakfast, lunch, dinner or eating; lodging for an accommodation stay; transport for travel; otherwise activity or note. Do not classify dinner as activity.",
-      startsAt: "Include the requested start time as an ISO 8601 timestamp, resolving the user's date and local time using the trip time zone. Put the time in this field, not only in the message.",
+      startsAt: "Include the requested start time as an ISO 8601 timestamp, resolving the user's date and local time using the event location's IANA time zone and date-specific offset. Hotels and meals use their venue's local time, not the trip's starting zone. Use the trip time zone only when no location zone is known. Put the time in this field, not only in the message.",
+      timeZones: "When the event's location zone is known, save its IANA identifier as start (for example America/Denver for Salt Lake City). Transport may have a different end zone. Never use abbreviations or fixed offsets. Keep UTC instants and elapsed durations correct.",
       endsAt: "When the user supplies an end time OR a duration, include the corresponding ISO 8601 end timestamp. For example, a 19:00 start lasting 1hr ends at 20:00 on that local date. Omit or use null only when no end or duration was specified; do not invent a duration. A duration mentioned only in message is not saved.",
     };
     for (const [key, description] of Object.entries(eventFieldGuidance)) {

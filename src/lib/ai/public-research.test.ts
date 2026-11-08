@@ -119,6 +119,10 @@ describe("public discovery is not exact venue research", () => {
 });
 
 describe("bounded public research projection", () => {
+  it("requests dated venue hours in the venue zone instead of the trip's starting zone", () => {
+    expect(selectPublicResearchHoursTargets([{ key: "R1", kind: "venue", subject: "Synthetic Kitchen, Salt Lake City, Utah", date: "2031-04-01" }], "America/Chicago"))
+      .toEqual([{ key: "V1", venueName: "Synthetic Kitchen, Salt Lake City, Utah", date: "2031-04-01", timeZone: "America/Denver" }]);
+  });
   it("keeps omitted research backward compatible with a strict bounded schema", () => {
     expect(parsePublicResearchRequests()).toEqual([]);
     expect(publicResearchRequestJsonSchema).toMatchObject({ type: "array", maxItems: 3,

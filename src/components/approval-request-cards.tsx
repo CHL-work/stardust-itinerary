@@ -3,7 +3,7 @@
 import { CalendarDays, Check, Clock3, Lock, MapPin, ReceiptText, X } from "lucide-react";
 import { EventTypeIcon } from "@/components/event-type-icon";
 import { flightMessages } from "@/lib/app/flight-i18n";
-import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { approvalMessages, type ApprovalMessages } from "@/lib/app/approval-i18n";
 import type { ApprovalEventDisplay, ApprovalExpenseDisplay } from "@/lib/app/approval-presentation-types";
 import type { ApprovalRequest } from "@/lib/app/types";
@@ -57,7 +57,7 @@ export function ApprovalExpenseSummary({ expense, locale, timeZone, copy, messag
 function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending }: {
   event: ApprovalEventDisplay; locale: Locale; timeZone: string; copy: ApprovalMessages; messages: Messages; pending: boolean;
 }) {
-  const flight = resolveFlightPresentation({ ...event,
+  const flight = resolveEventTimeZones({ ...event,
     flightPresentation: event.flightPresentation ?? (event.isFlight ? { isFlight: true } : undefined) }, timeZone);
   const endpoints = event.itemType === "transport" ? [
     event.departureLocationName ? { kind: "departure" as const, label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt, zone: flight.departureTimeZone, known: flight.departureZoneKnown } : null,
@@ -69,11 +69,11 @@ function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending
       {event.isLocked ? <span className="status-tag"><Lock size={12} aria-hidden="true" />{copy.locked}</span> : null}</div>
     {event.dayDate ? <p className="approval-event-date"><CalendarDays size={16} aria-hidden="true" /><time dateTime={event.dayDate}>{dayLabel(event.dayDate, locale)}</time></p> : null}
     {endpoints.length ? <div className="approval-transport-points">{endpoints.map((endpoint) => <div className="approval-transport-point" key={endpoint.label}>
-      <div><EventTypeIcon itemType={event.itemType} isFlight={flight.isFlight} endpoint={endpoint.kind} size={17} /><strong>{endpoint.label}</strong><time dateTime={endpoint.at ?? undefined}>{dateTime(endpoint.at, locale, endpoint.zone, copy.untimed, flight.isFlight)}{endpoint.at && flight.isFlight && !endpoint.known ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></div>
+      <div><EventTypeIcon itemType={event.itemType} isFlight={flight.isFlight} endpoint={endpoint.kind} size={17} /><strong>{endpoint.label}</strong><time dateTime={endpoint.at ?? undefined}>{dateTime(endpoint.at, locale, endpoint.zone, copy.untimed, true)}{endpoint.at && !endpoint.known ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></div>
       <a href={mapLink(endpoint.name, endpoint.map)} target="_blank" rel="noopener noreferrer"><MapPin size={15} aria-hidden="true" />{endpoint.name}</a>
     </div>)}</div> : <>
-      <div className="approval-event-times"><p><strong>{copy.starts}</strong><time>{dateTime(event.startsAt, locale, timeZone, copy.untimed)}</time></p>
-        {event.endsAt ? <p><strong>{copy.ends}</strong><time>{dateTime(event.endsAt, locale, timeZone, copy.untimed)}</time></p> : null}</div>
+      <div className="approval-event-times"><p><strong>{copy.starts}</strong><time>{dateTime(event.startsAt, locale, flight.departureTimeZone, copy.untimed, true)}{event.startsAt && !flight.departureZoneKnown ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></p>
+        {event.endsAt ? <p><strong>{copy.ends}</strong><time>{dateTime(event.endsAt, locale, flight.arrivalTimeZone, copy.untimed, true)}{!flight.arrivalZoneKnown ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></p> : null}</div>
       {event.locationName ? <a className="approval-event-location" href={mapLink(event.locationName, event.mapUrl)} target="_blank" rel="noopener noreferrer"><MapPin size={16} aria-hidden="true" />{event.locationName}</a> : null}
     </>}
     {event.visibility === "private" ? <p className="approval-event-audience"><strong>{copy.audience}:</strong> {event.audienceNames.map((name) => name ?? copy.memberUnavailable).join(" · ")}</p> : null}

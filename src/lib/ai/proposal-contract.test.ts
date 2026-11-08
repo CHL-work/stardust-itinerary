@@ -23,6 +23,16 @@ const linkedExpense = {
 };
 
 describe("AI proposal patch contract", () => {
+  it("allows location-local zones in new and pending events without weakening nested validation", () => {
+    const patch = { timeZones: { start: "America/Denver", end: null } };
+    expect(aiItineraryPatchSchema.parse(patch)).toEqual(patch);
+    expect(aiPendingItineraryPatchSchema.parse(patch)).toEqual(patch);
+    expect(plannerPatchContract.itinerary_item.properties).toHaveProperty("timeZones");
+    for (const timeZones of [{ start: "MST" }, { end: "not/a-zone" }, { start: "America/Denver", extra: "secret" }]) {
+      expect(aiItineraryPatchSchema.safeParse({ timeZones }).success).toBe(false);
+      expect(aiPendingItineraryPatchSchema.safeParse({ timeZones }).success).toBe(false);
+    }
+  });
   it("parses one strict itinerary patch with a linked expense", () => {
     const patch = {
       tripDayId: DAY_ID,

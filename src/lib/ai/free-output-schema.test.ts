@@ -51,6 +51,12 @@ const bill = { description: "Synthetic dinner", amountMinor: 3001, currency: "JP
   occurredAt: "2030-04-01T10:00:00Z", splitMemberIds: [alex, sam] };
 
 describe("free model typed patch schema", () => {
+  it("exposes venue-local zones and Auto in the provider schema for every event type", () => {
+    expect(validProposal(envelope("itinerary_item", { itemType: "lodging", timeZones: { start: "America/Denver" } }))).toBe(true);
+    expect(validProposal(envelope("itinerary_item", { itemType: "meal", timeZones: null }))).toBe(true);
+    expect(validProposal(envelope("itinerary_item", { timeZones: { start: "America/Denver", extra: "secret" } }))).toBe(false);
+    expect(JSON.stringify(object(patch("itinerary_item").properties).timeZones)).toContain("America/Denver");
+  });
   it("retains root restrictions without mutating the base, context or shared patch contracts", () => {
     const original = structuredClone({ base, context, plannerPatchContract });
     const schema = freePlannerOutputSchema(base, context);

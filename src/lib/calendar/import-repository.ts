@@ -12,6 +12,7 @@ import { calendarImportInputSchema, type CalendarImportExisting, type CalendarIm
 import { calendarDateMidnight, calendarSourceDigest, createCalendarImportToken, normalizeCalendarImportSource,
   verifyCalendarImportToken, type CalendarPreviewClaims } from "./import-source";
 import { verifyCalendarLocationToken } from "./location-search-token";
+import { calendarFallbackTimeZones } from "./event-time-zones";
 
 type Queryable = Pick<Pool | PoolClient, "query">;
 type Context = { accountSubject: string; generation: string; timeZone: string; startsOn: string; endsOn: string };
@@ -133,6 +134,8 @@ export async function commitCalendarImport(pool: Pool, config: AuthConfig, sessi
     await createChangeRequestWithClient(client, session, tripId, { entityType: "itinerary_item", operation: "create", source: parsed.aiReceiptToken ? "ai" : "import",
       reason: "Imported from personal Google Calendar", patch: { tripDayId: day.rows[0].id, title: source.title, itemType: parsed.itemType ?? "activity",
         startsAt: source.startsAt, endsAt: source.endsAt, locationName, mapUrl, visibility: parsed.visibility ?? "private",
+        ...(source.timeZones && locationName === source.location
+          ? { timeZones: calendarFallbackTimeZones(locationName, source.timeZones, mapUrl) } : {}),
         viewerMemberIds: parsed.visibility === "trip" ? [] : parsed.viewerMemberIds ?? [], status: "planned" } }, requestId);
     await client.query(`INSERT INTO calendar_import_receipts (id, trip_id, member_id, app_user_id, account_subject, calendar_id, provider_event_id,
       connection_generation, change_request_id, source_etag, source_digest, source_snapshot) VALUES ($1,$2,$3,$4,$5,'primary',$6,$7,$8,$9,$10,$11::jsonb)`,

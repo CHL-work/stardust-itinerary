@@ -10,7 +10,7 @@ Member removal does not change deterministic conflict detection. A current-membe
 
 The personal Calendar-versus-itinerary warning projection uses deterministic rules, not an LLM classifier (decision D-060): event type, availability, identity, and interval comparisons already supply the relevant evidence, with no model latency, tokens, or disclosure of private Calendar text to an AI provider.
 
-Flight display/export zones do not change this policy (JOB-090, D-102). Google export supplies separate departure/arrival zones while retaining the exact stored UTC instants. Conflict intervals and trip-calendar day grouping stay unchanged; conservative legacy flight presentation is not a new duplicate/linking rule.
+[Event-local display/export zones](EVENT_LOCAL_TIME.md) do not change this policy. Google export uses the venue zone, or separate transport endpoint zones, while retaining exact UTC instants. Conflict intervals and trip-calendar grouping stay unchanged; zone/flight presentation is not a duplicate/linking rule.
 
 ## Occupancy, not every overlap
 

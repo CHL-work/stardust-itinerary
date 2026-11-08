@@ -60,6 +60,7 @@ Do not edit unaffected files merely to bump dates. That hides useful history and
 | Daily numbered map and server Maps setup | `docs/DAILY_MAP.md` |
 | Disruption display and qualification | `docs/DISRUPTION_LOCALIZATION.md`, `docs/DISRUPTION_CONFIDENCE.md` |
 | Flight status checks | `docs/FLIGHT_STATUS.md` |
+| Event-local times | `docs/EVENT_LOCAL_TIME.md` |
 | Trip expense ledger, repayments and entry | `docs/TRIP_EXPENSES.md`, `docs/MEMBER_PAYMENTS.md` |
 | Mobile cards and cancelled-event removal | `docs/MOBILE_CARDS.md` |
 | Screen layout | `docs/UI_LAYOUTS.md` |

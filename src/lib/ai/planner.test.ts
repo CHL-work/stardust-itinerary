@@ -3224,6 +3224,32 @@ describe("AI planner live-search and approval policy", () => {
     expect(mocks.createChangeRequestsAtomically).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { label: "accepts the next trip-calendar day", startsAt: "2026-09-03T05:30:00Z", includeNextDay: true, allowed: true },
+    { label: "rejects the wrong venue-local date", startsAt: "2026-09-02T05:30:00Z", includeNextDay: true, allowed: false },
+    { label: "still rejects an out-of-trip instant", startsAt: "2026-09-03T05:30:00Z", includeNextDay: false, allowed: false },
+  ])("relative venue-date guard $label", async ({ startsAt, includeNextDay, allowed }) => {
+    const nextDay = { id: "30000000-0000-4000-8000-000000000003", date: "2026-09-03", label: null };
+    const localContext = { ...context, trip: { ...context.trip, timeZone: "America/Chicago" },
+      currentTime: { ...context.currentTime, timeZone: "America/Chicago" }, days: [...context.days, ...(includeNextDay ? [nextDay] : [])] };
+    mocks.query.mockImplementation(async (sql: unknown) => String(sql).includes("AS context") && String(sql).includes("FROM trips")
+      ? { rows: [{ context: localContext }] } : { rows: [], rowCount: 1 });
+    mocks.runCodex.mockResolvedValue(reservationReply({ tripDayId: context.days[1]!.id, title: "Synthetic late dinner",
+      itemType: "meal", locationName: "Synthetic cafe, Salt Lake City", startsAt,
+      visibility: "trip", viewerMemberIds: [], status: "planned" }));
+    const request = runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession,
+      "tomorrow 11:30pm dinner in Salt Lake City", "gpt-6.1-sol", "en");
+    if (!allowed) {
+      await expect(request).rejects.toBeInstanceOf(AppConflictError);
+      expect(mocks.createChangeRequestsAtomically).not.toHaveBeenCalled();
+      return;
+    }
+    const result = await request;
+    expect(result.changeStatus).toBe("pending");
+    expect(mocks.createChangeRequestsAtomically).toHaveBeenCalledWith(expect.anything(), ownerSession, ownerSession.tripId,
+      [expect.objectContaining({ patch: expect.objectContaining({ tripDayId: nextDay.id, startsAt }) })]);
+  });
+
   it("accepts an atomic create batch that explicitly spans today and tomorrow", async () => {
     mocks.createChangeRequestsAtomically.mockResolvedValue([
       { id: "proposal-today", status: "pending" },

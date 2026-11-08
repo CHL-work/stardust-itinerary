@@ -35,6 +35,7 @@ Every document in this repository, by area, with one line each. The [README](../
 - [Day map](DAILY_MAP.md): numbered OpenStreetMap day maps, place lookup and travel times.
 - [Disruption warnings](DISRUPTION_CONFIDENCE.md): which official notices qualify as a warning.
 - [Flight status checks](FLIGHT_STATUS.md): how flights are checked before departure and what an update changes.
+- [Event-local times](EVENT_LOCAL_TIME.md): location zones for all event types, editing, fallback, offline data and compatibility.
 - [Disruption languages](DISRUPTION_LOCALIZATION.md): warning details in the selected language.
 - [Calendar import](CALENDAR_IMPORT.md): adding events from a personal Google Calendar.
 - [Calendar conflicts](CALENDAR_CONFLICTS.md): when a Calendar event counts as a clash with the itinerary.

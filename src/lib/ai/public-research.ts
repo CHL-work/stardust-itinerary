@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { containsReservationSecret, redactReservationSecrets } from "@/lib/ai/reservation-secrets";
 import { sanitizeKnownPublicArticleSource, sanitizeVenueHoursSource } from "@/lib/ai/venue-hours-sources";
 import { containsPrivateIdentifier, sanitizePublicText } from "@/lib/disruptions/privacy";
@@ -123,7 +124,8 @@ export function selectPublicResearchHoursTargets(
 ): VenueHoursResearchTarget[] {
   if (!targets.length) return [];
   const projected = validatePublicResearchTargets(targets).flatMap((target) => target.kind === "venue" && target.date
-    ? [{ key: `V${target.key.slice(1)}`, venueName: target.subject, date: target.date, timeZone }] : []);
+    ? [{ key: `V${target.key.slice(1)}`, venueName: target.subject, date: target.date,
+        timeZone: resolveEventTimeZones({ itemType: "activity", locationName: target.subject }, timeZone).departureTimeZone }] : []);
   const unique = projected.filter((target, index) => projected.findIndex((other) =>
     other.venueName === target.venueName && other.date === target.date && other.timeZone === target.timeZone) === index);
   return validatePublicResearchHoursTargets(targets, unique);

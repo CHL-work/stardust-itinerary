@@ -12,6 +12,22 @@ const row: ActivityRow = {
   changed_keys: ["title", "notes", "startsAt", "endsAt", "secretInternalKey", "viewerMemberIds"],
 };
 describe("safe activity presentation", () => {
+  it("projects only known location zones for authorized events, without exposing geometry or booking details", () => {
+    const output = projectActivityEntry({ ...row, changed_keys: ["timeZones"], target_event_clock: {
+      itemType: "lodging", locationName: "Synthetic confidential hotel, Salt Lake City, Utah", mapUrl: "https://www.google.com/maps/search/?api=1&query=Salt%20Lake%20City%2CUtah",
+      notes: "Secret booking detail", timeZones: null } });
+    expect(output).toMatchObject({ eventTimeZones: { start: "America/Denver", end: "America/Denver" }, changedFields: ["time"] });
+    expect(JSON.stringify(output)).not.toMatch(/confidential hotel|Salt Lake City|booking detail|maps\/search|locationName|target_event_clock/u);
+  });
+  it("keeps transport zones independent and sparse proposals explicitly unresolved without looking up a canonical base", () => {
+    const output = projectActivityEntry({ ...row, target_event_clock: { itemType: "transport", departureLocationName: "DFW", destinationLocationName: "SLC" } });
+    expect(output.eventTimeZones).toEqual({ start: "America/Chicago", end: "America/Denver" });
+    expect(projectActivityEntry({ ...row, entity_type: "change_request", target_kind: "request", target_event_clock: {} }).eventTimeZones)
+      .toEqual({ start: null, end: null });
+  });
+  it.each([{ target_removed: true }, { target_id: null }, { target_kind: "expense", entity_type: "expense" }])("does not project event zones for removed, inaccessible or financial targets", (hidden) => {
+    expect(projectActivityEntry({ ...row, ...hidden, target_event_clock: { itemType: "meal", timeZones: { start: "America/Denver" } } }).eventTimeZones).toBeNull();
+  });
   it("only publishes current safe fields and changed field names, never unknown/raw audit data", () => {
     const output = projectActivityEntry({ ...row, before_state: { title: "Former private title" }, metadata: { secret: "booking-pin" },
       after_state: { notes: "Unrelated private booking" } } as ActivityRow);
@@ -70,5 +86,9 @@ describe("activity repository authorization query contract", () => {
     expect(resultColumns).not.toContain("ae.metadata");
     expect(resultColumns).not.toContain("AS before_state");
     expect(resultColumns).not.toContain("AS after_state");
+    expect(resultColumns).not.toContain("cr.base_patch");
+    expect(resultColumns).not.toContain("cr.entity_id=i.id");
+    expect(resultColumns).toContain("ae.entity_type IN ('itinerary_item','calendar_event_link') AND i.trip_id=ae.trip_id AND i.id=ae.entity_id");
+    expect(resultColumns).toContain("END AS target_event_clock");
   });
 });

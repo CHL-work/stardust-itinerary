@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { flightDetailsSchema } from "@/lib/app/flight";
+import { eventTimeZonesSchema } from "@/lib/app/event-time-zone-contract";
 import { isTrustedGoogleMapsUrl, transportMapUrlMessage } from "@/lib/app/transport";
 import { isSupportedLedgerCurrency } from "@/lib/app/supported-currencies";
 import { tripDateErrors, validTripDate } from "@/lib/app/trip-date-range";
@@ -40,6 +41,7 @@ export const itineraryPatchSchema = z.object({
   destinationMapUrl: z.url().max(2000).refine(isTrustedGoogleMapsUrl, transportMapUrlMessage).nullable().optional(),
   // Transport events only (JOB-082); the whole object is replaced, and null removes it.
   flight: flightDetailsSchema.nullable().optional(),
+  timeZones: eventTimeZonesSchema.nullable().optional(),
   notes: z.string().trim().max(4000).nullable().optional(),
   visibility: z.enum(["trip", "private"]).optional(),
   viewerMemberIds: z.array(z.uuid()).max(19).optional(),

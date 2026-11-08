@@ -153,6 +153,23 @@ describe("quiet and truthful hours notices", () => {
 });
 
 describe("minimal hours candidates", () => {
+  it("checks an SLC restaurant on its local date, not the Dallas trip date", () => {
+    const entries = [{ proposal: { entityType: "itinerary_item", action: "create", entityId: null },
+      patch: { itemType: "meal", locationName: "Synthetic Kitchen, Salt Lake City, Utah", startsAt: "2031-04-02T05:30:00Z",
+        endsAt: "2031-04-02T05:45:00Z", visibility: "trip", timeZones: { start: "America/Denver" } } }];
+    expect(venueHoursCandidates(entries, { timeZone: "America/Chicago", days: [], itinerary: [], pendingItinerary: [] })[0])
+      .toMatchObject({ date: "2031-04-01", timeZone: "America/Denver", public: true });
+  });
+  it("drops a stale pinned venue zone when a meal moves, and preserves zones on a time-only edit", () => {
+    const current = { id: "item", itemType: "meal" as const, locationName: "Synthetic Kitchen, Dallas, Texas",
+      startsAt: "2031-04-02T05:30:00Z", visibility: "trip" as const, timeZones: { start: "America/Chicago" } };
+    const context = { timeZone: "America/Chicago", days: [], itinerary: [current], pendingItinerary: [] };
+    const proposal = { entityType: "itinerary_item", action: "update", entityId: "item" };
+    expect(venueHoursCandidates([{ proposal, patch: { locationName: "Synthetic Kitchen, Salt Lake City, Utah" } }], context)[0])
+      .toMatchObject({ date: "2031-04-01", timeZone: "America/Denver" });
+    expect(venueHoursCandidates([{ proposal, patch: { startsAt: "2031-04-02T06:30:00Z" } }], context)[0])
+      .toMatchObject({ date: "2031-04-02", timeZone: "America/Chicago" });
+  });
   const base = { id: "canonical", itemType: "meal" as const, locationName: candidate.venueName,
     startsAt: candidate.startsAt, endsAt: candidate.endsAt, visibility: "trip" as const, tripDayId: "day" };
   const context: VenueHoursContext = { timeZone: "Asia/Tokyo", days: [{ id: "day", date: "2030-04-01" }],

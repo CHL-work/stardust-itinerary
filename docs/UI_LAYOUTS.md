@@ -106,7 +106,7 @@ Practical rules:
 
 The layout stores nothing in the browser. Sign-out still deletes the offline itinerary snapshots and Stardust private shell caches as before ([identity and security](IDENTITY_AND_SECURITY.md)).
 
-The service worker and cache names are unchanged. The offline snapshot accepts optional privacy-reduced flight/zone presentation (D-102); old snapshots remain readable. The cached locale shell includes the language bootstrap.
+The service worker and cache names are unchanged. The offline snapshot accepts optional privacy-reduced flight presentation and known location-local zones for all event types ([D-103](EVENT_LOCAL_TIME.md)); old snapshots remain readable. The cached locale shell includes the language bootstrap.
 
 ## Rollback
 

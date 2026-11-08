@@ -11,7 +11,7 @@ import { parseExpenseAmount } from "@/lib/app/expense-entry";
 import { eventEditorFailureMessage, eventEditorMessages } from "@/lib/app/event-editor-i18n";
 import { isFlightNumber, normalizeFlightNumber } from "@/lib/app/flight";
 import { flightMessages } from "@/lib/app/flight-i18n";
-import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { eventTimeInputsFromInstants } from "@/lib/app/flight-editor-time";
 import { wallTimeToIso, ZonedEventTimeError } from "@/lib/app/zoned-event-time";
 import { tripLocalDateKey } from "@/lib/app/day-view";
@@ -32,7 +32,7 @@ const flightBindings = {
   ...new Function("normalizeFlightNumber", `${ts.transpileModule(["flightDraft", "flightFromDraft", "flightTimeSource"].map(topLevelFunction).join("\n"),
     { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}; return { flightDraft, flightFromDraft, flightTimeSource };`)(normalizeFlightNumber) as Record<string, unknown>,
   normalizeFlightNumber, isFlightNumber, flightMessages, locale: "en",
-  resolveFlightPresentation, eventTimeInputsFromInstants, wallTimeToIso, ZonedEventTimeError, tripLocalDateKey,
+  resolveEventTimeZones, eventTimeInputsFromInstants, wallTimeToIso, ZonedEventTimeError, tripLocalDateKey,
 };
 function closure<T>(name: string, next: string, bindings: Record<string, unknown>): T {
   const start = source.indexOf(`  const ${name} =`);

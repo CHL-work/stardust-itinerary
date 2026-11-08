@@ -23,6 +23,7 @@ import { testMoreLocales } from "./more-locales.mjs";
 import { testSecretManagerCredentials } from "./secret-manager-credentials.mjs";
 import { testAccountLanguage } from "./account-language.mjs";
 import { testGoogleKeyModes } from "./google-key-modes.mjs";
+import { testEventTimeZones } from "./event-time-zones.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
 import { testCustomExpenseSplits } from "./custom-expense-splits.mjs";
@@ -7331,6 +7332,7 @@ test(
       await testSecretManagerCredentials(appPool,connectionString);
       await testAccountLanguage(appPool,connectionString);
       await testGoogleKeyModes(appPool,connectionString);
+      await testEventTimeZones(appPool,connectionString);
 
     } finally {
       await appPool.end();

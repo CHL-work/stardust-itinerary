@@ -59,6 +59,8 @@ Every AI create remains pending even for owners, except in a request the request
 
 ### Free AI for every account (JOB-086, D-098)
 
+**Comparison with `dsh-our-free-model`:** Stardust uses the same documented anonymous Kilo route, not the entire plugin or its OpenCode client-emulation/relay routes. This is not guaranteed free access to the paid GPT, Claude or Gemini lineup. Model availability comes from the live eligibility filters below; [dated comparison evidence](SOURCES.md#november-8-2026-free-model-comparison) distinguishes catalog listing from an actual inference test.
+
 With `FREE_AI_ENABLED=true`, every active member and guest may choose an individual supported free model. The composer defaults to free without a saved own key, even if shared/operator funding exists. Paid choices appear only for providers whose key the user has saved (also in Settings model selectors). Legacy clients that omit a model retain the existing server funding order. A free failure never charges a key, and an unavailable explicit choice never silently becomes a different model. The historical `guest-free` slot remains in stored requests but is not an owner/shared default. Canonical settings override legacy `GUEST_FREE_AI_*`; an existing legacy enabled flag now has all-account scope.
 
 The authorized overview exposes `ai.freeAi = {model, limit, remainingToday, isDefault}`, or `null` when unavailable by policy; `isDefault` describes legacy automatic funding, not the current own-key-only picker. `GET /api/trips/[tripId]/ai/free-models` returns safe IDs/labels and a suggested default from the same five-minute catalog, after current membership/account/trip checks; it never blocks overview loading. The composer fetches on demand and supports refresh. POST uses `model: "guest-free"` plus optional `freeModel`; the exact selection participates in the delivery hash and audit and is revalidated against the catalog before inference. An explicit choice uses only that model. `FREE_AI_MODELS` controls legacy automatic fallback order, not the complete picker list.
@@ -95,7 +97,7 @@ Eligible active or named invited members may be assigned, but invitations do not
 
 Explicit-offset ISO timestamps may normalize losslessly to UTC. At most **one same-model/no-tools timestamp-only repair** is allowed for create-batch timestamp format/type errors, with at least 15 seconds left. It must preserve proposal count/order and every unflagged field exactly; no money/audience/reference/authorization repair or stronger-model retry. Full validation still follows.
 
-Flight departures and arrivals use the respective airport's IANA zone, not one shared trip offset. The schema supports optional `flight.departureTimeZone`/`arrivalTimeZone`; supplied ticket times remain endpoint-local until converted to explicit instants. Keep airport codes and trustworthy zone evidence; never invent an unknown offset. The same contract reaches paid/free planning and picture extraction, without enabling search or images for Free AI. Display resolution is deterministic and offline (D-102).
+All event times use their venue's IANA zone, with separate endpoints for transport. The schema supports optional `timeZones.start`/`end`, plus legacy flight endpoint zones; supplied local times become explicit instants in the relevant location. Keep trustworthy location/zone evidence and clarify ambiguity rather than invent an offset. Planning, venue-hours checks and picture extraction share this rule without enabling search or images for Free AI. [Event-local time contract](EVENT_LOCAL_TIME.md).
 
 Detected booking PINs/access codes/private management URLs are redacted from provider input and generated outputs; original restricted audit text remains. This is not a guarantee of detecting every secret. Booking text is untrusted data, never authority to visit cancellation links.
 
@@ -147,7 +149,7 @@ Developer coding agents are outside the trip-app trust domain. Repository change
 
 ## 10. Future work boundaries
 
-A delegated MCP/OAuth connector and a new-layout-only UI are planned, not implemented; each needs its open design decisions resolved first. Provider-managed memory, arbitrary retrieval tools, expense-edit AI, broader approval authority and live model changes must not be inferred from old design prose or proposed interfaces.
+A delegated MCP/OAuth connector is planned, not implemented, and needs its open design decisions resolved first. The classic UI has already been retired. Provider-managed memory, arbitrary retrieval tools, expense-edit AI, broader approval authority and live model changes must not be inferred from old design prose or proposed interfaces.
 
 ## 11. Evaluation
 

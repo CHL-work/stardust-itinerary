@@ -15,7 +15,7 @@ Current product behavior, not deployment instructions. Hosting is covered by [se
 
 ## 3. Non-goals and unshipped work
 
-The app does not transmit money, guarantee venue availability/disruption detection, track live traveler location, give an LLM database/shell access, or promise closed-phone push delivery. Discord/Telegram delivery, the full departure-reminder engine, external-agent MCP access and retirement of the classic UI are not delivered; planned work is tracked in the [roadmap](ROADMAP.md). Public-signup preparation does not mean public signup is enabled.
+The app does not transmit money, guarantee venue availability/disruption detection, track live traveler location, give an LLM database/shell access, or promise closed-phone push delivery. Discord/Telegram delivery, the full departure-reminder engine and external-agent MCP access are not delivered; planned work is tracked in the [roadmap](ROADMAP.md). Public signup and guests remain deployment-controlled.
 
 ## 4. Roles and permissions
 
@@ -28,7 +28,7 @@ The app does not transmit money, guarantee venue availability/disruption detecti
 
 Private canonical events belong to their creator plus selected viewers, **without an owner read bypass**. Active owners have a narrow proposal-only private itinerary create/update review exception; approval does not add them to the canonical audience. Private expenses remain constrained to involved authorized people. [Member lifecycle](PUBLIC_TRIPS_AND_MEMBERS.md) · [database enforcement](DATABASE.md).
 
-Only owners approve/reject requests. All AI event/expense creates remain pending even for owners. AI pending-event edits remain pending and preserve linked expenses. Current validated owner AI canonical-event update/cancel/restore fast paths still exist; AI cannot edit/void existing expenses. [AI contracts](AI_AND_AGENTS.md).
+Only owners approve/reject requests. Free/shared-funded AI changes remain reviewable; eligible requester-funded creates can apply directly under the [AI funding/review contract](AI_AND_AGENTS.md). Pending-event edits remain pending and preserve linked expenses. AI cannot edit/void existing expenses.
 
 ## 5. Core user journeys
 
@@ -74,9 +74,9 @@ Calendar consent is optional after basic sign-in. A user's encrypted connection/
 
 ## 6. Itinerary model and editing
 
-An event has a trip day, type, status, title, visibility, revision and optional timing/location details. Manual start is required; end/duration are optional. Duration is an editing aid, not a separate stored fact. Now uses the click-time device instant expressed in the flight endpoint's zone, or the trip zone for other events. Known end must follow start in elapsed time. Maps links should identify the actual venue/branch.
+An event has a trip day, type, status, title, visibility, revision and optional timing/location details. Manual start is required; end/duration are optional. Duration is an editing aid, not a separate stored fact. Every event uses its location's zone; Now captures the actual click instant in that zone. Known end must follow start in elapsed time. [Local time, corrections and fallback](EVENT_LOCAL_TIME.md). Maps links should identify the actual venue/branch.
 
-Transport remains **one canonical event** with optional departure/destination endpoints, at least one named. Start/end mean departure/arrival. Timeline endpoint rows have their own place, time, day and weather; controls appear once. Non-transport uses `locationName`/`mapUrl`. A flight is transport with optional flight details (flight number, airline, terminals, gate and endpoint IANA zones); cards show the gate, else the terminal, else the airline beside the departure airport (D-094). Flights display airport-local clocks and zone labels while UTC instants and trip-calendar day grouping remain unchanged (D-102). Integration end-time fallbacks never fabricate a canonical end.
+Transport remains **one canonical event** with optional departure/destination endpoints, at least one named. Start/end mean departure/arrival; endpoint rows have their own place, zone, time and weather, with one action set. Non-transport uses `locationName`/`mapUrl`. A flight adds optional flight number, airline, terminals and gate; cards prefer gate, then terminal, then airline (D-094). UTC instants and trip-calendar grouping remain unchanged (D-103). Integration end-time fallbacks never fabricate a canonical end.
 
 Apply rechecks revisions, authorization, current trip dates, audiences and participant eligibility. Approved records stay canonical until reviewed replacement. Approval is terminal; rejection remains reapprovable after fresh checks. [Pending AI edits](AI_PENDING_EVENT_EDITS.md).
 

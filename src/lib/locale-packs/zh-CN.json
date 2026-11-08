@@ -1230,7 +1230,7 @@
     "arrivalTerminal": "到达航站楼",
     "departureTimeZone": "出发时区",
     "arrivalTimeZone": "到达时区",
-    "automaticZone": "自动（机场）",
+    "automaticZone": "自动（地点）",
     "tripTimeFallback": "行程时间",
     "invalidTimeZone": "请选择有效时区。",
     "ambiguousTime": "这个时间出现两次。请选择 UTC，并输入对应的 UTC 时间。",

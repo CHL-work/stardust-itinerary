@@ -149,11 +149,27 @@ describe("offline itinerary snapshot", () => {
     ]);
     const parsed = parseOfflineItinerarySnapshot({ ...snapshot, itinerary: [{ ...snapshot.itinerary[0],
       departureLocationName: "Synthetic departure", destinationLocationName: "Synthetic arrival",
+      timeZones: { start: "Invalid/Zone", end: "CST", bookingCode: "SECRET" },
       flightPresentation: { isFlight: true, departureTimeZone: "Invalid/Zone", arrivalTimeZone: "CST", flightNumber: "SECRET" } }] });
     expect(parsed!.itinerary[0]!.flightPresentation).toEqual({ isFlight: true, departureTimeZone: null, arrivalTimeZone: null });
+    expect(parsed!.itinerary[0]!.timeZones).toEqual({ start: null, end: null });
     expect(projectTimelinePoints(parsed!.itinerary, { tripDays: parsed!.days, timeZone: parsed!.trip.timeZone })[0]).toMatchObject({
       isFlight: true, timeZoneKnown: false, timeZone: "Asia/Tokyo",
     });
+  });
+  it("preserves only safe known location clocks for nonflight offline events", () => {
+    const visible = { ...source.visibleItinerary[0]!, itemType: "lodging", title: "Synthetic hotel",
+      locationName: "Synthetic hotel, Salt Lake City, Utah", departureLocationName: null, destinationLocationName: null,
+      startsAt: "2026-09-03T21:00:00Z", endsAt: "2026-09-04T17:00:00Z" };
+    const snapshot = createOfflineItinerarySnapshot({ ...source, trip: { ...source.trip, timeZone: "America/Chicago" },
+      visibleItinerary: [visible, { ...visible, id: "unresolved", locationName: "Unknown venue" },
+        { ...visible, id: "private", visibility: "private" }] });
+    expect(snapshot.itinerary.map(item => item.id)).toEqual([visible.id, "unresolved"]);
+    expect(snapshot.itinerary[0]!.timeZones).toEqual({ start: "America/Denver", end: "America/Denver" });
+    expect(snapshot.itinerary[1]!.timeZones).toEqual({ start: null, end: null });
+    expect(projectTimelinePoints(snapshot.itinerary, { tripDays: snapshot.days, timeZone: snapshot.trip.timeZone })[0])
+      .toMatchObject({ timeZone: "America/Denver", timeZoneKnown: true, isFlight: false });
+    expect(parseOfflineItinerarySnapshot(snapshot)!.itinerary[0]!.timeZones).toEqual(snapshot.itinerary[0]!.timeZones);
   });
   it("keeps every trip day and only trip-visible, explicitly allowlisted event fields", () => {
     const snapshot = createOfflineItinerarySnapshot(source, new Date("2026-09-03T00:00:00.000Z"));

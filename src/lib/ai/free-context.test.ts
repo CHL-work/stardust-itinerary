@@ -126,3 +126,10 @@ describe("safeFreePlanningContext", () => {
     expect(safeFreePlanningContext(null, "help").itinerary).toEqual([]);
   });
 });
+it("allows only the two time-zone scalars in free public context, never private events or nested baggage", () => {
+  const result = safeFreePlanningContext({ itinerary: [
+    { id: "public", visibility: "trip", timeZones: { start: "America/Denver", end: null, secret: "not exported" } },
+    { id: "private", visibility: "private", timeZones: { start: "America/Chicago" } },
+  ] }, "what time");
+  expect(result.itinerary).toEqual([{ id: "public", visibility: "trip", timeZones: { start: "America/Denver", end: null } }]);
+});

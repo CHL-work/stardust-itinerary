@@ -40,7 +40,8 @@ import {
   tripSettingsSchema,
 } from "@/lib/app/validation";
 import { tripDateErrors } from "@/lib/app/trip-date-range";
-import { readFlightDetails, type FlightChange } from "@/lib/app/flight";
+import { readFlightDetails, type FlightChange, type FlightDetails } from "@/lib/app/flight";
+import { readEventTimeZones, resolveEventTimeZonesPatch, resolveLegacyFlightTimeZonesPatch, type EventTimeZones } from "@/lib/app/event-time-zone-contract";
 import type { FlightStatusDecision } from "@/lib/flights/status";
 import { normalizeDestination } from "@/lib/app/trip-destination-defaults";
 import { validatedStoredDestinationDefaults } from "@/lib/app/trip-destination-cache";
@@ -491,6 +492,7 @@ export function projectPendingItinerary(
     destinationLocationName: patch.destinationLocationName,
     destinationMapUrl: patch.destinationMapUrl,
     flight: patch.flight,
+    ...(patch.timeZones !== undefined ? { timeZones: patch.timeZones } : {}),
     notes: patch.notes,
     visibility: patch.visibility,
     viewerMemberIds: patch.viewerMemberIds,
@@ -589,6 +591,7 @@ function materializePendingItineraryDraft(
     destinationLocationName: locations.destinationLocationName,
     destinationMapUrl: locations.destinationMapUrl,
     flight: locations.itemType === "transport" ? patch.flight ?? null : null,
+    ...(patch.timeZones !== undefined ? { timeZones: resolveEventTimeZonesPatch(patch) } : {}),
     notes: patch.notes ?? null,
     visibility,
     viewerMemberIds,
@@ -625,6 +628,7 @@ const pendingItineraryCurrentPatchProjection = `CASE WHEN target.id IS NULL THEN
   'destinationLocationName', target.destination_location_name,
   'destinationMapUrl', target.destination_map_url,
   'flight', to_jsonb(target)->'flight',
+  'timeZones', to_jsonb(target)->'time_zones',
   'notes', target.notes,
   'createdByMemberId', target.created_by_member_id,
   'visibility', target.visibility,
@@ -906,6 +910,7 @@ async function readAppOverviewSnapshot(
         destination_location_name: string | null;
         destination_map_url: string | null;
         flight: unknown;
+        time_zones?: unknown;
         notes: string | null;
         status: string;
         is_locked: boolean;
@@ -932,6 +937,7 @@ async function readAppOverviewSnapshot(
                 i.departure_location_name, i.departure_map_url,
                 i.destination_location_name, i.destination_map_url,
                 to_jsonb(i)->'flight' AS flight,
+                to_jsonb(i)->'time_zones' AS time_zones,
                 i.notes, i.status, i.is_locked,
                 i.current_revision,
                 i.created_by_member_id, creator.display_name AS creator_name,
@@ -1420,6 +1426,7 @@ async function readAppOverviewSnapshot(
         destinationLocationName: row.destination_location_name,
         destinationMapUrl: row.destination_map_url,
         flight: readFlightDetails(row.flight),
+        ...(row.time_zones !== undefined ? { timeZones: readEventTimeZones(row.time_zones) } : {}),
         flightChange: currentFlightChange(flightChangeByItem.get(row.id), row),
         notes: row.notes,
         createdByMemberId: row.created_by_member_id,
@@ -1926,7 +1933,7 @@ export async function createChangeRequestWithClient(
 
     if (input.entityType === "itinerary_item") {
       const patch = input.patch as ItineraryPatch;
-      let currentLocationState: ItineraryLocationState | undefined;
+      let currentLocationState: (ItineraryLocationState & { timeZones?: EventTimeZones | null; flight?: FlightDetails | null }) | undefined;
       let currentDates: { tripDayId: string; entityId: string } | undefined;
       let currentApprovalAudience: ItineraryAudience | null = null;
       let audience: ItineraryAudience = {
@@ -1949,6 +1956,8 @@ export async function createChangeRequestWithClient(
           departure_map_url: string | null;
           destination_location_name: string | null;
           destination_map_url: string | null;
+          time_zones?: unknown;
+          flight?: unknown;
           created_by_member_id: string;
           visibility: "trip" | "private";
           viewer_member_ids: string[];
@@ -1957,6 +1966,8 @@ export async function createChangeRequestWithClient(
                   i.location_name, i.map_url,
                   i.departure_location_name, i.departure_map_url,
                   i.destination_location_name, i.destination_map_url,
+                  to_jsonb(i)->'time_zones' AS time_zones,
+                  to_jsonb(i)->'flight' AS flight,
                   i.created_by_member_id, i.visibility,
                   COALESCE(ARRAY(
                     SELECT iv.member_id
@@ -1980,6 +1991,8 @@ export async function createChangeRequestWithClient(
           departureMapUrl: row.departure_map_url,
           destinationLocationName: row.destination_location_name,
           destinationMapUrl: row.destination_map_url,
+          ...(row.time_zones !== undefined ? { timeZones: readEventTimeZones(row.time_zones) } : {}),
+          ...(row.flight !== undefined ? { flight: readFlightDetails(row.flight) } : {}),
         };
         const currentAudience: ItineraryAudience = {
           createdByMemberId: row.created_by_member_id,
@@ -2007,6 +2020,12 @@ export async function createChangeRequestWithClient(
       audience.viewerMemberIds = [...new Set(audience.viewerMemberIds)]
         .filter((memberId) => memberId !== audience.createdByMemberId);
       const normalizedPatch = canonicalizeItineraryLocationPatch(patch, currentLocationState);
+      if (patch.timeZones !== undefined || currentLocationState?.timeZones !== undefined) {
+        normalizedPatch.timeZones = resolveEventTimeZonesPatch(patch, currentLocationState);
+      }
+      if (patch.flight !== undefined || currentLocationState?.flight) {
+        normalizedPatch.flight = resolveLegacyFlightTimeZonesPatch(patch, currentLocationState);
+      }
       const locations = resolveItineraryLocationState(normalizedPatch, currentLocationState);
       if (!transportHasEndpoint(locations)) {
         throw new AppConflictError(transportEndpointRequiredMessage);
@@ -2652,6 +2671,12 @@ export async function updatePendingItineraryRequestWithClient(
       incomingEventPatch,
       currentDraft,
     );
+    if (incomingEventPatch.timeZones !== undefined || currentDraft.timeZones !== undefined) {
+      normalizedLocationPatch.timeZones = resolveEventTimeZonesPatch(incomingEventPatch, currentDraft);
+    }
+    if (incomingEventPatch.flight !== undefined || currentDraft.flight) {
+      normalizedLocationPatch.flight = resolveLegacyFlightTimeZonesPatch(incomingEventPatch, currentDraft);
+    }
     const mergedPatch: ItineraryPatch = {
       ...storedPendingItineraryPatch(currentDraft),
       ...normalizedLocationPatch,
@@ -2911,6 +2936,7 @@ function itinerarySnapshot(
     destinationLocationName: row.destination_location_name,
     destinationMapUrl: row.destination_map_url,
     flight: readFlightDetails(row.flight),
+    ...(row.time_zones !== undefined ? { timeZones: readEventTimeZones(row.time_zones) } : {}),
     notes: row.notes,
     createdByMemberId: row.created_by_member_id,
     visibility: row.visibility,
@@ -3106,16 +3132,17 @@ async function applyItineraryRequest(
     const viewerMemberIds = visibility === "private"
       ? [...new Set(patch.viewerMemberIds ?? [])].filter((memberId) => memberId !== request.requested_by_member_id)
       : [];
-    // Only a flight writes the column, so a create also works before migration 0061 (JOB-082).
+    // Optional metadata columns keep ordinary creates compatible with staged pre-0061/0067 migrations.
     const createdFlight = locations.itemType === "transport" ? patch.flight ?? null : null;
+    const createdTimeZones = resolveEventTimeZonesPatch(patch);
     await client.query(
       `INSERT INTO itinerary_items (
          trip_id, id, trip_day_id, created_by_member_id, title, item_type,
          starts_at, ends_at, location_name, map_url,
          departure_location_name, departure_map_url,
          destination_location_name, destination_map_url,
-         notes, status, is_locked, visibility${createdFlight ? ", flight" : ""}
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18${createdFlight ? ",$19::jsonb" : ""})`,
+         notes, status, is_locked, visibility${createdFlight ? ", flight" : ""}${createdTimeZones ? ", time_zones" : ""}
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18${createdFlight ? ",$19::jsonb" : ""}${createdTimeZones ? `,$${createdFlight ? 20 : 19}::jsonb` : ""})`,
       [
         session.tripId, entityId, patch.tripDayId, request.requested_by_member_id,
         patch.title, locations.itemType, patch.startsAt ?? null, patch.endsAt ?? null,
@@ -3124,6 +3151,7 @@ async function applyItineraryRequest(
         locations.destinationLocationName, locations.destinationMapUrl,
         patch.notes ?? null, patch.status ?? "planned", patch.isLocked ?? false, visibility,
         ...(createdFlight ? [JSON.stringify(createdFlight)] : []),
+        ...(createdTimeZones ? [JSON.stringify(createdTimeZones)] : []),
       ],
     );
     for (const memberId of viewerMemberIds) {
@@ -3189,18 +3217,36 @@ async function applyItineraryRequest(
       .filter((memberId) => memberId !== current.created_by_member_id)
     : [];
   // Flight details belong to transport events only (JOB-082); a patch replaces the whole object.
-  const nextFlight = locations.itemType === "transport"
-    ? patch.flight !== undefined ? patch.flight : readFlightDetails(current.flight)
-    : null;
+  const nextFlight = resolveLegacyFlightTimeZonesPatch(patch, {
+    itemType: current.item_type as string,
+    flight: readFlightDetails(current.flight),
+    locationName: current.location_name as string | null,
+    mapUrl: current.map_url as string | null,
+    departureLocationName: current.departure_location_name as string | null,
+    departureMapUrl: current.departure_map_url as string | null,
+    destinationLocationName: current.destination_location_name as string | null,
+    destinationMapUrl: current.destination_map_url as string | null,
+  });
   // The row has the column from migration 0061 on; before it, an update leaves flights alone.
   const writeFlight = Object.hasOwn(current, "flight");
+  const writeTimeZones = Object.hasOwn(current, "time_zones");
+  const nextTimeZones = resolveEventTimeZonesPatch(patch, {
+    itemType: current.item_type as string,
+    timeZones: readEventTimeZones(current.time_zones),
+    locationName: current.location_name as string | null,
+    mapUrl: current.map_url as string | null,
+    departureLocationName: current.departure_location_name as string | null,
+    departureMapUrl: current.departure_map_url as string | null,
+    destinationLocationName: current.destination_location_name as string | null,
+    destinationMapUrl: current.destination_map_url as string | null,
+  });
   await client.query(
     `UPDATE itinerary_items
         SET trip_day_id = $3, title = $4, item_type = $5, starts_at = $6,
             ends_at = $7, location_name = $8, map_url = $9,
             departure_location_name = $10, departure_map_url = $11,
             destination_location_name = $12, destination_map_url = $13,
-            notes = $14, status = $15, is_locked = $16, visibility = $17${writeFlight ? ", flight = $18::jsonb" : ""}
+            notes = $14, status = $15, is_locked = $16, visibility = $17${writeFlight ? ", flight = $18::jsonb" : ""}${writeTimeZones ? `, time_zones = $${writeFlight ? 19 : 18}::jsonb` : ""}
       WHERE trip_id = $1 AND id = $2`,
     [
       session.tripId, request.entity_id,
@@ -3220,6 +3266,7 @@ async function applyItineraryRequest(
       patch.isLocked !== undefined ? patch.isLocked : current.is_locked,
       nextVisibility,
       ...(writeFlight ? [nextFlight ? JSON.stringify(nextFlight) : null] : []),
+      ...(writeTimeZones ? [nextTimeZones ? JSON.stringify(nextTimeZones) : null] : []),
     ],
   );
   if (patch.visibility !== undefined || patch.viewerMemberIds !== undefined) {

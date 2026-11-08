@@ -1,5 +1,5 @@
 import { containsPrivateIdentifier, sanitizePublicText } from "@/lib/disruptions/privacy";
-import { resolveFlightPresentation, type FlightPresentationInput } from "@/lib/app/flight-presentation";
+import { resolveEventTimeZones, type EventTimeZoneInput } from "@/lib/app/event-time-zones";
 
 export type FlightStatusLookup = {
   flightNumber: string;
@@ -15,8 +15,8 @@ export type FlightStatusLookup = {
 };
 
 /** Public endpoint facts only. This never changes the event's canonical trip-day assignment. */
-export function flightStatusDepartureTime(item: FlightPresentationInput, instant: Date, tripTimeZone: string) {
-  const presentation = resolveFlightPresentation(item, tripTimeZone);
+export function flightStatusDepartureTime(item: EventTimeZoneInput, instant: Date, tripTimeZone: string) {
+  const presentation = resolveEventTimeZones(item, tripTimeZone);
   const timeZone = presentation.departureTimeZone;
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
     timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",

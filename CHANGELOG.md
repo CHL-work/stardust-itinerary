@@ -6,6 +6,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Every event's local clock (JOB-091, D-103):** hotels, meals, activities and generic transport use location-local zones, with explicit corrections, offline address/coordinate evidence and a labeled unknown fallback. Forms, cards, next-up, hotel check-in/out, approvals, maps, Calendar, AI and offline display agree. Migration 0067 adds optional zone corrections; existing timestamps, trip-day grouping, money dates and permissions are preserved. Moving a venue clears stale overrides. The concise event-time contract and entry-point links document data licensing, limitations and rollback.
+- **Free-model comparison refreshed:** Stardust shares the referenced project's documented anonymous Kilo method, not its other client-emulation or relay paths. Current eligible models are catalog-dependent, not guaranteed free GPT/Claude/Gemini or unlimited frontier access; dated metadata-only evidence is in `docs/SOURCES.md`.
+
 - **Airport-local flight clocks (JOB-090, D-102):** flight departure/arrival use distinct plane icons and their own airport-local times, with zone labels and dates where needed. A compact offline airport catalog also supports narrowly recognized legacy flight titles. Editing, pending/approval cards, maps, offline display, Calendar exports and flight-change labels agree; UTC instants, duration, trip-day grouping and access rules stay unchanged. Airport/zone edits preserve instants, DST ambiguity is explicit, and optional IANA zones need no migration or external lookup.
   - Release review records the authorized CI-gated deployment, compatible rollback requirements and corrected migration inventory.
 

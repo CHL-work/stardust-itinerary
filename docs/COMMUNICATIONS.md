@@ -33,7 +33,7 @@ A Discord projection, route/leave-by reminders and pre-trip readiness checks are
 
 - Discord is a projection, never a second itinerary/database. Reconciliation must prefer canonical authorized app state.
 - Restrict a bot to explicitly selected private channels and minimum permissions; never request administrator access. Keep credentials server-side.
-- Prefer one editable daily summary, with event threads only when useful. Include trip-local times, known transport endpoints and authorized app/map links; do not disclose private instructions or hidden events.
+- Prefer one editable daily summary, with event threads only when useful. Include [location-local event times](EVENT_LOCAL_TIME.md), known transport endpoints and authorized app/map links; do not disclose private instructions or hidden events.
 - Outbound integration work requires a transactional outbox, bounded retries, idempotency and visible failure handling. Incoming actions require signature/replay checks and normal member/trip authorization.
 - Keep commands narrow; complex edits return to the app. Channel/mention/quiet-hours routing, Telegram and closed-app web push are not current user settings.
 - Safety, financial and consent text stays neutral and understandable in every supported locale.

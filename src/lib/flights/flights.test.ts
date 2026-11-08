@@ -10,6 +10,15 @@ const departure = new Date("2030-04-04T00:00:00.000Z");
 const minutesBefore = (minutes: number) => new Date(departure.getTime() - minutes * 60_000);
 
 describe("flight status endpoint time", () => {
+  it("uses a new explicit event-zone correction over legacy flight metadata for the lookup date", () => {
+    const time = flightStatusDepartureTime({ itemType: "transport", departureLocationName: "Synthetic airport",
+      timeZones: { start: "America/Denver", end: "America/New_York" },
+      flight: { flightNumber: "ZZ123", departureTimeZone: "America/Chicago" } }, new Date("2026-07-15T05:30:00Z"), "Asia/Tokyo");
+    expect(time).toEqual({ plannedLocalDeparture: "2026-07-14 23:30", timeZone: "America/Denver", departureTimeZoneKnown: true,
+      plannedDepartureInstant: "2026-07-15T05:30:00.000Z" });
+    expect(flightStatusPrompt({ flightNumber: "ZZ123", airline: null, departureAirport: "Synthetic airport", arrivalAirport: null,
+      ...time, now: departure })).toContain("Planned departure: 2026-07-14 23:30 local time (America/Denver).");
+  });
   it.each([["2026-01-15T05:30:00Z", "2026-01-14 23:30"], ["2026-07-15T05:30:00Z", "2026-07-15 00:30"]])(
     "researches the departure's real local date and DST at %s", (instant, expected) => {
       const time = flightStatusDepartureTime({ itemType: "transport", flight: { flightNumber: "ZZ123" }, departureLocationName: "DFW" }, new Date(instant), "Asia/Tokyo");

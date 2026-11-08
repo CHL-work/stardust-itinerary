@@ -1230,7 +1230,7 @@
     "arrivalTerminal": "Терминал прилёта",
     "departureTimeZone": "Часовой пояс вылета",
     "arrivalTimeZone": "Часовой пояс прилёта",
-    "automaticZone": "Автоматически (аэропорт)",
+    "automaticZone": "Автоматически (место)",
     "tripTimeFallback": "Время поездки",
     "invalidTimeZone": "Выберите допустимый часовой пояс.",
     "ambiguousTime": "Это время встречается дважды. Выберите UTC и введите соответствующее время UTC.",

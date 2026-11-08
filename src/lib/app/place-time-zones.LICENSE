@@ -1,0 +1,11 @@
+Locality time-zone data is derived from GeoNames cities15000, downloaded November 8, 2026.
+Source: https://download.geonames.org/export/dump/cities15000.zip
+Attribution: GeoNames, https://www.geonames.org/
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Stardust transforms the source into normalized locality names with country/state
+disambiguation and IANA time-zone identifiers. Coordinates, population, identifiers
+and other source columns are omitted. The source is provided without a warranty of
+accuracy, timeliness or completeness. This notice applies to the generated data;
+the application's own code remains MIT licensed.

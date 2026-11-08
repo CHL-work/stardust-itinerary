@@ -14,6 +14,9 @@ importers:
       '@openai/codex-sdk':
         specifier: 0.165.0
         version: 0.165.0
+      '@photostructure/tz-lookup':
+        specifier: 11.7.0
+        version: 11.7.0
       lucide-react:
         specifier: 1.33.0
         version: 1.33.0(react@19.2.8)
@@ -794,6 +797,9 @@ packages:
 
   '@oxc-project/types@0.146.0':
     resolution: {integrity: sha512-XC0QsnnhVe7sLIWmYmdPw7x5P0h4W8vUU3Nv1ySgWXtvCz8NizoAEpGXA0sOYoJQV2Rl13LgURAHQ5cI5ILCSA==}
+
+  '@photostructure/tz-lookup@11.7.0':
+    resolution: {integrity: sha512-QbKHXvleluMIlAHf2JiQTJNU5rLQBeQhLobyRqgXZ6NNGKqNikaRkjYviJ4nMU7Y75QE7bBYM8xjiFGjAukyhw==}
 
   '@rolldown/binding-android-arm-eabi@1.2.5':
     resolution: {integrity: sha512-DLe/i+l8ynIBY7XEQ191TeZvCoowIGa18R+dIV30GW7DiOtp74i/xX8hs8GUjW5ARV7VZuie3d6AumSmCwbeRA==}
@@ -3531,6 +3537,8 @@ snapshots:
     optional: true
 
   '@oxc-project/types@0.146.0': {}
+
+  '@photostructure/tz-lookup@11.7.0': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.5':
     optional: true

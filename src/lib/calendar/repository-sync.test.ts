@@ -258,6 +258,7 @@ describe("Google Calendar deleted-event recovery", () => {
       current_revision: 7,
       time_zone: "Asia/Tokyo",
       flight: null as unknown,
+      time_zones: null as unknown,
     };
     let linkedProviderEventId: string | null = deletedEventId;
     const databaseQuery = vi.fn(async (sql: string, params?: unknown[]) => {
@@ -383,6 +384,31 @@ describe("Google Calendar deleted-event recovery", () => {
     expect(flightBody.start).toEqual({ dateTime: "2026-09-01T18:00:00.000Z", timeZone: "America/Chicago" });
     expect(flightBody.end).toEqual({ dateTime: "2026-09-01T20:00:00.000Z", timeZone: "America/Denver" });
     expect(flightBody.description).not.toContain("ZZ123");
+
+    calendarItem = {
+      ...calendarItem,
+      title: "Synthetic Salt Lake City hotel",
+      item_type: "lodging",
+      location_name: "Salt Lake City, Utah",
+      departure_location_name: null,
+      destination_location_name: null,
+      starts_at: new Date("2026-09-01T21:00:00Z"),
+      ends_at: new Date("2026-09-02T17:00:00Z"),
+      time_zone: "America/Chicago",
+      flight: null,
+    };
+    const hotelFetch = mockGoogleResponses([{ status: 404 }, { status: 200, body: { id: "synthetic-hotel-event", status: "confirmed" } }]);
+    await syncItineraryItemToCalendar(pool, config, session, "trip-1", "item-1");
+    const hotelBody = JSON.parse(hotelFetch.mock.calls.find((call) => requestMethod(call) === "POST")?.[1]?.body as string);
+    expect(hotelBody.start).toEqual({ dateTime: "2026-09-01T21:00:00.000Z", timeZone: "America/Denver" });
+    expect(hotelBody.end).toEqual({ dateTime: "2026-09-02T17:00:00.000Z", timeZone: "America/Denver" });
+
+    calendarItem = { ...calendarItem, time_zones: { start: "America/Phoenix", end: "America/New_York" } };
+    const explicitHotelFetch = mockGoogleResponses([{ status: 404 }, { status: 200, body: { id: "synthetic-explicit-hotel-event", status: "confirmed" } }]);
+    await syncItineraryItemToCalendar(pool, config, session, "trip-1", "item-1");
+    const explicitHotelBody = JSON.parse(explicitHotelFetch.mock.calls.find((call) => requestMethod(call) === "POST")?.[1]?.body as string);
+    expect(explicitHotelBody.start.timeZone).toBe("America/Phoenix");
+    expect(explicitHotelBody.end.timeZone).toBe("America/Phoenix");
   });
 
   it("does not mark an event synced when it was removed during the Google request", async () => {

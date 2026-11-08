@@ -15,7 +15,7 @@ A mobile-first planner for group trips, where AI proposes and application code d
 
 ## Highlights
 
-- **One itinerary per day:** events, transport and lodging in time order. Private events stay with the people involved, and owners review changes.
+- **One itinerary per day:** events, transport and lodging in time order, with location-local clocks. Private events stay with the people involved, and owners review changes.
 - **Expenses that add up:** equal or exact shares, totals per currency, repayments and suggested settlements, all calculated by code, not by a model.
 - **AI that proposes:** chat, or paste a booking screenshot or an event link. The model drafts events and expenses; the app checks them, and changes wait for review. On your own key, new items you could add yourself go straight in.
 - **Maps and weather:** numbered OpenStreetMap day maps with walking and driving times, a forecast for each stop and checks for official disruption notices.
@@ -46,4 +46,4 @@ pnpm dev                     # http://127.0.0.1:3100
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) for application code. The bundled locality time-zone data is adapted from [GeoNames](https://www.geonames.org/) under CC BY 4.0; [attribution and changes](src/lib/app/place-time-zones.LICENSE).

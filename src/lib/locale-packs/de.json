@@ -1230,7 +1230,7 @@
     "arrivalTerminal": "Ankunftsterminal",
     "departureTimeZone": "Zeitzone beim Abflug",
     "arrivalTimeZone": "Zeitzone bei der Ankunft",
-    "automaticZone": "Automatisch (Flughafen)",
+    "automaticZone": "Automatisch (Ort)",
     "tripTimeFallback": "Reisezeit",
     "invalidTimeZone": "Wähle eine gültige Zeitzone.",
     "ambiguousTime": "Diese Uhrzeit kommt zweimal vor. Wähle UTC und gib die entsprechende UTC-Zeit ein.",
