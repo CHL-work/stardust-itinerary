@@ -59,6 +59,12 @@ On 8 November 2026 the owner asked for three changes (D-108):
   - the off choice kept through a later key, then a manual turn-on;
   - key removal, and a chat effort save afterwards.
 - **Full check:** `pnpm check` passed (lint, typecheck, unit and database tests, build, smoke).
+- **Local build:** a local production build at phone width showed the new section order, Conversations holding the chat above past conversations. With a synthetic key row, the automatic check started by itself on opening the AI tab ("Checking…", testing `gpt-6-astra`), then showed its failure, and a reload did not retry it.
+- **Production:** `fa61b55` deployed on GKE on 8 November 2026:
+  - the pre-deploy backup and migration jobs completed, and migration 0069 is applied with its four columns;
+  - the web pod runs the new image with `ROUTINE_CHECKS_ENABLED=true` and no errors in its logs;
+  - `/api/health` is OK, and the preferences `GET` and new `POST` answer 401 when signed out;
+  - the one existing routine setting (Claude Opus 5.5 at medium, on) is unchanged.
 - **Documents:**
   - the AI tab contract;
   - D-108, plus notes on D-105 and D-106;
