@@ -35,7 +35,7 @@ Out of scope: changing event types, inferring travel modes from titles, maps, ex
 
 Presentation only; revert this job without a schema migration. No provider calls are required.
 
-Accepted, merged and deployed to GKE on November 8, 2026 UTC as part of `cacf021`. [CI](https://github.com/CHL-work/stardust-itinerary/actions/runs/42441663915) and [deployment](https://github.com/CHL-work/stardust-itinerary/actions/runs/42441828012) passed, and the public health endpoint reported the database ready. The separate JOB-087 storage activation remains pending; it does not block these icons.
+Accepted, merged and deployed to GKE on November 8, 2026 UTC as part of `cacf021`. [CI](https://github.com/CHL-work/stardust-itinerary/actions/runs/42441663915) and [deployment](https://github.com/CHL-work/stardust-itinerary/actions/runs/42441828012) passed, and the public health endpoint reported the database ready. The separate [JOB-087 storage activation](JOB-087-user-secret-manager.md) does not affect these icons; its job records the current storage status.
 
 The safe approval projection adds an optional derived `isFlight` boolean; it does not expose the flight number or additional booking data. Existing approval and membership checks are unchanged. Offline cards deliberately keep generic transport because snapshots do not include structured flight data. Unimported Google Calendar events keep their existing Calendar icon.
 
