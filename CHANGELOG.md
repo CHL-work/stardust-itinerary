@@ -7,6 +7,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 ### Added
 
 - **Airport-local flight clocks (JOB-090, D-102):** flight departure/arrival use distinct plane icons and their own airport-local times, with zone labels and dates where needed. A compact offline airport catalog also supports narrowly recognized legacy flight titles. Editing, pending/approval cards, maps, offline display, Calendar exports and flight-change labels agree; UTC instants, duration, trip-day grouping and access rules stay unchanged. Airport/zone edits preserve instants, DST ambiguity is explicit, and optional IANA zones need no migration or external lookup.
+  - Release review records the authorized CI-gated deployment, compatible rollback requirements and corrected migration inventory.
 
 - **Empty onboarding, remembered language and Google key setup (JOB-089, D-101):** guests and accounts without trips start at Create Trip, never an automatic demo. Guests explicitly create one empty isolated trip with the original 24-hour expiry and must sign in before joining real trips. No guest records transfer into either existing or new Google accounts. English is the initial language; explicit selection persists on browser/account and Google sign-in restores that account's choice. Google keys have distinct AI Studio, Vertex express and project-based setup; safe errors separate configuration, provider limits and outages. Migrations 0065–0066 add language and express-mode metadata without rewriting trips or keys.
 

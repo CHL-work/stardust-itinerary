@@ -6,7 +6,7 @@
 - Claimant: Codex
 - Branch: agent/JOB-090-flight-local-times
 - Started: 2026-11-08 UTC
-- Authority: user requested distinct flight icons and departure/arrival local-time display. No push or deployment authorized for this change.
+- Authority: user requested distinct flight icons and departure/arrival local-time display, then explicitly approved GitHub push and GKE deployment after tests pass.
 
 ## Outcome and scope
 
@@ -27,7 +27,7 @@ Inspect structured flight metadata, legacy presentation, timeline/day grouping, 
 
 ## Handoff
 
-Implemented and verified locally; push and deployment require fresh approval. Production and real traveler records were not touched.
+Implemented and verified locally; the owner authorized the CI-gated GitHub/GKE release. Use the release workflow in [deployment](../DEPLOYMENT.md#releases); no real traveler records were created or edited for testing.
 
 - Shared flight presentation uses explicit IANA zones, then a pinned offline IATA catalog, then a labeled trip-zone fallback. Narrow legacy recognition covers an airline/flight marker plus flight number and one known route; it never changes stored facts or monitoring eligibility. Country suffixes such as USA are not treated as airport codes.
 - Canonical/pending/approval cards, next-up, maps, Calendar exports and public offline snapshots agree. The editor preserves precise instants through airport/zone changes, handles DST gaps/folds without guesses and retains actual click instants for Now. Linked expense dates stay in trip time.
@@ -41,6 +41,7 @@ Implemented and verified locally; push and deployment require fresh approval. Pr
 - Final monitoring alignment additionally passed its 28 unit tests, scoped lint, the complete disposable database suite and production build; its title-derived airport resolution never sends the title to the provider. Final standalone smoke also passed.
 - Synthetic coverage includes DFW/SLC winter/summer, differing local dates, DST folds/gaps, optional ends, precise saved instants/Now, pending revisions, linked expenses, country-code ambiguity, Calendar payloads and private/offline projections.
 - Airport generator reproducibility, 261 relative documentation links/anchors, whitespace and a scoped secret/private-identifier scan passed. No new dependency or migration. Browser preview and disposable database server were stopped after verification.
+- Independent release review passed 160 focused tests and found no code blockers. Release documentation clarifies flight-metadata rollback compatibility and the current migration inventory.
 
 ### Compatibility and rollback
 

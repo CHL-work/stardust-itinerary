@@ -59,4 +59,4 @@ Source-backed extraction can still be wrong; check the airline before acting on 
 
 ## Rollback
 
-Revert the commit. Migration 0062 is additive. An older build ignores the new tables and column, and its revision inserts still name a member.
+For JOB-083 alone, migration 0062 is additive: older builds ignore its new tables and column, and revision inserts still name a member. After JOB-090 endpoint zones have been saved, retain a zone-aware runtime: older strict parsers may discard the flight metadata. Follow the [flight-time compatibility guidance](jobs/JOB-090-flight-local-times.md#compatibility-and-rollback) and prefer a compatible forward fix.
