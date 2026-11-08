@@ -195,6 +195,16 @@ export async function testSecretManagerCredentials(pool, connectionString) {
     await due([failedName]);
     assert.equal((await cleanupCredentialSecrets(pool, { settings: manager })).deleted, 1);
 
+    // Cleanup backoff never renews the original publication lease of an abandoned save.
+    google.controls.onAccess = async (name) => {
+      await pool.query(`UPDATE ai_credential_secret_resources
+        SET publish_by = CURRENT_TIMESTAMP - interval '1 second', cleanup_after = CURRENT_TIMESTAMP + interval '1 hour'
+        WHERE secret_name = $1`, [name]);
+    };
+    await assert.rejects(save(member, "sk-synthetic-expired-publication-EXP1"), AppConflictError);
+    google.controls.onAccess = null;
+    assert.equal((await currentRow(member.userId)).secret_version, second.secret_version, "retrying cleanup cannot revive an expired save");
+
     // A slow replacement cannot undo a newer save, including two initially simultaneous requests.
     const paused = gate();
     let pauseOnce = true;
@@ -236,6 +246,42 @@ export async function testSecretManagerCredentials(pool, connectionString) {
     await pool.query("UPDATE trip_members SET status='active' WHERE trip_id=$1 AND id=$2", [member.tripId, member.memberId]);
     const signingOut = await makeAccount(owner.tripId);
     await during(signingOut, () => revokeSession(pool, signingOut.sessionId, signingOut.userId));
+
+    // Suspension locks account before sessions. A saver waiting on that account must not already
+    // hold its session lock, or the two transactions deadlock. Observe the actual PostgreSQL wait
+    // instead of guessing with a sleep, then revoke under a short lock timeout as the proof.
+    const lockOrderSession = await makeAccount(owner.tripId);
+    const cloudGate = gate();
+    google.controls.onAccess = async () => { google.controls.onAccess = null; await cloudGate.wait(); };
+    const lockOrderSave = save(lockOrderSession, "sk-synthetic-lock-order-LOCK").then(() => null, (error) => error);
+    await cloudGate.reached;
+    const blocker = await pool.connect();
+    try {
+      await blocker.query("BEGIN");
+      await blocker.query("SET LOCAL lock_timeout = '1s'");
+      const { rows: [{ pid }] } = await blocker.query("SELECT pg_backend_pid() AS pid");
+      await blocker.query("SELECT id FROM app_users WHERE id=$1 FOR UPDATE", [lockOrderSession.userId]);
+      cloudGate.release();
+      const deadline = Date.now() + 5_000;
+      let waiting = false;
+      while (!waiting && Date.now() < deadline) {
+        waiting = (await pool.query(`SELECT EXISTS (
+          SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+            AND wait_event_type = 'Lock' AND $1 = ANY(pg_blocking_pids(pid))
+            AND query LIKE 'SELECT guest_expires_at FROM app_users%'
+        ) AS waiting`, [pid])).rows[0].waiting;
+      }
+      assert.equal(waiting, true, "the saver reached its final account lock after cloud verification");
+      await blocker.query("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP, revoke_reason='synthetic_lock_order_test' WHERE id=$1", [lockOrderSession.sessionId]);
+      await blocker.query("COMMIT");
+      assert.ok(await lockOrderSave instanceof AppForbiddenError, "revocation completes before the save can publish its key");
+      assert.equal(await currentRow(lockOrderSession.userId), undefined);
+    } finally {
+      cloudGate.release();
+      await blocker.query("ROLLBACK").catch(() => {});
+      blocker.release();
+      await lockOrderSave;
+    }
 
     // Guest expiration is the account's exact deadline, not 24 hours after key save.
     const guest = await createGuestSession(pool, config, { userAgent: "Synthetic guest browser", locale: "en", address: "198.51.100.87" },

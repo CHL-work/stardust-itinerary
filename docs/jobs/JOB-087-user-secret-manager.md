@@ -1,11 +1,12 @@
 # JOB-087: Account-owned keys in Google Secret Manager
 
-- Status: in_progress
+- Status: review
 - Priority: P1
 - Dependencies: JOB-061, JOB-069 (implemented credential and account protections)
 - Claimant: Codex
 - Started: 2026-11-07 UTC
 - Branch: `agent/JOB-087-user-secret-manager`
+- Integrated review branch: `agent/account-keys-and-icons-review` (includes JOB-088 and final safety fixes; continue there)
 
 ## Outcome and scope
 
@@ -26,13 +27,14 @@ Users paste provider keys in Settings. On a configured Google Cloud deployment, 
 
 ## Handoff
 
-Implementation complete; final combined verification pending. No keys read or imported; no cloud resources changed. Event icons are isolated in JOB-088.
+Implementation and combined verification complete. No keys read or imported; no cloud resources changed. Separate source job branches are retained; the integrated review branch contains both completed changes.
 
-## Verification so far
+## Verification
 
 - Disposable PostgreSQL full migration/integration suite passed, including Secret Manager save/read/remove, wrong-owner/provider references, cloud failures, stale concurrent saves/deletes, revoked sessions/members, suspension and guest expiry/purge cleanup.
 - Lint and types passed (one pre-existing warning in an ignored local screenshot helper).
-- Production build and smoke passed. Targeted adapter/deployment/UI/migration tests passed. The first full unit run had 5,892 passes and one migration-file inventory failure; the inventory was updated and its targeted rerun passed. A full rerun is required before review.
+- Final combined gate: **250 unit files / 5,917 tests passed**, disposable PostgreSQL suite, lint/types, production build and smoke passed. The migration inventory was updated for 0064. Final regression coverage also proves account/session lock ordering during revocation and that cleanup retry backoff never extends a save's fixed publication deadline.
+- Relative documentation links and diff checks passed. JOB-088's full-app synthetic phone screenshots were refreshed and inspected. Temporary app/browser processes and the owned disposable PostgreSQL server were stopped after checks.
 - No live Secret Manager/IAM validation: cloud tooling and credentials were not acquired. The cleanup CronJob is suspended and new web configuration remains unset. Production activation and any push require separate authority.
 
 ## Documentation impact

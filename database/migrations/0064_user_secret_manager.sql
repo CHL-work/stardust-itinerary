@@ -2,6 +2,7 @@
 -- Legacy ciphertexts remain readable. Payloads in Secret Manager are still sealed with KMS.
 CREATE TABLE ai_credential_secret_resources (
   secret_name text PRIMARY KEY CHECK (secret_name ~ '^projects/[a-z][a-z0-9-]{4,28}[a-z0-9]/secrets/stardust-user-key-[0-9a-f]{32}-[0-9a-f]{32}$'),
+  publish_by timestamptz NOT NULL DEFAULT (CURRENT_TIMESTAMP + interval '10 minutes'),
   cleanup_after timestamptz NOT NULL DEFAULT (CURRENT_TIMESTAMP + interval '10 minutes')
 );
 

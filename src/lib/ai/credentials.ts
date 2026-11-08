@@ -206,15 +206,16 @@ export async function saveAiCredential(
 /** Current account state, not the browser's cached identity or trip-owner role. */
 async function credentialOwnerState(client: PoolClient, session: AuthenticatedSession) {
   await lockCurrentTripActor(client, session);
+  // Match account suspension's account -> session lock order, avoiding a revocation deadlock.
+  const account = await client.query<{ guest_expires_at: Date | null }>(`SELECT guest_expires_at FROM app_users
+    WHERE id = $1 AND suspended_at IS NULL
+      AND (guest_expires_at IS NULL OR guest_expires_at > CURRENT_TIMESTAMP + interval '90 seconds') FOR SHARE`, [session.userId]);
+  if (!account.rows[0]) throw new AppForbiddenError("This account cannot save a key right now. Sign in again.");
   const activeSession = await client.query(`SELECT id FROM auth_sessions
     WHERE id = $1 AND trip_id = $2 AND member_id = $3 AND user_id = $4 AND generation = $5
       AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP AND absolute_expires_at > CURRENT_TIMESTAMP
     FOR SHARE`, [session.sessionId, session.tripId, session.memberId, session.userId, session.generation]);
   if (!activeSession.rowCount) throw new AppForbiddenError("Your session has changed. Sign in again.");
-  const account = await client.query<{ guest_expires_at: Date | null }>(`SELECT guest_expires_at FROM app_users
-    WHERE id = $1 AND suspended_at IS NULL
-      AND (guest_expires_at IS NULL OR guest_expires_at > CURRENT_TIMESTAMP + interval '90 seconds') FOR SHARE`, [session.userId]);
-  if (!account.rows[0]) throw new AppForbiddenError("This account cannot save a key right now. Sign in again.");
   return account.rows[0];
 }
 
@@ -240,7 +241,7 @@ async function saveSecretManagerCredential(pool: Pool, session: AuthenticatedSes
   return inTransaction(pool, async (client) => {
     await credentialOwnerState(client, session);
     const lease = await client.query(`SELECT secret_name FROM ai_credential_secret_resources
-      WHERE secret_name = $1 AND cleanup_after > clock_timestamp() FOR UPDATE`, [name]);
+      WHERE secret_name = $1 AND publish_by > clock_timestamp() FOR UPDATE`, [name]);
     if (!lease.rowCount) throw new AppConflictError("The key save expired. Try again.");
     const prior = await client.query<{ revision: string }>(`SELECT updated_at::text AS revision FROM user_ai_credentials
       WHERE user_id = $1 AND provider = $2 FOR UPDATE`, [session.userId, value.provider]);

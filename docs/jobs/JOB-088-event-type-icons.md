@@ -1,11 +1,12 @@
 # JOB-088: Lightweight event type icons
 
-- **Status:** in_progress
+- **Status:** review
 - **Priority:** P2
 - **Dependencies:** JOB-081 and JOB-082 (done)
 - **Claimant:** Codex event-type-icons agent
 - **Started:** 2026-11-07 UTC
 - **Branch:** `agent/JOB-088-event-type-icons`
+- **Integrated review branch:** `agent/account-keys-and-icons-review` (includes JOB-087 and final verification; continue there)
 - **Authority:** the user's request for small, performant event icons; no push or deployment authorized.
 
 ## Outcome and scope
@@ -28,7 +29,7 @@ Out of scope: changing event types, inferring travel modes from titles, maps, ex
 - `pnpm lint`, `pnpm typecheck`, `pnpm build` and `git diff --check`: passed.
 - Browser inspection used only a loopback, static render of the actual card components with synthetic data: 390px English/light, 320px spicy Cantonese/dark, 1280px German/dark and 320px Japanese/light. No horizontal overflow; glyphs are 16px in the rail. The Japanese pending Edit/Approve/Reject buttons shared one row and retained 44px height. Temporary preview tab/server were closed and emulation reset.
 - Refreshed the Today (English) and Itinerary (Cantonese) README screenshots from the production build against a separate disposable database containing only synthetic people, places and events. Both use the JOB-076 390×844 CSS-pixel, 2× light-mode capture format. Verified the flight departure/arrival and meal icons, horizontal action row and lack of horizontal overflow; the local screenshot server and browser tab were closed afterward.
-- The combined release gate still needs disposable PostgreSQL integration tests and smoke after integration with the concurrent credentials job. This job adds no migration or database write.
+- Final combined gate with JOB-087 passed: **250 unit files / 5,917 tests**, disposable PostgreSQL suite, lint/types, production build and smoke. This icon job adds no migration or database write. Documentation links/diff checks passed; temporary app/browser and disposable database processes were stopped.
 
 ## Rollback and handoff
 
