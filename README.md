@@ -1,26 +1,40 @@
 # Stardust Itinerary · 星塵遠征軍
 
-A mobile-first planner for group trips, where AI proposes and application code decides: one shared itinerary, expense splitting, day maps, weather and disruption checks, and flight status checks before departure. In English, Cantonese, Japanese, Simplified and Traditional Chinese, Spanish, Portuguese, French, German, Russian and Indonesian.
+A travel AI assistant that organizes trips for a group or just for you: one shared itinerary, expenses that settle themselves, and AI that keeps an eye on your flights and plans. Application code, not the model, decides what changes.
 
-**Try it:** <https://stardust-itinerary.chl-work.com>. Sign in with Google, or create an empty guest trip with a few free AI requests. Guest data expires after 24 hours and is not transferred when you sign in.
+**Try it:** <https://stardust-itinerary.chl-work.com>. Sign in with Google, or start a guest trip that is deleted after 24 hours.
 
 <p align="center">
-  <img src="docs/screenshots/today.png" width="18%" alt="Today: trip progress, the four members and the next event with its weather">
-  <img src="docs/screenshots/itinerary-cantonese.png" width="18%" alt="The day's itinerary in Cantonese, with times and weather for each event">
-  <img src="docs/screenshots/day-map.png" width="18%" alt="Day map: numbered stops on OpenStreetMap with walking and driving times">
-  <img src="docs/screenshots/expenses.png" width="18%" alt="Expenses: my own costs, bills I paid, what I still owe and a suggested settlement">
-  <img src="docs/screenshots/ai-proposal.png" width="18%" alt="A dinner proposed by the AI, waiting for the owner's approval">
+  <img src="docs/screenshots/overview.png" width="19%" alt="Overview: today's plan, trip progress, the members and the next event">
+  <img src="docs/screenshots/itinerary-flight-changed.png" width="19%" alt="Itinerary: a flight whose departure a routine check moved, marked Changed">
+  <img src="docs/screenshots/ai-proposal.png" width="19%" alt="An event proposed by the AI, waiting for approval">
+  <img src="docs/screenshots/day-map.png" width="19%" alt="Day map: three numbered stops with walking and driving times">
+  <img src="docs/screenshots/api-keys.png" width="19%" alt="The AI tab: usage, routine checks and the API keys section">
 </p>
-<p align="center"><sub>Today · itinerary in Cantonese · day map · expenses · AI proposal awaiting approval. Synthetic data on a local build.</sub></p>
+<p align="center"><sub>Overview · a flight time changed by a routine check · AI proposal · day map · API keys. Synthetic data on a local build.</sub></p>
 
-## Highlights
+## Why I built this
 
-- **One itinerary per day:** events, transport and lodging in time order, with location-local clocks. Private events stay with the people involved, and owners review changes.
-- **Expenses that add up:** equal or exact shares, totals per currency, repayments and suggested settlements, all calculated by code, not by a model.
-- **AI that proposes:** chat, or paste a booking screenshot or an event link. The model drafts events and expenses; the app checks them, and changes wait for review. On your own key, new items you could add yourself go straight in.
-- **Maps and weather:** numbered OpenStreetMap day maps with walking and driving times, a forecast for each stop and checks for official disruption notices.
-- **Choose free or bring a key:** free text planning is available to signed-in members and guests where enabled, with limits and a retention notice. OpenAI, Anthropic and Gemini keys belong to your account and stay encrypted; optional [Secret Manager storage](docs/AI_KEYS.md) preserves Cloud KMS protection.
-- **Made for phones:** swipeable days, a read-only offline copy, and AI requests that survive the phone going to sleep.
+I wanted a travel AI assistant that organizes travel, for a group or just for me. I got tired of recording and calculating expenses, begging friends to pay me back, and checking whether something unexpected had happened to a flight or a plan. Stardust does that work for me.
+
+## What it does
+
+- **Watches for surprises:** with your own AI key, routine checks look up your flights and events automatically: delays, cancellations, gate and terminal changes, closures, strikes and severe weather. Changes and warnings appear on the event, and an open page can notify you.
+- **Events from a photo:** take a picture of a ticket, a booking or a screenshot, and the AI creates the event (on your own key).
+- **Paste an email or a text:** paste a confirmation email or a message, and the AI turns it into events and expenses.
+- **Expenses that add up:** who paid, who owes whom, repayments and suggested settlements, all calculated by code, so nobody has to chase the numbers.
+- **One shared itinerary:** each day in time order with local clocks, private events, day maps and weather.
+- **Usage you can see:** the AI tab charts your tokens per day with an estimated cost.
+- **Free or your own key:** free AI for text planning, or your own OpenAI, Anthropic or Gemini key. Keys are encrypted (Cloud KMS, kept in Google Secret Manager on the public instance) and never shown again.
+- **Twelve languages:** English, Cantonese, Japanese, Simplified and Traditional Chinese, Spanish, Portuguese, French, German, Russian and Indonesian.
+
+## Install it on your phone
+
+Open <https://stardust-itinerary.chl-work.com> on your phone and tap **Install** (on Android, the install prompt or ⋮ → Install app; on iPhone, Safari's Share → **Add to Home Screen**). It then opens like an app and keeps a read-only offline copy of your itinerary.
+
+## Try it and tell me what you think
+
+The public instance runs on Google Cloud (GKE Autopilot) and is open to anyone while my $300 Google Cloud credit lasts. Please report bugs and feature requests as an [issue in this repository](https://github.com/CHL-work/stardust-itinerary/issues), or with the feedback button in the app.
 
 ## Find your way
 
@@ -46,4 +60,4 @@ pnpm dev                     # http://127.0.0.1:3100
 
 ## License
 
-[MIT](LICENSE) for application code. The bundled locality time-zone data is adapted from [GeoNames](https://www.geonames.org/) under CC BY 4.0; [attribution and changes](src/lib/app/place-time-zones.LICENSE).
+[Apache License 2.0](LICENSE); see [NOTICE](NOTICE). The bundled locality time-zone data is adapted from [GeoNames](https://www.geonames.org/) under CC BY 4.0 ([attribution and changes](src/lib/app/place-time-zones.LICENSE)), and the airport catalog from mwgg/Airports under MIT ([license](src/lib/app/airport-time-zones.LICENSE)).

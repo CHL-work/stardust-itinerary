@@ -1,7 +1,7 @@
 ---
 id: JOB-094
 title: Routine checks on your own key, effort settings, and trip setup on your key or a free model
-status: review
+status: done
 priority: P2
 depends_on: [JOB-083, JOB-087, JOB-093]
 claimant: Claude
@@ -36,5 +36,7 @@ On 8 November 2026 the owner asked that routine flight and event checks run for 
 
 ## Verification and documentation impact
 
+- Full `pnpm check` passed in an isolated worktree: lint, types, 6,242 unit tests in 273 files, the database suite on disposable PostgreSQL 17, the production build and the smoke test.
+- Production: commit `9985cf3` passed CI and the deploy workflow on November 8, 2026 (pre-deploy backup and migration jobs completed). Both web pods run it with `ROUTINE_CHECKS_ENABLED=true`, `/api/health` reports the database ready, the new usage and preferences endpoints refuse signed-out requests, and a read-only probe confirmed migration 0068 and its columns, with no preference rows yet. No real trips were written.
 - Unit tests: the web search gate, Gemini routing and its query privacy gate, payer rules, request columns, the scheduler's bounds and overlap guard, effort defaults, lookup funding choices and the own-key lookup environment. Database test at migration head: constraints, the gate, member-funded flight and disruption checks with scripted providers, owner priority, key replacement and suspension.
 - Documents: D-106 (and notes in D-071, D-075, D-095); AGENTS funding rules; AI tab, flight status, AI and agents, key storage, members and funding, destination defaults, threat model, privacy notice, architecture, deployment, self-hosting, notifications, Activity, `.env.example` and Compose.

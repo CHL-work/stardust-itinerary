@@ -1,7 +1,7 @@
 ---
 id: JOB-093
 title: One AI tab with usage and estimated cost, keys, instructions and past conversations
-status: review
+status: done
 priority: P2
 depends_on: [JOB-066, JOB-086]
 claimant: Claude
@@ -35,5 +35,7 @@ On 8 November 2026 the owner asked for one AI tab: a token usage chart with an e
 
 ## Verification and documentation impact
 
+- Full `pnpm check` passed in an isolated worktree: lint, types, 6,242 unit tests in 273 files, the database suite on disposable PostgreSQL 17, the production build and the smoke test.
+- Production: commit `9985cf3` passed CI and the deploy workflow on November 8, 2026 (pre-deploy backup and migration jobs completed). Both web pods run it with `ROUTINE_CHECKS_ENABLED=true`, `/api/health` reports the database ready, the new usage and preferences endpoints refuse signed-out requests, and a read-only probe confirmed migration 0068 and its columns, with no preference rows yet. No real trips were written.
 - Unit tests: prices and windows, usage aggregation and payer rules, the chart and tables, section memory, the moved editors and the locale packs. Database test at migration head: preferences, payer selection, request records and the usage summary.
 - Documents: new [AI tab contract](../AI_TAB.md); D-105; index, design, layouts, conversation history, instructions, keys, members and funding, identity, implementation, database, sources, changelog and roadmap.

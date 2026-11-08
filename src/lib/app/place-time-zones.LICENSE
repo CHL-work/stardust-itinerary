@@ -8,4 +8,4 @@ Stardust transforms the source into normalized locality names with country/state
 disambiguation and IANA time-zone identifiers. Coordinates, population, identifiers
 and other source columns are omitted. The source is provided without a warranty of
 accuracy, timeliness or completeness. This notice applies to the generated data;
-the application's own code remains MIT licensed.
+the application's own code is licensed under the Apache License 2.0.

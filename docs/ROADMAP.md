@@ -12,16 +12,16 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
-| JOB-095 | README story and features, English screenshots, phone install, and the Apache 2.0 license | In progress |
-| JOB-094 | Routine checks on your own key, effort settings, and trip setup on your key or a free model | Implemented: member-funded flight and disruption checks in the web server behind a web search check, chosen model and effort, chat effort, lookups on own key or free model (D-106) |
-| JOB-093 | One AI tab with usage and estimated cost, keys, instructions and past conversations | Implemented: collapsible sections, 30-day token chart with estimated cost from published prices, keys and instructions moved from Settings (D-105) |
+| JOB-095 | README story and features, English screenshots, phone install, and the Apache 2.0 license | Done: why the app exists, key features, phone install, hosting and feedback in the README; five English screenshots; Apache 2.0 with a NOTICE (D-107) |
+| JOB-094 | Routine checks on your own key, effort settings, and trip setup on your key or a free model | Done, deployed and verified on GKE: member-funded flight and disruption checks in the web server behind a web search check, chosen model and effort, chat effort, lookups on own key or free model (D-106) |
+| JOB-093 | One AI tab with usage and estimated cost, keys, instructions and past conversations | Done, deployed and verified on GKE: collapsible sections, 30-day token chart with estimated cost from published prices, keys and instructions moved from Settings (D-105) |
 | JOB-091 | Location-local times for all events | Implemented and verified; location-aware editing/display, UTC instants preserved (D-103) |
 | JOB-090 | Flight icons and airport-local endpoint times | Review: local checks passed; authorized CI-gated release (D-102) |
 | JOB-089 | Empty-trip onboarding, remembered language and Google key setup | Review: local checks passed; authorized CI-gated release |
 | JOB-087 | Account-owned keys in Google Secret Manager | Done: activated on GKE with verified workload isolation, preserved KMS protection and 15-minute cleanup (D-099) |
 | JOB-088 | Lightweight event type icons | Done: shared inline SVGs, responsive checks and refreshed synthetic screenshots; deployed to GKE (D-100) |
 | JOB-086 | Free AI for signed-in users and guests | Done: individual free-model picker, paid choices only with own saved keys, enabled and verified on GKE (D-098). See the job for release evidence |
-| JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
+| JOB-058 | Public repository with fresh history (MIT, Apache 2.0 since JOB-095); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |
 | JOB-059 | GKE Autopilot in OpenTofu (`infra/`), Kustomize manifests (`deploy/k8s`), Secret Manager mounts, encrypted backups, deploy script and the `deploy` workflow with an approval step | Done |
 | JOB-060 | Move the public instance from its earlier single VM to GKE without losing writes | Done: cut over on November 4, 2026 after a staging rehearsal. The old services are disabled; the VM stays as a rollback for now |
 | JOB-061 | Bring-your-own API keys | In review: Settings → AI keys, encrypted storage, per-request isolation, own-key funding, AI on in every trip, and fixes from a security review. Usage display moves to JOB-066 |

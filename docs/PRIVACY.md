@@ -88,7 +88,7 @@ The optional account-key storage backend keeps encrypted key material in Google 
 - It is a personal project. It comes with no guarantee of availability, and may change or stop.
 - Requests on your own AI key are billed to your provider account, under your provider's terms.
 - Do not use it to attack the service or other people. The operator may suspend accounts that abuse it, pause new sign-ups or turn off guest mode. A suspended account cannot sign in until the operator restores it, and keys it shared stop working for others.
-- The software is open source under the MIT license.
+- The software is open source under the Apache License 2.0.
 
 ## Contact
 

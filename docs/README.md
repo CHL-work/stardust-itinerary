@@ -4,7 +4,7 @@ Every document in this repository, by area, with one line each. The [README](../
 
 ## Start here
 
-- [README](../README.md): what Stardust is, with screenshots.
+- [README](../README.md): what Stardust is and why, its features, phone install and screenshots.
 - [AGENTS.md](../AGENTS.md): rules for every human and AI contributor. [CLAUDE.md](../CLAUDE.md) points there.
 - [Contributing](../CONTRIBUTING.md): setup, checks and pull requests.
 - [Case study](CASE_STUDY.md): the engineering choices, in one page.
@@ -75,4 +75,4 @@ Every document in this repository, by area, with one line each. The [README](../
 
 - [Documentation policy](DOCUMENTATION_POLICY.md): what every change must keep accurate, including this index.
 - [Sources](SOURCES.md): dated research bibliography.
-- [Screenshots](screenshots/): the README's phone screenshots, synthetic data only ([how they were made](jobs/JOB-076-readme-screenshots.md#how-the-screenshots-were-made)).
+- [Screenshots](screenshots/): the README's phone screenshots, synthetic data only ([how they were made](jobs/JOB-095-readme-and-license.md#how-the-screenshots-were-made)).

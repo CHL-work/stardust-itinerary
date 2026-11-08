@@ -4,9 +4,9 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 
 | Job | Title | Status |
 | --- | --- | --- |
-| [JOB-095](JOB-095-readme-and-license.md) | README story and features, English screenshots, phone install, and the Apache 2.0 license | in_progress |
-| [JOB-094](JOB-094-routine-checks-on-your-key.md) | Routine checks on your own key, effort settings, and trip setup on your key or a free model | in_progress |
-| [JOB-093](JOB-093-ai-tab.md) | One AI tab with usage and estimated cost, keys, instructions and past conversations | in_progress |
+| [JOB-095](JOB-095-readme-and-license.md) | README story and features, English screenshots, phone install, and the Apache 2.0 license | done |
+| [JOB-094](JOB-094-routine-checks-on-your-key.md) | Routine checks on your own key, effort settings, and trip setup on your key or a free model | done |
+| [JOB-093](JOB-093-ai-tab.md) | One AI tab with usage and estimated cost, keys, instructions and past conversations | done |
 | [JOB-091](JOB-091-event-local-times.md) | Location-local clocks for every event | review |
 | [JOB-090](JOB-090-flight-local-times.md) | Flight icons and airport-local endpoint times | review |
 | JOB-058 | Public repository, container image, Docker Compose | done |

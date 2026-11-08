@@ -96,6 +96,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Apache License 2.0 (JOB-095, D-107):** the application is relicensed from MIT to Apache 2.0, with a NOTICE for bundled data.
+- **README (JOB-095):** why the app exists, what it does, phone install, how to try the public instance and send feedback, and five new English screenshots: overview, a flight time changed by a routine check, an AI proposal, a three-stop day map and the API keys section.
 - **Trip setup on your key or a free model (JOB-094, D-106):** the create-trip destination lookup uses the creator's own key with its provider's lightest model, else a free model where free AI is on, else the operator's key; the platform operator keeps the operator's key. Lookups record who paid.
 - **Copy points at the AI tab:** messages that named Settings → AI keys now name AI → API keys, in every language.
 - **Only the selected language is downloaded (JOB-085, D-097):**

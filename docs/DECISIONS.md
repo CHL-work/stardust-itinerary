@@ -2,6 +2,10 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-107: Apache License 2.0, and a README that says why (accepted November 8, 2026)
+
+The owner, the sole copyright holder, relicensed the application under the Apache License 2.0 (canonical text in `LICENSE`, attributions in `NOTICE`); earlier commits remain available under MIT, and bundled third-party data keeps its own licenses. The README now leads with why the app exists, what it does, how to install it on a phone and how to try the public instance and send feedback, with five English screenshots from a local build with synthetic data (JOB-095).
+
 ## D-106: Routine checks on a member's own key, effort settings, and trip setup on your key or a free model (accepted November 8, 2026)
 
 The owner asked that routine flight and event checks run for anyone who saves an API key that can search the web, with a model and effort they choose; a chat effort setting with reasonable defaults; and the create-trip AI on the user's own key, or a free model without one (JOB-094). The owner authorized deploying without further approval.

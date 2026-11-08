@@ -1,0 +1,11 @@
+Stardust Itinerary
+Copyright 2026 CHL-work
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It bundles data from third parties, under their own licenses:
+
+- Locality time-zone data adapted from GeoNames (https://www.geonames.org/), licensed under the
+  Creative Commons Attribution 4.0 License. Attribution and changes: src/lib/app/place-time-zones.LICENSE.
+- Airport time-zone data from mwgg/Airports (https://github.com/mwgg/Airports), licensed under the
+  MIT License: src/lib/app/airport-time-zones.LICENSE.
