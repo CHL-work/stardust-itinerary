@@ -6,7 +6,7 @@ import { readFlightDetails } from "@/lib/app/flight";
 import { applyFlightStatusUpdate } from "@/lib/app/repository";
 import { createCodexDisruptionProvider, DISRUPTION_MODEL, DISRUPTION_TIMEOUT_MS } from "@/lib/disruptions/provider";
 import type { DisruptionProvider } from "@/lib/disruptions/types";
-import { flightStatusPrompt, publicLookupText } from "@/lib/flights/prompt";
+import { flightStatusDepartureTime, flightStatusPrompt, publicLookupText } from "@/lib/flights/prompt";
 import { dueFlightCheckSlot, FLIGHT_CHECK_OFFSETS_MINUTES } from "@/lib/flights/schedule";
 import { decideFlightStatusUpdate, flightStatusOutputSchema, parseFlightStatusOutput } from "@/lib/flights/status";
 
@@ -20,6 +20,7 @@ export type RunFlightStatusOptions = { now?: Date; maxChecks?: number; provider?
 type DueFlightRow = {
   trip_id: string;
   item_id: string;
+  title: string;
   starts_at: Date;
   ends_at: Date | null;
   current_revision: number;
@@ -29,14 +30,6 @@ type DueFlightRow = {
   time_zone: string;
   slot_minutes: number;
 };
-
-/** Local "YYYY-MM-DD HH:mm" of an instant in a time zone. */
-function localDateTime(instant: Date, timeZone: string): string {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-    timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-  }).formatToParts(instant).map((part) => [part.type, part.value]));
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
-}
 
 /**
  * Flight status checks run only in operator-sponsored trips with background checks on, so always on
@@ -55,7 +48,7 @@ async function runAsOperator(pool: Pool, options: RunFlightStatusOptions): Promi
     `UPDATE flight_status_checks SET status = 'failed', error_code = 'lease_expired', completed_at = $1
       WHERE status = 'running' AND lease_expires_at < $1`, [now]);
   const due = await pool.query<DueFlightRow>(
-    `SELECT i.trip_id, i.id AS item_id, i.starts_at, i.ends_at, i.current_revision, i.flight,
+    `SELECT i.trip_id, i.id AS item_id, i.title, i.starts_at, i.ends_at, i.current_revision, i.flight,
             i.departure_location_name, i.destination_location_name, trip.time_zone, slot.minutes AS slot_minutes
        FROM itinerary_items i
        JOIN trips trip ON trip.id = i.trip_id
@@ -113,14 +106,15 @@ async function checkFlight(pool: Pool, provider: DisruptionProvider, row: DueFli
     return "failed" as const;
   }
 
-  const plannedLocal = localDateTime(row.starts_at, row.time_zone);
+  // The title is used only by the local airport-code resolver, never sent to the provider.
+  const departureTime = flightStatusDepartureTime({ itemType: "transport", title: row.title, flight,
+    departureLocationName: row.departure_location_name, destinationLocationName: row.destination_location_name }, row.starts_at, row.time_zone);
   const prompt = flightStatusPrompt({
     flightNumber: flight.flightNumber,
     airline: publicLookupText(flight.airline, 80),
     departureAirport: publicLookupText(row.departure_location_name),
     arrivalAirport: publicLookupText(row.destination_location_name),
-    plannedLocalDeparture: plannedLocal,
-    timeZone: row.time_zone,
+    ...departureTime,
     now,
   });
   const requestId = randomUUID();
@@ -155,7 +149,7 @@ async function checkFlight(pool: Pool, provider: DisruptionProvider, row: DueFli
   const result = parseFlightStatusOutput(providerResult.rawOutput);
   const decision = result
     ? decideFlightStatusUpdate({ startsAt: row.starts_at.toISOString(), endsAt: row.ends_at?.toISOString() ?? null,
-      localDate: plannedLocal.slice(0, 10), flight }, result)
+      localDate: departureTime.plannedLocalDeparture.slice(0, 10), flight }, result)
     : { outcome: "unverified" as const, reason: "unparsed" as const };
   await pool.query(
     `UPDATE ai_requests

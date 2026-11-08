@@ -17,9 +17,15 @@ const cancelled: FlightChange = { ...delayed, kind: "cancelled", startsAt: delay
 describe("flight change badge (JOB-083)", () => {
   it("says briefly what moved and when it was checked", () => {
     expect(flightChangeNote(delayed, "en", "Asia/Tokyo"))
-      .toBe("Departure moved from May 1, 10:00 AM to May 1, 11:30 AM. Arrival is now May 1, 12:45 PM. Checked May 1, 04:10 AM.");
+      .toBe("Departure moved from May 1, 10:00 AM GMT+9 to May 1, 11:30 AM GMT+9. Arrival is now May 1, 12:45 PM GMT+9. Checked May 1, 04:10 AM GMT+9.");
     expect(flightChangeNote(cancelled, "en", "Asia/Tokyo"))
-      .toBe("The airline lists this flight as cancelled. The event is kept. Checked May 1, 04:10 AM.");
+      .toBe("The airline lists this flight as cancelled. The event is kept. Checked May 1, 04:10 AM GMT+9.");
+  });
+
+  it("shows departure and arrival changes in their own endpoint zones", () => {
+    const text = flightChangeNote(delayed, "en", "America/Chicago", "America/Denver");
+    expect(text).toContain("Departure moved from Apr 30, 08:00 PM CDT to Apr 30, 09:30 PM CDT.");
+    expect(text).toContain("Arrival is now Apr 30, 09:45 PM MDT.");
   });
 
   it.each(locales)("renders a changed badge and a red cancelled warning with their notes in %s", (locale) => {

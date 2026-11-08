@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 
 /**
  * A flight designator: a two-character airline code (letters and digits, never two digits) or a
@@ -17,6 +18,8 @@ export function isFlightNumber(value: string): boolean {
 }
 
 const flightText = (max: number) => z.string().trim().min(1).max(max).nullable().optional();
+const flightTimeZone = z.string().trim().min(1).max(80)
+  .refine((value) => canonicalTripTimeZone(value) !== null, "Use a named IANA time zone.").nullable().optional();
 
 /** Flight details of a transport event (JOB-082, D-094). Terminals keep the airport's own name, such as "Terminal 3". */
 export const flightDetailsSchema = z.object({
@@ -25,6 +28,8 @@ export const flightDetailsSchema = z.object({
   departureTerminal: flightText(40),
   departureGate: flightText(20),
   arrivalTerminal: flightText(40),
+  departureTimeZone: flightTimeZone,
+  arrivalTimeZone: flightTimeZone,
 }).strict();
 
 export type FlightDetails = {
@@ -33,6 +38,8 @@ export type FlightDetails = {
   departureTerminal?: string | null;
   departureGate?: string | null;
   arrivalTerminal?: string | null;
+  departureTimeZone?: string | null;
+  arrivalTimeZone?: string | null;
 };
 
 /** A stored value, read defensively: anything that is not a valid object counts as no flight. */
@@ -46,6 +53,8 @@ export function readFlightDetails(value: unknown): FlightDetails | null {
     departureTerminal: flight.departureTerminal ?? null,
     departureGate: flight.departureGate ?? null,
     arrivalTerminal: flight.arrivalTerminal ?? null,
+    ...(flight.departureTimeZone !== undefined ? { departureTimeZone: flight.departureTimeZone } : {}),
+    ...(flight.arrivalTimeZone !== undefined ? { arrivalTimeZone: flight.arrivalTimeZone } : {}),
   };
 }
 

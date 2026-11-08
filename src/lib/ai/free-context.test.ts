@@ -102,11 +102,11 @@ describe("safeFreePlanningContext", () => {
     const input = { itinerary: [{ id: "flight", visibility: "trip", itemType: "transport", departureLocationName: "Haneda Airport",
       destinationLocationName: "Fukuoka Airport", startsAt: "2026-11-08T03:00:00Z", endsAt: "2026-11-08T05:00:00Z",
       departureMapUrl: "https://example.invalid/private", flight: { flightNumber: "JL123", airline: "Example Air",
-        departureTerminal: "Terminal 1", departureGate: "8", arrivalTerminal: null, bookingReference: "PRIVATE-REF" } }] };
+        departureTerminal: "Terminal 1", departureGate: "8", arrivalTerminal: null, departureTimeZone: "Asia/Tokyo", arrivalTimeZone: "Asia/Tokyo", bookingReference: "PRIVATE-REF" } }] };
     expect(safeFreePlanningContext(input, "plan after my flight").itinerary).toEqual([
       { id: "flight", visibility: "trip", itemType: "transport", departureLocationName: "Haneda Airport",
         destinationLocationName: "Fukuoka Airport", startsAt: "2026-11-08T03:00:00Z", endsAt: "2026-11-08T05:00:00Z",
-        flight: { flightNumber: "JL123", airline: "Example Air", departureTerminal: "Terminal 1", departureGate: "8", arrivalTerminal: null } },
+        flight: { flightNumber: "JL123", airline: "Example Air", departureTerminal: "Terminal 1", departureGate: "8", arrivalTerminal: null, departureTimeZone: "Asia/Tokyo", arrivalTimeZone: "Asia/Tokyo" } },
     ]);
   });
 

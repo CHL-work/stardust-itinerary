@@ -64,7 +64,7 @@ All page-level Add event / Add expense actions remain.
 | `src/lib/document-language-bootstrap.ts` | The script that sets `<html lang>` before first paint |
 | `src/components/new-ui/new-navigation.tsx` | `NewBottomNav`, `QuickAiButton` |
 | `src/components/new-ui/trip-overview-bar.tsx` | `TripOverviewBar`, `OverviewDayStrip`, `ItineraryDayJump`, `tripProgress` |
-| `src/components/event-type-icon.tsx` | Static inline event glyphs shared by cards; structured flights have takeoff/arrival variants. No image requests, title inference or state. See [event icons](MOBILE_CARDS.md#event-icons). |
+| `src/components/event-type-icon.tsx` | Static inline event glyphs shared by cards; resolved flights have takeoff/arrival variants. No image requests or inference inside the icon; the shared presentation resolver owns the narrow D-102 legacy rule. See [event icons](MOBILE_CARDS.md#event-icons). |
 | `src/lib/app/ui-refresh-i18n.ts` | Copy for the bottom bar, day chips, trip bar and previous/next trip (the added languages in their packs) |
 | `src/app/new-ui/base.css` | Tokens (light and dark), typography, focus, targets, form text, dialogs |
 | `src/app/new-ui/shell.css` | Sidebar, topbar, phone header, bottom bar, add pill, trip bar, auth/loading/offline pages, feedback dialog colors |
@@ -106,7 +106,7 @@ Practical rules:
 
 The layout stores nothing in the browser. Sign-out still deletes the offline itinerary snapshots and Stardust private shell caches as before ([identity and security](IDENTITY_AND_SECURITY.md)).
 
-The offline snapshot format, service worker and cache names are unchanged. The cached locale shell includes the language bootstrap.
+The service worker and cache names are unchanged. The offline snapshot accepts optional privacy-reduced flight/zone presentation (D-102); old snapshots remain readable. The cached locale shell includes the language bootstrap.
 
 ## Rollback
 

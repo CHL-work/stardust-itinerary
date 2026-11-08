@@ -54,7 +54,7 @@ Overview shows one selected day, its hotel, events, planned next-event time and 
 
 Pending events occupy ordinary timeline positions under their authorized audience. Short Edit/Approve/Reject controls stay horizontal; review buttons are owner-only. Cancelled cards say so; owner-confirmed removal is a retained tombstone, not deletion of expenses/history/remote Calendar copies. [Mobile cards](MOBILE_CARDS.md).
 
-Small inline icons distinguish activities, meals, hotels, notes, transport and structured flights. Type icons supplement the separate privacy/lock/approval/status text and require no image download. [Event icons](MOBILE_CARDS.md#event-icons).
+Small inline icons distinguish activities, meals, hotels, notes, transport and flights (including narrowly recognized legacy flights under D-102). Type icons supplement the separate privacy/lock/approval/status text and require no image download. [Event icons](MOBILE_CARDS.md#event-icons).
 
 ### 5.4 Ask AI and continue conversations
 
@@ -74,9 +74,9 @@ Calendar consent is optional after basic sign-in. A user's encrypted connection/
 
 ## 6. Itinerary model and editing
 
-An event has a trip day, type, status, title, visibility, revision and optional timing/location details. Manual start is required; end/duration are optional. Duration is an editing aid, not a separate stored fact. Now uses the click-time device clock expressed in the trip zone. Known end must follow start. Maps links should identify the actual venue/branch.
+An event has a trip day, type, status, title, visibility, revision and optional timing/location details. Manual start is required; end/duration are optional. Duration is an editing aid, not a separate stored fact. Now uses the click-time device instant expressed in the flight endpoint's zone, or the trip zone for other events. Known end must follow start in elapsed time. Maps links should identify the actual venue/branch.
 
-Transport remains **one canonical event** with optional departure/destination endpoints, at least one named. Start/end mean departure/arrival. Timeline endpoint rows have their own place, time, day and weather; controls appear once. Non-transport uses `locationName`/`mapUrl`. A flight is transport with optional flight details (flight number, airline, departure terminal and gate, arrival terminal); cards show the gate, else the terminal, else the airline beside the departure airport (D-094). Integration end-time fallbacks never fabricate a canonical end.
+Transport remains **one canonical event** with optional departure/destination endpoints, at least one named. Start/end mean departure/arrival. Timeline endpoint rows have their own place, time, day and weather; controls appear once. Non-transport uses `locationName`/`mapUrl`. A flight is transport with optional flight details (flight number, airline, terminals, gate and endpoint IANA zones); cards show the gate, else the terminal, else the airline beside the departure airport (D-094). Flights display airport-local clocks and zone labels while UTC instants and trip-calendar day grouping remain unchanged (D-102). Integration end-time fallbacks never fabricate a canonical end.
 
 Apply rechecks revisions, authorization, current trip dates, audiences and participant eligibility. Approved records stay canonical until reviewed replacement. Approval is terminal; rejection remains reapprovable after fresh checks. [Pending AI edits](AI_PENDING_EVENT_EDITS.md).
 

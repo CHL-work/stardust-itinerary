@@ -12,7 +12,7 @@ const eventFields = [
   "id", "tripDayId", "revision", "title", "itemType", "startsAt", "endsAt", "locationName", "visibility",
   "departureLocationName", "destinationLocationName", "status", "isLocked",
 ] as const;
-const flightFields = ["flightNumber", "airline", "departureTerminal", "departureGate", "arrivalTerminal"] as const;
+const flightFields = ["flightNumber", "airline", "departureTerminal", "departureGate", "arrivalTerminal", "departureTimeZone", "arrivalTimeZone"] as const;
 const pendingFields = ["requestId", "proposalRevision", "operation", "targetItemId", "createdByMemberId", "hasLinkedExpense"] as const;
 
 function record(value: unknown): DataRecord {

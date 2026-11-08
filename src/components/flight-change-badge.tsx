@@ -13,7 +13,7 @@ import styles from "./flight-change-badge.module.css";
  * time, a red warning for a cancellation. Tapping it says briefly what changed; the browser's popover
  * closes it on Escape or a tap outside.
  */
-export function FlightChangeBadge({ change, locale, timeZone }: { change: FlightChange; locale: Locale; timeZone: string }) {
+export function FlightChangeBadge({ change, locale, timeZone, endTimeZone }: { change: FlightChange; locale: Locale; timeZone: string; endTimeZone?: string }) {
   const id = useId();
   const copy = flightMessages(locale);
   const cancelled = change.kind === "cancelled";
@@ -24,6 +24,6 @@ export function FlightChangeBadge({ change, locale, timeZone }: { change: Flight
       {cancelled ? <TriangleAlert size={16} aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
       {cancelled ? null : <span>{copy.changedShort}</span>}
     </button>
-    <span id={id} popover="auto" role="note" className={styles.panel}>{flightChangeNote(change, locale, timeZone)}</span>
+    <span id={id} popover="auto" role="note" className={styles.panel}>{flightChangeNote(change, locale, timeZone, endTimeZone)}</span>
   </>;
 }

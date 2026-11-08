@@ -1,3 +1,6 @@
+import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
+
 const OFFLINE_ITINERARY_VERSION = 2 as const;
 
 export const OFFLINE_ITINERARY_STORAGE_KEY = "stardust.offline-itinerary.v2";
@@ -32,6 +35,8 @@ export type OfflineItineraryItem = Readonly<{
   destinationMapUrl: string | null;
   status: "draft" | "planned" | "cancelled" | "completed";
   visibility: "trip";
+  /** Presentation only; flight numbers, booking facts, terminals and notes stay online. */
+  flightPresentation?: Readonly<{ isFlight: boolean; departureTimeZone: string | null; arrivalTimeZone: string | null }>;
 }>;
 
 export type OfflineTripDay = Readonly<{
@@ -94,6 +99,7 @@ export type OfflineItinerarySource = {
     destinationMapUrl: string | null;
     status: string;
     visibility: string;
+    flight?: unknown;
   }>;
 };
 
@@ -165,6 +171,10 @@ function parseItem(value: unknown, dayIds: ReadonlySet<string>): OfflineItinerar
   const departureMapUrl = httpsUrl(value.departureMapUrl);
   const destinationLocationName = nullableBoundedString(value.destinationLocationName, 500);
   const destinationMapUrl = httpsUrl(value.destinationMapUrl);
+  const savedFlight = isRecord(value.flightPresentation) && value.flightPresentation.isFlight === true
+    ? Object.freeze({ isFlight: true, departureTimeZone: canonicalTripTimeZone(boundedString(value.flightPresentation.departureTimeZone, 80) ?? ""),
+      arrivalTimeZone: canonicalTripTimeZone(boundedString(value.flightPresentation.arrivalTimeZone, 80) ?? "") })
+    : undefined;
 
   if (
     !id
@@ -201,6 +211,7 @@ function parseItem(value: unknown, dayIds: ReadonlySet<string>): OfflineItinerar
     destinationMapUrl,
     status: value.status as OfflineItineraryItem["status"],
     visibility: "trip",
+    ...(savedFlight ? { flightPresentation: savedFlight } : {}),
   });
 }
 
@@ -307,22 +318,30 @@ export function createOfflineItinerarySnapshot(
       // member. Cache only trip-wide items so another account using the same
       // browser can never inherit creator/selected-viewer private events.
       .filter((item) => sourceDayIds.has(item.tripDayId) && item.visibility === "trip")
-      .map((item) => ({
-        id: item.id,
-        tripDayId: item.tripDayId,
-        title: item.title,
-        itemType: item.itemType,
-        startsAt: item.startsAt,
-        endsAt: item.endsAt,
-        locationName: item.locationName,
-        mapUrl: item.mapUrl,
-        departureLocationName: item.departureLocationName,
-        departureMapUrl: item.departureMapUrl,
-        destinationLocationName: item.destinationLocationName,
-        destinationMapUrl: item.destinationMapUrl,
-        status: item.status,
-        visibility: item.visibility,
-      })),
+      .map((item) => {
+        const flight = resolveFlightPresentation(item, source.trip.timeZone);
+        return {
+          id: item.id,
+          tripDayId: item.tripDayId,
+          title: item.title,
+          itemType: item.itemType,
+          startsAt: item.startsAt,
+          endsAt: item.endsAt,
+          locationName: item.locationName,
+          mapUrl: item.mapUrl,
+          departureLocationName: item.departureLocationName,
+          departureMapUrl: item.departureMapUrl,
+          destinationLocationName: item.destinationLocationName,
+          destinationMapUrl: item.destinationMapUrl,
+          status: item.status,
+          visibility: item.visibility,
+          ...(flight.isFlight ? { flightPresentation: {
+            isFlight: true,
+            departureTimeZone: flight.departureZoneKnown ? flight.departureTimeZone : null,
+            arrivalTimeZone: flight.arrivalZoneKnown ? flight.arrivalTimeZone : null,
+          } } : {}),
+        };
+      }),
   };
   const snapshot = parseOfflineItinerarySnapshot(candidate);
   if (!snapshot) throw new TypeError("Cannot cache an invalid itinerary snapshot.");

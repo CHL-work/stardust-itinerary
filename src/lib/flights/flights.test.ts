@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { flightStatusPrompt, publicLookupText } from "@/lib/flights/prompt";
+import { flightStatusDepartureTime, flightStatusPrompt, publicLookupText } from "@/lib/flights/prompt";
 import { dueFlightCheckSlot, FLIGHT_CHECK_OFFSETS_MINUTES, flightCheckTimes } from "@/lib/flights/schedule";
 import {
   decideFlightStatusUpdate, flightStatusOutputSchema, parseFlightStatusOutput, type FlightEventState, type FlightStatusResult,
@@ -8,6 +8,24 @@ import {
 
 const departure = new Date("2030-04-04T00:00:00.000Z");
 const minutesBefore = (minutes: number) => new Date(departure.getTime() - minutes * 60_000);
+
+describe("flight status endpoint time", () => {
+  it.each([["2026-01-15T05:30:00Z", "2026-01-14 23:30"], ["2026-07-15T05:30:00Z", "2026-07-15 00:30"]])(
+    "researches the departure's real local date and DST at %s", (instant, expected) => {
+      const time = flightStatusDepartureTime({ itemType: "transport", flight: { flightNumber: "ZZ123" }, departureLocationName: "DFW" }, new Date(instant), "Asia/Tokyo");
+      expect(time).toEqual({ plannedLocalDeparture: expected, timeZone: "America/Chicago", departureTimeZoneKnown: true,
+        plannedDepartureInstant: new Date(instant).toISOString() });
+      expect(flightStatusPrompt({ flightNumber: "ZZ123", airline: null, departureAirport: "DFW", arrivalAirport: "SLC", ...time, now: departure }))
+        .toContain(`Planned departure: ${expected} local time (America/Chicago).`);
+    });
+  it("labels an unresolved airport's trip-zone fallback and supplies the UTC instant", () => {
+    const time = flightStatusDepartureTime({ itemType: "transport", flight: { flightNumber: "ZZ123" } }, departure, "Asia/Tokyo");
+    expect(time.departureTimeZoneKnown).toBe(false);
+    const prompt = flightStatusPrompt({ flightNumber: "ZZ123", airline: null, departureAirport: null, arrivalAirport: null, ...time, now: departure });
+    expect(prompt).toContain("departure airport zone not confirmed");
+    expect(prompt).toContain("Planned departure instant: 2030-04-04T00:00:00.000Z");
+  });
+});
 
 describe("flight check schedule (JOB-083)", () => {
   it("checks 24 and 12 hours before, then hourly from 6 hours to 1 hour before", () => {

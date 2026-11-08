@@ -7,7 +7,7 @@ type EventTypeIconProps = {
   size?: number;
 };
 
-// Use stored facts, never a title/language heuristic. Static imports keep the
+// Consume the shared flight-presentation result; do not infer subtypes here. Static imports keep the
 // existing icon package tree-shakeable; these SVGs need no images or requests.
 export function eventIconKind({ itemType, isFlight = false, endpoint = "event" }: EventTypeIconProps) {
   if (itemType === "transport") {

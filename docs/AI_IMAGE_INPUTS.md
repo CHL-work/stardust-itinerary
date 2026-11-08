@@ -6,6 +6,8 @@ Preference conversations and their picture/text composers have been removed. Leg
 
 Extraction keeps each booking/menu row's branch, service, duration, date/time and labeled price together. Unknown is not zero and a published tariff is not a receipt total. Eligible public price research happens only in the separate bounded researcher, never image extraction; the existing private-context gates remain. The planner receives the count of new attachments, reuses selected earlier facts and must not claim an upload failed solely because none arrived. See [booking prices](AI_BOOKING_PRICES.md).
 
+Flight extraction preserves departure/arrival airport codes and each printed local date/time separately. Different airports need not share the trip's zone; explicit offsets/IANA zones are preserved when supplied, never fabricated by extraction (D-102).
+
 The shared image-request work budget is 225 seconds, with extraction capped at 45 seconds. The browser allows up to 245 seconds for POST delivery, with a 300-second route ceiling and a ten-minute in-flight fence; provider-free recovery remains independently available. Later public research/final-answer feedback uses the same bounded workflow as text; this does not widen image-derived search permissions, attachment access, storage or approval rules. Old picture conversations are not replayed or rewritten.
 
 Typed provider failures from the initial Claude extraction phase are preserved, so the user sees a rate-limit/setup reason rather than a generic image error. Picture bytes, raw SDK messages and account details are not attached to safe failure metadata. Storage, extraction budgets, identity fences and approval are unaffected; see [provider feedback](AI_PROVIDER_FAILURES.md).

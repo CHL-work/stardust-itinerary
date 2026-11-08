@@ -45,6 +45,9 @@ describe("projectTimelinePoints", () => {
       key: "event-1:event",
       kind: "event",
       at: "2026-09-06T15:30:00.000Z",
+      timeZone: "Asia/Tokyo",
+      timeZoneKnown: true,
+      isFlight: false,
       tripDayId: "day-7",
       locationName: "Akihabara",
       mapUrl: "https://www.google.com/maps/place/Akihabara",
@@ -283,6 +286,39 @@ describe("projectTimelinePoints", () => {
 
     expect(points[0]).toMatchObject({ item: offlineItem, weather: null });
     expect(input).toEqual([offlineItem]);
+  });
+});
+
+describe("flight endpoint presentation", () => {
+  it.each([
+    ["2026-01-15", "2026-01-15T18:00:00Z", "2026-01-15T20:00:00Z", "12:00", "13:00"],
+    ["2026-07-15", "2026-07-15T18:00:00Z", "2026-07-15T20:00:00Z", "13:00", "14:00"],
+  ])("uses each airport's DST-aware zone on %s without changing instants", (date, startsAt, endsAt, departureTime, arrivalTime) => {
+    const source = item({ itemType: "transport", startsAt, endsAt, flight: { flightNumber: "ZZ123" },
+      departureLocationName: "DFW", destinationLocationName: "SLC" });
+    const points = projectTimelinePoints([source], { timeZone: "America/Chicago", tripDays: [{ id: "day", date }] });
+    const localTime = (at: string | null, timeZone: string) => new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(at!));
+    expect(points.map((point) => [point.at, point.timeZone, point.isFlight, point.timeZoneKnown, localTime(point.at, point.timeZone)]))
+      .toEqual([[startsAt, "America/Chicago", true, true, departureTime], [endsAt, "America/Denver", true, true, arrivalTime]]);
+    expect(source.startsAt).toBe(startsAt);
+    expect(Date.parse(points[1]!.at!) - Date.parse(points[0]!.at!)).toBe(2 * 3_600_000);
+  });
+
+  it("keeps trip-day grouping and UTC ordering when endpoint-local dates differ", () => {
+    const source = item({ itemType: "transport", startsAt: "2026-09-06T14:00:00Z", endsAt: "2026-09-06T23:00:00Z",
+      flight: { flightNumber: "ZZ123" }, departureLocationName: "HND", destinationLocationName: "LAX" });
+    const points = projectTimelinePoints([source], options);
+    expect(points.map((point) => [point.kind, point.tripDayId, point.timeZone])).toEqual([
+      ["departure", "day-6", "Asia/Tokyo"], ["arrival", "day-7", "America/Los_Angeles"],
+    ]);
+    expect(new Intl.DateTimeFormat("en-CA", { timeZone: points[1]!.timeZone }).format(new Date(points[1]!.at!))).toBe("2026-09-06");
+  });
+
+  it("labels unknown flight endpoint zones as trip fallback and leaves generic transport alone", () => {
+    const [unknown, train] = [true, false].map((isFlight) => projectTimelinePoints([item({ itemType: "transport",
+      flight: isFlight ? { flightNumber: "ZZ123" } : null, departureLocationName: "Synthetic terminal" })], options)[0]!);
+    expect(unknown).toMatchObject({ timeZone: "Asia/Tokyo", isFlight: true, timeZoneKnown: false });
+    expect(train).toMatchObject({ timeZone: "Asia/Tokyo", isFlight: false, timeZoneKnown: true });
   });
 });
 

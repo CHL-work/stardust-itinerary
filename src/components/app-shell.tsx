@@ -141,7 +141,10 @@ import {
   type PendingItineraryEditDetail,
   type PendingItineraryProjection,
 } from "@/lib/app/types";
-import { addMinutesToWallTime, minutesBetweenWallTimes } from "@/lib/app/wall-time";
+import { isoToWallTime, wallTimeToIso, ZonedEventTimeError } from "@/lib/app/zoned-event-time";
+import { eventExpenseTimeFromStart, eventTimeInputsFromInstants, rebaseFlightTimeInputs } from "@/lib/app/flight-editor-time";
+import { flightTimeZoneOptions, resolveFlightPresentation } from "@/lib/app/flight-presentation";
+import { formatTimelinePointTime } from "@/lib/app/timeline-time";
 import { withStableSession } from "@/lib/auth/client-session";
 import { createAiRequestRecoveryClient, watchAiRequestRecovery, type AiRecoveryState, type AiRequestRecoveryClient } from "@/lib/ai/request-recovery-client";
 import { AI_QUICK_REPLY_TTL_MS, aiQuickReplyAt, aiQuickReplyExpired } from "@/lib/ai/quick-reply";
@@ -411,6 +414,8 @@ type EventDraft = {
   endsAt: string;
   durationMinutes: string;
   durationWasEdited?: boolean;
+  preferredStartsAt?: string | null;
+  preferredEndsAt?: string | null;
   locationName: string;
   mapUrl: string;
   departureLocationName: string;
@@ -426,12 +431,13 @@ type EventDraft = {
 };
 
 /** Flight details as typed in the event editor (JOB-082); a blank flight number means no flight. */
-type FlightDraft = { flightNumber: string; airline: string; departureTerminal: string; departureGate: string; arrivalTerminal: string };
+type FlightDraft = { flightNumber: string; airline: string; departureTerminal: string; departureGate: string; arrivalTerminal: string; departureTimeZone: string; arrivalTimeZone: string };
 
 function flightDraft(flight: FlightDetails | null | undefined): FlightDraft {
   return {
     flightNumber: flight?.flightNumber ?? "", airline: flight?.airline ?? "", departureTerminal: flight?.departureTerminal ?? "",
     departureGate: flight?.departureGate ?? "", arrivalTerminal: flight?.arrivalTerminal ?? "",
+    departureTimeZone: flight?.departureTimeZone ?? "", arrivalTimeZone: flight?.arrivalTimeZone ?? "",
   };
 }
 
@@ -441,7 +447,13 @@ function flightFromDraft(draft: FlightDraft): FlightDetails | null {
   return {
     flightNumber, airline: draft.airline.trim() || null, departureTerminal: draft.departureTerminal.trim() || null,
     departureGate: draft.departureGate.trim() || null, arrivalTerminal: draft.arrivalTerminal.trim() || null,
+    ...(draft.departureTimeZone ? { departureTimeZone: draft.departureTimeZone } : {}),
+    ...(draft.arrivalTimeZone ? { arrivalTimeZone: draft.arrivalTimeZone } : {}),
   };
+}
+
+function flightTimeSource(draft: EventDraft) {
+  return { ...draft, flight: flightFromDraft(draft.flight) };
 }
 
 type ExpenseDraft = ExpenseSplitDraft & {
@@ -878,8 +890,8 @@ function OfflineItineraryPanel({
           <div className="offline-event-list">
             {points.length ? points.map((point) => (
               <article className="offline-event-card" key={point.key}>
-                <div className="offline-event-time"><Clock3 size={16} /><strong>{point.at ? formatTime(point.at, locale, snapshot.trip.timeZone) : messages.timeNotSet}</strong></div>
-                <div className="offline-event-copy"><h3><EventTypeIcon itemType={point.item.itemType} endpoint={point.kind} /> {point.item.title}</h3><small>{point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : eventTypeLabel(point.item.itemType, messages)} · {eventStatusLabel(point.item.status, messages)}</small></div>
+                <div className="offline-event-time"><Clock3 size={16} /><strong>{point.at ? formatTimelinePointTime(point, locale, snapshot.trip.timeZone) : messages.timeNotSet}</strong></div>
+                <div className="offline-event-copy"><h3><EventTypeIcon itemType={point.item.itemType} isFlight={point.isFlight} endpoint={point.kind} /> {point.item.title}</h3><small>{point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : eventTypeLabel(point.item.itemType, messages)} · {eventStatusLabel(point.item.status, messages)}</small></div>
                 {point.locationName ? <a className="offline-location-link" href={offlineLocationUrl(point.locationName, point.mapUrl)} target="_blank" rel="noreferrer"><MapPin size={15} /><span>{point.locationName}</span></a> : null}
               </article>
             )) : <p className="empty-state">{messages.noOfflineEvents}</p>}
@@ -1477,8 +1489,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       title: item.title,
       tripDayId: item.tripDayId,
       itemType: item.itemType as EventDraft["itemType"],
-      startsAt: inputDateTime(item.startsAt, overview.trip.timeZone),
-      endsAt: inputDateTime(item.endsAt, overview.trip.timeZone),
+      ...eventTimeInputsFromInstants(item, overview.trip.timeZone),
       durationMinutes: item.startsAt && item.endsAt
         ? String(Math.max(1, Math.round((new Date(item.endsAt).getTime() - new Date(item.startsAt).getTime()) / 60_000)))
         : "",
@@ -1514,16 +1525,14 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       const expenseSelection = eventExpenseDefaults(overview.members, {
         ...patch, createdByMemberId: detail.createdByMemberId,
       }, detail.createdByMemberId);
-      const startsAt = inputDateTime(patch.startsAt, overview.trip.timeZone);
-      const endsAt = inputDateTime(patch.endsAt, overview.trip.timeZone);
+      const timing = eventTimeInputsFromInstants(patch, overview.trip.timeZone);
       const linkedExpense = patch.linkedExpense;
       setEditingItem({ kind: "pending", detail });
       setEventDraft({
         title: patch.title,
         tripDayId: patch.tripDayId,
         itemType: patch.itemType,
-        startsAt,
-        endsAt,
+        ...timing,
         durationMinutes: patch.startsAt && patch.endsAt
           ? String(Math.max(1, Math.round((new Date(patch.endsAt).getTime() - new Date(patch.startsAt).getTime()) / 60_000)))
           : "",
@@ -1554,7 +1563,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           amount: "",
           currency: overview.trip.defaultCurrency,
           payerMemberId: expenseSelection.payerMemberId,
-          occurredAt: startsAt,
+          occurredAt: inputDateTime(patch.startsAt, overview.trip.timeZone),
           status: "posted",
           splitMemberIds: expenseSelection.splitMemberIds,
           splitMode: "equal",
@@ -2209,52 +2218,83 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     }
   };
 
-  const updateEventStart = (startsAt: string) => {
+  const updateEventStart = (startsAt: string, preferredInstant?: string) => {
     if (!overview || !eventDraft) return;
-    const tripDay = overview.days.find((day) => day.date === startsAt.slice(0, 10));
     const duration = Number(eventDraft.durationMinutes);
-    const endsAt = startsAt && Number.isSafeInteger(duration) && duration > 0
-      ? addMinutesToWallTime(startsAt, duration) : eventDraft.endsAt;
-    const calculatedDuration = minutesBetweenWallTimes(startsAt, endsAt);
-    setEventDraft({
-      ...eventDraft,
-      startsAt,
-      tripDayId: tripDay?.id ?? eventDraft.tripDayId,
-      endsAt,
-      durationMinutes: eventDraft.durationMinutes || (calculatedDuration === null ? "" : String(calculatedDuration)),
-    });
+    const next = { ...eventDraft, startsAt };
+    const zones = resolveFlightPresentation(flightTimeSource(eventDraft), overview.trip.timeZone);
+    try {
+      const instant = wallTimeToIso(startsAt, zones.departureTimeZone, preferredInstant ?? eventDraft.preferredStartsAt);
+      next.preferredStartsAt = instant;
+      next.tripDayId = overview.days.find((day) => day.date === tripLocalDateKey(instant, overview.trip.timeZone))?.id ?? next.tripDayId;
+      if (Number.isSafeInteger(duration) && duration > 0) {
+        next.preferredEndsAt = new Date(Date.parse(instant) + duration * 60_000).toISOString();
+        next.endsAt = isoToWallTime(next.preferredEndsAt, zones.arrivalTimeZone);
+      } else if (next.endsAt) {
+        const end = wallTimeToIso(next.endsAt, zones.arrivalTimeZone, next.preferredEndsAt);
+        const elapsed = (Date.parse(end) - Date.parse(instant)) / 60_000;
+        next.durationMinutes = elapsed > 0 ? String(Math.round(elapsed)) : "";
+      }
+    } catch { /* Incomplete wall-clock input stays editable; save reports a localized error. */ }
+    setEventDraft(next);
   };
 
-  const updateEventEnd = (endsAt: string) => {
-    if (!eventDraft) return;
-    const duration = minutesBetweenWallTimes(eventDraft.startsAt, endsAt);
-    setEventDraft({ ...eventDraft, endsAt, durationMinutes: duration === null ? "" : String(duration), durationWasEdited: false });
+  const updateEventEnd = (endsAt: string, preferredInstant?: string) => {
+    if (!overview || !eventDraft) return;
+    const next = { ...eventDraft, endsAt, durationMinutes: "", durationWasEdited: false };
+    const zones = resolveFlightPresentation(flightTimeSource(eventDraft), overview.trip.timeZone);
+    try {
+      const end = wallTimeToIso(endsAt, zones.arrivalTimeZone, preferredInstant ?? next.preferredEndsAt);
+      next.preferredEndsAt = end;
+      const start = wallTimeToIso(next.startsAt, zones.departureTimeZone, next.preferredStartsAt);
+      const elapsed = (Date.parse(end) - Date.parse(start)) / 60_000;
+      if (elapsed > 0) next.durationMinutes = String(Math.round(elapsed));
+    } catch { /* Preserve typed input, including a deliberately unknown end. */ }
+    setEventDraft(next);
   };
 
   const updateEventDuration = (durationMinutes: string) => {
-    if (!eventDraft) return;
+    if (!overview || !eventDraft) return;
     const duration = Number(durationMinutes);
-    setEventDraft({
-      ...eventDraft,
-      durationMinutes,
-      durationWasEdited: true,
-      endsAt: !durationMinutes.trim() ? "" : eventDraft.startsAt && Number.isSafeInteger(duration) && duration > 0
-        ? addMinutesToWallTime(eventDraft.startsAt, duration)
-        : eventDraft.endsAt,
-    });
+    const next = { ...eventDraft, durationMinutes, durationWasEdited: true };
+    if (!durationMinutes.trim()) { next.endsAt = ""; next.preferredEndsAt = null; }
+    else if (Number.isSafeInteger(duration) && duration > 0) {
+      const zones = resolveFlightPresentation(flightTimeSource(eventDraft), overview.trip.timeZone);
+      try {
+        const start = wallTimeToIso(next.startsAt, zones.departureTimeZone, next.preferredStartsAt);
+        next.preferredEndsAt = new Date(Date.parse(start) + duration * 60_000).toISOString();
+        next.endsAt = isoToWallTime(next.preferredEndsAt, zones.arrivalTimeZone);
+      } catch { /* Save validates incomplete or ambiguous start inputs. */ }
+    }
+    setEventDraft(next);
   };
 
   const fillEventTimeNow = (field: "startsAt" | "endsAt") => {
     if (!overview || !eventDraft || eventSaveInFlight.current) return;
-    const currentTime = inputDateTime(new Date().toISOString(), overview.trip.timeZone);
-    if (field === "startsAt") updateEventStart(currentTime);
-    else updateEventEnd(currentTime);
+    const zones = resolveFlightPresentation(flightTimeSource(eventDraft), overview.trip.timeZone);
+    const instant = new Date().toISOString();
+    const currentTime = inputDateTime(instant, field === "startsAt" ? zones.departureTimeZone : zones.arrivalTimeZone);
+    if (field === "startsAt") updateEventStart(currentTime, instant);
+    else updateEventEnd(currentTime, instant);
+  };
+
+  const updateEventIdentity = (next: EventDraft, clearInvalidTimes = false) => {
+    if (!eventDraft || !overview) return;
+    try {
+      const times = rebaseFlightTimeInputs(eventDraft, flightTimeSource(eventDraft), flightTimeSource(next), overview.trip.timeZone, clearInvalidTimes);
+      const clearedTime = (eventDraft.startsAt && !times.startsAt) || (eventDraft.endsAt && !times.endsAt);
+      setEventDraft({ ...next, ...times, ...(clearedTime ? { durationMinutes: "", durationWasEdited: false } : {}) });
+      setEventSaveError(clearedTime ? eventEditorCopy.formInvalid : null);
+    } catch (error) {
+      // Do not reinterpret a valid-looking ambiguous time during a zone/airport change.
+      setEventSaveError(error instanceof ZonedEventTimeError ? flightMessages(locale)[error.code] : eventEditorCopy.formInvalid);
+    }
   };
 
   const updateEventType = (itemType: EventDraft["itemType"]) => {
     if (!eventDraft || itemType === eventDraft.itemType) return;
     if (itemType === "transport") {
-      setEventDraft({
+      updateEventIdentity({
         ...eventDraft,
         itemType,
         destinationLocationName: eventDraft.destinationLocationName || eventDraft.locationName,
@@ -2266,7 +2306,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     const preferredMapUrl = eventDraft.destinationLocationName
       ? eventDraft.destinationMapUrl
       : eventDraft.departureMapUrl;
-    setEventDraft({
+    updateEventIdentity({
       ...eventDraft,
       itemType,
       locationName: eventDraft.locationName || preferredLocationName,
@@ -2280,18 +2320,20 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   ) => {
     if (!eventDraft) return;
     if (endpoint === "departure") {
-      setEventDraft({
+      updateEventIdentity({
         ...eventDraft,
         departureLocationName: locationName,
+        flight: { ...eventDraft.flight, departureTimeZone: "" },
         departureMapUrl: locationName === eventDraft.departureLocationName
           ? eventDraft.departureMapUrl
           : "",
       });
       return;
     }
-    setEventDraft({
+    updateEventIdentity({
       ...eventDraft,
       destinationLocationName: locationName,
+      flight: { ...eventDraft.flight, arrivalTimeZone: "" },
       destinationMapUrl: locationName === eventDraft.destinationLocationName
         ? eventDraft.destinationMapUrl
         : "",
@@ -2365,6 +2407,15 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     });
   };
 
+  const updateEventExpenseEnabled = (enabled: boolean) => {
+    if (!eventDraft || !overview || !overview.permissions.canEditExpenses) return;
+    setEventDraft({ ...eventDraft, linkedExpense: {
+      ...eventDraft.linkedExpense, enabled,
+      description: eventDraft.linkedExpense.description || eventDraft.title,
+      occurredAt: eventDraft.linkedExpense.occurredAt || eventExpenseTimeFromStart(eventDraft, flightTimeSource(eventDraft), overview.trip.timeZone),
+    } });
+  };
+
   const saveEvent = async (event: FormEvent) => {
     event.preventDefault();
     if (!overview || !eventDraft || !editingItem || eventSaveInFlight.current) return;
@@ -2389,8 +2440,6 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         createdByMemberId: eventCreatorId, visibility: eventDraft.visibility, viewerMemberIds: eventDraft.viewerMemberIds,
       }, originalExpense);
       if (expenseIssue) throw new Error(eventEditorCopy[expenseIssue]);
-      const tripDay = overview.days.find((day) => day.date === eventDraft.startsAt.slice(0, 10));
-      if (!tripDay) throw new Error(messages.startDateOutsideTrip);
       const duration = Number(eventDraft.durationMinutes);
       if (eventDraft.durationMinutes.trim() && (!Number.isSafeInteger(duration) || duration <= 0)) {
         throw new Error(eventEditorCopy.durationWholeMinutes);
@@ -2407,20 +2456,19 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       if (eventDraft.itemType === "transport" && typedFlightNumber && !isFlightNumber(typedFlightNumber)) {
         throw new Error(flightMessages(locale).invalidNumber);
       }
-      const originalTiming = pendingTarget?.detail.patch ?? canonicalTarget;
-      // A minute-resolution editor must not rewrite unchanged timestamp precision.
-      const startsAt = originalTiming?.startsAt && eventDraft.startsAt === inputDateTime(originalTiming.startsAt, overview.trip.timeZone)
-        ? originalTiming.startsAt : zonedInputToIso(eventDraft.startsAt, overview.trip.timeZone);
+      const zones = resolveFlightPresentation(flightTimeSource(eventDraft), overview.trip.timeZone);
+      const startsAt = wallTimeToIso(eventDraft.startsAt, zones.departureTimeZone, eventDraft.preferredStartsAt);
+      const tripDay = overview.days.find((day) => day.date === tripLocalDateKey(startsAt, overview.trip.timeZone));
+      if (!tripDay) throw new Error(messages.startDateOutsideTrip);
       const endsAt = !eventDraft.endsAt ? null
         : eventDraft.durationWasEdited && eventDraft.durationMinutes.trim()
           ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString()
-        : originalTiming?.endsAt && eventDraft.endsAt === inputDateTime(originalTiming.endsAt, overview.trip.timeZone)
-          ? originalTiming.endsAt : zonedInputToIso(eventDraft.endsAt, overview.trip.timeZone);
+        : wallTimeToIso(eventDraft.endsAt, zones.arrivalTimeZone, eventDraft.preferredEndsAt);
       if (endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
         throw new Error(eventEditorCopy.endAfterStart);
       }
-      if (eventDraft.endsAt && (eventDraft.endsAt.slice(0, 10) < overview.trip.startsOn
-          || eventDraft.endsAt.slice(0, 10) > overview.trip.endsOn)) {
+      if (endsAt && (tripLocalDateKey(endsAt, overview.trip.timeZone) < overview.trip.startsOn
+          || tripLocalDateKey(endsAt, overview.trip.timeZone) > overview.trip.endsOn)) {
         throw new Error(eventEditorCopy.endDateOutsideTrip);
       }
       const linkedAmountMinor = eventDraft.linkedExpense.enabled ? parseExpenseAmount(eventDraft.linkedExpense.amount, eventDraft.linkedExpense.currency) : null;
@@ -2520,7 +2568,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       setEventDraft(null);
       await refresh();
     } catch (error) {
-      setEventSaveError(!submitted && error instanceof Error
+      setEventSaveError(error instanceof ZonedEventTimeError ? flightMessages(locale)[error.code === "ambiguousTime"
+        && !resolveFlightPresentation(flightTimeSource(eventDraft), overview.trip.timeZone).isFlight ? "ambiguousTripTime" : error.code] : !submitted && error instanceof Error
         ? error.message : eventEditorFailureMessage(error, eventEditorCopy));
     } finally {
       eventSaveInFlight.current = false;
@@ -3043,6 +3092,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     return <OfflineItineraryPanel snapshot={offlineSnapshot} locale={locale} messages={messages} retry={() => void refresh()} />;
   }
   if (!overview) return <LoadingPanel error={loadError} retry={() => void refresh()} />;
+  const editorZones = eventDraft ? resolveFlightPresentation(flightTimeSource(eventDraft), overview.trip.timeZone) : null;
 
   const eventCreatorId = editingItem === "new"
     ? overview.session.memberId
@@ -3121,8 +3171,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                   <div className="stay-links">{overviewLodgings.length ? overviewLodgings.map((item) => <a href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" key={item.id} aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}><EventTypeIcon itemType={item.itemType} size={20} /><span><strong>{item.title}</strong><small>{item.locationName || messages.openGoogleMaps}</small></span><ChevronRight size={17} /></a>) : <p>{messages.addLodgingHint}</p>}</div>
                 </section>
                 <article className="departure-card">
-                  <NextEventHeader item={nextPoint?.item} weather={nextPoint?.weather ?? null} locale={locale} messages={messages} timeZone={overview.trip.timeZone} showDisruption={() => nextPoint && setDisruptionDetailItem(nextPoint.item)} />
-                  {nextPoint ? <div className="departure-main"><div><p className="departure-time-label">{messages.startsIn}</p><p className="departure-time">{countdown}</p><p className="planned-time-copy"><Clock3 size={16} /> {messages.plannedFor} <strong>{nextPoint.at ? formatTime(nextPoint.at, locale, overview.trip.timeZone) : messages.timeNotSet}</strong></p></div><EventDestination point={nextPoint} locale={locale} messages={messages} timeZone={overview.trip.timeZone} /></div> : <div className="no-next-event"><Clock3 size={26} /><div><h2>{messages.noUpcomingEvent}</h2><p>{formatTripDay(selectedOverviewDay.date, locale)}</p></div></div>}
+                  <NextEventHeader item={nextPoint?.item} weather={nextPoint?.weather ?? null} locale={locale} messages={messages} timeZone={overview.trip.timeZone} weatherTimeZone={nextPoint?.timeZone} showDisruption={() => nextPoint && setDisruptionDetailItem(nextPoint.item)} />
+                  {nextPoint ? <div className="departure-main"><div><p className="departure-time-label">{messages.startsIn}</p><p className="departure-time">{countdown}</p><p className="planned-time-copy"><Clock3 size={16} /> {messages.plannedFor} <strong>{nextPoint.at ? formatTimelinePointTime(nextPoint, locale, overview.trip.timeZone) : messages.timeNotSet}</strong></p></div><EventDestination point={nextPoint} locale={locale} messages={messages} timeZone={overview.trip.timeZone} /></div> : <div className="no-next-event"><Clock3 size={26} /><div><h2>{messages.noUpcomingEvent}</h2><p>{formatTripDay(selectedOverviewDay.date, locale)}</p></div></div>}
                 </article>
               </> : null}
               <div className="section-heading day-section-heading"><div><p className="eyebrow">{section === "today" ? countLabelWithPending(overviewItemCount, overviewPendingRequestCount, messages.eventCountOne, messages.eventCountMany, messages) : countLabelWithPending(itineraryItemCount, pendingItinerary.length, messages.liveItemCountOne, messages.liveItemCountMany, messages)}</p><h2>{messages.itinerary}</h2></div>{overview.permissions.canEditItinerary ? <button data-feedback-action="event_open" className="primary-button fit-button" onClick={() => openEvent("new", section === "today" ? selectedOverviewDay?.date : undefined)}><Plus size={16} /> {messages.addPlanItem}</button> : null}</div>
@@ -3363,11 +3413,13 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             if (details) details.open = true;
             setEventSaveError(eventEditorCopy.formInvalid);
           }}>
-            <label>{messages.eventTitleField}<input required value={eventDraft.title} onChange={(event) => setEventDraft({ ...eventDraft, title: event.target.value })} /></label>
+            <label>{messages.eventTitleField}<input required value={eventDraft.title} onChange={(event) => updateEventIdentity({ ...eventDraft, title: event.target.value })} /></label>
             <label>{messages.eventTypeField}<select value={eventDraft.itemType} onChange={(event) => updateEventType(event.target.value as EventDraft["itemType"])}>{["activity", "meal", "transport", "lodging", "note"].map((type) => <option value={type} key={type}>{eventTypeLabel(type, messages)}</option>)}</select></label>
             <EventTimeFields
-              startsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportDepartureTimeField : messages.eventStartsField, { timeZone: overview.trip.timeZone })}
-              endsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportArrivalTimeField : messages.eventEndsField, { timeZone: overview.trip.timeZone })}
+              startsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportDepartureTimeField : messages.eventStartsField, { timeZone: editorZones?.departureTimeZone ?? overview.trip.timeZone })}
+              endsLabel={formatMessage(eventDraft.itemType === "transport" ? messages.transportArrivalTimeField : messages.eventEndsField, { timeZone: editorZones?.arrivalTimeZone ?? overview.trip.timeZone })}
+              startTimeZone={editorZones?.isFlight ? editorZones.departureTimeZone : undefined}
+              endTimeZone={editorZones?.isFlight ? editorZones.arrivalTimeZone : undefined}
               durationLabel={messages.eventDurationMinutesField} copy={eventEditorCopy}
               startsAt={eventDraft.startsAt} endsAt={eventDraft.endsAt} durationMinutes={eventDraft.durationMinutes}
               min={`${overview.trip.startsOn}T00:00`} max={`${overview.trip.endsOn}T23:59`} busy={busy}
@@ -3382,11 +3434,12 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             </fieldset>
             <fieldset className="transport-endpoint-fields flight-fields full-field">
               <legend>{flightMessages(locale).fields} <small>({eventEditorCopy.optional})</small></legend>
-              <label>{flightMessages(locale).number}<input autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={12} placeholder="JL123" value={eventDraft.flight.flightNumber} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, flightNumber: event.target.value } })} /></label>
+              <label>{flightMessages(locale).number}<input autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={12} placeholder="JL123" value={eventDraft.flight.flightNumber} onChange={(event) => updateEventIdentity({ ...eventDraft, flight: { ...eventDraft.flight, flightNumber: event.target.value } })} /></label>
               <label>{flightMessages(locale).airline}<input maxLength={80} value={eventDraft.flight.airline} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, airline: event.target.value } })} /></label>
               <label>{flightMessages(locale).departureTerminal}<input maxLength={40} value={eventDraft.flight.departureTerminal} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, departureTerminal: event.target.value } })} /></label>
               <label>{flightMessages(locale).gate}<input maxLength={20} value={eventDraft.flight.departureGate} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, departureGate: event.target.value } })} /></label>
               <label>{flightMessages(locale).arrivalTerminal}<input maxLength={40} value={eventDraft.flight.arrivalTerminal} onChange={(event) => setEventDraft({ ...eventDraft, flight: { ...eventDraft.flight, arrivalTerminal: event.target.value } })} /></label>
+              {eventDraft.flight.flightNumber.trim() ? (["departureTimeZone", "arrivalTimeZone"] as const).map((field) => <label key={field}>{flightMessages(locale)[field]}<select value={eventDraft.flight[field]} onChange={(event) => updateEventIdentity({ ...eventDraft, flight: { ...eventDraft.flight, [field]: event.target.value } }, true)}><option value="">{flightMessages(locale).automaticZone}</option>{[...new Set([...flightTimeZoneOptions, eventDraft.flight[field]].filter(Boolean))].map((zone) => <option value={zone} key={zone}>{zone}</option>)}</select></label>) : null}
             </fieldset></> : <label className="full-field">{messages.eventMapUrlField}<input type="url" placeholder="https://www.google.com/maps/place/..." value={eventDraft.mapUrl} onChange={(event) => setEventDraft({ ...eventDraft, mapUrl: event.target.value })} /><small>{messages.eventMapUrlHint}</small></label>}
             <label className="full-field">{messages.eventNotesField}<textarea value={eventDraft.notes} onChange={(event) => setEventDraft({ ...eventDraft, notes: event.target.value })} /></label>
             <fieldset className="split-field full-field privacy-field">
@@ -3412,15 +3465,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                     ))}
                   </div>
                 ) : null}
-                <label className="check-field full-field"><input type="checkbox" disabled={!overview.permissions.canEditExpenses} checked={eventDraft.linkedExpense.enabled} onChange={(event) => setEventDraft({
-                  ...eventDraft,
-                  linkedExpense: {
-                    ...eventDraft.linkedExpense,
-                    enabled: event.target.checked,
-                    description: eventDraft.linkedExpense.description || eventDraft.title,
-                    occurredAt: eventDraft.linkedExpense.occurredAt || eventDraft.startsAt,
-                  },
-                })} /> {messages.addLinkedExpense}</label>
+                <label className="check-field full-field"><input type="checkbox" disabled={!overview.permissions.canEditExpenses} checked={eventDraft.linkedExpense.enabled} onChange={(event) => updateEventExpenseEnabled(event.target.checked)} /> {messages.addLinkedExpense}</label>
                 {!overview.permissions.canEditExpenses ? <p className="muted-copy full-field">{messages.expenseChangesUnavailable}</p> : null}
                 {eventDraft.linkedExpense.enabled ? <>
                   <label className="full-field">{messages.expenseDescriptionField}<input required maxLength={240} disabled={!overview.permissions.canEditExpenses} value={eventDraft.linkedExpense.description} onChange={(event) => setEventDraft({ ...eventDraft, linkedExpense: { ...eventDraft.linkedExpense, description: event.target.value } })} /></label>
@@ -3642,19 +3687,21 @@ function DisruptionBadge({ item, messages, showDisruption }: {
   return <button type="button" className={`disruption-badge severity-${item.disruption.severity}`} onClick={showDisruption} aria-label={formatMessage(messages.openDisruptionDetail, { event: item.title })}><AlertTriangle size={18} aria-hidden="true" /><small>{disruptionReasonLabel(item.disruption.reasonCode, messages)}</small></button>;
 }
 
-export function NextEventHeader({ item, weather, locale, messages, timeZone, showDisruption }: {
+export function NextEventHeader({ item, weather, locale, messages, timeZone, weatherTimeZone, showDisruption }: {
   item?: ItineraryItem | null;
   weather?: EventWeatherForecast | null;
   locale: Locale;
   messages: Messages;
   timeZone: string;
+  weatherTimeZone?: string;
   showDisruption: () => void;
 }) {
+  const zones = item ? resolveFlightPresentation(item, timeZone) : null;
   return <div className="departure-topline">
-    {weather ? <WeatherBadge weather={weather} locale={locale} messages={messages} timeZone={timeZone} /> : null}
+    {weather ? <WeatherBadge weather={weather} locale={locale} messages={messages} timeZone={weatherTimeZone ?? timeZone} /> : null}
     <div className="departure-topline-actions">
       <span className="status-pill"><Clock3 size={14} /> {messages.nextUp}</span>
-      {item?.flightChange ? <FlightChangeBadge change={item.flightChange} locale={locale} timeZone={timeZone} /> : null}
+      {item?.flightChange ? <FlightChangeBadge change={item.flightChange} locale={locale} timeZone={zones?.departureTimeZone ?? timeZone} endTimeZone={zones?.arrivalTimeZone ?? timeZone} /> : null}
       {item?.disruption ? <DisruptionBadge item={item} messages={messages} showDisruption={showDisruption} /> : null}
     </div>
   </div>;
@@ -3663,8 +3710,8 @@ export function NextEventHeader({ item, weather, locale, messages, timeZone, sho
 function EventDestination({ point, locale, messages, timeZone }: { point: TimelinePoint<ItineraryItem>; locale: Locale; messages: Messages; timeZone: string }) {
   const item = point.item;
   if (point.kind !== "event") {
-    const content = <><span>{point.kind === "departure" ? messages.departureLabel : messages.destinationLabel}</span><h2><EventTypeIcon itemType={item.itemType} isFlight={Boolean(item.flight?.flightNumber)} endpoint={point.kind} size={24} /> {item.title}</h2><p>{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
-    return <a className="departure-destination event-map-destination transport-next-event" href={endpointMapUrl(point.locationName ?? item.title, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName ?? item.title })}>{content}<span className="sr-only">{formatDateTime(point.at, locale, timeZone)}</span></a>;
+    const content = <><span>{point.kind === "departure" ? messages.departureLabel : messages.destinationLabel}</span><h2><EventTypeIcon itemType={item.itemType} isFlight={point.isFlight} endpoint={point.kind} size={24} /> {item.title}</h2><p>{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
+    return <a className="departure-destination event-map-destination transport-next-event" href={endpointMapUrl(point.locationName ?? item.title, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName ?? item.title })}>{content}<span className="sr-only">{formatTimelinePointTime(point, locale, timeZone, true)}</span></a>;
   }
   const content = <><span>{eventStatusLabel(item.status, messages)}</span><h2><EventTypeIcon itemType={item.itemType} size={24} /> {item.title}</h2><p>{item.locationName || eventTypeLabel(item.itemType, messages)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
   return <a className="departure-destination event-map-destination" href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}>{content}<span className="sr-only">{formatDateTime(item.startsAt, locale, timeZone)}</span></a>;
@@ -3706,16 +3753,16 @@ export function PendingItineraryList({ points, locale, messages, timeZone, busy,
       const canEditRequest = Boolean(edit && (canEdit?.(request) ?? true));
       const pointLabel = point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : null;
       return <article className="timeline-row pending-timeline-row" data-pending-timeline-point={point.kind} data-pending-target-item-id={request.targetItemId ?? undefined} data-owns-actions={ownsActions} key={point.key}>
-      <div className="timeline-time"><time>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : request.sourceCalendar && point.tripDayId !== request.tripDayId ? calendarImportMessages(locale).continues : point.at ? formatTime(point.at, locale, timeZone) : messages.timeNotSet}</time></div>
-      <div className="timeline-marker"><span title={request.flight?.flightNumber ? flightMessages(locale).fields : eventTypeLabel(request.itemType, messages)}><EventTypeIcon itemType={request.itemType} isFlight={Boolean(request.flight?.flightNumber)} endpoint={point.kind} size={16} /></span></div>
+      <div className="timeline-time"><time>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : request.sourceCalendar && point.tripDayId !== request.tripDayId ? calendarImportMessages(locale).continues : point.at ? formatTimelinePointTime(point, locale, timeZone) : messages.timeNotSet}</time></div>
+      <div className="timeline-marker"><span title={point.isFlight ? flightMessages(locale).fields : eventTypeLabel(request.itemType, messages)}><EventTypeIcon itemType={request.itemType} isFlight={point.isFlight ?? resolveFlightPresentation(request, timeZone).isFlight} endpoint={point.kind} size={16} /></span></div>
       <div className="timeline-content">
       <div className="pending-itinerary-status"><span className="status-tag status-pending"><Clock3 size={14} aria-hidden="true" />{request.operation === "create" ? messages.pendingOwnerApproval : request.operation === "cancel" ? `${messages.cancelEvent} · ${messages.pendingOwnerApproval}` : request.operation === "restore" ? `${messages.restoreEvent} · ${messages.pendingOwnerApproval}` : messages.pendingEventUpdate}</span>{request.visibility === "private" ? <span className="status-tag"><Lock size={11} aria-hidden="true" /> {messages.privateEvent}</span> : null}</div>
       <h3>{request.title}</h3>
       {pointLabel
         ? point.locationName
-          ? <a className="transport-endpoint" href={endpointMapUrl(point.locationName, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName })}><span className="transport-endpoint-label">{pointLabel}</span><strong>{flightPointLocation(point.kind, point.locationName, request.flight, locale)}</strong><time><Clock3 size={12} aria-hidden="true" /> {point.at ? formatDateTime(point.at, locale, timeZone) : messages.timeNotSet}</time><small><MapPin size={12} aria-hidden="true" /> {messages.openGoogleMaps}</small></a>
+          ? <a className="transport-endpoint" href={endpointMapUrl(point.locationName, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName })}><span className="transport-endpoint-label">{pointLabel}</span><strong>{flightPointLocation(point.kind, point.locationName, request.flight, locale)}</strong><time><Clock3 size={12} aria-hidden="true" /> {point.at ? formatTimelinePointTime(point, locale, timeZone, true) : messages.timeNotSet}</time><small><MapPin size={12} aria-hidden="true" /> {messages.openGoogleMaps}</small></a>
           : null
-        : <><p>{point.locationName ? <><MapPin size={14} aria-hidden="true" /> {point.locationName}</> : eventTypeLabel(request.itemType, messages)}</p><small>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : <>{point.at ? formatDateTime(point.at, locale, timeZone) : messages.timeNotSet}{request.endsAt ? ` – ${formatTime(request.endsAt, locale, timeZone)}` : ""}</>}</small></>}
+        : <><p>{point.locationName ? <><MapPin size={14} aria-hidden="true" /> {point.locationName}</> : eventTypeLabel(request.itemType, messages)}</p><small>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : <>{point.at ? formatTimelinePointTime(point, locale, timeZone, true) : messages.timeNotSet}{request.endsAt ? ` – ${formatTime(request.endsAt, locale, timeZone)}` : ""}</>}</small></>}
       {request.notes ? <p className="pending-itinerary-notes">{request.notes}</p> : null}
       <small>{formatMessage(messages.pendingEventRequestedBy, { name: request.requestedByName })} · {formatDateTime(request.createdAt, locale, timeZone)}</small>
       <p className="pending-itinerary-warning"><Clock3 size={14} aria-hidden="true" /> {request.operation !== "create" ? messages.pendingEventUpdateNotApplied : messages.pendingEventNotConfirmed}</p>
@@ -3890,6 +3937,7 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
 }) {
   const rows = points.map((point) => {
     const item = point.item;
+    const zones = resolveFlightPresentation(item, overview.trip.timeZone);
     const ownsActions = ownsVisibleTimelineActions(point, points, allowActionFallback);
     const pointLabel = point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : null;
     const pointHref = point.kind === "event"
@@ -3900,10 +3948,10 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
       : formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName ?? item.title });
     return <article id={ownsActions ? `item-${item.id}` : `item-${item.id}-${point.key}`} data-timeline-point={point.kind} className={`timeline-row ${item.status === "cancelled" ? "state-complete" : ""}`} key={point.key}>
       <div className={`timeline-time ${point.weather ? "has-weather" : ""}`}>
-        {point.weather ? <WeatherBadge weather={point.weather} locale={locale} messages={messages} timeZone={overview.trip.timeZone} /> : null}
-        <time>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : item.sourceCalendar && point.tripDayId !== item.tripDayId ? calendarImportMessages(locale).continues : point.at ? formatTime(point.at, locale, overview.trip.timeZone) : messages.timeNotSet}</time>
+        {point.weather ? <WeatherBadge weather={point.weather} locale={locale} messages={messages} timeZone={point.timeZone ?? overview.trip.timeZone} /> : null}
+        <time>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : item.sourceCalendar && point.tripDayId !== item.tripDayId ? calendarImportMessages(locale).continues : point.at ? formatTimelinePointTime(point, locale, overview.trip.timeZone) : messages.timeNotSet}</time>
       </div>
-      <div className="timeline-marker"><span title={item.flight?.flightNumber ? flightMessages(locale).fields : eventTypeLabel(item.itemType, messages)}><EventTypeIcon itemType={item.itemType} isFlight={Boolean(item.flight?.flightNumber)} endpoint={point.kind} size={16} /></span></div>
+      <div className="timeline-marker"><span title={point.isFlight ? flightMessages(locale).fields : eventTypeLabel(item.itemType, messages)}><EventTypeIcon itemType={item.itemType} isFlight={point.isFlight} endpoint={point.kind} size={16} /></span></div>
       <div className="timeline-content">
         <div className="timeline-event-main">
           <a className={`timeline-event-link ${point.kind === "event" ? "" : "transport-timeline-point"}`} href={pointHref} target="_blank" rel="noreferrer" aria-label={pointAriaLabel}>
@@ -3911,10 +3959,10 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
             {item.status === "cancelled" ? <span className="cancelled-event-label"><X size={14} aria-hidden="true" /> {messages.eventStatusCancelled}</span> : null}
             <h3>{item.title}{item.visibility === "private" ? <span className="private-event-tag"><Lock size={11} aria-hidden="true" /> {messages.privateEvent}</span> : null}{item.isLocked ? <span className="private-event-tag"><Lock size={11} aria-hidden="true" /> {messages.ownerLock}</span> : null}</h3>
             <p>{point.locationName ? <><MapPin size={14} />{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</> : eventTypeLabel(item.itemType, messages)}</p>
-            <small>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : formatDateTime(point.at, locale, overview.trip.timeZone)}{item.visibility === "private" ? ` · ${formatMessage(messages.sharedByCreator, { name: item.creatorName })}` : ""}</small>
+            <small>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : formatTimelinePointTime(point, locale, overview.trip.timeZone, true)}{item.visibility === "private" ? ` · ${formatMessage(messages.sharedByCreator, { name: item.creatorName })}` : ""}</small>
           </a>
         </div>
-        {ownsActions && (item.disruption || item.flightChange) ? <div className="event-live-signals">{item.flightChange ? <FlightChangeBadge change={item.flightChange} locale={locale} timeZone={overview.trip.timeZone} /> : null}{item.disruption ? <DisruptionBadge item={item} messages={messages} showDisruption={() => showDisruption(item)} /> : null}</div> : null}
+        {ownsActions && (item.disruption || item.flightChange) ? <div className="event-live-signals">{item.flightChange ? <FlightChangeBadge change={item.flightChange} locale={locale} timeZone={zones.departureTimeZone} endTimeZone={zones.arrivalTimeZone} /> : null}{item.disruption ? <DisruptionBadge item={item} messages={messages} showDisruption={() => showDisruption(item)} /> : null}</div> : null}
       </div>
         {ownsActions ? <div className="row-actions card-actions">{overview.permissions.canEditItinerary ? <><button data-feedback-action="event_edit" className="mini-button" disabled={busy} onClick={() => openEvent(item)}><PencilLine size={14} /> {messages.editEvent}</button><button data-feedback-action="event_cancel" className="mini-button" disabled={busy} onClick={() => void cancelOrRestore(item)}>{item.status === "cancelled" ? messages.restoreEvent : messages.cancelEvent}</button></> : null}{overview.session?.isOwner && item.status === "cancelled" && removeCancelledEvent ? <button data-feedback-action="event_remove" className="mini-button danger-button" disabled={busy} onClick={() => void removeCancelledEvent(item)}><Trash2 size={14} /> {mobileCardsMessages(locale).remove}</button> : null}{overview.permissions.canSyncCalendar && item.status !== "cancelled" && item.startsAt ? <button data-feedback-action="calendar_sync" className="mini-button" disabled={calendarBusy} onClick={() => syncCalendar("item", item.id)}><CalendarRange size={14} /> {calendarBusy ? messages.calendarSyncing : item.calendarLink ? messages.updateCalendar : messages.addToCalendar}</button> : null}</div> : null}
     </article>;

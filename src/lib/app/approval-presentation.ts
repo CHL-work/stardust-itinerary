@@ -3,6 +3,7 @@ import type { ApprovalDisplay, ApprovalExpenseDisplay } from "@/lib/app/approval
 import { expensePatchSchema, itineraryPatchSchema } from "@/lib/app/validation";
 import { resolveItineraryLocationState, transportHasEndpoint } from "@/lib/app/transport";
 import { expenseSplitsForPatch } from "@/lib/app/expense-split-patch";
+import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
 
 export type ApprovalPresentationSource = {
   entity_type: string;
@@ -114,9 +115,13 @@ export function projectApprovalDisplay(source: ApprovalPresentationSource, membe
   const linkedExpense = isRecord(source.proposed_patch.linkedExpense)
     ? expenseDisplay(source.proposed_patch.linkedExpense, null, "create", members) : null;
   if (source.proposed_patch.linkedExpense && !linkedExpense) return unavailable;
+  const flight = resolveFlightPresentation({ ...locations, title: patch.title, flight: patch.flight }, "UTC");
   return { kind: "itinerary", event: {
     title: patch.title, ...locations,
-    isFlight: locations.itemType === "transport" && Boolean(patch.flight?.flightNumber),
+    isFlight: flight.isFlight,
+    ...(flight.isFlight ? { flightPresentation: { isFlight: true,
+      departureTimeZone: flight.departureZoneKnown ? flight.departureTimeZone : null,
+      arrivalTimeZone: flight.arrivalZoneKnown ? flight.arrivalTimeZone : null } } : {}),
     mapUrl: safeMapUrl(locations.mapUrl), departureMapUrl: safeMapUrl(locations.departureMapUrl), destinationMapUrl: safeMapUrl(locations.destinationMapUrl),
     dayDate: z.iso.date().safeParse(source.day_date).success ? source.day_date! : null,
     startsAt: patch.startsAt ?? null, endsAt: patch.endsAt ?? null, notes: patch.notes ?? null,

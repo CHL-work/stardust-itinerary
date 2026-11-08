@@ -3,6 +3,7 @@
 import { CalendarDays, Check, Clock3, Lock, MapPin, ReceiptText, X } from "lucide-react";
 import { EventTypeIcon } from "@/components/event-type-icon";
 import { flightMessages } from "@/lib/app/flight-i18n";
+import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
 import { approvalMessages, type ApprovalMessages } from "@/lib/app/approval-i18n";
 import type { ApprovalEventDisplay, ApprovalExpenseDisplay } from "@/lib/app/approval-presentation-types";
 import type { ApprovalRequest } from "@/lib/app/types";
@@ -11,9 +12,9 @@ import { formatMessage, type Locale, type Messages } from "@/lib/i18n";
 import "./approval-request-cards.css";
 
 function displayLocale(locale: Locale) { return locale === "zh-HK-lihkg" ? "zh-HK" : locale; }
-function dateTime(value: string | null, locale: Locale, timeZone: string, unknown: string) {
+function dateTime(value: string | null, locale: Locale, timeZone: string, unknown: string, showZone = false) {
   if (!value || !Number.isFinite(Date.parse(value))) return unknown;
-  return new Intl.DateTimeFormat(displayLocale(locale), { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat(displayLocale(locale), { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", ...(showZone ? { timeZoneName: "short" as const } : {}) }).format(new Date(value));
 }
 function dayLabel(value: string, locale: Locale) {
   return new Intl.DateTimeFormat(displayLocale(locale), { timeZone: "UTC", year: "numeric", month: "short", day: "numeric", weekday: "short" }).format(new Date(`${value}T00:00:00Z`));
@@ -56,17 +57,19 @@ export function ApprovalExpenseSummary({ expense, locale, timeZone, copy, messag
 function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending }: {
   event: ApprovalEventDisplay; locale: Locale; timeZone: string; copy: ApprovalMessages; messages: Messages; pending: boolean;
 }) {
+  const flight = resolveFlightPresentation({ ...event,
+    flightPresentation: event.flightPresentation ?? (event.isFlight ? { isFlight: true } : undefined) }, timeZone);
   const endpoints = event.itemType === "transport" ? [
-    event.departureLocationName ? { kind: "departure" as const, label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt } : null,
-    event.destinationLocationName ? { kind: "arrival" as const, label: copy.arrival, name: event.destinationLocationName, map: event.destinationMapUrl, at: event.endsAt } : null,
+    event.departureLocationName ? { kind: "departure" as const, label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt, zone: flight.departureTimeZone, known: flight.departureZoneKnown } : null,
+    event.destinationLocationName ? { kind: "arrival" as const, label: copy.arrival, name: event.destinationLocationName, map: event.destinationMapUrl, at: event.endsAt, zone: flight.arrivalTimeZone, known: flight.arrivalZoneKnown } : null,
   ].filter((endpoint) => endpoint !== null) : [];
   return <>
-    <div className="approval-event-badges"><span className="status-tag"><EventTypeIcon itemType={event.itemType} isFlight={event.isFlight} size={16} />{event.itemType === "transport" && event.isFlight ? flightMessages(locale).fields : labelEventType(event.itemType, messages)}</span>
+    <div className="approval-event-badges"><span className="status-tag"><EventTypeIcon itemType={event.itemType} isFlight={flight.isFlight} size={16} />{flight.isFlight ? flightMessages(locale).fields : labelEventType(event.itemType, messages)}</span>
       {event.visibility === "private" ? <span className="status-tag"><Lock size={12} aria-hidden="true" />{messages.privateEvent}</span> : <span className="approval-muted">{copy.tripVisible}</span>}
       {event.isLocked ? <span className="status-tag"><Lock size={12} aria-hidden="true" />{copy.locked}</span> : null}</div>
     {event.dayDate ? <p className="approval-event-date"><CalendarDays size={16} aria-hidden="true" /><time dateTime={event.dayDate}>{dayLabel(event.dayDate, locale)}</time></p> : null}
     {endpoints.length ? <div className="approval-transport-points">{endpoints.map((endpoint) => <div className="approval-transport-point" key={endpoint.label}>
-      <div><EventTypeIcon itemType={event.itemType} isFlight={event.isFlight} endpoint={endpoint.kind} size={17} /><strong>{endpoint.label}</strong><time>{dateTime(endpoint.at, locale, timeZone, copy.untimed)}</time></div>
+      <div><EventTypeIcon itemType={event.itemType} isFlight={flight.isFlight} endpoint={endpoint.kind} size={17} /><strong>{endpoint.label}</strong><time dateTime={endpoint.at ?? undefined}>{dateTime(endpoint.at, locale, endpoint.zone, copy.untimed, flight.isFlight)}{endpoint.at && flight.isFlight && !endpoint.known ? ` · ${flightMessages(locale).tripTimeFallback}` : ""}</time></div>
       <a href={mapLink(endpoint.name, endpoint.map)} target="_blank" rel="noopener noreferrer"><MapPin size={15} aria-hidden="true" />{endpoint.name}</a>
     </div>)}</div> : <>
       <div className="approval-event-times"><p><strong>{copy.starts}</strong><time>{dateTime(event.startsAt, locale, timeZone, copy.untimed)}</time></p>

@@ -409,6 +409,10 @@ describe("AI planner prompt", () => {
     expect(prompt).toContain("The app shows the gate, else the terminal, else the airline beside the departure airport");
     expect(prompt).toContain("For a flight whose terminals the request does not give, request kind=travel with only the flight number and airports as the subject");
     expect(plannerPatchContract.itinerary_item.properties).toHaveProperty("flight");
+    expect(prompt).toContain("flight.departureTimeZone and flight.arrivalTimeZone");
+    expect(prompt).toContain("using that airport's date-specific offset (including daylight saving)");
+    expect(prompt).toContain("Keep tripDayId assigned by the departure instant in the trip's time zone");
+    expect(prompt).toContain("ask a focused clarification instead of inventing an instant");
   });
 
   it("states when hosted web search is unavailable for an import turn", () => {

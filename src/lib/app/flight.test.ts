@@ -51,6 +51,17 @@ describe("flight details (JOB-082)", () => {
     }
   });
 
+  it("preserves optional airport zones without changing old flight shapes", () => {
+    const flight = { flightNumber: "AA123", departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" };
+    expect(readFlightDetails(flight)).toMatchObject(flight);
+    expect(itineraryPatchSchema.parse({ flight }).flight).toEqual(flight);
+    expect(readFlightDetails({ flightNumber: "AA123" })).not.toHaveProperty("departureTimeZone");
+    expect(readFlightDetails({ flightNumber: "AA123", departureTimeZone: null })).toHaveProperty("departureTimeZone", null);
+    for (const departureTimeZone of ["CST", "-06:00", "Dallas", "America/Unknown", "x".repeat(81)]) {
+      expect(itineraryPatchSchema.safeParse({ flight: { ...flight, departureTimeZone } }).success).toBe(false);
+    }
+  });
+
   it.each(locales)("labels flight endpoints on cards in %s", (locale) => {
     const copy = flightMessages(locale);
     const flight = { flightNumber: "JL123", airline: "Japan Airlines", departureTerminal: "Terminal 1", departureGate: "8", arrivalTerminal: "South Terminal" };
@@ -71,5 +82,13 @@ describe("flight details (JOB-082)", () => {
   it("keeps both Cantonese modes neutral", () => {
     expect(flightMessages("zh-HK-lihkg")).toEqual(flightMessages("zh-HK"));
     expect(Object.keys(flightMessages("ja-JP"))).toEqual(Object.keys(flightMessages("en")));
+  });
+
+  it.each(locales)("does not offer a nonexistent UTC selector for non-flight ambiguous times in %s", (locale) => {
+    const copy = flightMessages(locale);
+    expect(copy.ambiguousTripTime.trim()).not.toBe("");
+    expect(copy.ambiguousTripTime).not.toContain("UTC");
+    expect(copy.ambiguousTripTime).not.toBe(copy.ambiguousTime);
+    if (locale !== "en") expect(copy.ambiguousTripTime).not.toBe(flightMessages("en").ambiguousTripTime);
   });
 });

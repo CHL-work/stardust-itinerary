@@ -72,7 +72,7 @@ export function parseFlightStatusOutput(raw: string): FlightStatusResult | null 
 export type FlightEventState = {
   startsAt: string;
   endsAt: string | null;
-  /** The departure's local date in the trip's time zone. */
+  /** Departure airport-local date when resolved; otherwise the explicitly labeled trip-zone fallback. */
   localDate: string;
   flight: FlightDetails;
 };

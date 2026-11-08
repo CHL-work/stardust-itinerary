@@ -95,6 +95,8 @@ Eligible active or named invited members may be assigned, but invitations do not
 
 Explicit-offset ISO timestamps may normalize losslessly to UTC. At most **one same-model/no-tools timestamp-only repair** is allowed for create-batch timestamp format/type errors, with at least 15 seconds left. It must preserve proposal count/order and every unflagged field exactly; no money/audience/reference/authorization repair or stronger-model retry. Full validation still follows.
 
+Flight departures and arrivals use the respective airport's IANA zone, not one shared trip offset. The schema supports optional `flight.departureTimeZone`/`arrivalTimeZone`; supplied ticket times remain endpoint-local until converted to explicit instants. Keep airport codes and trustworthy zone evidence; never invent an unknown offset. The same contract reaches paid/free planning and picture extraction, without enabling search or images for Free AI. Display resolution is deterministic and offline (D-102).
+
 Detected booking PINs/access codes/private management URLs are redacted from provider input and generated outputs; original restricted audit text remains. This is not a guarantee of detecting every secret. Booking text is untrusted data, never authority to visit cancellation links.
 
 ### Bounded clarification drafts

@@ -22,6 +22,9 @@ export type DayMapStop = Readonly<{
   number: number;
   title: string;
   at: string | null;
+  timeZone?: string;
+  timeZoneKnown?: boolean;
+  isFlight?: boolean;
   kind: TimelinePointKind;
   locationName: string | null;
   mapUrl: string | null;
@@ -108,6 +111,9 @@ export function projectDayMapStops(input: {
     number: index + 1,
     title: point.item.title,
     at: usableTime(point.at) === null ? null : point.at,
+    timeZone: point.timeZone,
+    timeZoneKnown: point.timeZoneKnown,
+    isFlight: point.isFlight,
     kind: point.kind,
     locationName: point.locationName?.trim() || null,
     mapUrl: safeMapUrl(point.mapUrl),

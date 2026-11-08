@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
+import { resolveFlightPresentation } from "@/lib/app/flight-presentation";
 
 import {
   AppConflictError,
@@ -685,10 +686,11 @@ async function syncItineraryItemToCalendarInternal(
     status: string;
     current_revision: number;
     time_zone: string;
+    flight: unknown;
   }>(
     `SELECT i.id, i.title, i.item_type, i.starts_at, i.ends_at, i.location_name,
             i.departure_location_name, i.destination_location_name, i.notes,
-            i.status, i.current_revision, t.time_zone
+            i.status, i.current_revision, t.time_zone, i.flight
        FROM itinerary_items i
        JOIN trips t ON t.id = i.trip_id
       WHERE i.trip_id = $1 AND i.id = $2
@@ -734,6 +736,8 @@ async function syncItineraryItemToCalendarInternal(
   const calendarLocation = item.item_type === "transport"
     ? item.destination_location_name ?? item.departure_location_name
     : item.location_name;
+  const presentation = resolveFlightPresentation({ itemType: item.item_type, title: item.title, flight: item.flight,
+    departureLocationName: item.departure_location_name, destinationLocationName: item.destination_location_name }, item.time_zone);
   const eventBody: CalendarEventBody = {
     summary: item.status === "cancelled" ? `[Cancelled] ${item.title}` : item.title,
     description: [
@@ -742,8 +746,8 @@ async function syncItineraryItemToCalendarInternal(
       `Stardust Itinerary: ${new URL(`/en#item-${item.id}`, config.appBaseUrl).href}`,
     ].filter(Boolean).join("\n\n"),
     location: calendarLocation ?? undefined,
-    start: { dateTime: item.starts_at.toISOString(), timeZone: item.time_zone },
-    end: { dateTime: endsAt.toISOString(), timeZone: item.time_zone },
+    start: { dateTime: item.starts_at.toISOString(), timeZone: presentation.departureTimeZone },
+    end: { dateTime: endsAt.toISOString(), timeZone: presentation.arrivalTimeZone },
     extendedProperties: { private: { stardustTripId: tripId, stardustItemId: itemId } },
   };
   // Do not turn a source all-day event into an invented timed booking on explicit sync.

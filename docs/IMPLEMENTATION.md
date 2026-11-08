@@ -6,7 +6,7 @@ Source map and safe verification guide. Runtime topology is in [architecture](AR
 
 - Google-bound accounts, revocable rolling sessions, assigned/reusable invitations, trip switching, owner trip creation/date settings, safe member removal and owner trip deletion that keeps records.
 - Shared/private canonical events and visible pending projections, owner review/history, endpoint-specific transport rows, revisioned editing and cancelled-event tombstones.
-- Flight details on transport events (JOB-082), and flight status checks before departure in sponsored trips that update a flight's times, cancellation, terminal or gate (JOB-083).
+- Flight details on transport events (JOB-082), airport-local endpoint clocks and distinct plane icons (JOB-090), and flight status checks before departure in sponsored trips that update a flight's times, cancellation, terminal or gate (JOB-083).
 - Per-person expense summaries, equal/exact splits, multiple bills per event, atomic linked-event bills and manual repayments.
 - AI through the official Codex SDK, Claude Agent SDK and Gemini REST API: text/pictures, typed proposals, private browseable history, bounded memory/clarification drafts, manual account instructions, isolated public research and recoverable delivery. AI-created events are trip-wide unless clearly solo (JOB-079), and AI expenses are split between everyone unless the request gives the parts (JOB-080).
 - Bring-your-own provider keys, encrypted at rest and isolated per request (JOB-061). Trip owners can share them with chosen members (JOB-063).
@@ -65,7 +65,8 @@ Account-owned Secret Manager support (JOB-087) is opt-in and not yet activated b
 | Path | Purpose |
 | --- | --- |
 | `src/components/app-shell.tsx` | Shared app orchestration/presentation; topic components isolate newer controls. |
-| `src/components/event-type-icon.tsx` | Fixed-size decorative inline SVGs selected from stored event type/flight state, shared by canonical/pending/approval cards; no image fetch or added dependency. |
+| `src/components/event-type-icon.tsx` | Fixed-size decorative inline SVGs selected from event type/resolved flight state, shared by canonical/pending/approval cards; no image fetch or added dependency. |
+| `src/lib/app/flight-presentation.ts`, `airport-time-zones.ts`, `zoned-event-time.ts` | Offline airport/explicit-zone resolution, conservative legacy flight display, and DST-safe manual editing; canonical UTC instants and trip-date grouping stay unchanged. Catalog source/license are pinned by `scripts/generate-airport-time-zones.mjs`. |
 | `src/components/new-ui/` | Layout components; layout styles in `src/app/new-ui/` stay scoped to `:root[data-ui="new"]`. |
 | `src/lib/app/repository.ts`, `validation.ts`, `types.ts` | Canonical transactions, proposal policy, model registry and shared contract. |
 | `src/lib/auth/` | Google binding, account/trip sessions, invitation and operator authority, suspension checks. |

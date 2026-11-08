@@ -13,6 +13,12 @@ const callbacks = () => ({ start: vi.fn(), success: vi.fn(), failure: vi.fn(), c
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("daily map client boundaries", () => {
+  it("invalidates a map response after flight display zones change", () => {
+    const response: DayMapResponse = { ...ready, stops: [{ ...located, isFlight: true, timeZone: "America/Chicago", timeZoneKnown: true }] };
+    expect(dayMapResponseMatches(response, response.stops)).toBe(true);
+    expect(dayMapResponseMatches(response, [{ ...response.stops[0]!, timeZone: "America/Denver" }])).toBe(false);
+    expect(dayMapResponseMatches(response, [{ ...response.stops[0]!, timeZoneKnown: false }])).toBe(false);
+  });
   it("accepts keyless HTTPS raster templates without arbitrary browser requests", () => {
     expect(validMapTileTemplate("https://tile.openstreetmap.org/{z}/{x}/{y}.png")).toBe(true);
     expect(validMapTileTemplate("https://tiles.example.org/osm/{z}/{x}/{y}.webp")).toBe(true);

@@ -66,6 +66,15 @@ describe("projectDayMapStops", () => {
     expect(result.map((stop) => stop.kind)).toEqual(["arrival", "departure"]);
   });
 
+  it("retains trip-date map grouping while preserving airport-local endpoint presentation", () => {
+    const flight = item({ id: "flight", itemType: "transport", startsAt: "2026-09-27T14:00:00Z", endsAt: "2026-09-27T23:00:00Z",
+      flight: { flightNumber: "ZZ123" }, departureLocationName: "HND", destinationLocationName: "LAX" });
+    expect(project([flight])).toMatchObject([{ key: "flight:departure", timeZone: "Asia/Tokyo", timeZoneKnown: true, isFlight: true }]);
+    expect(project([flight], [], "day-2")).toMatchObject([{ key: "flight:arrival", at: flight.endsAt, timeZone: "America/Los_Angeles", timeZoneKnown: true, isFlight: true }]);
+    const pending = proposal({ ...flight, requestId: "pending-flight", status: "pending" });
+    expect(project([], [pending], "day-2")).toMatchObject([{ key: "pending:pending-flight:arrival", timeZone: "America/Los_Angeles", pending: true }]);
+  });
+
   it("does not borrow the other transport endpoint's place or timestamp", () => {
     const result = project([item({ id: "untimed-arrival", itemType: "transport", endsAt: null,
       departureLocationName: "Station A", destinationLocationName: "Station B" })]);
@@ -206,7 +215,7 @@ describe("projectDayMapStops", () => {
     const enriched = { ...item(), notes: "Not for the map", weather: { latitude: 0, longitude: 0 }, viewerMemberIds: ["viewer"] };
     const [stop] = project([enriched]);
     expect(Object.keys(stop!).sort()).toEqual([
-      "allDay", "at", "key", "kind", "locationName", "mapUrl", "number", "pending", "title", "visibility",
+      "allDay", "at", "isFlight", "key", "kind", "locationName", "mapUrl", "number", "pending", "timeZone", "timeZoneKnown", "title", "visibility",
     ]);
   });
 });

@@ -139,7 +139,7 @@ export async function requestDayMap(input: DayMapRequest, signal: AbortSignal): 
 
 /** Never paint coordinates from a response for a changed local projection. */
 export function dayMapResponseMatches(response: DayMapResponse, stops: DayMapStop[]): boolean {
-  const fields = ["key", "number", "title", "at", "kind", "locationName", "mapUrl", "visibility", "pending", "allDay"] as const;
+  const fields = ["key", "number", "title", "at", "timeZone", "timeZoneKnown", "isFlight", "kind", "locationName", "mapUrl", "visibility", "pending", "allDay"] as const;
   return response.stops.length === stops.length && response.stops.every((stop, index) => stop && fields.every(field => stop[field] === stops[index][field]));
 }
 

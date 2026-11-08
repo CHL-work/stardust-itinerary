@@ -10,6 +10,7 @@ import { dayMapResponseMatches, visibleDayMapStops, type DayMapResponse } from "
 import { chooseMapViewport } from "@/lib/maps/geometry";
 import type { DayMapStop } from "@/lib/maps/day-stops";
 import { locales } from "@/lib/i18n";
+import { flightMessages } from "@/lib/app/flight-i18n";
 
 const stop: DayMapStop = { key: "synthetic:event", number: 1, title: "Synthetic public museum", at: "2030-04-01T01:00:00Z", kind: "event", locationName: "Synthetic museum, Tokyo", mapUrl: null, visibility: "trip", pending: false, allDay: false };
 const pending: DayMapStop = { ...stop, key: "pending:synthetic:event", number: 2, title: "Synthetic proposed return", pending: true };
@@ -36,6 +37,15 @@ function closure<T>(name: string, bindings: Record<string, unknown>): T {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("map-only daily journey presentation", () => {
+  it("labels flights in each endpoint's own time zone and date without changing generic times", () => {
+    const departure = { ...stop, at: "2026-09-27T14:00:00Z", isFlight: true, timeZoneKnown: true, timeZone: "Asia/Tokyo" };
+    const arrival = { ...departure, kind: "arrival" as const, at: "2026-09-27T23:00:00Z", timeZone: "America/Los_Angeles" };
+    expect(dayMapStopTime(departure, "en", "Asia/Tokyo")).toBe("Sep 27, 11:00 PM GMT+9");
+    expect(dayMapStopTime(arrival, "en", "Asia/Tokyo")).toBe("Sep 27, 04:00 PM PDT");
+    expect(dayMapStopTime(stop, "en", "Asia/Tokyo")).toBe("10:00 AM");
+    for (const locale of locales) expect(dayMapStopTime({ ...arrival, timeZoneKnown: false }, locale, "Asia/Tokyo"))
+      .toContain(flightMessages(locale).tripTimeFallback);
+  });
   it.each(locales)("starts collapsed without a provider request or private content in %s", locale => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
     const html = renderToStaticMarkup(createElement(DayEventMap, { tripId: "synthetic-trip", memberId: "synthetic-member", tripDayId: "synthetic-day", date: base.date, timeZone: base.timeZone, locale, stops: [stop, privateStop] }));

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { projectTimelinePoints } from "@/lib/app/timeline";
 
 import {
   clearOfflineItinerarySnapshot,
@@ -135,6 +136,25 @@ const source = {
 };
 
 describe("offline itinerary snapshot", () => {
+  it("keeps only safe flight presentation metadata and projects endpoint-local times offline", () => {
+    const snapshot = createOfflineItinerarySnapshot({ ...source, visibleItinerary: [{ ...source.visibleItinerary[0]!,
+      title: "Synthetic cross-zone flight", departureLocationName: "DFW", destinationLocationName: "SLC",
+      flight: { flightNumber: "ZZ999", departureTerminal: "Secret terminal", departureGate: "Secret gate", arrivalTerminal: "Secret arrival",
+        departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" } }] });
+    expect(snapshot.itinerary[0]!.flightPresentation).toEqual({ isFlight: true, departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" });
+    expect(JSON.stringify(snapshot)).not.toMatch(/ZZ999|Secret|flightNumber|departureGate/u);
+    const points = projectTimelinePoints(snapshot.itinerary, { tripDays: snapshot.days, timeZone: snapshot.trip.timeZone });
+    expect(points.map((point) => [point.timeZone, point.isFlight, point.timeZoneKnown])).toEqual([
+      ["America/Chicago", true, true], ["America/Denver", true, true],
+    ]);
+    const parsed = parseOfflineItinerarySnapshot({ ...snapshot, itinerary: [{ ...snapshot.itinerary[0],
+      departureLocationName: "Synthetic departure", destinationLocationName: "Synthetic arrival",
+      flightPresentation: { isFlight: true, departureTimeZone: "Invalid/Zone", arrivalTimeZone: "CST", flightNumber: "SECRET" } }] });
+    expect(parsed!.itinerary[0]!.flightPresentation).toEqual({ isFlight: true, departureTimeZone: null, arrivalTimeZone: null });
+    expect(projectTimelinePoints(parsed!.itinerary, { tripDays: parsed!.days, timeZone: parsed!.trip.timeZone })[0]).toMatchObject({
+      isFlight: true, timeZoneKnown: false, timeZone: "Asia/Tokyo",
+    });
+  });
   it("keeps every trip day and only trip-visible, explicitly allowlisted event fields", () => {
     const snapshot = createOfflineItinerarySnapshot(source, new Date("2026-09-03T00:00:00.000Z"));
     const serialized = JSON.stringify(snapshot);

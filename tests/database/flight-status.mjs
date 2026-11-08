@@ -40,14 +40,16 @@ export async function testFlightStatus(pool, connectionString) {
          departure_location_name, destination_location_name, flight, visibility)
        VALUES ($1,$2,$3,$4,$5,'transport',$6,$7,'Synthetic Airport','Second Synthetic Airport',$8::jsonb,$9)`,
       [tripId, id, dayId, memberId, title, startsAt, new Date(Date.parse(startsAt) + 70 * 60_000).toISOString(),
-        JSON.stringify({ flightNumber: extra.flightNumber ?? "ZZ500", departureTerminal: "Terminal 1" }), extra.visibility ?? "trip"]);
+        JSON.stringify({ flightNumber: extra.flightNumber ?? "ZZ500", departureTerminal: "Terminal 1", ...extra.flight }), extra.visibility ?? "trip"]);
     await pool.query(
       `INSERT INTO itinerary_revisions (trip_id, itinerary_item_id, revision, changed_by_member_id, snapshot)
        VALUES ($1,$2,1,$3,'{"title":"Synthetic flight"}'::jsonb)`, [tripId, id, memberId]);
     return id;
   };
   const answers = [];
+  const lookupPrompts = [];
   const provider = { async check(input) {
+    lookupPrompts.push(input.prompt);
     assert.match(input.prompt, /^You check the current status of one flight/u);
     assert.doesNotMatch(input.prompt, /Synthetic status flyer|example\.test/u);
     const answer = answers.shift();
@@ -111,6 +113,33 @@ export async function testFlightStatus(pool, connectionString) {
   assert.equal(answers.length, 0);
   const requests = await pool.query("SELECT count(*)::int AS n FROM ai_requests WHERE trip_id = $1 AND feature = 'flight_status' AND initiator_kind = 'system'", [tripId]);
   assert.equal(requests.rows[0].n, 4);
+
+  // Airport-local lookup dates can differ from the canonical trip date. A status
+  // update retains both zone metadata and the trip-zone day-assignment contract.
+  const crossZone = await flight("Synthetic cross-zone flight", "2031-05-02T04:30:00Z", {
+    flight: { departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" },
+  });
+  const nextTripDay = (await pool.query("SELECT id FROM trip_days WHERE trip_id = $1 AND day_date = '2031-05-02'", [tripId])).rows[0].id;
+  await pool.query("UPDATE itinerary_items SET trip_day_id = $3 WHERE trip_id = $1 AND id = $2", [tripId, crossZone, nextTripDay]);
+  answers.push(answer({ scheduledDeparture: "2031-05-01T23:30:00-05:00", status: "delayed",
+    estimatedDeparture: "2031-05-02T00:30:00-05:00", estimatedArrival: "2031-05-02T01:30:00-06:00" }));
+  assert.equal((await run("2031-05-01T10:30:00Z")).updated, 1);
+  assert.match(lookupPrompts.at(-1), /Planned departure: 2031-05-01 23:30 local time \(America\/Chicago\)/u);
+  const updatedCrossZone = await item(crossZone);
+  assert.equal(updatedCrossZone.starts_at.toISOString(), "2031-05-02T05:30:00.000Z");
+  assert.equal(updatedCrossZone.ends_at.toISOString(), "2031-05-02T07:30:00.000Z");
+  assert.equal(updatedCrossZone.trip_day_id, nextTripDay);
+  assert.equal(updatedCrossZone.flight.departureTimeZone, "America/Chicago");
+  assert.equal(updatedCrossZone.flight.arrivalTimeZone, "America/Denver");
+  // A structured flight may only name its airport codes in the title. Resolve locally,
+  // without sending that title or other booking text to the public researcher.
+  await pool.query("UPDATE itinerary_items SET status = 'completed' WHERE trip_id = $1 AND id = $2", [tripId, crossZone]);
+  const titleFlight = await flight("Synthetic flight ZZ500 DFW → SLC private-title-sentinel", "2031-05-02T04:30:00Z");
+  await pool.query("UPDATE itinerary_items SET trip_day_id = $3 WHERE trip_id = $1 AND id = $2", [tripId, titleFlight, nextTripDay]);
+  answers.push(answer({ scheduledDeparture: "2031-05-01T23:30:00-05:00" }));
+  assert.equal((await run("2031-05-01T10:30:00Z")).checked, 1);
+  assert.match(lookupPrompts.at(-1), /Planned departure: 2031-05-01 23:30 local time \(America\/Chicago\)/u);
+  assert.doesNotMatch(lookupPrompts.at(-1), /private-title-sentinel|Synthetic flight/u);
   await assert.rejects(pool.query("UPDATE flight_status_changes SET kind = 'details' WHERE trip_id = $1", [tripId]), /append-only/iu);
   await assert.rejects(pool.query(
     `INSERT INTO itinerary_revisions (trip_id, itinerary_item_id, revision, changed_by_member_id, changed_by_source, snapshot)

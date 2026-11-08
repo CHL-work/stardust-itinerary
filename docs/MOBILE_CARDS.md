@@ -8,9 +8,11 @@ These card and safe-removal rules add no provider or payment processing.
 
 ## Event icons
 
-`EventTypeIcon` uses fixed-size inline SVGs from the existing Lucide package: activities (compass), meals/restaurants (utensils), lodging (hotel), transport (route) and notes (notebook). Transport with structured flight details uses a plane, with takeoff/landing variants for its endpoints; titles are never parsed for a subtype. Today/Itinerary markers, next-event/lodging cards and pending/approval cards share these icons. Approval displays carry only a derived `isFlight` flag, not additional flight or booking details.
+`EventTypeIcon` uses fixed-size inline SVGs from the existing Lucide package: activities (compass), meals/restaurants (utensils), lodging (hotel), transport (route) and notes (notebook). Flights use a plane, with takeoff/landing variants for endpoints. Structured flight details are authoritative; a narrow legacy display exception requires explicit flight wording, a flight number and one unambiguous known airport-code route, with no rail/bus/transfer wording. This never rewrites data or enables monitoring (JOB-090, D-102, refining D-100). Today/Itinerary, next-event and pending/approval cards share these icons. Approval projections carry derived presentation metadata, not booking details.
 
-Icons are decorative and non-focusable; localized titles/type/status text stays. Private and owner-locked events show their type as well as the separate lock label, and pending/cancelled indicators are unchanged. Offline cards use their existing saved type (no new flight facts in snapshots); unimported Calendar candidates keep their Calendar icon. Static imports add no image downloads, extra requests, animation or new dependency (JOB-088, D-100).
+Icons are decorative and non-focusable; localized titles/type/status text stays. Private and owner-locked events show their type as well as the separate lock label, and pending/cancelled indicators are unchanged. Offline cards retain only safe flight-kind/known-zone metadata, never flight numbers, terminals, gates or booking facts; unimported Calendar candidates keep their Calendar icon. Static imports add no image downloads, extra requests, animation or new dependency.
+
+Flight departure and arrival clocks use their own IANA zones: explicit saved zone, then a confident bundled airport lookup, else a labeled **Trip time** fallback. Labels include the zone and show the endpoint-local date when it differs from the trip date. Stored UTC instants, elapsed duration, chronological ordering and trip-calendar date grouping do not change. Both endpoint rows still represent one event and one action set. Generic transport remains in the trip zone.
 
 ## Reading and actions
 
@@ -28,7 +30,7 @@ Pending-event review controls keep their own grid: one equal-width row uses **Ed
 
 ## Event time editor
 
-Create/edit/pending event forms permit blank end time and duration. New events do not assume one hour; clearing either field clears both, and saved unknown ends stay unknown. Entered valid end/duration still calculate one another. Start and end have distinct 44px Now buttons beside their labels, using the trip-zone current date/time at click time without submitting. At phone widths the fields stack and use 16px input text. Invalid ranges/outside-trip times keep the draft and localized feedback. A known start remains required; these controls do not extend trips or change owner-review rules.
+Create/edit/pending event forms permit blank end time and duration. New events do not assume one hour; clearing either field clears both, and saved unknown ends stay unknown. Entered valid end/duration calculate one another using elapsed time. Start and end have distinct 44px Now buttons beside their labels, using the corresponding endpoint zone for flights and the trip zone otherwise, without submitting. Changing an airport/zone preserves existing instants while rebasing the clock fields. Unchanged edits retain seconds and the existing DST occurrence; nonexistent or newly ambiguous local times are refused, not silently shifted. At phone widths the fields stack and use 16px input text. Invalid ranges/outside-trip times keep the draft and localized feedback. A known start remains required; these controls do not extend trips or change owner-review rules.
 
 ## Expense cards
 

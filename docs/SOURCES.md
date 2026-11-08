@@ -248,6 +248,8 @@ OpenCode and sub2api were inspected only for portable adapter, model-routing, re
 
 ## Source-use rules for implementation
 
+November 7, 2026 airport-zone display: [mwgg/Airports, pinned revision a89e4e0](https://github.com/mwgg/Airports/tree/a89e4e0dda9d9878337e2da190ebe1ef1d6af705) supplies public IATA/IANA mappings under its [MIT license](https://github.com/mwgg/Airports/blob/a89e4e0dda9d9878337e2da190ebe1ef1d6af705/LICENSE). A reproducible generator validates SHA-256/source shape, omits ambiguous codes and retains only compact zone/code groups. Full attribution ships with source and container. Runtime `Intl` supplies date-specific DST offsets; this is not live flight-status data. No traveler data is sent to the catalog source.
+
 September 6, 2026 picture-input implementation: [official Codex SDK](https://learn.chatgpt.com/docs/codex-sdk), [Codex image inputs](https://learn.chatgpt.com/docs/image-inputs), [Claude Agent SDK streaming input](https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode), and [sharp input bounds](https://sharp.pixelplumbing.com/api-constructor/) inform the interfaces. Installed types and synthetic checks establish actual app behavior; cleanup is not proof of upstream erasure. See [image inputs](AI_IMAGE_INPUTS.md).
 
 September 5, 2026 search-follow-up verification: [official Codex search configuration](https://learn.chatgpt.com/docs/config-file/config-basic#web-search-mode) distinguishes live from disabled search, and [the official Codex SDK guide](https://learn.chatgpt.com/docs/codex-sdk) documents server-side local-agent integration. Installed SDK types and synthetic provider evaluations establish the application's actual selected-model behavior; configuration alone is not proof that a search executed.

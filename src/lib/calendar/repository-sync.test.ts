@@ -257,6 +257,7 @@ describe("Google Calendar deleted-event recovery", () => {
       status: "planned",
       current_revision: 7,
       time_zone: "Asia/Tokyo",
+      flight: null as unknown,
     };
     let linkedProviderEventId: string | null = deletedEventId;
     const databaseQuery = vi.fn(async (sql: string, params?: unknown[]) => {
@@ -372,6 +373,16 @@ describe("Google Calendar deleted-event recovery", () => {
     expect(databaseQuery.mock.calls.filter(([sql]) => String(sql).includes("pg_advisory_lock"))).toHaveLength(2);
     expect(databaseQuery.mock.calls.filter(([sql]) => String(sql).includes("pg_advisory_unlock"))).toHaveLength(2);
     expect(release).toHaveBeenCalledTimes(2);
+
+    calendarItem = { ...calendarItem, title: "Synthetic cross-zone flight", departure_location_name: "DFW", destination_location_name: "SLC",
+      starts_at: new Date("2026-09-01T18:00:00Z"), ends_at: new Date("2026-09-01T20:00:00Z"),
+      flight: { flightNumber: "ZZ123" } };
+    const flightFetch = mockGoogleResponses([{ status: 404 }, { status: 200, body: { id: "synthetic-flight-event", status: "confirmed" } }]);
+    await syncItineraryItemToCalendar(pool, config, session, "trip-1", "item-1");
+    const flightBody = JSON.parse(flightFetch.mock.calls.find((call) => requestMethod(call) === "POST")?.[1]?.body as string);
+    expect(flightBody.start).toEqual({ dateTime: "2026-09-01T18:00:00.000Z", timeZone: "America/Chicago" });
+    expect(flightBody.end).toEqual({ dateTime: "2026-09-01T20:00:00.000Z", timeZone: "America/Denver" });
+    expect(flightBody.description).not.toContain("ZZ123");
   });
 
   it("does not mark an event synced when it was removed during the Google request", async () => {

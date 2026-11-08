@@ -1,15 +1,29 @@
 import { containsPrivateIdentifier, sanitizePublicText } from "@/lib/disruptions/privacy";
+import { resolveFlightPresentation, type FlightPresentationInput } from "@/lib/app/flight-presentation";
 
 export type FlightStatusLookup = {
   flightNumber: string;
   airline: string | null;
   departureAirport: string | null;
   arrivalAirport: string | null;
-  /** The planned departure's local date and time in the trip's time zone, for example 2030-04-04 08:00. */
+  /** The planned departure's endpoint-local date/time, or an explicitly labeled trip-zone fallback. */
   plannedLocalDeparture: string;
   timeZone: string;
+  departureTimeZoneKnown?: boolean;
+  plannedDepartureInstant?: string;
   now: Date;
 };
+
+/** Public endpoint facts only. This never changes the event's canonical trip-day assignment. */
+export function flightStatusDepartureTime(item: FlightPresentationInput, instant: Date, tripTimeZone: string) {
+  const presentation = resolveFlightPresentation(item, tripTimeZone);
+  const timeZone = presentation.departureTimeZone;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(instant).map((part) => [part.type, part.value]));
+  return { plannedLocalDeparture: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`,
+    timeZone, departureTimeZoneKnown: presentation.departureZoneKnown, plannedDepartureInstant: instant.toISOString() };
+}
 
 /** A public place or airline name for the lookup, or null when it is missing or looks private. */
 export function publicLookupText(value: string | null | undefined, max = 120): string | null {
@@ -28,7 +42,7 @@ export function flightStatusPrompt(input: FlightStatusLookup): string {
   return `You check the current status of one flight for a trip planner. Use live web search. Prefer the airline's official flight status page and the departure airport's official departures page; a flight tracker may corroborate them.
 
 Flight: ${input.flightNumber}${input.airline ? ` (${input.airline})` : ""}${route ? `, ${route}` : ""}.
-Planned departure: ${input.plannedLocalDeparture} local time (${input.timeZone}).
+Planned departure: ${input.plannedLocalDeparture} ${input.departureTimeZoneKnown === false ? "in the trip time zone (departure airport zone not confirmed)" : "local time"} (${input.timeZone}).${input.plannedDepartureInstant ? `\nPlanned departure instant: ${input.plannedDepartureInstant}.` : ""}${input.departureTimeZoneKnown === false ? "\nResolve the departure airport's actual time zone from public sources before matching the flight date. Do not treat the trip zone as the airport zone." : ""}
 Current time: ${input.now.toISOString()}.
 
 Report only what current sources show for this exact flight on this date, and fill the JSON schema:

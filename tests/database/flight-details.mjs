@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { applyPermittedChangeRequest, createChangeRequest, getAppOverview } from "../../src/lib/app/repository.ts";
+import { applyPermittedChangeRequest, createChangeRequest, getAppOverview, getPendingItineraryRequestForEdit,
+  updatePendingItineraryRequest, reviewChangeRequest } from "../../src/lib/app/repository.ts";
 import { insertSession, verifySession } from "../../src/lib/auth/repository.ts";
 
 /**
@@ -34,7 +35,8 @@ export async function testFlightDetails(pool, connectionString) {
       tripDayId: dayId, title: "ZZ123 synthetic flight", itemType: "transport",
       startsAt: "2031-04-01T05:00:00.000Z", endsAt: "2031-04-01T06:10:00.000Z",
       departureLocationName: "Synthetic Airport", destinationLocationName: "Second Synthetic Airport",
-      flight: { flightNumber: "ZZ123", airline: "Synthetic Air", departureTerminal: "Terminal 1" },
+      flight: { flightNumber: "ZZ123", airline: "Synthetic Air", departureTerminal: "Terminal 1",
+        departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" },
     },
   });
   const applied = await applyPermittedChangeRequest(pool, session, tripId, created.id);
@@ -42,23 +44,68 @@ export async function testFlightDetails(pool, connectionString) {
     `SELECT i.flight, r.snapshot FROM itinerary_items i
        JOIN itinerary_revisions r ON r.trip_id = i.trip_id AND r.itinerary_item_id = i.id AND r.revision = 1
       WHERE i.trip_id = $1 AND i.id = $2`, [tripId, applied.entityId]);
-  assert.deepEqual(stored.rows[0].flight, { flightNumber: "ZZ123", airline: "Synthetic Air", departureTerminal: "Terminal 1" });
+  assert.deepEqual(stored.rows[0].flight, { flightNumber: "ZZ123", airline: "Synthetic Air", departureTerminal: "Terminal 1",
+    departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" });
   assert.equal(stored.rows[0].snapshot.flight.flightNumber, "ZZ123");
+  assert.equal(stored.rows[0].snapshot.flight.departureTimeZone, "America/Chicago");
+  assert.equal(stored.rows[0].snapshot.flight.arrivalTimeZone, "America/Denver");
 
   // A gate arrives later; the whole object is replaced.
   const updated = await createChangeRequest(pool, session, tripId, {
     entityType: "itinerary_item", entityId: applied.entityId, operation: "update", baseRevision: 1, reason: "Gate assigned",
-    patch: { flight: { flightNumber: "ZZ123", airline: "Synthetic Air", departureTerminal: "Terminal 2", departureGate: "B7" } },
+    patch: { flight: { flightNumber: "ZZ123", airline: "Synthetic Air", departureTerminal: "Terminal 2", departureGate: "B7",
+      departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver" } },
   });
   await applyPermittedChangeRequest(pool, session, tripId, updated.id);
   const overview = await getAppOverview(pool, session);
   assert.deepEqual(overview.itinerary.find((item) => item.id === applied.entityId)?.flight, {
     flightNumber: "ZZ123", airline: "Synthetic Air", departureTerminal: "Terminal 2", departureGate: "B7", arrivalTerminal: null,
+    departureTimeZone: "America/Chicago", arrivalTimeZone: "America/Denver",
   });
+
+  // Zone-only corrections remain proposals, round-trip through the editor, and never retime an instant.
+  const timing = async () => (await pool.query(`SELECT starts_at, ends_at, current_revision, flight
+    FROM itinerary_items WHERE trip_id=$1 AND id=$2`, [tripId, applied.entityId])).rows[0];
+  const beforePending = await timing();
+  const zoneRequest = await createChangeRequest(pool, session, tripId, {
+    entityType: "itinerary_item", entityId: applied.entityId, operation: "update", baseRevision: 2,
+    reason: "Synthetic airport zone correction", patch: { flight: { flightNumber: "ZZ123",
+      departureTimeZone: "America/New_York", arrivalTimeZone: "Europe/London" } },
+  });
+  const pending = (await getAppOverview(pool, session)).pendingItinerary.find((item) => item.requestId === zoneRequest.id);
+  assert.equal(pending.flight.departureTimeZone, "America/New_York");
+  assert.equal(pending.flight.arrivalTimeZone, "Europe/London");
+  const detail = await getPendingItineraryRequestForEdit(pool, session, tripId, zoneRequest.id);
+  assert.equal(detail.patch.startsAt, "2031-04-01T05:00:00.000Z");
+  assert.equal(detail.patch.endsAt, "2031-04-01T06:10:00.000Z");
+  assert.deepEqual(await timing(), beforePending);
+  for (const departureTimeZone of ["CST", "-06:00", "Not/AZone", "x".repeat(81)]) {
+    await assert.rejects(updatePendingItineraryRequest(pool, session, tripId, zoneRequest.id, {
+      proposalRevision: 1, patch: { flight: { flightNumber: "ZZ123", departureTimeZone } },
+    }));
+    assert.equal((await getPendingItineraryRequestForEdit(pool, session, tripId, zoneRequest.id)).proposalRevision, 1);
+    assert.deepEqual(await timing(), beforePending);
+  }
+  const edited = await updatePendingItineraryRequest(pool, session, tripId, zoneRequest.id, {
+    proposalRevision: 1, patch: { flight: { flightNumber: "ZZ123", departureTimeZone: "America/Chicago", arrivalTimeZone: "UTC" } },
+  });
+  assert.equal(edited.proposalRevision, 2);
+  assert.equal(edited.patch.flight.arrivalTimeZone, "UTC");
+  assert.deepEqual(await timing(), beforePending);
+  await reviewChangeRequest(pool, session, tripId, zoneRequest.id, "approve", "Synthetic zone-only approval", 2);
+  const afterZone = await timing();
+  assert.equal(afterZone.current_revision, 3);
+  assert.deepEqual(afterZone.starts_at, beforePending.starts_at);
+  assert.deepEqual(afterZone.ends_at, beforePending.ends_at);
+  assert.equal(afterZone.flight.arrivalTimeZone, "UTC");
+  const zoneRevision = (await pool.query(`SELECT snapshot FROM itinerary_revisions
+    WHERE trip_id=$1 AND itinerary_item_id=$2 AND revision=3`, [tripId, applied.entityId])).rows[0].snapshot;
+  assert.equal(zoneRevision.flight.arrivalTimeZone, "UTC");
+  assert.equal(zoneRevision.startsAt, "2031-04-01T05:00:00.000Z");
 
   // Turning the flight into another kind of event drops its flight details.
   const retyped = await createChangeRequest(pool, session, tripId, {
-    entityType: "itinerary_item", entityId: applied.entityId, operation: "update", baseRevision: 2, reason: "Not a flight after all",
+    entityType: "itinerary_item", entityId: applied.entityId, operation: "update", baseRevision: 3, reason: "Not a flight after all",
     patch: { itemType: "activity", locationName: "Synthetic Airport" },
   });
   await applyPermittedChangeRequest(pool, session, tripId, retyped.id);

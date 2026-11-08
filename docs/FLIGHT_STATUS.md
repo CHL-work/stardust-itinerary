@@ -18,10 +18,11 @@ All of these must hold:
 - the event departs within the next 24 hours.
 
 Private, pending, cancelled and completed events are never looked up.
+Legacy title-only flight recognition is presentation only (JOB-090, D-102); it does not make an event eligible for status checks.
 
 ## The lookup
 
-`gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it, on the operator's keys. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports and the planned local departure. It never includes titles, notes, people or booking details. The answer is structured JSON:
+`gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it, on the operator's keys. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports, planned departure instant and departure-local date/time. The departure zone comes from a validated explicit zone or the bundled airport lookup, including DST. An unresolved zone is labeled as a trip-zone fallback, not claimed as airport-local. It never includes titles, notes, people or booking details. The answer is structured JSON:
 - status;
 - scheduled and estimated departure and arrival;
 - terminals and gate;
@@ -36,12 +37,12 @@ Application code (`src/lib/flights/status.ts`) decides from the answer; the mode
 
 | Found | Needs | The event |
 | --- | --- | --- |
-| Departure moved by 15 minutes or more (a delay, or an earlier time) | high confidence | New departure; the arrival is the reported one, or shifted by the same amount. Its day follows a new local date when the trip has that day. Cards show a **Changed** badge; tapping it says what moved and when it was checked. |
+| Departure moved by 15 minutes or more (a delay, or an earlier time) | high confidence | New departure; the arrival is the reported one, or shifted by the same amount. Its canonical day follows the new **trip-zone** date when the trip has that day. Cards show a **Changed** badge; tapping it shows departure/arrival changes in their respective endpoint zones. |
 | Cancelled | high confidence | Marked cancelled, not deleted, with its times kept. Cards show the cancelled label and a red warning icon; tapping it says the airline lists the flight as cancelled. Later checks stop. |
 | New terminal or gate | medium or high confidence | Flight details updated quietly; cards show the gate, else the terminal, else the airline (D-094). |
 | Anything else | | No change. A drift under 15 minutes, a departed or landed flight, low confidence, another flight or date, or no usable source changes nothing, and unknown details never clear known ones. |
 
-A badge shows only while the event still reflects that change. A member who edits the time or restores the event clears it.
+A badge shows only while the event still reflects that change. A member who edits the time or restores the event clears it. Zone labels never reinterpret stored UTC instants or change check scheduling; status updates retain the flight's saved endpoint zones.
 
 ## Records and audit
 

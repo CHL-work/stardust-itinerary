@@ -84,6 +84,28 @@ describe("consistent pending and cancelled event cards", () => {
     }
   });
 
+  it("shows legacy flight departure in Dallas and arrival in Salt Lake City across normal/pending cards", () => {
+    const endpoints = {
+      itemType: "transport" as const, title: "American Airlines AA 1456 DFW → SLC",
+      departureLocationName: "Dallas Fort Worth (DFW)", destinationLocationName: "Salt Lake City (SLC)",
+      startsAt: "2030-04-01T15:00:00.000Z", endsAt: "2030-04-01T17:00:00.000Z", flight: null,
+    };
+    const html = renderToStaticMarkup(createElement(TimelineList, timelineProps([{ ...item, ...endpoints }])));
+    const proposed = renderToStaticMarkup(createElement(PendingItineraryList, {
+      points: points([{ ...pending, ...endpoints }]), locale: "en", messages: messages.en, timeZone: "Asia/Tokyo", busy: false,
+      edit: vi.fn(), approve: vi.fn(), reject: vi.fn(),
+    }));
+    for (const markup of [html, proposed]) {
+      const rows = markup.split('<article').slice(1);
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toContain('data-event-icon="flight-departure"');
+      expect(rows[0]).toContain("10:00 AM CDT");
+      expect(rows[1]).toContain('data-event-icon="flight-arrival"');
+      expect(rows[1]).toContain("11:00 AM MDT");
+      expect(markup.match(/data-feedback-action="event_edit"/gu)).toHaveLength(1);
+    }
+  });
+
   it.each(locales)("labels a cancelled event in %s and offers removal only to the owner", (locale) => {
     for (const isOwner of [true, false]) {
       const props = timelineProps([{ ...item, status: "cancelled" }], isOwner, locale);

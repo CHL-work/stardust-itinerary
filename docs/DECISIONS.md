@@ -2,6 +2,14 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-102: Airport-local flight clocks (accepted November 7, 2026)
+
+Flights show takeoff/landing icons and each endpoint's local clock and zone, not the trip zone at both airports (JOB-090). Optional validated IANA zones in `flight` override a compact, pinned MIT airport-code catalog; unknown endpoints explicitly say Trip time. No render-time lookup or model call. UTC instants, elapsed duration, countdowns and trip-calendar day grouping stay unchanged; a differing endpoint-local date is displayed.
+
+This narrowly refines D-100: legacy transport titles with an explicit flight/airline marker, valid flight designator and exactly one unambiguous known IATA route may select flight presentation. Generic transfers/trains/buses do not. This never backfills metadata or enables flight monitoring. Offline/approval projections retain only a flight flag and known zones, not booking facts.
+
+The editor, pending cards, map, Calendar export and flight-change labels use endpoint zones. Zone/airport changes preserve instants; ambiguous/nonexistent DST inputs require correction, while unchanged saved instants retain precision. Explicit zone correction clears only unresolvable inputs. Monitoring searches by the departure's local date; application writes and trip bounds retain trip-zone validation. No migration, funding, permissions or external-query expansion. [Cards](MOBILE_CARDS.md) · [checks](FLIGHT_STATUS.md).
+
 ## D-101: Empty onboarding, remembered language and explicit Google key modes (accepted November 8, 2026)
 
 JOB-089 replaces automatic guest demo seeding with explicit Create Trip. A guest may create one empty isolated trip, expiring with the original 24-hour account. Guests cannot join real trips before Google sign-in. There is no guest-data merge into either an existing or new Google account: identity remains immutable, the purge remains guest-only, and the UI explains the separation. Existing guest trips are not rewritten.
@@ -20,8 +28,8 @@ The user will paste keys in Settings and requested Google Secret Manager rather 
 
 The user requested recognizable flight, restaurant, hotel and other event icons without image-loading latency (JOB-088).
 
-- Use the existing Lucide package's static, fixed-size inline SVGs: compass for activities, utensils for meals, hotel for lodging, route for unspecified transport and notebook for notes. A structured flight number selects a plane, with takeoff/landing variants on its endpoints. Never guess a subtype from a title or language.
-- Today/Itinerary markers and next-event/lodging cards, pending cards and safe approval displays share the mapping. Offline cards use only their already-saved type; imported Calendar candidates keep their Calendar icon until categorized.
+- Use the existing Lucide package's static, fixed-size inline SVGs: compass for activities, utensils for meals, hotel for lodging, route for unspecified transport and notebook for notes. A structured flight number selects a plane, with takeoff/landing variants on its endpoints. D-102 adds a narrow legacy-flight presentation exception; no broad title/language guessing.
+- Today/Itinerary markers and next-event/lodging cards, pending cards and safe approval displays share the mapping. Offline cards additionally retain safe flight presentation under D-102; imported Calendar candidates keep their Calendar icon until categorized.
 - Icons are decorative, non-focusable and supplementary to text. Private, owner-lock, pending and cancelled indicators remain separate; no permission changes. No extra assets, dependency, API/model call, animation or database migration.
 
 ## D-098: Free AI is an explicit option for every account (accepted November 7, 2026)
@@ -459,7 +467,7 @@ These accepted changes refine the register without introducing duplicate decisio
 - **Calendar import:** immutable account/member/source receipts, date-only/exclusive-end fidelity, creator-only default and isolated explicit public-place lookup; signed AI suggestions remain reviewed. [Import](CALENDAR_IMPORT.md).
 - **Expenses:** personal allocated costs lead, full bills-paid/net separate; exact custom shares preserve sparse edits, no automatic FX. Repayments join date groups without inflating spending; accessible hints explain private/shared/pending exclusions and non-bank verification. [Expenses](TRIP_EXPENSES.md).
 - **Repayments:** real-money movement is external; immutable actual parties/amount/currency/time, revisioned status and explicit void/reassignment preserve history. No AI payment mutation. [Payments](MEMBER_PAYMENTS.md).
-- **Cards:** today-only initial expansion, current-day jump without refresh scroll theft; horizontal short review buttons; personal day totals right-aligned; optional end/duration and trip-zone Now. Cancelled removal is owner-confirmed tombstone; remove duplicate bill-entry action. [Mobile cards](MOBILE_CARDS.md).
+- **Cards:** today-only initial expansion, current-day jump without refresh scroll theft; horizontal short review buttons; personal day totals right-aligned; optional end/duration and zone-aware Now (flight endpoints under D-102, trip zone otherwise). Cancelled removal is owner-confirmed tombstone; remove duplicate bill-entry action. [Mobile cards](MOBILE_CARDS.md).
 - **Public preparation:** creator ownership and role changes do not activate public signup/funding; member-removal preview/reassignment preserves private access and history. [Members](PUBLIC_TRIPS_AND_MEMBERS.md).
 - **Pending edits/bills:** AI event-only same-proposal edits preserve linked finances and require review; event expense forms preserve drafts and actual eligible audiences on errors. [Pending AI edits](AI_PENDING_EVENT_EDITS.md).
 - **Research:** one isolated same-model round, exact hours reuse, neutral unknown fallback, deterministic conflict warnings, truthful stage failures, bounded completion reserve and cleanup separate from primary outcome. No automatic provider upgrade/search over private context. [Research](AI_AUTOMATIC_RESEARCH.md) · [hours](AI_VENUE_HOURS.md) · [timing](ARCHITECTURE.md#ai-transport-boundary).
