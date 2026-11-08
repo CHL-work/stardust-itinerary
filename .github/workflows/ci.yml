@@ -22,11 +22,20 @@ jobs:
         with:
           fetch-depth: 0
       - name: Scan the full history for secrets
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Download to a file with retries, so a dropped transfer is retried instead of failing tar.
-          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o "$RUNNER_TEMP/gitleaks.tar.gz" \
-            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
-          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          # The github.com release-download URL was returning gateway errors, so fetch the pinned release
+          # through the REST API with the job's own token (gh first, then curl with retries by asset id),
+          # and run it only if it matches the published checksum.
+          archive="$RUNNER_TEMP/gitleaks_8.30.1_linux_x64.tar.gz"
+          if ! gh release download v8.30.1 --repo gitleaks/gitleaks --pattern 'gitleaks_8.30.1_linux_x64.tar.gz' --dir "$RUNNER_TEMP"; then
+            curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o "$archive" \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+              https://api.github.com/repos/gitleaks/gitleaks/releases/assets/378332058
+          fi
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --config .gitleaks.toml .
 
   verify:
