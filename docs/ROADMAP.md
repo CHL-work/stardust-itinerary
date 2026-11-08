@@ -12,7 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
-| JOB-087 | Account-owned keys in Google Secret Manager | Code merged and deployed; storage activation/verification awaits operator project access. Existing KMS storage remains in use (D-099) |
+| JOB-087 | Account-owned keys in Google Secret Manager | Code deployed; scoped IAM, cleanup configuration and synthetic cloud checks passed. Final cleanup/web activation is staged (D-099) |
 | JOB-088 | Lightweight event type icons | Done: shared inline SVGs, responsive checks and refreshed synthetic screenshots; deployed to GKE (D-100) |
 | JOB-086 | Free AI for signed-in users and guests | Done: individual free-model picker, paid choices only with own saved keys, enabled and verified on GKE (D-098). See the job for release evidence |
 | JOB-058 | Public repository with fresh history (MIT); one container image for web, workers, migrations and backups; Docker Compose self-hosting | Done |

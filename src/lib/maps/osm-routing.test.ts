@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getOsmRoutingConfig, osrmEstimate, OsmRouteResolver } from "./osm-routing";
 import { OsmLookupLimit } from "./osm";
+import * as osmCache from "./osm";
 
 const directories: string[] = [];
 const from = { lat: 35, lng: 139 }, to = { lat: 35.01, lng: 139.01 };
@@ -12,7 +13,19 @@ async function context() {
   const cacheDir = await mkdtemp(join(tmpdir(), "stardust-osrm-test-")); directories.push(cacheDir);
   return { config: { cacheDir, endpoint: "https://routing.openstreetmap.de/" }, signal: new AbortController().signal };
 }
-afterEach(async () => { await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))); });
+afterEach(async () => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
+});
+
+function fakeRoutingClock() {
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+  vi.setSystemTime(0);
+  // Rate-limit tests isolate time from filesystem scheduling; separate tests cover durable I/O.
+  vi.spyOn(osmCache, "readOsmCache").mockImplementation(async () => ({}));
+  vi.spyOn(osmCache, "saveOsmCache").mockResolvedValue(undefined);
+}
 
 describe("OSRM estimates", () => {
   it("accepts bounded real route values and rejects malformed and far-snapped responses", () => {
@@ -61,10 +74,52 @@ describe("OSRM estimates", () => {
 
   it("serializes both modes under one global service rate limit", async () => {
     const options = await context(); const starts: number[] = [];
+    fakeRoutingClock();
     const fetcher = vi.fn(async () => { starts.push(Date.now()); return Response.json(route); });
     const resolver = new OsmRouteResolver();
-    await Promise.all([resolver.resolve(from, to, "walking", { ...options, fetch: fetcher }), resolver.resolve(from, to, "driving", { ...options, fetch: fetcher })]);
+    const pending = Promise.all([resolver.resolve(from, to, "walking", { ...options, fetch: fetcher }), resolver.resolve(from, to, "driving", { ...options, fetch: fetcher })]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
     expect(starts).toHaveLength(2); expect(starts[1] - starts[0]).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("waits again when a timer wakes before the rate-limit clock's deadline", async () => {
+    const options = await context();
+    fakeRoutingClock();
+    let now = 0;
+    const starts: number[] = [];
+    const fetcher = vi.fn(async () => { starts.push(now); return Response.json(route); });
+    const resolver = new OsmRouteResolver(() => now);
+    await resolver.resolve(from, to, "walking", { ...options, fetch: fetcher });
+    const pending = resolver.resolve(from, to, "driving", { ...options, fetch: fetcher });
+    await vi.advanceTimersByTimeAsync(0);
+    now = 999;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    now = 1000;
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(starts).toEqual([0, 1000]);
+  });
+
+  it("does not fetch a queued route after cancellation during its rate-limit wait", async () => {
+    const options = await context();
+    fakeRoutingClock();
+    const fetcher = vi.fn(async () => Response.json(route));
+    const resolver = new OsmRouteResolver();
+    await resolver.resolve(from, to, "walking", { ...options, fetch: fetcher });
+    const controller = new AbortController();
+    const pending = resolver.resolve(from, to, "driving", { ...options, fetch: fetcher, signal: controller.signal });
+    const rejected = expect(pending).rejects.toThrow("map_unavailable");
+    await vi.advanceTimersByTimeAsync(999);
+    controller.abort();
+    await rejected;
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it("rejects invalid coordinates, aborts and diagnostic errors without a fabricated estimate", async () => {

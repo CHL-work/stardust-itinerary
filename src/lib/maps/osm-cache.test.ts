@@ -39,6 +39,9 @@ describe("durable public cache publication fence", () => {
     const second = resolve(2, new AbortController().signal);
     await new Promise((done) => setTimeout(done, 20));
     expect(fetcher).toHaveBeenCalledTimes(1);
+    // This fixture controls the resolver's clock; let its rate-limit interval elapse independently
+    // of the next fetch, which must remain blocked by the first publication until we release it.
+    now += 1001;
     finishRename();
     expect(await second).not.toBeNull(); expect(fetcher).toHaveBeenCalledTimes(2);
     const cache = JSON.parse(await readFile(join(cacheDir, `public-${kind}-v1.json`), "utf8"));

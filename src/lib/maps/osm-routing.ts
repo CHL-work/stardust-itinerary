@@ -64,15 +64,24 @@ export class OsmRouteResolver {
     const cached = cache[key];
     if (cached && cached.expiresAt > this.now() && cached.estimate !== undefined) return cached.estimate;
     if (options.allowLookup && !options.allowLookup()) throw new OsmLookupLimit();
-    const delay = Math.max(0, this.lastStart + 1000 - this.now());
-    if (delay) await withMapAbort(new Promise<void>((done) => { const timer = setTimeout(done, delay); options.signal.addEventListener("abort", () => clearTimeout(timer), { once: true }); }), options.signal);
+    // Timers can wake early relative to the clock. Recheck rather than admitting a 999 ms gap.
+    for (let delay = this.lastStart + 1000 - this.now(); delay > 0; delay = this.lastStart + 1000 - this.now()) {
+      if (options.signal.aborted) throw new MapProviderUnavailable();
+      await withMapAbort(new Promise<void>((done) => {
+        const onAbort = () => clearTimeout(timer);
+        const timer = setTimeout(() => { options.signal.removeEventListener("abort", onAbort); done(); }, delay);
+        options.signal.addEventListener("abort", onAbort, { once: true });
+      }), options.signal);
+    }
     if (options.signal.aborted) throw new MapProviderUnavailable();
-    this.lastStart = this.now();
     const profile = mode === "walking" ? "foot" : "car";
     const url = new URL(`routed-${profile}/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}`, options.config.endpoint);
     url.search = new URLSearchParams({ overview: "false", steps: "false", alternatives: "false", generate_hints: "false", radiuses: "250;250" }).toString();
     const signal = AbortSignal.any([options.signal, AbortSignal.timeout(3000)]);
-    const response = await withMapAbort((options.fetch ?? fetch)(url, { headers: { "User-Agent": OSM_USER_AGENT, Accept: "application/json" }, redirect: "error", cache: "no-store", signal }), signal);
+    const fetching = (options.fetch ?? fetch)(url, { headers: { "User-Agent": OSM_USER_AGENT, Accept: "application/json" }, redirect: "error", cache: "no-store", signal });
+    // Record after dispatch so URL/request setup cannot shorten the observed inter-request gap.
+    this.lastStart = this.now();
+    const response = await withMapAbort(fetching, signal);
     // OSRM uses HTTP 400 for genuine NoRoute/NoSegment; do not cache other
     // failures as negative geographic evidence.
     const data = await osmProviderData(response, signal, true);

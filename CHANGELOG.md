@@ -7,7 +7,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 ### Added
 
 - **Account-owned Secret Manager storage (JOB-087, D-099):** users paste keys in Settings; an opt-in Google Cloud backend stores account/provider-bound KMS ciphertext in Secret Manager and only pinned references in PostgreSQL. Legacy keys remain readable. Verified writes, revision/access rechecks, fixed guest expiry and a delete-only cleanup worker cover replacement/removal and failed saves. Existing sharing and paid-model rules are unchanged. Migration 0064 and least-privilege infrastructure are included; activation requires a separate rollout. Settings accurately explains server-side use in every language.
-  Code and migration reached GKE on November 8 UTC after CI and deployment checks passed. Secret Manager activation remains pending operator project access; existing KMS storage is unchanged and the cleanup job stays suspended. No keys were imported.
+  Code and migration reached GKE on November 8 UTC after CI and deployment checks passed. Scoped IAM, dedicated cleanup configuration and synthetic workload-identity storage/deletion checks passed; the follow-up enables scheduled cleanup. Existing KMS storage stays readable. No keys were imported.
 
 - **Lightweight event icons (JOB-088, D-100):** meals, hotels, activities, notes and transport use inline SVGs from the existing icon package on Today, Itinerary and approval cards. Structured flights have takeoff/landing icons at their endpoints; no title guessing or new network requests. Pending, private, locked and cancelled labels remain separate. Offline cards use their saved event type without adding flight facts to offline storage.
   The Today and Cantonese Itinerary README screenshots now show the updated icons using synthetic trip data.
@@ -137,6 +137,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - **Classic layout (JOB-081, D-093):** the original dark layout, the layout toggle in the header and the Settings **Screen layout** card are gone; everyone gets the one layout, light or dark with the system. The classic phone bottom bar, Overview date selector and swipe hint, the sidebar's placeholder progress bar, their classic-only styles and the stored `stardust.ui-mode.v1` preference went with them. The README screenshots were retaken without the toggle.
 
 ### Fixed
+
+- **Deterministic route-rate verification:** OSRM walking/driving requests recheck the one-second deadline after an early timer wake. Fake-clock tests preserve the full 1,000 ms spacing assertion and cover cancellation, removing a 999 ms CI timing flake.
 
 - **Guest notice, counts and free-model line breaks (JOB-077, D-088):**
   - The guest notice is one short line, and says AI needs your own API key only when free guest AI is off and the guest has none.

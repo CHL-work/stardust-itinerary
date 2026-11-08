@@ -36,8 +36,8 @@ describe("account-key Secret Manager deployment boundaries", () => {
     expect(main).toContain('"cloudkms.googleapis.com/cryptoKeyVersions.useToDecrypt"');
   });
 
-  it("does not activate cloud storage or cleanup merely by deploying the application", () => {
-    expect(workload).toMatch(/spec:\r?\n  suspend: true\r?\n  schedule: "\*\/15 \* \* \* \*"/u);
+  it("enables the verified public cleanup worker while keeping web storage in operator configuration", () => {
+    expect(workload).toMatch(/spec:\r?\n  suspend: false\r?\n  schedule: "\*\/15 \* \* \* \*"/u);
     expect(read("deploy/k8s/overlays/gke/kustomization.yaml")).toContain("- credential-secret-cleanup.yaml");
     expect(read("deploy/k8s/base/web.yaml")).not.toContain("CREDENTIAL_SECRET_MANAGER_PROJECT");
     expect(read("deploy/k8s/overlays/gke/patches/web-secrets.yaml")).not.toContain("CREDENTIAL_SECRET_MANAGER_PROJECT");
