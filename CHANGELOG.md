@@ -154,6 +154,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **CI secret scan download:** the gitleaks download retries and extracts from a file, so a dropped transfer no longer fails the scan before it runs.
 - **French AI status lines:** a missing space after « L’IA » in two conversation messages.
 - **Deterministic route-rate verification:** OSRM walking/driving requests recheck the one-second deadline after an early timer wake. Fake-clock tests preserve the full 1,000 ms spacing assertion and cover cancellation, removing a 999 ms CI timing flake.
 
