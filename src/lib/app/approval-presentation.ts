@@ -116,6 +116,7 @@ export function projectApprovalDisplay(source: ApprovalPresentationSource, membe
   if (source.proposed_patch.linkedExpense && !linkedExpense) return unavailable;
   return { kind: "itinerary", event: {
     title: patch.title, ...locations,
+    isFlight: locations.itemType === "transport" && Boolean(patch.flight?.flightNumber),
     mapUrl: safeMapUrl(locations.mapUrl), departureMapUrl: safeMapUrl(locations.departureMapUrl), destinationMapUrl: safeMapUrl(locations.destinationMapUrl),
     dayDate: z.iso.date().safeParse(source.day_date).success ? source.day_date! : null,
     startsAt: patch.startsAt ?? null, endsAt: patch.endsAt ?? null, notes: patch.notes ?? null,

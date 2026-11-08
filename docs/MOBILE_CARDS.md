@@ -6,6 +6,12 @@ A separate personal Calendar card kind is interleaved inside dated Overview/Itin
 
 These card and safe-removal rules add no provider or payment processing.
 
+## Event icons
+
+`EventTypeIcon` uses fixed-size inline SVGs from the existing Lucide package: activities (compass), meals/restaurants (utensils), lodging (hotel), transport (route) and notes (notebook). Transport with structured flight details uses a plane, with takeoff/landing variants for its endpoints; titles are never parsed for a subtype. Today/Itinerary markers, next-event/lodging cards and pending/approval cards share these icons. Approval displays carry only a derived `isFlight` flag, not additional flight or booking details.
+
+Icons are decorative and non-focusable; localized titles/type/status text stays. Private and owner-locked events show their type as well as the separate lock label, and pending/cancelled indicators are unchanged. Offline cards use their existing saved type (no new flight facts in snapshots); unimported Calendar candidates keep their Calendar icon. Static imports add no image downloads, extra requests, animation or new dependency (JOB-088, D-100).
+
 ## Reading and actions
 
 Entering Itinerary or Trip Expenses opens only the actual current date in the trip's time zone and jumps to that group. Other days are initially collapsed; all their headings/totals remain visible. Manual open/close choices survive data refreshes during a visit and reset on page re-entry, trip/member change or trip-local midnight. The clock refreshes on navigation and return from phone suspension. If today is outside the displayed dates, all groups stay collapsed and navigation lands on the nearest date heading without falsely labeling it Today. An empty current-day group still opens.

@@ -632,6 +632,13 @@
   font-size: var(--text-xs);
 }
 
+/* Fixed-size inline event glyphs add no image request or layout shift. */
+:root[data-ui="new"] .event-type-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: -0.15em;
+}
+
 /* Marker: dot plus a connector that runs through both grid rows to the next row's dot. */
 :root[data-ui="new"] .timeline-marker {
   position: relative;

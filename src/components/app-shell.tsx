@@ -76,6 +76,7 @@ import { mobileCardsMessages } from "@/lib/app/mobile-cards-i18n";
 import { ApprovalRequestCards } from "@/components/approval-request-cards";
 import { EventEditorFeedback, EventExpenseParticipants } from "@/components/event-editor-feedback";
 import { EventTimeFields } from "@/components/event-time-fields";
+import { EventTypeIcon } from "@/components/event-type-icon";
 import { ExpenseSplitEditor } from "@/components/expense-split-editor";
 import { TripExpenseSummary, PersonalExpenseWidget } from "@/components/trip-expense-summary";
 import { MemberPaymentForm, MemberPaymentDecisionForm, MemberPaymentHistory, MemberPaymentCard, eligiblePaymentMember,
@@ -878,7 +879,7 @@ function OfflineItineraryPanel({
             {points.length ? points.map((point) => (
               <article className="offline-event-card" key={point.key}>
                 <div className="offline-event-time"><Clock3 size={16} /><strong>{point.at ? formatTime(point.at, locale, snapshot.trip.timeZone) : messages.timeNotSet}</strong></div>
-                <div className="offline-event-copy"><h3>{point.item.title}</h3><small>{point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : eventTypeLabel(point.item.itemType, messages)} · {eventStatusLabel(point.item.status, messages)}</small></div>
+                <div className="offline-event-copy"><h3><EventTypeIcon itemType={point.item.itemType} endpoint={point.kind} /> {point.item.title}</h3><small>{point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : eventTypeLabel(point.item.itemType, messages)} · {eventStatusLabel(point.item.status, messages)}</small></div>
                 {point.locationName ? <a className="offline-location-link" href={offlineLocationUrl(point.locationName, point.mapUrl)} target="_blank" rel="noreferrer"><MapPin size={15} /><span>{point.locationName}</span></a> : null}
               </article>
             )) : <p className="empty-state">{messages.noOfflineEvents}</p>}
@@ -3117,7 +3118,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                 </div>
                 <section className="stay-card" aria-label={messages.stayForDay}>
                   <div><p className="eyebrow">{messages.stayForDay}</p><h2>{overviewLodgings.length ? countLabel(overviewLodgings.length, messages.hotelCountOne, messages.hotelCountMany) : messages.noHotelListed}</h2></div>
-                  <div className="stay-links">{overviewLodgings.length ? overviewLodgings.map((item) => <a href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" key={item.id} aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}><MapPin size={17} /><span><strong>{item.title}</strong><small>{item.locationName || messages.openGoogleMaps}</small></span><ChevronRight size={17} /></a>) : <p>{messages.addLodgingHint}</p>}</div>
+                  <div className="stay-links">{overviewLodgings.length ? overviewLodgings.map((item) => <a href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" key={item.id} aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}><EventTypeIcon itemType={item.itemType} size={20} /><span><strong>{item.title}</strong><small>{item.locationName || messages.openGoogleMaps}</small></span><ChevronRight size={17} /></a>) : <p>{messages.addLodgingHint}</p>}</div>
                 </section>
                 <article className="departure-card">
                   <NextEventHeader item={nextPoint?.item} weather={nextPoint?.weather ?? null} locale={locale} messages={messages} timeZone={overview.trip.timeZone} showDisruption={() => nextPoint && setDisruptionDetailItem(nextPoint.item)} />
@@ -3662,10 +3663,10 @@ export function NextEventHeader({ item, weather, locale, messages, timeZone, sho
 function EventDestination({ point, locale, messages, timeZone }: { point: TimelinePoint<ItineraryItem>; locale: Locale; messages: Messages; timeZone: string }) {
   const item = point.item;
   if (point.kind !== "event") {
-    const content = <><span>{point.kind === "departure" ? messages.departureLabel : messages.destinationLabel}</span><h2>{item.title}</h2><p>{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
+    const content = <><span>{point.kind === "departure" ? messages.departureLabel : messages.destinationLabel}</span><h2><EventTypeIcon itemType={item.itemType} isFlight={Boolean(item.flight?.flightNumber)} endpoint={point.kind} size={24} /> {item.title}</h2><p>{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
     return <a className="departure-destination event-map-destination transport-next-event" href={endpointMapUrl(point.locationName ?? item.title, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName ?? item.title })}>{content}<span className="sr-only">{formatDateTime(point.at, locale, timeZone)}</span></a>;
   }
-  const content = <><span>{eventStatusLabel(item.status, messages)}</span><h2>{item.title}</h2><p>{item.locationName || eventTypeLabel(item.itemType, messages)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
+  const content = <><span>{eventStatusLabel(item.status, messages)}</span><h2><EventTypeIcon itemType={item.itemType} size={24} /> {item.title}</h2><p>{item.locationName || eventTypeLabel(item.itemType, messages)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
   return <a className="departure-destination event-map-destination" href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}>{content}<span className="sr-only">{formatDateTime(item.startsAt, locale, timeZone)}</span></a>;
 }
 
@@ -3706,7 +3707,7 @@ export function PendingItineraryList({ points, locale, messages, timeZone, busy,
       const pointLabel = point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : null;
       return <article className="timeline-row pending-timeline-row" data-pending-timeline-point={point.kind} data-pending-target-item-id={request.targetItemId ?? undefined} data-owns-actions={ownsActions} key={point.key}>
       <div className="timeline-time"><time>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : request.sourceCalendar && point.tripDayId !== request.tripDayId ? calendarImportMessages(locale).continues : point.at ? formatTime(point.at, locale, timeZone) : messages.timeNotSet}</time></div>
-      <div className="timeline-marker"><span><Clock3 size={14} aria-hidden="true" /></span></div>
+      <div className="timeline-marker"><span title={request.flight?.flightNumber ? flightMessages(locale).fields : eventTypeLabel(request.itemType, messages)}><EventTypeIcon itemType={request.itemType} isFlight={Boolean(request.flight?.flightNumber)} endpoint={point.kind} size={16} /></span></div>
       <div className="timeline-content">
       <div className="pending-itinerary-status"><span className="status-tag status-pending"><Clock3 size={14} aria-hidden="true" />{request.operation === "create" ? messages.pendingOwnerApproval : request.operation === "cancel" ? `${messages.cancelEvent} · ${messages.pendingOwnerApproval}` : request.operation === "restore" ? `${messages.restoreEvent} · ${messages.pendingOwnerApproval}` : messages.pendingEventUpdate}</span>{request.visibility === "private" ? <span className="status-tag"><Lock size={11} aria-hidden="true" /> {messages.privateEvent}</span> : null}</div>
       <h3>{request.title}</h3>
@@ -3902,13 +3903,13 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
         {point.weather ? <WeatherBadge weather={point.weather} locale={locale} messages={messages} timeZone={overview.trip.timeZone} /> : null}
         <time>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : item.sourceCalendar && point.tripDayId !== item.tripDayId ? calendarImportMessages(locale).continues : point.at ? formatTime(point.at, locale, overview.trip.timeZone) : messages.timeNotSet}</time>
       </div>
-      <div className="timeline-marker"><span>{item.isLocked || item.visibility === "private" ? <Lock size={12} /> : point.kind === "arrival" ? <MapPin size={12} aria-hidden="true" /> : point.kind === "departure" ? <Route size={12} aria-hidden="true" /> : eventTypeLabel(item.itemType, messages).slice(0, 1).toUpperCase()}</span></div>
+      <div className="timeline-marker"><span title={item.flight?.flightNumber ? flightMessages(locale).fields : eventTypeLabel(item.itemType, messages)}><EventTypeIcon itemType={item.itemType} isFlight={Boolean(item.flight?.flightNumber)} endpoint={point.kind} size={16} /></span></div>
       <div className="timeline-content">
         <div className="timeline-event-main">
           <a className={`timeline-event-link ${point.kind === "event" ? "" : "transport-timeline-point"}`} href={pointHref} target="_blank" rel="noreferrer" aria-label={pointAriaLabel}>
             {pointLabel ? <span className="transport-endpoint-label">{pointLabel}</span> : null}
             {item.status === "cancelled" ? <span className="cancelled-event-label"><X size={14} aria-hidden="true" /> {messages.eventStatusCancelled}</span> : null}
-            <h3>{item.title}{item.visibility === "private" ? <span className="private-event-tag"><Lock size={11} /> {messages.privateEvent}</span> : null}</h3>
+            <h3>{item.title}{item.visibility === "private" ? <span className="private-event-tag"><Lock size={11} aria-hidden="true" /> {messages.privateEvent}</span> : null}{item.isLocked ? <span className="private-event-tag"><Lock size={11} aria-hidden="true" /> {messages.ownerLock}</span> : null}</h3>
             <p>{point.locationName ? <><MapPin size={14} />{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</> : eventTypeLabel(item.itemType, messages)}</p>
             <small>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : formatDateTime(point.at, locale, overview.trip.timeZone)}{item.visibility === "private" ? ` · ${formatMessage(messages.sharedByCreator, { name: item.creatorName })}` : ""}</small>
           </a>

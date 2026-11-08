@@ -6,6 +6,14 @@ Current decisions are summarized here; accepted direction does not imply impleme
 
 The user will paste keys in Settings and requested Google Secret Manager rather than importing operator keys. The account/provider binding, explicit grants and free/paid model choices do not change. New configured writes put KMS ciphertext in separate opaque Secret Manager resources, with pinned references only in PostgreSQL. Existing KMS/ring rows keep working; no silent bulk migration. Keep the KMS deny policy, verify cloud payloads, recheck session/account/member/revision after network work, and clean abandoned/replaced resources through a delete-only worker. Guest resources expire with the guest. This is implemented behind configuration, not activated by the code change. [Full contract and costs](AI_KEYS.md).
 
+## D-100: Small inline event icons (accepted November 7, 2026)
+
+The user requested recognizable flight, restaurant, hotel and other event icons without image-loading latency (JOB-088).
+
+- Use the existing Lucide package's static, fixed-size inline SVGs: compass for activities, utensils for meals, hotel for lodging, route for unspecified transport and notebook for notes. A structured flight number selects a plane, with takeoff/landing variants on its endpoints. Never guess a subtype from a title or language.
+- Today/Itinerary markers and next-event/lodging cards, pending cards and safe approval displays share the mapping. Offline cards use only their already-saved type; imported Calendar candidates keep their Calendar icon until categorized.
+- Icons are decorative, non-focusable and supplementary to text. Private, owner-lock, pending and cancelled indicators remain separate; no permission changes. No extra assets, dependency, API/model call, animation or database migration.
+
 ## D-098: Free AI is an explicit option for every account (accepted November 7, 2026)
 
 The user requested free models for signed-in users as well as guests, after reviewing `Ebony-Vinyl/dsh-our-free-model` (JOB-086), and subsequently authorized the GitHub push and GKE release. This extends D-086.

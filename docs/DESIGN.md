@@ -54,6 +54,8 @@ Overview shows one selected day, its hotel, events, planned next-event time and 
 
 Pending events occupy ordinary timeline positions under their authorized audience. Short Edit/Approve/Reject controls stay horizontal; review buttons are owner-only. Cancelled cards say so; owner-confirmed removal is a retained tombstone, not deletion of expenses/history/remote Calendar copies. [Mobile cards](MOBILE_CARDS.md).
 
+Small inline icons distinguish activities, meals, hotels, notes, transport and structured flights. Type icons supplement the separate privacy/lock/approval/status text and require no image download. [Event icons](MOBILE_CARDS.md#event-icons).
+
 ### 5.4 Ask AI and continue conversations
 
 The AI tab browses a user's trip-specific history and resumes ordinary conversations. Picture extraction, bounded memory, manual account instructions, public research and structured clarification drafts feed typed proposals. Current dates derive from the trip's IANA zone, not trip start. Phone suspension does not require resending: persisted request status/results recover without provider replay. One request per bound user may run; different users run concurrently. [AI flow](AI_AND_AGENTS.md).

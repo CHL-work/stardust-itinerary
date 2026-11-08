@@ -1,6 +1,8 @@
 "use client";
 
-import { CalendarDays, Check, Clock3, Lock, MapPin, ReceiptText, Route, X } from "lucide-react";
+import { CalendarDays, Check, Clock3, Lock, MapPin, ReceiptText, X } from "lucide-react";
+import { EventTypeIcon } from "@/components/event-type-icon";
+import { flightMessages } from "@/lib/app/flight-i18n";
 import { approvalMessages, type ApprovalMessages } from "@/lib/app/approval-i18n";
 import type { ApprovalEventDisplay, ApprovalExpenseDisplay } from "@/lib/app/approval-presentation-types";
 import type { ApprovalRequest } from "@/lib/app/types";
@@ -55,16 +57,16 @@ function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending
   event: ApprovalEventDisplay; locale: Locale; timeZone: string; copy: ApprovalMessages; messages: Messages; pending: boolean;
 }) {
   const endpoints = event.itemType === "transport" ? [
-    event.departureLocationName ? { label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt } : null,
-    event.destinationLocationName ? { label: copy.arrival, name: event.destinationLocationName, map: event.destinationMapUrl, at: event.endsAt } : null,
+    event.departureLocationName ? { kind: "departure" as const, label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt } : null,
+    event.destinationLocationName ? { kind: "arrival" as const, label: copy.arrival, name: event.destinationLocationName, map: event.destinationMapUrl, at: event.endsAt } : null,
   ].filter((endpoint) => endpoint !== null) : [];
   return <>
-    <div className="approval-event-badges"><span className="status-tag">{labelEventType(event.itemType, messages)}</span>
+    <div className="approval-event-badges"><span className="status-tag"><EventTypeIcon itemType={event.itemType} isFlight={event.isFlight} size={16} />{event.itemType === "transport" && event.isFlight ? flightMessages(locale).fields : labelEventType(event.itemType, messages)}</span>
       {event.visibility === "private" ? <span className="status-tag"><Lock size={12} aria-hidden="true" />{messages.privateEvent}</span> : <span className="approval-muted">{copy.tripVisible}</span>}
       {event.isLocked ? <span className="status-tag"><Lock size={12} aria-hidden="true" />{copy.locked}</span> : null}</div>
     {event.dayDate ? <p className="approval-event-date"><CalendarDays size={16} aria-hidden="true" /><time dateTime={event.dayDate}>{dayLabel(event.dayDate, locale)}</time></p> : null}
     {endpoints.length ? <div className="approval-transport-points">{endpoints.map((endpoint) => <div className="approval-transport-point" key={endpoint.label}>
-      <div><Route size={17} aria-hidden="true" /><strong>{endpoint.label}</strong><time>{dateTime(endpoint.at, locale, timeZone, copy.untimed)}</time></div>
+      <div><EventTypeIcon itemType={event.itemType} isFlight={event.isFlight} endpoint={endpoint.kind} size={17} /><strong>{endpoint.label}</strong><time>{dateTime(endpoint.at, locale, timeZone, copy.untimed)}</time></div>
       <a href={mapLink(endpoint.name, endpoint.map)} target="_blank" rel="noopener noreferrer"><MapPin size={15} aria-hidden="true" />{endpoint.name}</a>
     </div>)}</div> : <>
       <div className="approval-event-times"><p><strong>{copy.starts}</strong><time>{dateTime(event.startsAt, locale, timeZone, copy.untimed)}</time></p>

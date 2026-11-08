@@ -46,6 +46,17 @@ describe("immutable approval presentation", () => {
     const display = projectApprovalDisplay({ ...source, proposed_patch: { ...baseEvent, itemType: "transport", departureLocationName: "Station A", destinationLocationName: "Station B" } }, members);
     expect(display).toMatchObject({ kind: "itinerary", event: { departureLocationName: "Station A", destinationLocationName: "Station B", locationName: null, startsAt: baseEvent.startsAt, endsAt: baseEvent.endsAt } });
   });
+  it("projects only a safe flight flag from validated structured data, never guesses from a title", () => {
+    const patch = { ...baseEvent, title: "Synthetic flight", itemType: "transport", departureLocationName: "Airport Alpha", destinationLocationName: "Airport Beta" };
+    expect(projectApprovalDisplay({ ...source, proposed_patch: patch }, members)).toMatchObject({ kind: "itinerary", event: { isFlight: false } });
+    const flight = { flightNumber: "JL123", airline: "Synthetic airline" };
+    const display = projectApprovalDisplay({ ...source, proposed_patch: { ...patch, flight } }, members);
+    expect(display).toMatchObject({ kind: "itinerary", event: { isFlight: true } });
+    expect(JSON.stringify(display)).not.toContain("JL123");
+    expect(JSON.stringify(display)).not.toContain("Synthetic airline");
+    expect(projectApprovalDisplay({ ...source, operation: "update", base_patch: { ...patch, flight }, proposed_patch: { flight: null } }, members))
+      .toMatchObject({ kind: "itinerary", event: { isFlight: false } });
+  });
   it("supports removed linked expense metadata without resurrecting an old expense", () => {
     expect(projectApprovalDisplay({ ...source, proposed_patch: { ...baseEvent, linkedExpense: null } }, members)).toMatchObject({ kind: "itinerary", event: { linkedExpense: null } });
   });

@@ -12,6 +12,7 @@ export type ApprovalExpenseDisplay = {
 export type ApprovalEventDisplay = {
   title: string;
   itemType: "activity" | "meal" | "transport" | "lodging" | "note";
+  isFlight?: boolean;
   dayDate: string | null;
   startsAt: string | null;
   endsAt: string | null;

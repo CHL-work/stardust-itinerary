@@ -21,6 +21,20 @@ function renderedButtons(node: ReactNode): Array<{ onClick?: () => void }> {
 }
 
 describe("readable approval cards", () => {
+  it("shows a meal icon beside the localized type without replacing privacy or approval labels", () => {
+    const html = render();
+    expect(html).toContain('data-event-icon="meal"');
+    expect(html).toContain(messages.en.eventTypeMeal);
+    expect(html).toContain(messages.en.privateEvent);
+    expect(html).toContain(messages.en.requestStatusPending);
+  });
+  it("shows a flight badge and matching takeoff/landing icons from the safe flight flag", () => {
+    const html = render({ display: { kind: "itinerary", event: { ...event, itemType: "transport", isFlight: true, departureLocationName: "Airport Alpha", departureMapUrl: null, destinationLocationName: "Airport Beta", destinationMapUrl: null } } });
+    expect(html).toContain('data-event-icon="flight"');
+    expect(html).toContain('data-event-icon="flight-departure"');
+    expect(html).toContain('data-event-icon="flight-arrival"');
+    expect(html).toContain("Flight");
+  });
   it.each(["pending", "rejected"] as const)("binds %s history actions to the exact rendered proposal version", (status) => {
     const review = vi.fn(); const current = { ...request, status, proposalRevision: 3 };
     const renderCurrent = () => ApprovalRequestCards({ requests: [current], locale: "en", messages: messages.en, busy: false, review });

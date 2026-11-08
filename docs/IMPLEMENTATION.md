@@ -64,6 +64,7 @@ Account-owned Secret Manager support (JOB-087) is opt-in and not yet activated b
 | Path | Purpose |
 | --- | --- |
 | `src/components/app-shell.tsx` | Shared app orchestration/presentation; topic components isolate newer controls. |
+| `src/components/event-type-icon.tsx` | Fixed-size decorative inline SVGs selected from stored event type/flight state, shared by canonical/pending/approval cards; no image fetch or added dependency. |
 | `src/components/new-ui/` | Layout components; layout styles in `src/app/new-ui/` stay scoped to `:root[data-ui="new"]`. |
 | `src/lib/app/repository.ts`, `validation.ts`, `types.ts` | Canonical transactions, proposal policy, model registry and shared contract. |
 | `src/lib/auth/` | Google binding, account/trip sessions, invitation and operator authority, suspension checks. |

@@ -5,7 +5,7 @@ import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import { Check, PencilLine, Plus, X } from "lucide-react";
 
-import { JsonRequestError, PendingExpenseList, TimelineList, TripTimeline } from "@/components/app-shell";
+import { JsonRequestError, PendingExpenseList, PendingItineraryList, TimelineList, TripTimeline } from "@/components/app-shell";
 import { ExpenseDisplayCard } from "@/components/expense-display-card";
 import { expensePageMessages } from "@/lib/app/expense-page-i18n";
 import { mobileCardsMessages } from "@/lib/app/mobile-cards-i18n";
@@ -55,6 +55,35 @@ const pendingExpense: PendingExpenseProjection = {
 };
 
 describe("consistent pending and cancelled event cards", () => {
+  it.each(locales)("keeps the same event icon and private/locked status across normal and pending cards in %s", (locale) => {
+    const html = renderToStaticMarkup(createElement(TimelineList, timelineProps([{ ...item, visibility: "private", isLocked: true }], true, locale)));
+    expect(html).toContain('data-event-icon="meal"');
+    expect(html).toContain(messages[locale].privateEvent);
+    expect(html).toContain(messages[locale].ownerLock);
+    const proposed = renderToStaticMarkup(createElement(PendingItineraryList, {
+      points: points([{ ...pending, visibility: "private" }]), locale, messages: messages[locale], timeZone: "Asia/Tokyo", busy: false,
+    }));
+    expect(proposed).toContain('data-event-icon="meal"');
+    expect(proposed).toContain(messages[locale].pendingOwnerApproval);
+    expect(proposed).toContain(messages[locale].privateEvent);
+  });
+
+  it("shows flight takeoff and landing on both normal and pending endpoint rows without duplicating actions", () => {
+    const flight = { flightNumber: "JL123", airline: null, departureTerminal: null, departureGate: null, arrivalTerminal: null };
+    const endpoints = { itemType: "transport" as const, departureLocationName: "Airport Alpha", destinationLocationName: "Airport Beta", flight };
+    const html = renderToStaticMarkup(createElement(TimelineList, timelineProps([{ ...item, ...endpoints }])));
+    const proposed = renderToStaticMarkup(createElement(PendingItineraryList, {
+      points: points([{ ...pending, ...endpoints }]), locale: "en", messages: messages.en, timeZone: "Asia/Tokyo", busy: false,
+      edit: vi.fn(), approve: vi.fn(), reject: vi.fn(),
+    }));
+    for (const markup of [html, proposed]) {
+      expect(markup.match(/data-event-icon="flight-departure"/gu)).toHaveLength(1);
+      expect(markup.match(/data-event-icon="flight-arrival"/gu)).toHaveLength(1);
+      expect(markup.match(/data-feedback-action="event_edit"/gu)).toHaveLength(1);
+      expect(markup).toContain("Airport Alpha"); expect(markup).toContain("Airport Beta");
+    }
+  });
+
   it.each(locales)("labels a cancelled event in %s and offers removal only to the owner", (locale) => {
     for (const isOwner of [true, false]) {
       const props = timelineProps([{ ...item, status: "cancelled" }], isOwner, locale);

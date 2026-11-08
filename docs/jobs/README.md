@@ -34,3 +34,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-085 | Load only the selected language, with English first in the language menus | done |
 | JOB-086 | Free AI for signed-in users and guests | done |
 | JOB-087 | Account-owned keys in Google Secret Manager | in_progress |
+| JOB-088 | Lightweight event type icons | in_progress |
