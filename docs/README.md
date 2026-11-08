@@ -46,6 +46,7 @@ Every document in this repository, by area, with one line each. The [README](../
 ## AI
 
 - [AI and agents](AI_AND_AGENTS.md): how requests flow, proposals instead of direct writes, and trust boundaries. Start here.
+- [The AI tab](AI_TAB.md): usage and estimated cost, routine checks on your own key, effort, keys, instructions and conversations.
 - [Account-owned AI keys](AI_KEYS.md): user-bound Secret Manager storage, legacy encryption, cleanup and recovery.
 - [Automatic research](AI_AUTOMATIC_RESEARCH.md): public facts looked up without being asked.
 - [Booking prices](AI_BOOKING_PRICES.md): ordinary prices backed by sources.

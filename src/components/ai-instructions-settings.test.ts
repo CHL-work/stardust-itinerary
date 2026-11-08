@@ -182,12 +182,15 @@ describe("localized Settings instructions and retired preference controls", () =
   });
   it("fences private editor lifecycle and exposes Settings to members without an owner-only gate", () => {
     const shell = readFileSync("src/components/app-shell.tsx", "utf8");
+    const tab = readFileSync("src/components/ai-tab.tsx", "utf8");
     const editor = readFileSync("src/components/ai-instructions-settings.tsx", "utf8");
     const state = readFileSync("src/components/ai-instructions-state.ts", "utf8");
     const page = readFileSync("src/components/ai-conversation-page.tsx", "utf8");
-    expect(shell).toContain('scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`}');
-    expect(shell).toContain('{!activityAccessLost ? <AiInstructionsSettings');
-    expect(shell).toContain('confirmInstructionsLeave()');
+    // The editor moved to the AI tab (JOB-093), still remounted per trip, member and account.
+    expect(shell).toContain('editorScope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`}');
+    expect(tab).toContain('<AiInstructionsSettings embedded tripId={tripId} scope={editorScope}');
+    expect(shell).not.toContain("<AiInstructionsSettings");
+    expect(shell).toContain('if (next !== "ai" && !confirmInstructionsLeave()) return;');
     expect(shell).not.toMatch(/personalMemories|catalogPreferences|preferenceManagerScope|savePersonalMemory|managePreferences/u);
     expect(editor).toContain('key={props.scope}'); expect(editor).toContain('current.dispose()');
     expect(editor).toContain('window.confirm(copy.clearConfirm)'); expect(editor).toContain('window.confirm(copy.reloadConfirm)');

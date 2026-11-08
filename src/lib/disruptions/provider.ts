@@ -38,7 +38,13 @@ export class DisruptionProviderCleanupError extends Error {
   }
 }
 
-export function createCodexDisruptionProvider(): DisruptionProvider {
+/**
+ * The operator's background checks use Sol at medium effort. A member's routine checks (JOB-094) pass the
+ * OpenAI model and effort they chose for their own key.
+ */
+export function createCodexDisruptionProvider(options: { model?: string; effort?: "low" | "medium" | "high" } = {}): DisruptionProvider {
+  const model = options.model ?? DISRUPTION_MODEL;
+  const effort = options.effort ?? "medium";
   return {
     async check(input): Promise<DisruptionProviderResult> {
       const workDirectory = await mkdtemp(join(tmpdir(), "stardust-disruption-"));
@@ -46,8 +52,8 @@ export function createCodexDisruptionProvider(): DisruptionProvider {
       try {
         const codex = new Codex({ env: providerEnvironment(), config: lockedDownCodexConfig });
         const thread = codex.startThread({
-          model: DISRUPTION_MODEL,
-          modelReasoningEffort: "medium",
+          model,
+          modelReasoningEffort: effort,
           sandboxMode: "read-only",
           workingDirectory: workDirectory,
           skipGitRepoCheck: true,
@@ -68,7 +74,7 @@ export function createCodexDisruptionProvider(): DisruptionProvider {
         const webSearchItems = turn.items.filter((item) => item.type === "web_search");
         return {
           rawOutput: turn.finalResponse,
-          effectiveModel: DISRUPTION_MODEL,
+          effectiveModel: model,
           inputTokens: turn.usage?.input_tokens ?? null,
           outputTokens: turn.usage?.output_tokens ?? null,
           cachedInputTokens: turn.usage?.cached_input_tokens ?? null,

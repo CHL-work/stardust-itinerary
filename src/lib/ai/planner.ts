@@ -102,6 +102,8 @@ import {
 } from "@/lib/ai/prompt";
 import { extractLinkedUrls, fetchLinkedPages } from "@/lib/ai/linked-pages";
 import { isPlatformOperator } from "@/lib/auth/operator-access";
+import type { AiEffort } from "@/lib/ai/effort";
+import { readChatEffort } from "@/lib/ai/preferences";
 import { instantDateInTimeZone, requestedRelativeDate } from "@/lib/ai/relative-date";
 import { itineraryProposalLocalDate } from "@/lib/ai/itinerary-local-date";
 import type { Locale } from "@/lib/i18n";
@@ -702,7 +704,7 @@ async function runCodexTurn(
   aiInstructions: string,
   liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null; effort?: AiEffort | null },
 ): Promise<ProviderTurn> {
   const profile = ownerModelRegistry[model];
   if (profile.provider !== "openai") {
@@ -711,7 +713,7 @@ async function runCodexTurn(
   const codex = new Codex({ env: providerEnvironment(), config: lockedDownCodexConfig });
   const thread = codex.startThread({
     model,
-    modelReasoningEffort: profile.reasoningEffort,
+    modelReasoningEffort: control.effort ?? profile.reasoningEffort,
     sandboxMode: "read-only",
     workingDirectory: workDirectory,
     skipGitRepoCheck: true,
@@ -766,7 +768,7 @@ async function runClaudeTurn(
   aiInstructions: string,
   liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null; effort?: AiEffort | null },
 ): Promise<ProviderTurn> {
   const profile = ownerModelRegistry[model];
   if (profile.provider !== "anthropic") {
@@ -804,7 +806,7 @@ async function runClaudeTurn(
       permissionMode: "dontAsk",
       settingSources: [],
       maxTurns: 4,
-      effort: profile.effort,
+      effort: control.effort ?? profile.effort,
       outputFormat: { type: "json_schema", schema: outputSchema },
     },
   });
@@ -870,7 +872,7 @@ async function runGeminiTurn(
   aiInstructions: string,
   liveWebSearchEnabled: boolean,
   liveWebSearchPrivacyBlockReason: LiveWebSearchPrivacyBlockReason | null,
-  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null },
+  control: { abortController: AbortController; repair?: TimestampRepairFeedback; draft?: PlanningDraft | null; research?: PlannerResearchContext; ownKey?: OwnKeyPlanning | null; effort?: AiEffort | null },
 ): Promise<ProviderTurn> {
   const profile = ownerModelRegistry[model];
   if (profile.provider !== "google") {
@@ -894,6 +896,7 @@ async function runGeminiTurn(
     responseJsonSchema: outputSchema,
     // Google Search grounding is Gemini's only tool here; nothing can touch files, shells or the network otherwise.
     googleSearch: liveWebSearchEnabled,
+    ...(control.effort ? { thinkingLevel: control.effort } : {}),
     signal: control.abortController.signal,
   });
   let output: PlannerOutput;
@@ -1184,7 +1187,7 @@ export async function runAiPlanner(
     if ((currentPolicy.credentialSource === "own" || currentPolicy.credentialSource === "shared") && !userCredential) {
       throw new AiPolicyDeniedError(currentPolicy.credentialSource === "shared"
         ? "The trip owner's shared AI key is no longer available. Ask them to add it again."
-        : "Your saved API key for this provider is no longer available. Add it again in Settings → AI keys.",
+        : "Your saved API key for this provider is no longer available. Add it again in AI → API keys.",
       "ai_key_required", currentPolicy.model);
     }
     await assertBoundUserAiIdle(client, session.userId);
@@ -1321,6 +1324,8 @@ export async function runAiPlanner(
     // A request the requester pays for adds the new items they could add by hand, from pictures too.
     const directAdd = requesterPays
       ? await ownKeyDirectAddScope(client, session) : { events: false, expenses: false };
+    // The requester's chosen chat effort (JOB-094) applies only when the requester pays.
+    const chatEffort = requesterPays ? await readChatEffort(client, session.userId) : null;
     return {
       kind: "planning" as const,
       policy: currentPolicy,
@@ -1330,6 +1335,7 @@ export async function runAiPlanner(
       userCredential,
       directAdd,
       requesterPays,
+      chatEffort,
     };
   }).catch(async (error: unknown) => {
     if (error instanceof AiPolicyDeniedError) {
@@ -1383,7 +1389,7 @@ export async function runAiPlanner(
   if (setup.kind === "replay") return setup.recovery;
   if (setup.kind === "off_topic") return setup.response;
 
-  const { policy, conversationMemory, aiInstructions, planningDraft, userCredential, directAdd, requesterPays } = setup;
+  const { policy, conversationMemory, aiInstructions, planningDraft, userCredential, directAdd, requesterPays, chatEffort } = setup;
   // Every provider call below (planning, pictures, research, venue hours) runs on the same key:
   // the requester's own when the policy chose it, otherwise the server operator's.
   const continuePlanning = async (): Promise<AiPlannerResult | AiRequestRecoveryResponse> => {
@@ -1627,7 +1633,7 @@ export async function runAiPlanner(
           Math.max(1, started + workBudget - Date.now()));
         timeout.unref();
       });
-      const control = { abortController, repair, draft: resumedDraft, ownKey, freeModel,
+      const control = { abortController, repair, draft: resumedDraft, ownKey, freeModel, effort: chatEffort,
         beforeFreeAttempt: freeLane ? async () => {
           await reserveFreeAiAttempt(pool, session, requestId, nextEventSequence++);
         } : undefined,

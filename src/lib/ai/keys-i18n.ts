@@ -1,7 +1,7 @@
 import type { Locale } from "@/lib/i18n";
 import { localizedCatalog } from "@/lib/locale-packs";
 
-/** Settings → AI keys. Security and billing copy stays neutral in every tone. */
+/** AI tab → API keys. Security and billing copy stays neutral in every tone. */
 const english = {
   title: "AI keys",
   description: "Use your own API key for AI in any trip. Your provider bills you.",
@@ -42,7 +42,7 @@ const english = {
   loading: "Loading your keys…",
   loadFailed: "Your keys could not be loaded.",
   retry: "Try again",
-  keyRequired: "To use AI in this trip, add your own API key in Settings → AI keys.",
+  keyRequired: "To use AI in this trip, add your own API key in AI → API keys.",
   freeAccess: "Free AI ({model}): {remaining} of {limit} left today.",
   freeOption: "Free AI · no key",
   freeModelOption: "{model} · free",
@@ -63,7 +63,7 @@ const english = {
   ownModelOption: "{model} · your key",
   shareCheckbox: "Let this member use my AI keys",
   shareLinkCheckbox: "People who join with this link can use my AI keys",
-  shareNeedsKey: "To share your AI keys, first add one in Settings → AI keys.",
+  shareNeedsKey: "To share your AI keys, first add one in AI → API keys.",
   shareStart: "Share my AI keys",
   shareStop: "Stop sharing AI keys",
   sharedBy: "Uses {owner}'s AI keys",
@@ -118,7 +118,7 @@ const cantonese: AiKeysCopy = {
   loading: "正在載入你嘅金鑰…",
   loadFailed: "未能載入你嘅金鑰。",
   retry: "再試一次",
-  keyRequired: "要喺呢個旅程用 AI，請喺「設定 → AI 金鑰」加入你自己嘅 API 金鑰。",
+  keyRequired: "要喺呢個旅程用 AI，請喺「AI → API 金鑰」加入你自己嘅 API 金鑰。",
   freeAccess: "免費 AI（{model}）：今日尚餘 {remaining}／{limit} 次。",
   freeOption: "免費 AI · 不用金鑰",
   freeModelOption: "{model} · 免費",
@@ -139,7 +139,7 @@ const cantonese: AiKeysCopy = {
   ownModelOption: "{model} · 你嘅金鑰",
   shareCheckbox: "容許呢位成員用我嘅 AI 金鑰",
   shareLinkCheckbox: "經呢條連結加入嘅人可以用我嘅 AI 金鑰",
-  shareNeedsKey: "要分享 AI 金鑰，請先喺「設定 → AI 金鑰」加入一條。",
+  shareNeedsKey: "要分享 AI 金鑰，請先喺「AI → API 金鑰」加入一條。",
   shareStart: "分享我嘅 AI 金鑰",
   shareStop: "停止分享 AI 金鑰",
   sharedBy: "使用 {owner} 嘅 AI 金鑰",
@@ -193,7 +193,7 @@ const japanese: AiKeysCopy = {
   loading: "キーを読み込んでいます…",
   loadFailed: "キーを読み込めませんでした。",
   retry: "もう一度試す",
-  keyRequired: "この旅行でAIを使うには、「設定 → AIキー」で自分のAPIキーを追加してください。",
+  keyRequired: "この旅行でAIを使うには、「AI → APIキー」で自分のAPIキーを追加してください。",
   freeAccess: "無料AI（{model}）：今日の残り {remaining}／{limit} 回。",
   freeOption: "無料AI · キー不要",
   freeModelOption: "{model} · 無料",
@@ -214,7 +214,7 @@ const japanese: AiKeysCopy = {
   ownModelOption: "{model} · 自分のキー",
   shareCheckbox: "このメンバーに自分のAIキーの利用を許可する",
   shareLinkCheckbox: "このリンクから参加した人に自分のAIキーの利用を許可する",
-  shareNeedsKey: "AIキーを共有するには、まず「設定 → AIキー」でキーを追加してください。",
+  shareNeedsKey: "AIキーを共有するには、まず「AI → APIキー」でキーを追加してください。",
   shareStart: "自分のAIキーを共有",
   shareStop: "AIキーの共有をやめる",
   sharedBy: "{owner} のAIキーを利用中",

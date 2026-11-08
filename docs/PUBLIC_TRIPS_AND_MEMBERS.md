@@ -46,14 +46,17 @@ The operator is verified through the stored Google identity and configured `OWNE
 
 Keys belong to the account, not a particular trip. The optional [Secret Manager backend](AI_KEYS.md) changes storage only: no automatic operator-key import or new sponsorship grant.
 
-Any member can add their own OpenAI, Anthropic or Gemini API key in **Settings → AI keys** (JOB-061). The key is checked with the provider, stored encrypted and never shown again; only its last four characters are. An explicit paid-model choice uses the requester's matching key. Without a choice, an unsponsored trip uses their key when available; a sponsored trip keeps its sponsorship, so saving a key never silently starts charging a member. Own-key requests do not consume the trip's daily prompt limit. Unsupported explicit paid choices are refused, never silently replaced. Trip owners never see or use other members' keys; on the public instance only the web server may use the Cloud KMS key that seals them (D-084). Suspension stops own and shared funding until the account is restored. Trip AI off disables every funding route.
+Any member can add their own OpenAI, Anthropic or Gemini API key in **AI → API keys** (JOB-061, [the AI tab](AI_TAB.md)). The key is checked with the provider, stored encrypted and never shown again; only its last four characters are. An explicit paid-model choice uses the requester's matching key. Without a choice, an unsponsored trip uses their key when available; a sponsored trip keeps its sponsorship, so saving a key never silently starts charging a member. Own-key requests do not consume the trip's daily prompt limit. Unsupported explicit paid choices are refused, never silently replaced. Trip owners never see or use other members' keys; on the public instance only the web server may use the Cloud KMS key that seals them (D-084). Suspension stops own and shared funding until the account is restored. Trip AI off disables every funding route.
+
+A member who turns on **routine checks** in the AI tab pays for the trip's flight status and disruption checks with their own key in trips the operator does not sponsor, after a live web search check of that key (JOB-094, D-106). One member pays per trip: owners first, then whoever turned checks on earliest; shared keys and free models never do.
 
 In the app:
 - The overview tells the browser only which providers the viewer holds a key for.
 - The AI composer opens when an own key, shared key, operator funding or the optional free service is available.
 - The model picker lists every eligible free model plus only the user's own-key providers' paid models. Shared/operator funding does not reveal paid choices. The choice applies per request and never changes trip settings.
 - Without an own key the composer defaults to free and submits that choice explicitly. Legacy API calls with no explicit model keep the existing automatic funding order. An explicit free choice never charges a key, including after a failure or configuration change.
-- Settings → AI keys shows the key owner, per provider, how many requests their key paid for today and in the last 30 days, across all trips. It also counts requests by members using the owner's shared key, if any. Only counts are shown, never prompts.
+- AI → API keys shows the key owner, per provider, how many requests their key paid for today and in the last 30 days, across all trips. It also counts requests by members using the owner's shared key, if any. Only counts are shown, never prompts.
+- AI → Usage charts the account's tokens for 30 days by service and model, with an estimated cost for requests on its own keys, including members on its shared key and routine checks it pays for ([the AI tab](AI_TAB.md#usage-and-estimated-cost)).
 
 ### Free AI
 

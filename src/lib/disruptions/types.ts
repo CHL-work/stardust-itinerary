@@ -100,6 +100,10 @@ export type DisruptionProvider = {
 
 export type RunDisruptionMonitorOptions = {
   provider?: DisruptionProvider;
+  /** "member": unsponsored trips on a member's own key, run by the web server (JOB-094). Default "operator". */
+  funding?: "operator" | "member";
+  /** Tests replace a member's provider; production builds one from the member's model and effort. */
+  memberProvider?: (payer: import("@/lib/routine-checks/funding").RoutinePayer) => DisruptionProvider;
   now?: Date;
   maxTrips?: number;
   maxCandidatesPerBatch?: number;

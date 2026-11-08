@@ -1,7 +1,7 @@
 ---
 id: JOB-093
 title: One AI tab with usage and estimated cost, keys, instructions and past conversations
-status: in_progress
+status: review
 priority: P2
 depends_on: [JOB-066, JOB-086]
 claimant: Claude
@@ -25,6 +25,15 @@ On 8 November 2026 the owner asked for one AI tab: a token usage chart with an e
   - a spending cap or budget alert;
   - the owner's trip AI log and access settings, which stay in Settings → Advanced.
 
+## Delivered
+
+1. **Sections:** `src/components/ai-tab.tsx` composes Chat (transcript, composer, chat effort), Usage, Routine checks (JOB-094), API keys and AI instructions (the existing editors in an embedded mode) and Conversations at the bottom. `ai-section.tsx` is a native disclosure; `src/lib/ai/section-preference.ts` remembers open sections per browser. Choosing a past conversation opens Chat and scrolls to it.
+2. **Usage:** `GET /api/trips/{tripId}/ai/usage` (`src/lib/ai/usage-summary.ts`) sums 30 UTC days of the account's requests, members' requests on its shared key, routine checks its key paid for and its destination lookups, by day, service and model. `ai-usage-section.tsx` draws a stacked SVG bar chart in validated categorical colors (stepped for dark mode), a legend, a tap readout and two tables.
+3. **Estimate:** `src/lib/ai/model-prices.ts` holds published standard prices for every registered model with dated windows, plus search fees; only requests on the account's own keys carry a cost. `ai_requests.web_search_count` (migration 0068) records searches from now on.
+4. **Moved from Settings:** API keys and AI instructions; the unsaved-instructions guard now protects leaving the AI tab. Copy that named Settings → AI keys names AI → API keys in every language.
+5. **Copy:** a new `aiTab` catalog in English, both Cantonese tones (neutral), Japanese and the eight packs.
+
 ## Verification and documentation impact
 
-Pending implementation.
+- Unit tests: prices and windows, usage aggregation and payer rules, the chart and tables, section memory, the moved editors and the locale packs. Database test at migration head: preferences, payer selection, request records and the usage summary.
+- Documents: new [AI tab contract](../AI_TAB.md); D-105; index, design, layouts, conversation history, instructions, keys, members and funding, identity, implementation, database, sources, changelog and roadmap.

@@ -6,6 +6,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **One AI tab (JOB-093, D-105):** Chat, Usage, Routine checks, API keys, AI instructions and Conversations as collapsible sections, each remembered per browser. Usage charts 30 days of tokens by service and lists them by model, with an estimated cost for requests on your own keys from a published price table. API keys and AI instructions moved from Settings; past conversations sit at the bottom.
+- **Routine checks on your own key (JOB-094, D-106):** flight status and disruption checks run in trips the operator does not sponsor when a member turns them on in the AI tab, on that member's key, with the model and effort they choose (defaults `gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.8-flash` at medium). A one-time live web search on the key gates them; owners pay first; the web server runs them in small batches (`ROUTINE_CHECKS_ENABLED`). A "?" explains what they check.
+- **Chat effort (JOB-094):** Default, Low, Medium or High for chat on your own key; Default keeps each model's tuned effort. Gemini requests can now carry a thinking level.
 - **Every event's local clock (JOB-091, D-103):** hotels, meals, activities and generic transport use location-local zones, with explicit corrections, offline address/coordinate evidence and a labeled unknown fallback. Forms, cards, next-up, hotel check-in/out, approvals, maps, Calendar, AI and offline display agree. Migration 0067 adds optional zone corrections; existing timestamps, trip-day grouping, money dates and permissions are preserved. Moving a venue clears stale overrides. The concise event-time contract and entry-point links document data licensing, limitations and rollback.
 - **Free-model comparison refreshed:** Stardust shares the referenced project's documented anonymous Kilo method, not its other client-emulation or relay paths. Current eligible models are catalog-dependent, not guaranteed free GPT/Claude/Gemini or unlimited frontier access; dated metadata-only evidence is in `docs/SOURCES.md`.
 
@@ -93,6 +96,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Trip setup on your key or a free model (JOB-094, D-106):** the create-trip destination lookup uses the creator's own key with its provider's lightest model, else a free model where free AI is on, else the operator's key; the platform operator keeps the operator's key. Lookups record who paid.
+- **Copy points at the AI tab:** messages that named Settings → AI keys now name AI → API keys, in every language.
 - **Only the selected language is downloaded (JOB-085, D-097):**
   - Browser code no longer carries any language pack, which saves about 185 KB compressed for every visitor. A page in an added language sends only its own pack.
   - The create-trip page sends only the selected language's time zone and currency choices; choosing another language reloads them and keeps what was typed.
@@ -147,6 +152,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **French AI status lines:** a missing space after « L’IA » in two conversation messages.
 - **Deterministic route-rate verification:** OSRM walking/driving requests recheck the one-second deadline after an early timer wake. Fake-clock tests preserve the full 1,000 ms spacing assertion and cover cancellation, removing a 999 ms CI timing flake.
 
 - **Guest notice, counts and free-model line breaks (JOB-077, D-088):**

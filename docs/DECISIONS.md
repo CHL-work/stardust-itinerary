@@ -2,6 +2,25 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-106: Routine checks on a member's own key, effort settings, and trip setup on your key or a free model (accepted November 8, 2026)
+
+The owner asked that routine flight and event checks run for anyone who saves an API key that can search the web, with a model and effort they choose; a chat effort setting with reasonable defaults; and the create-trip AI on the user's own key, or a free model without one (JOB-094). The owner authorized deploying without further approval.
+
+- **Who pays:** the operator's keys still pay only in sponsored trips, from the background worker. In any other trip, one active, unsuspended member who turned routine checks on pays with their own key: owners first, then whoever turned them on earliest. This supersedes D-075's "background workers never use a user's key" for routine checks only, and D-095's sponsored-trips-only rule. The trip's background switch keeps governing the operator's checks; the member's opt-in replaces it in unsponsored trips.
+- **Gate:** a one-time live web search on the member's key with the chosen model must succeed before checks turn on, and again after the key is saved anew. Free models cannot search, so they never run routine checks; shared keys never pay for them.
+- **Where:** member-funded checks run in the web server (`ROUTINE_CHECKS_ENABLED`), the only workload allowed to decrypt users' keys; the KMS deny policy and the worker's lack of key and KMS access are unchanged. Small bounded batches every five minutes; database claims prevent double checks across replicas.
+- **Defaults:** routine checks use each provider's low-cost model at medium effort (`gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.8-flash`). Chat effort defaults to each model's tuned registry effort; low, medium or high override it on requests the requester pays for.
+- **Trip setup:** the platform operator keeps the operator's lookup. Others use their own key's lightest model (`gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.5-flash-lite`), else a free model where free AI is on (ten a day per account, 200 a day per instance), else, on instances without free AI, D-071's operator-funded lookup. This extends D-098's free text use to this tool-free lookup.
+- **Records and privacy:** system requests name the paying member and model; prompts carry the same public facts as before. Changes are audited without keys. [Contract](AI_TAB.md).
+
+## D-105: One AI tab with usage and estimated cost (accepted November 8, 2026)
+
+The owner asked for a token usage chart with an estimated cost and which service used how many tokens, API keys and AI instructions moved to the AI tab, past conversations at the bottom, and collapsible sections (JOB-093).
+
+- **Layout:** Chat, Usage, Routine checks, API keys, AI instructions and Conversations, each a native disclosure remembered per browser. Owners' trip AI access and log stay in Settings → Advanced.
+- **Usage:** the account's own requests, members' requests on its shared key, routine checks its key paid for and its destination lookups, over 30 UTC days. Only requests on the account's own keys carry a cost.
+- **Estimate:** published standard per-token prices and search fees in code, checked against the providers' pages with dated windows for announced changes; always labeled an estimate. Search counts are recorded from migration 0068 on. [Contract](AI_TAB.md).
+
 ## D-103: Every event uses its location's clock (accepted November 8, 2026)
 
 JOB-091 extends D-102 beyond flights: hotels, meals, activities and non-flight transport resolve location-local IANA zones. Optional explicit start/end corrections, existing flight evidence, offline coordinates and unambiguous city/address evidence precede a labeled trip-time fallback. No render-time provider lookup or historic timestamp rewrite. Location changes clear stale explicit zones, including flight overrides; UTC instants, trip-calendar grouping and financial dates remain unchanged. The owner approved pushing/deploying after tests and requested current concise feature docs, not a separate handover document. [Contract](EVENT_LOCAL_TIME.md).
@@ -76,10 +95,10 @@ The owner asked for Simplified Chinese, Traditional Chinese and six more of the 
 
 The owner asked for routine checks on the day of a flight: 24 hours before departure, then 12, 6, 5, 4, 3, 2 and 1 hours before. A time change or delay updates the event with a changed badge that says what changed; a cancellation keeps the event, marked cancelled with a red warning; a new gate or terminal just updates them; and the checks follow a changed departure (JOB-083).
 
-- **Scope:** trip-visible, planned flights with a flight number, in operator-sponsored trips with background checks on, on the operator's keys. Private flights are never looked up.
+- **Scope:** trip-visible, planned flights with a flight number, in operator-sponsored trips with background checks on, on the operator's keys. Private flights are never looked up. D-106 adds unsponsored trips whose member pays with their own key.
 - **The model reports, code decides:** a time change of at least 15 minutes or a cancellation needs high confidence, a terminal or gate at least medium, and every change a public https source for this exact flight and date. Unknown details never clear known ones.
 - **Automatic writes:** this is the first automatic canonical edit. It is a revision with `changed_by_source = 'flight_status'`, an audit event with no actor and a `flight_status_changes` row, so it is visible, auditable and reversible. It supersedes, for flights only, the rule that background checks never edit events; disruption warnings still never do.
-- **Not included:** phone notifications, unsponsored and guest trips, and flights without a flight number.
+- **Not included:** phone notifications and flights without a flight number. Unsponsored and guest trips are checked only on a member's own key (D-106).
 
 ## D-094: Flights carry structured details, and cards show the most specific known spot (accepted November 7, 2026)
 
@@ -233,7 +252,7 @@ The owner asked for **Show day map** to show the map without another click, and 
 After the JOB-065 review, and with guest mode already on, the owner turned on public sign-up (`PUBLIC_SIGNUP_ENABLED=true`).
 
 - **Who can join:** anyone with a Google account can sign in and create their own trips. Signing in still opens no one else's trip without an invitation.
-- **Who pays:** new accounts use AI with their own keys (D-075). Operator keys pay only in trips the operator sponsors, and for the destination lookup when creating a trip, at most ten a day per account. `STARDUST_DESTINATION_LOOKUP=operator` would keep that lookup for the operator alone.
+- **Who pays:** new accounts use AI with their own keys (D-075). Operator keys pay only in trips the operator sponsors, and, since D-106, for the destination lookup only for the platform operator or on instances without free AI. `STARDUST_DESTINATION_LOOKUP=operator` would keep that lookup for the operator alone.
 - **Unchanged:**
   - The Google OAuth app stays unverified (D-074). Calendar consent shows Google's warning, and at most 100 users can grant Calendar access.
   - Account deletion is not self-service yet; the [privacy notice](PRIVACY.md) says to ask the operator.
@@ -323,7 +342,7 @@ The owner wants a public instance that anyone can sign in to and use with their 
   - Keys are checked with the provider before saving and stored with AES-256-GCM under a dedicated `CREDENTIAL_ENCRYPTION_KEY`.
   - A key is never returned after saving.
   - A key is used only inside its owner's own requests, with a private provider state directory.
-  - Background workers never use a user's key.
+  - Background workers never use a user's key. D-106 lets a member's own key pay for routine checks, run by the web server rather than the worker.
 
 Sharing an owner's key with trip members is D-076.
 
@@ -352,7 +371,7 @@ Every registered model moves to its newest version. Each tier uses its newest do
 
 Operator-only and fixed-table-first destination lookup were rejected. **Auto means a tool-free Sol (low effort) lookup**, including country destinations, for authenticated eligible trip creators, using the server operator's configured provider credentials. `creators` is default; `operator`/`off` restrict it. Non-operators get ten uncached calls/account/UTC day; all callers retain thirty/hour and one-in-flight protections, strict output validation, private account logging and a 30-day versioned validated cache. Manual fallback and editable currency remain; suggestions never submit the form.
 
-This is a narrow funding exception, not general trip AI entitlement or public-signup activation. The same change removed Overview previous/next text buttons. [Contract](TRIP_DESTINATION_DEFAULTS.md).
+This is a narrow funding exception, not general trip AI entitlement or public-signup activation. The same change removed Overview previous/next text buttons. Since D-106, creators other than the platform operator use their own key, else a free model; this operator funding remains only where free AI is off. [Contract](TRIP_DESTINATION_DEFAULTS.md).
 
 ## October 28, 2026: Earlier work order (superseded)
 

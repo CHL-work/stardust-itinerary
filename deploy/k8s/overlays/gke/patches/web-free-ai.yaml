@@ -24,3 +24,7 @@ spec:
               value: "60"
             - name: FREE_AI_DAILY
               value: "500"
+            # Routine checks paid by members' own keys run in the web server, the only workload that may
+            # decrypt them (JOB-094, D-106).
+            - name: ROUTINE_CHECKS_ENABLED
+              value: "true"

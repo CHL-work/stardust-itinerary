@@ -16,7 +16,7 @@ Conversations can include [private picture attachments](AI_IMAGE_INPUTS.md). Mes
 
 ## User workflow
 
-The **AI** tab is available to owners and members on desktop and phones. It lists only the signed-in person's conversations in the selected trip. Opening a conversation loads saved prompt/reply pairs; **Load older messages** prepends another page without moving the message currently being read. The latest-message action returns to the bottom. Stored answers retain their original language; navigation, progress and errors follow the selected UI language.
+The **AI** tab is available to owners and members on desktop and phones. Its **Conversations** section, at the bottom of the tab (JOB-093, [the AI tab](AI_TAB.md)), lists only the signed-in person's conversations in the selected trip; choosing one opens it in the Chat section at the top. Opening a conversation loads saved prompt/reply pairs; **Load older messages** prepends another page without moving the message currently being read. The latest-message action returns to the bottom. Stored answers retain their original language; navigation, progress and errors follow the selected UI language.
 
 Browsing a previous conversation does not switch the live request, cancel it or call a provider. **Continue conversation** explicitly makes that conversation current and uses its existing token-budgeted tail/checkpoint for subsequent questions. **New conversation** archives the current conversation and starts with fresh context. These actions clear the unsent composer text; neither deletes audit history. Conversation changes wait for the same user's running request to finish, including work in another trip. Other users remain independent.
 

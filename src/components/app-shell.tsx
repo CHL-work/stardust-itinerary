@@ -60,9 +60,7 @@ import { CalendarImportDialog } from "@/components/calendar-import-dialog";
 import { calendarImportMessages } from "@/lib/calendar/import-i18n";
 import { projectPersonalCalendarEvents, projectCalendarAwareTimelinePoints, type PersonalCalendarEvent, type PersonalCalendarPoint } from "@/lib/calendar/timeline";
 import type { CalendarSourceMetadata } from "@/lib/calendar/import-contracts";
-import { AiConversationPage } from "@/components/ai-conversation-page";
-import { AiInstructionsSettings } from "@/components/ai-instructions-settings";
-import { AiKeysSettings } from "@/components/ai-keys-settings";
+import { AiTab } from "@/components/ai-tab";
 import { aiKeysMessages, type AiKeysCopy } from "@/lib/ai/keys-i18n";
 import { guestMessages } from "@/lib/app/guest-i18n";
 import { ownKeyModel, ownKeyModels } from "@/lib/ai/own-key-model";
@@ -942,7 +940,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const [selectedOverviewDate, setSelectedOverviewDate] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const setSection = useCallback((next: Section) => {
-    if (next !== "settings" && !confirmInstructionsLeave()) return;
+    // The instructions editor lives on the AI tab (JOB-093): leaving it with unsaved text asks first.
+    if (next !== "ai" && !confirmInstructionsLeave()) return;
     setNowMs(Date.now()); updateSection(next);
   }, [confirmInstructionsLeave]);
   const overviewSwipeStart = useRef<{ x: number; y: number } | null>(null);
@@ -3234,7 +3233,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           </div>
         )}
 
-        {section === "ai" && <AiConversationPage
+        {section === "ai" && <AiTab
+          editorScope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`}
+          keysChanged={() => void refresh()} instructionsDirtyChanged={instructionsDirtyChanged}
           key={aiScope} tripId={overview.trip.id} locale={locale} messages={aiHistoryCopy}
           timeZone={overview.trip.timeZone} isOwner={overview.session.isOwner} recovery={aiState} request={jsonRequest}
           refreshToken={`${aiState.request?.requestId ?? aiState.result?.requestId ?? ""}:${aiState.phase}:${aiState.request?.status ?? ""}:${aiState.activeConversationId ?? ""}`}
@@ -3300,8 +3301,6 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
 
 
         {section === "settings" && <section className="page-panel settings-grid">
-          {!activityAccessLost ? <AiInstructionsSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} onDirtyChange={instructionsDirtyChanged} /> : null}
-          {!activityAccessLost ? <AiKeysSettings tripId={overview.trip.id} scope={`${overview.trip.id}:${overview.session.memberId}:${overview.session.userId ?? ""}`} locale={locale} request={jsonRequest} changed={() => void refresh()} /> : null}
           <article className="settings-card"><h2>{messages.switchTripTitle}</h2><p>{messages.switchTripDescription}</p><label>{messages.currentTripField}<select data-feedback-action="trip_switch" value={overview.trip.id} disabled={busy} onChange={(event) => void switchTrip(event.target.value)}>{overview.availableTrips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name} · {trip.role}</option>)}</select></label><small>{overview.trip.destinationName} · {overview.trip.startsOn} – {overview.trip.endsOn}</small>{overview.session.isGuest ? null : <button className="primary-button fit-button" disabled={busy} onClick={openNewTrip}><Plus size={16} /> {messages.createNewTrip}</button>}</article>
           {overview.session.isOwner && tripSettings?.scope === tripSettingsScope(overview) ? <TripSettingsCard settings={tripSettings} setSettings={setTripSettings} busy={busy} memberCount={overview.trip.memberCount} messages={messages} submit={saveTripSettings} /> : null}
           {overview.session.isOwner && !activityAccessLost ? <TripDeletionCard locale={locale} busy={busy} open={() => void previewTripDeletion()} /> : null}

@@ -1,5 +1,6 @@
 # Self-hosting with Docker Compose: PostgreSQL 17, a one-off migration, the web app and the
-# background scheduler (disruption checks and feedback). See docs/SELF_HOSTING.md.
+# background scheduler (disruption checks and feedback). Routine checks paid by members' own keys run in
+# the web app, the only service that decrypts them (JOB-094). See docs/SELF_HOSTING.md.
 name: stardust
 
 x-app-database: &app-database
@@ -47,6 +48,7 @@ services:
     environment:
       <<: *app-database
       STARDUST_MAP_CACHE_DIR: /home/stardust/day-map-cache
+      ROUTINE_CHECKS_ENABLED: ${ROUTINE_CHECKS_ENABLED:-true}
     ports:
       - "${STARDUST_PORT:-3100}:3000"
     depends_on:

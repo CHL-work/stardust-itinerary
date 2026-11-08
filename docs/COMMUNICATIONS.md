@@ -6,7 +6,7 @@ PostgreSQL is canonical. Current delivery consists of optional open-page disrupt
 
 Here "local" means device-local: an open Stardust page in the member's browser shows these notifications; there is no server push.
 
-Only [qualified disruptions](DISRUPTION_CONFIDENCE.md) can display a badge or notify: high-confidence official evidence of direct meaningful impact, including supported delays of at least 30 minutes, cancellation, closure or blocked access. Broad weather/network notices, possible/info rows and legacy unqualified observations stay quiet. The model cannot send a notification or change the itinerary directly.
+Warnings come from the disruption monitor, whether the operator's keys or a member's own key paid for the check ([routine checks](AI_TAB.md#routine-checks-on-your-own-key)). Only [qualified disruptions](DISRUPTION_CONFIDENCE.md) can display a badge or notify: high-confidence official evidence of direct meaningful impact, including supported delays of at least 30 minutes, cancellation, closure or blocked access. Broad weather/network notices, possible/info rows and legacy unqualified observations stay quiet. The model cannot send a notification or change the itinerary directly.
 
 After explicit browser permission, an open Stardust page receiving a new or updated warning during its normal refresh may show up to three tagged notifications through the registered service worker. Selecting one focuses or opens the same-origin app. Text follows the selected locale; both Cantonese modes use neutral safety language. The in-app detail remains authoritative and includes the check time, sources and uncertainty disclaimer.
 

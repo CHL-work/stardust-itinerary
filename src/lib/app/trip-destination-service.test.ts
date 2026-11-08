@@ -8,10 +8,12 @@ import type { DestinationDefaults } from "@/lib/app/trip-destination-contract";
 import { locales } from "@/lib/i18n";
 import { validateLookupOutput } from "@/lib/app/trip-destination-defaults";
 
-const mocks = vi.hoisted(() => ({ provider: vi.fn(), operator: vi.fn() }));
+const mocks = vi.hoisted(() => ({ provider: vi.fn(), operator: vi.fn(), secret: vi.fn() }));
 vi.mock("@/lib/ai/trip-destination-provider", () => ({ lookupTripDestination: mocks.provider,
-  DESTINATION_LOOKUP_PROMPT_VERSION: 1, DESTINATION_LOOKUP_TIMEOUT_MS: 20_000 }));
+  DESTINATION_LOOKUP_MODEL: "gpt-6.1-sol", DESTINATION_LOOKUP_PROMPT_VERSION: 1, DESTINATION_LOOKUP_TIMEOUT_MS: 20_000,
+  buildTripDestinationPrompt: () => "synthetic prompt", TripDestinationProviderError: class extends Error {} }));
 vi.mock("@/lib/auth/operator-access", () => ({ isPlatformOperator: mocks.operator }));
+vi.mock("@/lib/ai/credentials", () => ({ readAiCredentialSecret: mocks.secret }));
 import { canLookupTripDestination, runTripDestinationLookup } from "@/lib/app/trip-destination-service";
 
 const principal = { sessionId: randomUUID(), userId: randomUUID(), memberId: randomUUID(), tripId: randomUUID(),
@@ -25,9 +27,13 @@ type Row = { id: string; requestId: string; hash: Buffer; inputHash: Buffer; sta
 
 function database() {
   const rows: Row[] = [];
-  const state = { eligible: true, active: true, daily: 0, busy: false, attempts: 0, leases: 0, finished: true };
+  const state = { eligible: true, active: true, daily: 0, busy: false, attempts: 0, leases: 0, finished: true,
+    keys: [] as string[], freeToday: 0, inserted: [] as unknown[][] };
   const query = vi.fn(async (sql: string, values: unknown[] = []) => {
     if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql) || sql.includes("pg_advisory_xact_lock")) return { rows: [], rowCount: 0 };
+    if (sql.startsWith("SELECT provider FROM user_ai_credentials")) return { rows: state.keys.map((provider) => ({ provider })) };
+    if (sql.includes("column_name = 'credential_source'")) return { rows: [{ funding: true }] };
+    if (sql.includes("credential_source = 'free' AND created_at")) return { rows: [{ daily: state.freeToday }] };
     if (sql.startsWith("SELECT 1 FROM oidc_identities")) return { rows: state.eligible ? [{}] : [] };
     if (sql.startsWith("SELECT 1 FROM auth_")) return { rows: state.active ? [{}] : [] };
     if (sql.includes("SET status='failed',error_code='TIMEOUT'")) return { rows: [], rowCount: 0 };
@@ -39,6 +45,7 @@ function database() {
     if (sql.includes("input_hash=$2")) return { rows: rows.filter((row) => row.status === "succeeded" && row.inputHash.equals(values[1] as Buffer)) };
     if (sql.includes("bool_or(status='started')")) return { rows: [{ busy: state.busy, daily: state.daily + rows.length }] };
     if (sql.includes("INSERT INTO account_ai_lookups")) {
+      state.inserted.push(values);
       rows.push({ id: values[0] as string, requestId: values[2] as string, hash: values[3] as Buffer,
         inputHash: values[4] as Buffer, status: "started", response_json: null, error_code: null });
       return { rows: [], rowCount: 1 };
@@ -162,5 +169,40 @@ describe("account-scoped destination lookups", () => {
   it("cannot overwrite a stale request already terminalized by another worker", async () => {
     const db = database(); db.state.finished = false;
     expect((await runTripDestinationLookup(db.pool, config, principal, input())).reason).toBe("timeout");
+  });
+  it("runs on the requester's own key with its provider's lightest model, without the daily ten (JOB-094)", async () => {
+    const db = database(); db.state.keys = ["google", "anthropic"]; db.state.daily = 10;
+    mocks.secret.mockResolvedValue({ apiKey: "synthetic-own-key", vertex: null });
+    const provider = vi.fn(async () => ({ ...providerResult, effectiveModel: "claude-haiku-5-5" }));
+    const result = await runTripDestinationLookup(db.pool, config, principal, input(), { provider });
+    expect(result.source).toBe("ai");
+    // Anthropic comes before Google; the lookup reads that key only.
+    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ destination: "japan" }), { kind: "own", model: "claude-haiku-5-5" });
+    expect(mocks.secret).toHaveBeenCalledWith(db.pool, principal.userId, "anthropic");
+    expect(db.state.inserted[0].slice(9)).toEqual(["claude-haiku-5-5", "anthropic", "claude_agent_sdk", "api_key", "own"]);
+    expect(mocks.provider).not.toHaveBeenCalled();
+  });
+  it("fails safely when the requester's key no longer opens", async () => {
+    const db = database(); db.state.keys = ["openai"]; mocks.secret.mockResolvedValue(null);
+    const provider = vi.fn();
+    expect((await runTripDestinationLookup(db.pool, config, principal, input(), { provider })).reason).toBe("provider_unavailable");
+    expect(provider).not.toHaveBeenCalled(); expect(db.rows[0]).toMatchObject({ status: "failed", error_code: "PROVIDER_UNAVAILABLE" });
+  });
+  it("uses a free model without a key when free AI is on, within an instance-wide daily cap", async () => {
+    vi.stubEnv("FREE_AI_ENABLED", "true");
+    const db = database(); const provider = vi.fn(async () => ({ ...providerResult, effectiveModel: "liquid/lfm-3-1.7b:free" }));
+    expect((await runTripDestinationLookup(db.pool, config, principal, input(), { provider })).source).toBe("ai");
+    expect(provider).toHaveBeenCalledWith(expect.anything(), { kind: "free" });
+    expect(db.state.inserted[0].slice(9)).toEqual(["guest-free", "kilo", "kilo_gateway", "anonymous", "free"]);
+    db.state.freeToday = 200;
+    expect((await runTripDestinationLookup(db.pool, config, principal, input("Kyoto"), { provider })).reason).toBe("quota");
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the operator's key for the platform operator even with own keys saved", async () => {
+    const db = database(); db.state.keys = ["openai"]; mocks.operator.mockResolvedValue(true);
+    const provider = vi.fn(async () => providerResult);
+    await runTripDestinationLookup(db.pool, config, principal, input(), { provider });
+    expect(provider).toHaveBeenCalledWith(expect.anything(), { kind: "operator" });
+    expect(db.state.inserted[0].slice(9)).toEqual(["gpt-6.1-sol", "openai", "codex_sdk", "api_key", "operator"]);
   });
 });

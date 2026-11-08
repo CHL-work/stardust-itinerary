@@ -32,8 +32,18 @@ describe("per-request AI credentials", () => {
     expect(activeAiCredential()).toBeUndefined();
   });
 
-  it("never runs the operator-funded destination lookup on a user's key", async () => {
+  it("runs the Codex destination lookup on a requester's own OpenAI key, never the operator's (JOB-094)", async () => {
     await withUserAiCredential({ source: "own", provider: "openai", apiKey: "user-openai", vertex: null }, async () => {
+      const env = tripDestinationProviderEnvironment(operatorEnv);
+      expect(env).toMatchObject({ CODEX_API_KEY: "user-openai", OPENAI_API_KEY: "user-openai" });
+      expect(Object.values(env)).not.toContain("operator-openai");
+      expect(env.CODEX_HOME).toContain("stardust-ai-key-");
+    });
+    // A shared key, or a key for another provider, never runs this lookup.
+    await withUserAiCredential({ source: "shared", provider: "openai", apiKey: "shared-openai", vertex: null }, async () => {
+      expect(() => tripDestinationProviderEnvironment(operatorEnv)).toThrow(AiCredentialContextMissingError);
+    });
+    await withUserAiCredential({ source: "own", provider: "anthropic", apiKey: "user-anthropic", vertex: null }, async () => {
       expect(() => tripDestinationProviderEnvironment(operatorEnv)).toThrow(AiCredentialContextMissingError);
     });
   });
