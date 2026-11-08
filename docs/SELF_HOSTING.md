@@ -30,9 +30,9 @@ Edit `.env`:
 | `PUBLIC_SIGNUP_ENABLED` | `true`, so you can create your own account (see step 2 for who can sign in) |
 | `OPENAI_API_KEY` and `CODEX_API_KEY` | the same OpenAI key, if you use OpenAI models |
 | `ANTHROPIC_API_KEY` | if you use Claude models |
-| `STARDUST_GEMINI_API_KEY` | if you use Gemini models; for a Vertex AI key, also `STARDUST_GEMINI_VERTEX_PROJECT` and `STARDUST_GEMINI_VERTEX_LOCATION` |
-| `DEFAULT_LOCALE` | `en`, `zh-HK`, `zh-HK-lihkg`, `ja-JP`, `zh-CN`, `zh-TW`, `es`, `pt-BR`, `fr`, `de`, `ru` or `id` |
-| `GUEST_MODE_ENABLED` | optional, `true` adds **Try as guest**: a demo trip deleted after 24 hours. It also needs `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` from Cloudflare Turnstile. On a private instance, `GUEST_ALLOW_WITHOUT_TURNSTILE=true` waives the check. Per-address limits use Cloudflare's `CF-Connecting-IP`, or a reverse proxy's `X-Real-IP`. The scheduler purges expired guests every hour |
+| `STARDUST_GEMINI_API_KEY` | if you use Gemini models; for project-based Vertex AI, also `STARDUST_GEMINI_VERTEX_PROJECT` and `STARDUST_GEMINI_VERTEX_LOCATION` (operator environment; account keys use Settings) |
+| Language | English initially; explicit browser/account choices are remembered. The retired `DEFAULT_LOCALE` setting is ignored |
+| `GUEST_MODE_ENABLED` | optional, `true` adds **Try as guest**: an empty account that may create one isolated trip, all deleted after 24 hours with no Google-account transfer. It also needs `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` from Cloudflare Turnstile. On a private instance, `GUEST_ALLOW_WITHOUT_TURNSTILE=true` waives the check. Per-address limits use Cloudflare's `CF-Connecting-IP`, or a reverse proxy's `X-Real-IP`. The scheduler purges expired guests every hour |
 | `PRIVACY_NOTICE_URL` | optional, an https link to your privacy notice, shown on the sign-in page. Adapt [the public instance's](PRIVACY.md) to your hosting |
 | `STARDUST_AI_MAX_CONCURRENT` | optional, AI requests the web server runs at once (default 4). Each starts provider processes, so size it to the memory you give the web service |
 | `STARDUST_FEEDBACK_REPOSITORY` and `STARDUST_FEEDBACK_GITHUB_TOKEN` | optional, to file reviewed feedback as issues: a **private** repository as `owner/name`, and a fine-grained token for it with **Issues: read and write**. The publisher refuses a repository that is not private ([feedback](FEEDBACK.md)) |

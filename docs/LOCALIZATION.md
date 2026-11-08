@@ -27,7 +27,7 @@ Cross-feature rules belong here; feature docs own their detailed labels and beha
 | `ru` | Russian |
 | `id` | Indonesian |
 
-`zh-HK-lihkg` is an internal tone identifier, not a standard locale tag. The root route defaults to it unless a valid `DEFAULT_LOCALE` overrides it. Date/number formatting uses the underlying valid locale; HTML language is `zh-HK` for the tone variant. A selected language changes display, not the trip's IANA time zone, money or access rules.
+`zh-HK-lihkg` is an internal tone identifier, not a standard locale tag. English is the initial default; `DEFAULT_LOCALE` no longer overrides it. Explicit language selections persist in a browser cookie and, for authenticated trip/onboarding identities, the account's `preferred_locale`. The root resolves account choice, then browser choice, then English. Google sign-in restores the Google account's choice (English if unset), never adopting a guest's preference. Visiting a localized URL does not itself save a preference. Date/number formatting uses the underlying valid locale; HTML language is `zh-HK` for the tone variant. A selected language changes display, not the trip's IANA time zone, money or access rules.
 
 ### Current implementation
 
@@ -47,7 +47,7 @@ Use the existing catalog/helper for each surface, with tests for every choice. B
 | Disruptions | Translate bodies as well as labels from observation-bound `en`/`zh-HK`/`ja-JP` text. Spicy Cantonese uses neutral safety text. Missing translations show a neutral fallback plus original; viewing cannot regenerate evidence or trigger repeat notifications. [Localization](DISRUPTION_LOCALIZATION.md) |
 | Feedback/activity | Ten-minute diagnostics, the review notice behind the form's "?" button, and operator states are localized. Submitted feedback remains authored; developer issue templates use English with attributed excerpts. [Feedback](FEEDBACK.md), [Activity](ACTIVITY.md) |
 
-Original trip/event/venue/member names, addresses, notes, account email hints and submitted instructions are preserved. Locale selection does not silently translate canonical traveler data; an explicit canonical-content translation is a separately audited maintenance change, not general behavior. General on-demand content translation, saved account locale preferences and complete owner-operational surface localization are not implied by this contract.
+Original trip/event/venue/member names, addresses, notes, account email hints and submitted instructions are preserved. Locale selection does not silently translate canonical traveler data; an explicit canonical-content translation is a separately audited maintenance change, not general behavior. General on-demand content translation and complete owner-operational surface localization are not implied by this contract.
 
 Reservation-expense clarification is a neutral money surface. Missing essential dates/amounts or ambiguous members ask for clarification. A tentative requester payer is allowed only with disclosed assumptions, never described as confirmed payment. Natural answers may complete an exact-identity, unexpired application-owned draft; ordinary history, pure lookup or a fulfilled/expired draft cannot authorize a mutation. See [bounded clarification drafts](AI_AND_AGENTS.md#bounded-clarification-drafts).
 

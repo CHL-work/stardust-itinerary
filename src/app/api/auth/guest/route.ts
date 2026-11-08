@@ -6,14 +6,15 @@ import {
 } from "@/lib/app/guest";
 import { apiError } from "@/lib/app/http";
 import { getAuthConfig } from "@/lib/auth/config";
+import { setAccountCookie } from "@/lib/auth/account-session";
 import { RateLimitError } from "@/lib/auth/errors";
 import { enforceRateLimit } from "@/lib/auth/repository";
-import { requireSameOrigin, setSessionCookie, trustedClientAddress } from "@/lib/auth/web";
+import { clearSessionCookie, requireSameOrigin, trustedClientAddress } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 import { locales } from "@/lib/i18n";
 
 /**
- * "Try as guest" (JOB-064): a 24-hour guest account with a synthetic demo trip. Off unless
+ * "Try as guest": a 24-hour guest account that starts at Create Trip. Off unless
  * GUEST_MODE_ENABLED=true; gated by Cloudflare Turnstile (required unless explicitly waived),
  * rate limited and capped per address on Cloudflare's own client-address header.
  */
@@ -50,8 +51,9 @@ export async function POST(request: NextRequest) {
     const created = await createGuestSession(pool, config, {
       userAgent: request.headers.get("user-agent"), locale: body.locale ?? "en", address,
     });
-    const response = NextResponse.json({ tripId: created.tripId }, { status: 201, headers });
-    setSessionCookie(response, config, created.grant);
+    const response = NextResponse.json({ next: `/trips/new?locale=${body.locale ?? "en"}` }, { status: 201, headers });
+    clearSessionCookie(response, config);
+    setAccountCookie(response, config, created.grant);
     return response;
   } catch (error) {
     if (error instanceof RateLimitError || error instanceof GuestAddressLimitError) {

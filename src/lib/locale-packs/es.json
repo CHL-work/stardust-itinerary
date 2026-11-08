@@ -1,5 +1,6 @@
 {
   "messages": {
+    "languageSaveFailed": "No se pudo guardar el idioma. Inténtalo de nuevo.",
     "appName": "Stardust Itinerary",
     "demoMode": "Modo demo · los cambios no se guardan",
     "tripLabel": "Viaje actual",
@@ -695,8 +696,18 @@
     "savedKey": "Clave terminada en {hint}, comprobada el {date}",
     "vertexKey": "Clave de Vertex AI terminada en {hint}, comprobada el {date}",
     "label": "Clave de API",
-    "vertexProject": "Proyecto de Vertex AI (opcional)",
-    "vertexHelp": "Solo para claves de Vertex AI.",
+    "googleMode": "Tipo de API de Google",
+    "googleModeGemini": "API de Gemini (AI Studio)",
+    "googleModeExpress": "Vertex AI express (solo clave)",
+    "googleModeVertex": "Vertex AI (proyecto y ubicación)",
+    "googleKeyHelp": "Elige dónde creaste la clave y pégala abajo, en Clave API.",
+    "vertexProject": "ID de proyecto de Google Cloud",
+    "vertexHelp": "Introduce el ID del proyecto, no una clave API. Ejemplo: my-project-123.",
+    "vertexLocation": "Ubicación (predeterminada: global)",
+    "invalidProject": "Comprueba el ID del proyecto y la ubicación. Pega la clave en Clave API, no en ID de proyecto.",
+    "googleConfiguration": "Google no pudo validar la configuración. Revisa el tipo de API, las restricciones de la clave, el proyecto, la ubicación y la API habilitada.",
+    "providerUnavailable": "El proveedor no puede comprobar la clave ahora. Inténtalo más tarde.",
+    "providerLimited": "El proveedor está limitando las comprobaciones de claves. Inténtalo más tarde.",
     "save": "Comprobar y guardar",
     "replace": "Comprobar y reemplazar",
     "saving": "Comprobando…",
@@ -1228,22 +1239,17 @@
     "checkedAt": "Comprobado: {time}."
   },
   "guest": {
+    "startNotice": "Crea un viaje de invitado; se elimina después de 24 horas.",
+    "startGuest": "Probar como invitado",
+    "startingGuest": "Iniciando acceso de invitado…",
+    "failed": "No se pudo iniciar el acceso de invitado. Revisa tu conexión y vuelve a intentarlo.",
+    "limited": "Demasiados intentos. Inténtalo más tarde o accede con Google.",
+    "challengeFailed": "La verificación no se completó. Inténtalo de nuevo.",
+    "unavailable": "El acceso de invitado no está disponible. Accede con Google o inténtalo más tarde.",
     "banner": "Este viaje de invitado se elimina el {time}.",
     "bannerNeedsKey": "Este viaje de invitado se elimina el {time}. La IA necesita tu propia clave de API.",
-    "signIn": "Inicia sesión para guardar viajes."
-  },
-  "guestDemo": {
-    "trip": "Viaje demo a Tokio",
-    "guest": "Invitado",
-    "events": [
-      "Check-in en el hotel",
-      "Cena en Shinjuku",
-      "Paseo matutino por Meiji Jingu",
-      "Almuerzo en Harajuku",
-      "Shibuya al atardecer",
-      "Desayuno en el mercado exterior de Tsukiji",
-      "Tren al aeropuerto de Haneda"
-    ]
+    "signIn": "Accede para viajes permanentes.",
+    "separateAccount": "Los datos de invitado no se transfieren al iniciar sesión."
   },
   "infoTip": {
     "more": "Más información"

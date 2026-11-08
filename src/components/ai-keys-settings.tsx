@@ -11,7 +11,22 @@ type Provider = AiCredentialSummary["provider"];
 type Request = <T>(url: string, init?: RequestInit) => Promise<T>;
 /** `changed` runs after a key is saved or removed, so the page can refresh what AI it offers. */
 type Props = { tripId: string; scope: string; locale: Locale; request: Request; changed?: () => void };
-type Notice = { provider: Provider; kind: "savedNotice" | "removedNotice" | "rejected" | "failed" | "unavailable" | "limited" };
+type Notice = { provider: Provider; kind: "savedNotice" | "removedNotice" | "rejected" | "failed" | "unavailable" | "limited" | "providerLimited" | "providerUnavailable" | "googleConfiguration" | "invalidProject" };
+type GoogleMode = "gemini" | "express" | "vertex";
+type KeyDraft = { apiKey: string; vertexProject: string; vertexLocation?: string; googleMode?: GoogleMode };
+
+/** Explicit routing: changing a mode never submits the key to another Google endpoint as fallback. */
+export function keyDraftPayload(provider: Provider, draft: KeyDraft) {
+  return { provider, apiKey: draft.apiKey.trim(), ...(provider === "google"
+    ? draft.googleMode === "express" ? { vertexExpress: true }
+      : draft.googleMode === "vertex" ? { vertexProject: draft.vertexProject.trim(), vertexLocation: draft.vertexLocation?.trim() || "global" }
+        : {} : {}) };
+}
+
+function validVertexDraft(draft: KeyDraft) {
+  return draft.googleMode !== "vertex" || (/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u.test(draft.vertexProject.trim())
+    && /^[a-z][a-z0-9-]{0,39}$/u.test(draft.vertexLocation?.trim() || "global"));
+}
 
 export const aiKeyProviders: readonly Provider[] = ["openai", "anthropic", "google"];
 
@@ -37,7 +52,7 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
   const [usage, setUsage] = useState<AiKeyUsage | null>(null);
   const [protection, setProtection] = useState<AiKeyProtection | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "failed">("loading");
-  const [drafts, setDrafts] = useState<Record<Provider, { apiKey: string; vertexProject: string }>>({
+  const [drafts, setDrafts] = useState<Record<Provider, KeyDraft>>({
     openai: { apiKey: "", vertexProject: "" }, anthropic: { apiKey: "", vertexProject: "" }, google: { apiKey: "", vertexProject: "" },
   });
   const [busy, setBusy] = useState<Provider | null>(null);
@@ -45,16 +60,26 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
 
   const fetchKeys = useCallback(() => request<{ keys: AiCredentialSummary[]; usage?: AiKeyUsage; protection?: AiKeyProtection | null }>(url),
     [request, url]);
+  const selectSavedGoogleMode = (savedKeys: AiCredentialSummary[]) => {
+    const google = savedKeys.find((key) => key.provider === "google");
+    setDrafts((current) => ({ ...current, google: { ...current.google,
+      googleMode: current.google.googleMode ?? (google?.vertexExpress ? "express" : google?.vertex ? "vertex" : "gemini") } }));
+  };
   useEffect(() => {
     let active = true;
     fetchKeys().then((body) => {
-      if (active) { setKeys(body.keys); setUsage(body.usage ?? null); setProtection(body.protection ?? null); setPhase("ready"); }
+      if (active) {
+        setKeys(body.keys); setUsage(body.usage ?? null); setProtection(body.protection ?? null); setPhase("ready");
+        const google = body.keys.find((key) => key.provider === "google");
+        setDrafts((current) => ({ ...current, google: { ...current.google,
+          googleMode: current.google.googleMode ?? (google?.vertexExpress ? "express" : google?.vertex ? "vertex" : "gemini") } }));
+      }
     }, () => { if (active) setPhase("failed"); });
     return () => { active = false; };
   }, [fetchKeys]);
   const reload = () => {
     setPhase("loading");
-    fetchKeys().then((body) => { setKeys(body.keys); setUsage(body.usage ?? null); setProtection(body.protection ?? null); setPhase("ready"); },
+    fetchKeys().then((body) => { setKeys(body.keys); setUsage(body.usage ?? null); setProtection(body.protection ?? null); setPhase("ready"); selectSavedGoogleMode(body.keys); },
       () => setPhase("failed"));
   };
 
@@ -62,13 +87,13 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
     event.preventDefault();
     const draft = drafts[provider];
     if (!draft.apiKey.trim() || busy) return;
+    if (provider === "google" && !validVertexDraft(draft)) { setNotice({ provider, kind: "invalidProject" }); return; }
     setBusy(provider);
     setNotice(null);
     try {
       const body = await request<{ key: AiCredentialSummary }>(url, {
         method: "PUT",
-        body: JSON.stringify({ provider, apiKey: draft.apiKey.trim(),
-          ...(provider === "google" && draft.vertexProject.trim() ? { vertexProject: draft.vertexProject.trim() } : {}) }),
+        body: JSON.stringify(keyDraftPayload(provider, draft)),
       });
       setKeys((current) => [...(current ?? []).filter((key) => key.provider !== provider), body.key]);
       setNotice({ provider, kind: "savedNotice" });
@@ -76,6 +101,8 @@ function AiKeysEditor({ tripId, locale, request, changed }: Props) {
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : null;
       setNotice({ provider, kind: code === "AI_KEY_REJECTED" ? "rejected" : code === "AI_KEYS_UNAVAILABLE" ? "unavailable"
+        : code === "AI_KEY_PROVIDER_LIMITED" ? "providerLimited" : code === "AI_KEY_PROVIDER_UNAVAILABLE" ? "providerUnavailable"
+        : code === "AI_KEY_CONFIGURATION" ? "googleConfiguration"
         : code === "AI_KEY_CHECKS_LIMITED" ? "limited" : "failed" });
     } finally {
       // The typed key never stays in the page once it has been sent.
@@ -109,8 +136,8 @@ type ViewProps = {
   copy: AiKeysCopy; locale: Locale; keys: AiCredentialSummary[] | null; usage?: AiKeyUsage | null; phase: "loading" | "ready" | "failed";
   /** Storage for new keys; legacy saved keys may still use an earlier supported backend. */
   protection?: AiKeyProtection | null;
-  drafts: Record<Provider, { apiKey: string; vertexProject: string }>; busy: Provider | null; notice: Notice | null;
-  edit: (provider: Provider, field: "apiKey" | "vertexProject", value: string) => void;
+  drafts: Record<Provider, KeyDraft>; busy: Provider | null; notice: Notice | null;
+  edit: (provider: Provider, field: "apiKey" | "vertexProject" | "vertexLocation" | "googleMode", value: string) => void;
   save: (provider: Provider) => (event: FormEvent) => void;
   remove: (provider: Provider) => () => void;
   reload: () => void;
@@ -135,14 +162,29 @@ export function AiKeysView({ copy, locale, keys, usage = null, protection = null
           ? <p className="muted-copy">{formatMessage(copy.sharedUsageLine, { today: usage[provider].sharedToday, month: usage[provider].sharedLast30Days })}</p>
           : null}
         <form data-feedback-action="settings_save" onSubmit={save(provider)}>
+          {provider === "google" ? <>
+            <label htmlFor={`${inputId}-mode`}>{copy.googleMode}</label>
+            <select id={`${inputId}-mode`} value={drafts[provider].googleMode ?? "gemini"} disabled={busy !== null}
+              onChange={(event) => edit(provider, "googleMode", event.target.value)}>
+              <option value="gemini">{copy.googleModeGemini}</option>
+              <option value="express">{copy.googleModeExpress}</option>
+              <option value="vertex">{copy.googleModeVertex}</option>
+            </select>
+            <small>{copy.googleKeyHelp}</small>
+          </> : null}
           <label htmlFor={inputId}>{copy.label}</label>
           <input id={inputId} type="password" autoComplete="off" spellCheck={false} aria-describedby="ai-keys-privacy"
             value={drafts[provider].apiKey} disabled={busy !== null} onChange={(event) => edit(provider, "apiKey", event.target.value)} />
-          {provider === "google" ? <>
+          {provider === "google" && drafts[provider].googleMode === "vertex" ? <>
             <label htmlFor={`${inputId}-vertex`}>{copy.vertexProject}</label>
             <input id={`${inputId}-vertex`} type="text" autoComplete="off" spellCheck={false} value={drafts[provider].vertexProject}
+              required pattern="[a-z][a-z0-9-]{4,28}[a-z0-9]" placeholder="my-project-123" aria-describedby={`${inputId}-vertex-help`}
               disabled={busy !== null} onChange={(event) => edit(provider, "vertexProject", event.target.value)} />
-            <small>{copy.vertexHelp}</small>
+            <small id={`${inputId}-vertex-help`}>{copy.vertexHelp}</small>
+            <label htmlFor={`${inputId}-location`}>{copy.vertexLocation}</label>
+            <input id={`${inputId}-location`} type="text" autoComplete="off" spellCheck={false} value={drafts[provider].vertexLocation ?? ""}
+              pattern="[a-z][a-z0-9-]{0,39}" placeholder="global" disabled={busy !== null}
+              onChange={(event) => edit(provider, "vertexLocation", event.target.value)} />
           </> : null}
           <button className="primary-button fit-button" disabled={busy !== null || !drafts[provider].apiKey.trim()}>
             {busy === provider ? copy.saving : saved ? copy.replace : copy.save}

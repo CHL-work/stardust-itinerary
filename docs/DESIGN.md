@@ -34,7 +34,7 @@ Only owners approve/reject requests. All AI event/expense creates remain pending
 
 ### 5.1 Create and prepare a trip
 
-Google sign-in binds an account before trip creation/invite admission. Eligible creators own the new trip. Public signup is default-off; account creation is rate limited. Capacity is 1–20 including owners: active, assigned/invited and disabled members reserve seats; removed members do not. Reusable admission is atomic and permanently exhausts the link at the last seat.
+Accounts without a trip start at Create Trip; opening the app or completing sign-in never seeds a demo. Eligible creators own the new trip. Guests may explicitly create one empty isolated trip with their original 24-hour expiry, but must sign in with Google to join real trips. Guest data never transfers into either new or existing Google accounts. Public signup is default-off; account creation is rate limited. Capacity is 1–20 including owners: active, assigned/invited and disabled members reserve seats; removed members do not. Reusable admission is atomic and permanently exhausts the link at the last seat.
 
 Create Trip defaults time zone to **Auto**, a bounded Sol lookup of the public destination, including countries, run with the server operator's configured provider credentials. Eligible authenticated creators may use this separately funded lookup; it grants no general planning entitlement. Suggestions are strictly validated, currency stays editable and creation needs explicit form submission. Manual fallback remains. [Destination defaults](TRIP_DESTINATION_DEFAULTS.md).
 
@@ -92,7 +92,7 @@ Settings holds sign-out, trip/member controls, manual personal AI instructions a
 
 Activity, Approvals history and AI usage history are owner-only. Feedback is a document-top-right control that scrolls away. Reports may attach an optional allowlisted **ten-minute** action trail; new reports always permit sanitized issue review, historical opt-outs remain respected. A separate reviewer/publisher creates issues only, never fixes. Actual credentials/scheduling determine delivery availability. [Feedback](FEEDBACK.md) · [Activity](ACTIVITY.md).
 
-One language control selects English, which is always first, clear Hong Kong Cantonese, 廣東話(辛辣), Japanese, or one of the eight added languages: Simplified and Traditional Chinese, Spanish, Brazilian Portuguese, French, German, Russian and Indonesian. Safety/auth/money/approvals/errors/destructive actions stay neutral. There is one layout; the classic layout and its toggle were retired (D-093).
+One language control selects English, clear Hong Kong Cantonese, 廣東話(辛辣), Japanese, or one of the eight added languages: Simplified and Traditional Chinese, Spanish, Brazilian Portuguese, French, German, Russian and Indonesian. English is the initial default. Explicit choices are remembered by the browser and account; Google sign-in restores that account's choice instead of importing another account's or guest's choice. Safety/auth/money/approvals/errors/destructive actions stay neutral. There is one layout; the classic layout and its toggle were retired (D-093).
 
 ## 9. Availability and lifecycle
 

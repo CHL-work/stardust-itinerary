@@ -254,7 +254,9 @@ describe("layout stylesheets", () => {
     expect(layout.indexOf('import "./globals.css"')).toBeLessThan(layout.indexOf('import "./new-ui/base.css"'));
     for (const file of scoped) expect(layout).toContain(`import "./new-ui/${file}"`);
     expect(scoped).not.toContain("layout-toggle.css");
-    expect(layout).toContain("<html lang=\"zh-HK\" data-ui=\"new\" suppressHydrationWarning>");
+    expect(layout).toContain("<html lang={language} data-ui=\"new\" suppressHydrationWarning>");
+    expect(layout).toContain("preferredLocale(null, (await cookies()).get(localeCookieName)?.value)");
+    expect(layout).toContain("documentLanguage(locale)");
     expect(layout).toContain("dangerouslySetInnerHTML={{ __html: documentLanguageBootstrapScript }}");
   });
 

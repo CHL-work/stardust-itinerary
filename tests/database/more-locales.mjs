@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { createGuestSession, guestDemoTitles } from "../../src/lib/app/guest.ts";
-import { localizedCatalog } from "../../src/lib/locale-packs/index.ts";
+import { createGuestTripFixture } from "./guest-fixture.mjs";
 
 const added = ["zh-CN", "zh-TW", "es", "pt-BR", "fr", "de", "ru", "id"];
 
 /**
  * More interface languages (JOB-084, D-096): migration 0063 lets trips, destination lookups and feedback
- * diagnostics record the eight added locales and still refuses unknown ones, and a guest's demo trip is
- * written in an added language. Synthetic data only, at migration head.
+ * diagnostics record the eight added locales and still refuses unknown ones, and a guest can create
+ * an empty trip in an added language. Synthetic data only, at migration head.
  */
 export async function testMoreLocales(pool, connectionString) {
   const userId = randomUUID();
@@ -34,12 +33,10 @@ export async function testMoreLocales(pool, connectionString) {
 
   const config = { authSecret: "synthetic-more-locales-secret-only", tripGraceDays: 2,
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
-  const guest = await createGuestSession(pool, config, { userAgent: "Synthetic guest browser", locale: "es", address: "198.51.100.84" },
+  const guest = await createGuestTripFixture(pool, config, { userAgent: "Synthetic guest browser", locale: "es", address: "198.51.100.84" },
     { GUEST_ACTIVE_LIMIT: "1000", GUEST_PER_ADDRESS_LIMIT: "1000" });
-  const spanish = localizedCatalog("es", "guestDemo", guestDemoTitles);
-  assert.notEqual(spanish.trip, guestDemoTitles.en.trip, "the Spanish pack names the demo trip");
   const trip = (await pool.query("SELECT default_locale, name FROM trips WHERE id=$1", [guest.tripId])).rows[0];
-  assert.deepEqual(trip, { default_locale: "es", name: spanish.trip });
+  assert.deepEqual(trip, { default_locale: "es", name: "Synthetic guest trip" });
   const titles = (await pool.query("SELECT title FROM itinerary_items WHERE trip_id=$1 ORDER BY starts_at", [guest.tripId])).rows.map((row) => row.title);
-  assert.deepEqual(titles, spanish.events);
+  assert.deepEqual(titles, [], "no invented events are seeded");
 }

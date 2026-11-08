@@ -1,5 +1,6 @@
 {
   "messages": {
+    "languageSaveFailed": "Die Sprache konnte nicht gespeichert werden. Bitte versuche es erneut.",
     "appName": "Stardust Itinerary",
     "demoMode": "Demo-Modus · Änderungen werden nicht gespeichert",
     "tripLabel": "Aktuelle Reise",
@@ -695,8 +696,18 @@
     "savedKey": "Schlüssel endet auf {hint}, geprüft am {date}",
     "vertexKey": "Schlüssel für Vertex AI endet auf {hint}, geprüft am {date}",
     "label": "API-Schlüssel",
-    "vertexProject": "Projekt für Vertex AI (optional)",
-    "vertexHelp": "Nur für Schlüssel von Vertex AI.",
+    "googleMode": "Google-API-Typ",
+    "googleModeGemini": "Gemini-API (AI Studio)",
+    "googleModeExpress": "Vertex AI express (nur Schlüssel)",
+    "googleModeVertex": "Vertex AI (Projekt und Standort)",
+    "googleKeyHelp": "Wähle den Dienst, bei dem du den Schlüssel erstellt hast, und füge ihn unten unter API-Schlüssel ein.",
+    "vertexProject": "Google-Cloud-Projekt-ID",
+    "vertexHelp": "Gib die Projekt-ID ein, keinen API-Schlüssel. Beispiel: my-project-123.",
+    "vertexLocation": "Standort (Standard: global)",
+    "invalidProject": "Prüfe Projekt-ID und Standort. Der Schlüssel gehört in API-Schlüssel, nicht in Projekt-ID.",
+    "googleConfiguration": "Google konnte die Konfiguration nicht prüfen. Prüfe API-Typ, Schlüsselbeschränkungen, Projekt, Standort und aktivierte API.",
+    "providerUnavailable": "Der Anbieter kann den Schlüssel derzeit nicht prüfen. Versuche es später erneut.",
+    "providerLimited": "Der Anbieter begrenzt Schlüsselprüfungen. Versuche es später erneut.",
     "save": "Prüfen und speichern",
     "replace": "Prüfen und ersetzen",
     "saving": "Wird geprüft…",
@@ -1228,22 +1239,17 @@
     "checkedAt": "Geprüft: {time}."
   },
   "guest": {
+    "startNotice": "Erstelle eine Gastreise; sie wird nach 24 Stunden gelöscht.",
+    "startGuest": "Als Gast testen",
+    "startingGuest": "Gastzugang wird gestartet…",
+    "failed": "Gastzugang konnte nicht gestartet werden. Prüfe deine Verbindung und versuche es erneut.",
+    "limited": "Zu viele Gastversuche. Versuche es später oder melde dich mit Google an.",
+    "challengeFailed": "Die Überprüfung ist fehlgeschlagen. Versuche es erneut.",
+    "unavailable": "Gastzugang ist nicht verfügbar. Melde dich mit Google an oder versuche es später.",
     "banner": "Diese Gastreise wird am {time} gelöscht.",
     "bannerNeedsKey": "Diese Gastreise wird am {time} gelöscht. KI braucht deinen eigenen API-Schlüssel.",
-    "signIn": "Melde dich an, um Reisen zu behalten."
-  },
-  "guestDemo": {
-    "trip": "Demo-Reise nach Tokio",
-    "guest": "Gast",
-    "events": [
-      "Check-in im Hotel",
-      "Abendessen in Shinjuku",
-      "Morgenspaziergang am Meiji Jingu",
-      "Mittagessen in Harajuku",
-      "Shibuya bei Sonnenuntergang",
-      "Frühstück auf dem Tsukiji-Außenmarkt",
-      "Zug zum Flughafen Haneda"
-    ]
+    "signIn": "Für dauerhafte Reisen anmelden.",
+    "separateAccount": "Gastdaten werden beim Anmelden nicht übertragen."
   },
   "infoTip": {
     "more": "Mehr Infos"

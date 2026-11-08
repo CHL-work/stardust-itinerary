@@ -1,5 +1,6 @@
 {
   "messages": {
+    "languageSaveFailed": "Bahasa tidak dapat disimpan. Coba lagi.",
     "appName": "Stardust Itinerary",
     "demoMode": "Mode demo · perubahan tidak disimpan",
     "tripLabel": "Perjalanan saat ini",
@@ -695,8 +696,18 @@
     "savedKey": "Kunci berakhiran {hint}, diperiksa {date}",
     "vertexKey": "Kunci Vertex AI berakhiran {hint}, diperiksa {date}",
     "label": "Kunci API",
-    "vertexProject": "Proyek Vertex AI (opsional)",
-    "vertexHelp": "Hanya untuk kunci Vertex AI.",
+    "googleMode": "Jenis API Google",
+    "googleModeGemini": "API Gemini (AI Studio)",
+    "googleModeExpress": "Vertex AI express (kunci saja)",
+    "googleModeVertex": "Vertex AI (proyek dan lokasi)",
+    "googleKeyHelp": "Pilih layanan tempat kunci dibuat, lalu tempel di kolom Kunci API di bawah.",
+    "vertexProject": "ID proyek Google Cloud",
+    "vertexHelp": "Masukkan ID proyek, bukan kunci API. Contoh: my-project-123.",
+    "vertexLocation": "Lokasi (bawaan: global)",
+    "invalidProject": "Periksa ID proyek dan lokasi. Tempel kunci di Kunci API, bukan ID proyek.",
+    "googleConfiguration": "Google tidak dapat memvalidasi pengaturan. Periksa jenis API, pembatasan kunci, proyek, lokasi, dan API yang diaktifkan.",
+    "providerUnavailable": "Penyedia belum dapat memeriksa kunci saat ini. Coba lagi nanti.",
+    "providerLimited": "Penyedia membatasi pemeriksaan kunci. Coba lagi nanti.",
     "save": "Periksa dan simpan",
     "replace": "Periksa dan ganti",
     "saving": "Memeriksa…",
@@ -1228,22 +1239,17 @@
     "checkedAt": "Diperiksa {time}."
   },
   "guest": {
+    "startNotice": "Buat perjalanan tamu, yang dihapus setelah 24 jam.",
+    "startGuest": "Coba sebagai tamu",
+    "startingGuest": "Memulai akses tamu…",
+    "failed": "Tidak dapat memulai akses tamu. Periksa koneksi Anda dan coba lagi.",
+    "limited": "Terlalu banyak percobaan. Coba nanti atau masuk dengan Google.",
+    "challengeFailed": "Verifikasi gagal. Coba lagi.",
+    "unavailable": "Akses tamu tidak tersedia. Masuk dengan Google atau coba nanti.",
     "banner": "Perjalanan tamu ini akan dihapus pada {time}.",
     "bannerNeedsKey": "Perjalanan tamu ini akan dihapus pada {time}. AI memerlukan kunci API Anda sendiri.",
-    "signIn": "Masuk untuk menyimpan perjalanan."
-  },
-  "guestDemo": {
-    "trip": "Perjalanan demo ke Tokyo",
-    "guest": "Tamu",
-    "events": [
-      "Check-in di hotel",
-      "Makan malam di Shinjuku",
-      "Jalan pagi di Meiji Jingu",
-      "Makan siang di Harajuku",
-      "Shibuya saat matahari terbenam",
-      "Sarapan di Pasar Luar Tsukiji",
-      "Kereta ke Bandara Haneda"
-    ]
+    "signIn": "Masuk untuk perjalanan tetap.",
+    "separateAccount": "Data tamu tidak dipindahkan saat Anda masuk."
   },
   "infoTip": {
     "more": "Info lebih lanjut"

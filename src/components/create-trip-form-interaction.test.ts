@@ -57,13 +57,25 @@ describe("trip creation destination interactions",() => {
     vi.stubGlobal("window",{setTimeout,clearTimeout,requestAnimationFrame:vi.fn()});
   });
   afterEach(() => vi.unstubAllGlobals());
-  it("never calls AI on mount, typing, manual edits or locale switching",() => {
+  it("never calls AI on mount, typing or manual edits; saves language before switching",async () => {
+    fetchMock.mockResolvedValue(Response.json({locale:"ja-JP"}));
     render(); change("destinationName","Dall"); change("destinationName","Dallas");
     change("timeZone","America/Chicago"); change("defaultCurrency","USD");
     const language = render().find((node) => node.type === "select" && node.props["aria-label"] === "Language")!;
     (language.props.onChange as (event:unknown) => void)({target:{value:"ja-JP"}});
+    expect(router.replace).not.toHaveBeenCalled();
+    await flush();
     expect(router.replace).toHaveBeenCalledWith("/trips/new?locale=ja-JP",{scroll:false});
-    render(); expect(fetchMock).not.toHaveBeenCalled();
+    render(); expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/account/locale");
+  });
+  it("keeps the selected language and form when saving the preference fails",async () => {
+    fetchMock.mockResolvedValue(Response.json({}, {status:401}));
+    const language = render().find((node) => node.type === "select" && node.props["aria-label"] === "Language")!;
+    (language.props.onChange as (event:unknown) => void)({target:{value:"ja-JP"}});
+    await flush();
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(render().some((node) => node.props.role === "alert" && node.props.children === "Could not save the language. Try again.")).toBe(true);
   });
   it("Enter commits an AI lookup for Japan without submitting or starting twice on blur",async () => {
     let finish!:(response:Response) => void;
@@ -112,8 +124,10 @@ describe("trip creation destination interactions",() => {
     let finish!:(response:Response) => void;
     fetchMock.mockReturnValue(new Promise<Response>((resolve) => {finish = resolve;}));
     blur();
+    fetchMock.mockResolvedValueOnce(Response.json({locale:"ja-JP"}));
     const language = render().find((node) => node.type === "select" && node.props["aria-label"] === "Language")!;
     (language.props.onChange as (event:unknown) => void)({target:{value:"ja-JP"}});
+    await flush();
     // Until the page reloads in Japanese, the select shows the choice and the form cannot be sent.
     const pending = render();
     expect(pending.find((node) => node.type === "select" && node.props["aria-label"] === "Language")!.props.value).toBe("ja-JP");
@@ -121,7 +135,7 @@ describe("trip creation destination interactions",() => {
     page = {locale:"ja-JP",options:getTripCreationOptions("ja-JP")};
     finish(reply()); await flush();
     const status = render().find((node) => node.props.role === "status")!;
-    expect(status.props.children).toContain("タイムゾーン"); expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(status.props.children).toContain("タイムゾーン"); expect(fetchMock).toHaveBeenCalledTimes(2);
   });
   it("restores the validated automatic zone when Auto is chosen again",async () => {
     fetchMock.mockImplementation(() => Promise.resolve(reply()));

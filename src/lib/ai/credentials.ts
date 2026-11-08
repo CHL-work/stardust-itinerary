@@ -17,15 +17,20 @@ import type { AuthenticatedSession } from "@/lib/auth/repository";
 export const aiCredentialProviders = ["openai", "anthropic", "google"] as const satisfies readonly AiCredentialProvider[];
 
 /** What the browser may ever see about a saved key. */
-export type AiCredentialSummary = { provider: AiCredentialProvider; hint: string; vertex: boolean; validatedAt: string; updatedAt: string };
+export type AiCredentialSummary = { provider: AiCredentialProvider; hint: string; vertex: boolean; vertexExpress?: boolean; validatedAt: string; updatedAt: string };
 
 export const aiCredentialInputSchema = z.strictObject({
   provider: z.enum(aiCredentialProviders),
   apiKey: z.string().trim().min(8).max(512).regex(/^[\x21-\x7e]+$/u, "API keys contain only visible ASCII characters."),
   vertexProject: z.string().trim().regex(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u).optional(),
   vertexLocation: z.string().trim().regex(/^[a-z][a-z0-9-]{0,39}$/u).optional(),
-}).refine((value) => value.provider === "google" || (!value.vertexProject && !value.vertexLocation), {
+  vertexExpress: z.boolean().optional(),
+}).refine((value) => value.provider === "google" || (!value.vertexProject && !value.vertexLocation && !value.vertexExpress), {
   message: "Only Gemini keys can name a Vertex AI project.",
+}).refine((value) => !value.vertexExpress || (!value.vertexProject && !value.vertexLocation), {
+  message: "Vertex express keys do not use a project or location.",
+}).refine((value) => !value.vertexLocation || Boolean(value.vertexProject), {
+  message: "A Vertex location requires a project.",
 });
 export type AiCredentialInput = z.infer<typeof aiCredentialInputSchema>;
 
@@ -40,6 +45,15 @@ export class AiKeysUnavailableError extends AppForbiddenError {
   constructor() {
     super("Saving API keys is not configured on this server.");
     this.name = "AI_KEYS_UNAVAILABLE";
+  }
+}
+
+export class AiKeyCheckError extends AppInvalidInputError {
+  constructor(public readonly code: "AI_KEY_PROVIDER_UNAVAILABLE" | "AI_KEY_PROVIDER_LIMITED" | "AI_KEY_CONFIGURATION") {
+    super(code === "AI_KEY_PROVIDER_LIMITED" ? "The provider is rate limiting key checks. Try later."
+      : code === "AI_KEY_CONFIGURATION" ? "Check the selected Google API type, project, location and API access."
+        : "The provider could not check this key. Try again later.");
+    this.name = "AI_KEY_CHECK_FAILED";
   }
 }
 
@@ -119,28 +133,47 @@ export async function validateAiCredential(input: AiCredentialInput, fetchImpl: 
         headers: { "x-api-key": input.apiKey, "anthropic-version": "2023-06-01" }, redirect: "error", signal,
       });
     } else {
-      const endpoint = geminiEndpointFor(input.apiKey, input.vertexProject, input.vertexLocation ?? (input.vertexProject ? "global" : null));
+      const endpoint = geminiEndpointFor(input.apiKey, input.vertexProject, input.vertexLocation ?? (input.vertexProject ? "global" : null), input.vertexExpress);
       if (!endpoint) return false;
-      // countTokens is free and works for both Gemini API and Vertex AI keys.
-      response = await fetchImpl(endpoint.url("gemini-3.5-flash-lite").replace(/:generateContent$/u, ":countTokens"), {
+      // AI Studio has a model-independent read. Vertex offers countTokens, not that catalog API.
+      response = endpoint.backend === "gemini_api"
+        ? await fetchImpl("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", {
+          headers: { "x-goog-api-key": endpoint.apiKey }, redirect: "error", signal,
+        })
+        : await fetchImpl(endpoint.url("gemini-3.5-flash-lite").replace(/:generateContent$/u, ":countTokens"), {
         method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": endpoint.apiKey },
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ok" }] }] }), redirect: "error", signal,
       });
     }
   } catch {
-    throw new AppInvalidInputError("The provider could not be reached to check this key. Try again.");
+    throw new AiKeyCheckError("AI_KEY_PROVIDER_UNAVAILABLE");
   }
   await response.body?.cancel().catch(() => {});
+  if (response.status === 429) throw new AiKeyCheckError("AI_KEY_PROVIDER_LIMITED");
+  if (response.status >= 500 || response.status === 408) throw new AiKeyCheckError("AI_KEY_PROVIDER_UNAVAILABLE");
+  if (input.provider === "google" && [400, 403, 404].includes(response.status)) throw new AiKeyCheckError("AI_KEY_CONFIGURATION");
   return response.ok;
 }
 
 type CredentialRow = {
-  provider: AiCredentialProvider; key_hint: string; vertex_project: string | null; validated_at: Date; updated_at: Date;
+  provider: AiCredentialProvider; key_hint: string; vertex_project: string | null; vertex_express?: boolean | null; validated_at: Date; updated_at: Date;
 };
 
 function summary(row: CredentialRow): AiCredentialSummary {
-  return { provider: row.provider, hint: row.key_hint, vertex: row.vertex_project !== null,
+  return { provider: row.provider, hint: row.key_hint, vertex: row.vertex_project !== null || row.vertex_express === true,
+    ...(row.vertex_express ? { vertexExpress: true } : {}),
     validatedAt: row.validated_at.toISOString(), updatedAt: row.updated_at.toISOString() };
+}
+
+/** Older self-hosted schemas can still save their existing modes; express requires migration 0066. */
+async function saveVertexExpressMode(client: PoolClient, userId: string, provider: AiCredentialProvider, express: boolean) {
+  const result = await client.query<{ present: boolean }>(`SELECT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'user_ai_credentials' AND column_name = 'vertex_express') AS present`);
+  if (!result.rows[0]?.present) {
+    if (express) throw new AiKeysUnavailableError();
+    return;
+  }
+  await client.query("UPDATE user_ai_credentials SET vertex_express = $3 WHERE user_id = $1 AND provider = $2", [userId, provider, express]);
 }
 
 export async function listAiCredentials(pool: Pool, session: AuthenticatedSession, tripId: string): Promise<AiCredentialSummary[]> {
@@ -148,8 +181,8 @@ export async function listAiCredentials(pool: Pool, session: AuthenticatedSessio
   return inTransaction(pool, async (client) => {
     await lockCurrentTripActor(client, session);
     const result = await client.query<CredentialRow>(
-      `SELECT provider, key_hint, vertex_project, validated_at, updated_at
-         FROM user_ai_credentials WHERE user_id = $1 ORDER BY provider`, [session.userId]);
+      `SELECT provider, key_hint, vertex_project, (to_jsonb(credential)->>'vertex_express')::boolean AS vertex_express, validated_at, updated_at
+         FROM user_ai_credentials credential WHERE user_id = $1 ORDER BY provider`, [session.userId]);
     return result.rows.map(summary);
   });
 }
@@ -170,6 +203,8 @@ export async function saveAiCredential(
   return inTransaction(pool, async (client) => {
     await lockCurrentTripActor(client, session);
     const sealedColumn = await hasSealedWithColumn(client);
+    // Reset routing in the same transaction before replacing a previous express key with a project key.
+    await saveVertexExpressMode(client, session.userId, value.provider, false);
     // A KMS ciphertext needs migration 0059; the deploy runs migrations before the web server.
     if (sealed.sealedWith === "kms" && !sealedColumn) throw new AiKeysUnavailableError();
     const nonce = sealed.sealedWith === "local" ? sealed.nonce : null;
@@ -197,6 +232,8 @@ export async function saveAiCredential(
          RETURNING provider, key_hint, vertex_project, validated_at, updated_at`,
       sealedColumn ? [...values, sealed.sealedWith] : values,
     );
+    await saveVertexExpressMode(client, session.userId, value.provider, value.vertexExpress === true);
+    result.rows[0]!.vertex_express = value.vertexExpress === true;
     await appendAudit(client, { tripId, actorMemberId: session.memberId, entityType: "ai_credential",
       action: "ai.credential.saved", metadata: { provider: value.provider } });
     return summary(result.rows[0]!);
@@ -246,6 +283,7 @@ async function saveSecretManagerCredential(pool: Pool, session: AuthenticatedSes
     const prior = await client.query<{ revision: string }>(`SELECT updated_at::text AS revision FROM user_ai_credentials
       WHERE user_id = $1 AND provider = $2 FOR UPDATE`, [session.userId, value.provider]);
     if ((prior.rows[0]?.revision ?? null) !== before.revision) throw new AppConflictError("Your key changed in another request. Refresh and try again.");
+    await saveVertexExpressMode(client, session.userId, value.provider, false);
     const result = await client.query<CredentialRow>(`INSERT INTO user_ai_credentials
       (user_id, provider, sealed_with, secret_version, key_hint, vertex_project, vertex_location, validated_at)
       VALUES ($1, $2, 'secret_manager', $3, $4, $5, $6, CURRENT_TIMESTAMP)
@@ -256,6 +294,8 @@ async function saveSecretManagerCredential(pool: Pool, session: AuthenticatedSes
       RETURNING provider, key_hint, vertex_project, validated_at, updated_at`,
     [session.userId, value.provider, version, credentialHint(value.apiKey), value.vertexProject ?? null,
       value.vertexProject ? value.vertexLocation ?? "global" : null]);
+    await saveVertexExpressMode(client, session.userId, value.provider, value.vertexExpress === true);
+    result.rows[0]!.vertex_express = value.vertexExpress === true;
     await appendAudit(client, { tripId, actorMemberId: session.memberId, entityType: "ai_credential",
       action: "ai.credential.saved", metadata: { provider: value.provider } });
     return summary(result.rows[0]!);
@@ -316,15 +356,16 @@ export async function aiKeyUsage(pool: Pool, session: AuthenticatedSession, trip
 /** Server-only: the decrypted key for one provider, or null. Never send the result to a client. */
 export async function readAiCredentialSecret(
   client: Pick<PoolClient, "query">, userId: string, provider: AiCredentialProvider,
-): Promise<{ apiKey: string; vertex: { project: string; location: string } | null } | null> {
+): Promise<{ apiKey: string; vertex: { project: string; location: string } | null; vertexExpress?: boolean } | null> {
   // `*` keeps this working on databases from before migration 0059, which have no `sealed_with`.
-  const result = await client.query<StoredRow & { vertex_project: string | null; vertex_location: string | null }>(
+  const result = await client.query<StoredRow & { vertex_project: string | null; vertex_location: string | null; vertex_express?: boolean }>(
     "SELECT * FROM user_ai_credentials WHERE user_id = $1 AND provider = $2", [userId, provider]);
   const row = result.rows[0];
   if (!row) return null;
   try {
     const apiKey = await openStored(row, { userId, provider });
-    return { apiKey, vertex: row.vertex_project && row.vertex_location ? { project: row.vertex_project, location: row.vertex_location } : null };
+    return { apiKey, vertex: row.vertex_project && row.vertex_location ? { project: row.vertex_project, location: row.vertex_location } : null,
+      ...(row.vertex_express ? { vertexExpress: true } : {}) };
   } catch (error) {
     // A key that no longer opens (changed encryption key, tampered row, KMS unreachable or
     // refusing) is treated as absent. The operator still sees that it happened; the log names no

@@ -6,7 +6,8 @@ import { requireAuthenticatedSession, secureCookie } from "@/lib/auth/web";
 import { calendarCookieNames, completeCalendarAuthorization } from "@/lib/calendar/google-auth";
 import { storeCalendarConnection } from "@/lib/calendar/repository";
 import { getPool } from "@/lib/db/pool";
-import { isLocale } from "@/lib/i18n";
+import { readAccountLocale } from "@/lib/auth/locale-preference";
+import { localeCookieName, preferredLocale } from "@/lib/locale-preference";
 
 function clearCalendarCookies(response: NextResponse, secure: boolean): void {
   for (const name of Object.values(calendarCookieNames)) {
@@ -16,13 +17,14 @@ function clearCalendarCookies(response: NextResponse, secure: boolean): void {
 
 export async function GET(request: NextRequest) {
   const config = getAuthConfig();
-  const configuredLocale = process.env.DEFAULT_LOCALE ?? "zh-HK-lihkg";
-  const locale = isLocale(configuredLocale) ? configuredLocale : "zh-HK-lihkg";
+  const rememberedLocale = request.cookies.get(localeCookieName)?.value;
+  let locale = preferredLocale(null, rememberedLocale);
   const state = request.cookies.get(calendarCookieNames.state)?.value;
   const verifier = request.cookies.get(calendarCookieNames.verifier)?.value;
   if (!state || !verifier) return NextResponse.json({ error: "Calendar authorization expired." }, { status: 400 });
   try {
     const session = await requireAuthenticatedSession(request, config); assertNotGuest(session, "use Google Calendar");
+    locale = preferredLocale(await readAccountLocale(getPool(config), session.userId), rememberedLocale);
     const tokens = await completeCalendarAuthorization(config, new URL(request.url), state, verifier);
     await storeCalendarConnection(getPool(config), config, session, tokens);
     const response = NextResponse.redirect(new URL(`/${locale}?calendar=connected`, config.appBaseUrl));

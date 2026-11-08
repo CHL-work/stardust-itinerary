@@ -9,11 +9,13 @@ import type { GoogleIdentity } from "@/lib/auth/google";
 import type { SessionGrant } from "@/lib/auth/repository";
 import { rollingSessionExpiry } from "@/lib/auth/session-lifetime";
 import { createDeviceLabel, createOpaqueToken, hashOpaqueToken, isOpaqueToken } from "@/lib/auth/tokens";
+import { GUEST_ISSUER } from "@/lib/auth/guest-identity";
 
 export const accountCookieName = "stardust.account-onboarding";
 export type AccountPrincipal = {
   kind: "account"; accountSessionId: string; userId: string;
   issuer: string; subject: string; displayName: string;
+  guestExpiresAt?: Date;
 };
 export type AccountGrant = { rawToken: string; expiresAt: Date };
 export function publicSignupEnabled(): boolean { return process.env.PUBLIC_SIGNUP_ENABLED === "true"; }
@@ -95,9 +97,11 @@ export async function issueAccountOnboarding(
 export async function verifyAccountOnboarding(
   client: Pick<PoolClient,"query">, config: AuthConfig, rawToken?: string,
 ): Promise<AccountPrincipal|null> {
-  if (!publicSignupEnabled() || !rawToken || !isOpaqueToken(rawToken)) return null;
-  const result = await client.query<{id:string;user_id:string;issuer:string;subject:string;display_name:string}>(
-    `SELECT account_session.id,account_session.user_id,account_session.issuer,account_session.subject,app_user.display_name
+  const guestsEnabled = process.env.GUEST_MODE_ENABLED === "true";
+  if ((!publicSignupEnabled() && !guestsEnabled) || !rawToken || !isOpaqueToken(rawToken)) return null;
+  const result = await client.query<{id:string;user_id:string;issuer:string;subject:string;display_name:string;guest_expires_at:Date|null}>(
+    `SELECT account_session.id,account_session.user_id,account_session.issuer,account_session.subject,app_user.display_name,
+            (to_jsonb(app_user)->>'guest_expires_at')::timestamptz AS guest_expires_at
        FROM auth_account_sessions account_session JOIN app_users app_user ON app_user.id=account_session.user_id
        JOIN oidc_identities identity ON identity.issuer=account_session.issuer AND identity.subject=account_session.subject AND identity.user_id=account_session.user_id
       WHERE account_session.token_hash=$1 AND account_session.consumed_at IS NULL AND account_session.expires_at>CURRENT_TIMESTAMP
@@ -105,13 +109,34 @@ export async function verifyAccountOnboarding(
     [hashOpaqueToken(config.authSecret,"account-onboarding",rawToken)],
   );
   const row = result.rows[0];
+  if (row?.issuer === GUEST_ISSUER) {
+    if (!guestsEnabled || !row.guest_expires_at || row.guest_expires_at.getTime() <= Date.now()) return null;
+  } else if (row && (!publicSignupEnabled() || row.issuer !== "https://accounts.google.com" || row.guest_expires_at)) return null;
   return row ? { kind:"account",accountSessionId:row.id,userId:row.user_id,issuer:row.issuer,
-    subject:row.subject,displayName:row.display_name } : null;
+    subject:row.subject,displayName:row.display_name,...(row.guest_expires_at ? {guestExpiresAt:row.guest_expires_at} : {}) } : null;
 }
 
 /** Recheck and consume inside the same transaction that creates the trip. */
 export async function consumeAccountOnboarding(client: Pick<PoolClient,"query">, principal: AccountPrincipal): Promise<Date> {
-  if (!publicSignupEnabled()) throw new SessionUnavailableError("Public trip creation is not enabled.");
+  const guest = principal.issuer === GUEST_ISSUER;
+  if (guest ? process.env.GUEST_MODE_ENABLED !== "true" : !publicSignupEnabled() || principal.issuer !== "https://accounts.google.com") {
+    throw new SessionUnavailableError("Trip creation is not enabled.");
+  }
+  // The account row serializes guest creation with expiry/purge and suspension. Never trust a
+  // browser/principal expiry or convert this identity into a Google account.
+  const account = await client.query<{guest_expires_at:Date|null;suspended_at:Date|null}>(
+    `SELECT (to_jsonb(app_user)->>'guest_expires_at')::timestamptz AS guest_expires_at,
+            (to_jsonb(app_user)->>'suspended_at')::timestamptz AS suspended_at
+       FROM app_users app_user WHERE id=$1 FOR UPDATE`, [principal.userId],
+  );
+  const row = account.rows[0];
+  if (!row || row.suspended_at || (guest ? !row.guest_expires_at || row.guest_expires_at.getTime() <= Date.now() : row.guest_expires_at)) {
+    throw new SessionUnavailableError("Account sign-in expired. Sign in again.");
+  }
+  if (guest) {
+    const existing = await client.query("SELECT 1 FROM trips WHERE owner_user_id=$1 LIMIT 1", [principal.userId]);
+    if (existing.rowCount) throw new SessionUnavailableError("This guest has already created a trip.");
+  }
   const result = await client.query<{ absolute_expires_at: Date }>(
     `WITH locked_account AS MATERIALIZED (
        SELECT account_session.id, account_session.expires_at
@@ -129,7 +154,7 @@ export async function consumeAccountOnboarding(client: Pick<PoolClient,"query">,
   );
   if (result.rowCount !== 1) throw new SessionUnavailableError("Account sign-in expired. Sign in with Google again.");
   // Other devices authenticating the same account cannot extend this grant.
-  return result.rows[0].absolute_expires_at;
+  return guest ? row.guest_expires_at! : result.rows[0].absolute_expires_at;
 }
 
 export async function issueCreatedTripSession(

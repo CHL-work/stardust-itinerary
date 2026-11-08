@@ -12,6 +12,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
+| JOB-089 | Empty-trip onboarding, remembered language and Google key setup | Review: local checks passed; authorized CI-gated release |
 | JOB-087 | Account-owned keys in Google Secret Manager | Done: activated on GKE with verified workload isolation, preserved KMS protection and 15-minute cleanup (D-099) |
 | JOB-088 | Lightweight event type icons | Done: shared inline SVGs, responsive checks and refreshed synthetic screenshots; deployed to GKE (D-100) |
 | JOB-086 | Free AI for signed-in users and guests | Done: individual free-model picker, paid choices only with own saved keys, enabled and verified on GKE (D-098). See the job for release evidence |
@@ -67,7 +68,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 ### JOB-064: guest mode and public sign-up
 
 - **"Try as guest"** behind Cloudflare Turnstile and rate limits.
-- **Seeded demo trip:** each guest starts with a synthetic one.
+- **Empty-trip onboarding:** each guest explicitly creates one empty isolated trip; no automatic demo and no transfer into Google accounts (JOB-089).
 - **Sandboxed in the database:** guest and real trips never mix. Guests get no invitations or Calendar; AI uses their own key or the optional free service (JOB-071, extended by JOB-086).
 - **Purge:** an hourly job hard-deletes guests older than 24 hours through a guarded function that may only touch guest-only rows.
 - **Public sign-up** with Google, and self-service account deletion.

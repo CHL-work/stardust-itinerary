@@ -6,7 +6,7 @@ import { crc32c, kmsSeal, resetKmsTokenCache } from "../../src/lib/ai/credential
 import { resetSecretManagerTokenCache } from "../../src/lib/ai/credential-secret-manager.ts";
 import { cleanupCredentialSecrets } from "../../src/lib/ai/credential-secret-lifecycle.ts";
 import { deleteAiCredential, listAiCredentials, readAiCredentialSecret, saveAiCredential } from "../../src/lib/ai/credentials.ts";
-import { createGuestSession } from "../../src/lib/app/guest.ts";
+import { createGuestTripFixture as createGuestSession } from "./guest-fixture.mjs";
 import { AppConflictError, AppForbiddenError } from "../../src/lib/app/repository.ts";
 import { revokeSession, signInExistingIdentity, verifySession } from "../../src/lib/auth/repository.ts";
 
@@ -282,6 +282,25 @@ export async function testSecretManagerCredentials(pool, connectionString) {
       blocker.release();
       await lockOrderSave;
     }
+
+    // Routing metadata changes atomically with Secret Manager pointer publication.
+    const modeSession = await makeAccount();
+    const modeKey = "synthetic-google-secret-manager-MODE";
+    const saveMode = (mode, validate = async () => true) => saveAiCredential(pool, modeSession, modeSession.tripId,
+      { provider: "google", apiKey: modeKey, ...mode }, validate);
+    await saveMode({ vertexExpress: true });
+    assert.equal((await currentRow(modeSession.userId, "google")).vertex_express, true);
+    assert.deepEqual(await readAiCredentialSecret(pool, modeSession.userId, "google"), { apiKey: modeKey, vertex: null, vertexExpress: true });
+    await saveMode({ vertexProject: "synthetic-project" });
+    const standardMode = await currentRow(modeSession.userId, "google");
+    assert.equal(standardMode.vertex_express, false);
+    assert.equal(standardMode.vertex_project, "synthetic-project");
+    await assert.rejects(saveMode({ vertexExpress: true }, async () => false));
+    assert.deepEqual(await currentRow(modeSession.userId, "google"), standardMode, "a refused express key preserves the active standard key reference");
+    await saveMode({ vertexExpress: true });
+    await saveMode({});
+    assert.equal((await currentRow(modeSession.userId, "google")).vertex_express, false);
+    assert.equal((await currentRow(modeSession.userId, "google")).vertex_project, null);
 
     // Guest expiration is the account's exact deadline, not 24 hours after key save.
     const guest = await createGuestSession(pool, config, { userAgent: "Synthetic guest browser", locale: "en", address: "198.51.100.87" },

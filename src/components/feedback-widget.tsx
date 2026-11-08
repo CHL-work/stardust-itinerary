@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { MessageSquareWarning, X } from "lucide-react";
 import { withStableSession } from "@/lib/auth/client-session";
-import { locales, type Locale } from "@/lib/i18n";
+import { isLocale, type Locale } from "@/lib/i18n";
+import { preferredLocale } from "@/lib/locale-preference";
 import { InfoTip } from "@/components/info-tip";
 import { infoTipLabel } from "@/lib/app/info-tip-i18n";
 import { clearFeedbackContext, coarseFeedbackEnvironment, FEEDBACK_CONTEXT_EVENT, feedbackPageForPath, feedbackTrail, getFeedbackContext, verifyFeedbackContext } from "@/lib/feedback/client-context";
@@ -14,15 +15,16 @@ import styles from "./feedback-widget.module.css";
 
 const scopeKey = (scope: Pick<FeedbackContext["scope"], "tripId" | "memberId"> | null) => scope ? `${scope.tripId}:${scope.memberId}` : null;
 const verifiedScopeKey = (scope: FeedbackContext["scope"] | null) => scope ? `${scopeKey(scope)}:${scope.scopeKey}` : null;
-function localeForPath(path: string): Locale {
+export function feedbackLocaleForLocation(path: string, queryLocale?: string | null, fallbackLocale: Locale = "en"): Locale {
   const candidate = path.split("/")[1];
-  return locales.includes(candidate as Locale) ? candidate as Locale : "zh-HK-lihkg";
+  return isLocale(candidate) ? candidate : preferredLocale(null, fallbackLocale, queryLocale);
 }
 
 /** Global entry, with an ephemeral, bounded diagnostic trail. No background report uploads. */
-export function FeedbackWidget() {
+export function FeedbackWidget({ fallbackLocale = "en" }: { fallbackLocale?: Locale } = {}) {
   const pathname = usePathname();
-  const locale = localeForPath(pathname ?? "");
+  const searchParams = useSearchParams();
+  const locale = feedbackLocaleForLocation(pathname ?? "", searchParams?.get("locale"), fallbackLocale);
   const copy = feedbackCopy[locale];
   const dialog = useRef<HTMLDialogElement>(null);
   const verified = useRef<FeedbackContext | null>(null);

@@ -339,6 +339,11 @@
 }
 
 :root[data-ui="new"] .language-option {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
   gap: 8px;
   min-height: 44px;
   padding: 0 12px;

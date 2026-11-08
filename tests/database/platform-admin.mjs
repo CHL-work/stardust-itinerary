@@ -234,7 +234,7 @@ export async function testPlatformAdmin(pool, connectionString) {
     // The guest purge removes a guest's counters and admin records with the guest; anonymous counts stay.
     process.env.GUEST_ACTIVE_LIMIT = "1000";
     const guest = await createGuestSession(pool, config, { userAgent: "Synthetic guest browser", locale: "en", address: "203.0.113.77" });
-    const guestUser = (await verifySession(pool, config, guest.grant.rawToken)).userId;
+    const guestUser = guest.userId;
     await assert.rejects(enforceRateLimit(pool, config, { scope: "guest-map", key: guestUser, userId: guestUser, maximum: 0, windowSeconds: 60 }), RateLimitError);
     await setAccountSuspension(pool, operatorSession, guestUser, true);
     const guestCounts = await pool.query("SELECT COALESCE(sum(count),0)::int AS count FROM platform_daily_counts WHERE metric = 'guest_created'");

@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { GuestBanner } from "@/components/app-shell";
-import { GuestSignIn, guestLocale } from "@/components/guest-sign-in";
+import { GuestSignIn } from "@/components/guest-sign-in";
 import { guestModeEnabled, turnstileMode, verifyTurnstile } from "@/lib/app/guest";
 import { guestMessages } from "@/lib/app/guest-i18n";
 import { GUEST_ISSUER, isGuestSession } from "@/lib/auth/guest-identity";
@@ -53,23 +53,10 @@ describe("guest accounts", () => {
     expect(turnstileMode({ TURNSTILE_SECRET_KEY: "synthetic", GUEST_ALLOW_WITHOUT_TURNSTILE: "true" })).toBe("required");
   });
 
-  it("writes the demo trip in the browser's language", () => {
-    expect(guestLocale("ja")).toBe("ja-JP");
-    expect(guestLocale("zh-HK")).toBe("zh-HK");
-    expect(guestLocale("zh-Hant-HK")).toBe("zh-HK");
-    expect(guestLocale("zh-MO")).toBe("zh-HK");
-    expect(guestLocale("zh-TW")).toBe("zh-TW");
-    expect(guestLocale("zh-Hant")).toBe("zh-TW");
-    expect(guestLocale("zh-CN")).toBe("zh-CN");
-    expect(guestLocale("zh")).toBe("zh-CN");
-    expect(guestLocale("fr-FR")).toBe("fr");
-    expect(guestLocale("es-419")).toBe("es");
-    expect(guestLocale("pt-PT")).toBe("pt-BR");
-    expect(guestLocale("de-AT")).toBe("de");
-    expect(guestLocale("ru")).toBe("ru");
-    expect(guestLocale("in-ID")).toBe("id");
-    expect(guestLocale("ko-KR")).toBe("en");
-    expect(guestLocale(undefined)).toBe("en");
+  it("starts blank and explains that sign-in does not transfer guest data", () => {
+    const html = renderToStaticMarkup(createElement(GuestSignIn,{siteKey:null}));
+    expect(html).not.toContain("demo");
+    expect(html).toContain("Guest data is not transferred when you sign in");
   });
 
   it("waits for the person check when a site key is configured", () => {
@@ -92,10 +79,11 @@ describe("guest accounts", () => {
   });
 
   it("keeps the guest notice to one short line, the same in both Cantonese tones (JOB-077, D-088)", () => {
-    expect(guestMessages("en")).toEqual({
+    expect(guestMessages("en")).toMatchObject({
       banner: "This guest trip is deleted on {time}.",
       bannerNeedsKey: "This guest trip is deleted on {time}. AI needs your own API key.",
-      signIn: "Sign in to keep trips.",
+      signIn: "Sign in for saved trips.",
+      separateAccount: "Guest data is not transferred when you sign in.",
     });
     for (const locale of locales) {
       const { banner, bannerNeedsKey, signIn } = guestMessages(locale);

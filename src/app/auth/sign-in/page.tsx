@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import { GuestSignIn } from "@/components/guest-sign-in";
 import { guestModeEnabled } from "@/lib/app/guest";
 import { privacyNoticeUrl } from "@/lib/app/privacy-notice";
 import { isAuthConfigured } from "@/lib/auth/config";
 import { publicSignupEnabled } from "@/lib/auth/account-session";
+import { resolveRequestLocale } from "@/lib/locale-preference-server";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,7 @@ export default async function SignInPage({
   const errorCode = Array.isArray(params.error) ? params.error[0] : params.error;
   const errorMessage = errorCode ? signInErrors[errorCode] ?? signInErrors.oauth : null;
   const privacyUrl = privacyNoticeUrl();
+  const locale = await resolveRequestLocale(await cookies());
   return (
     <main className="auth-page">
       <section className="auth-panel">
@@ -51,8 +54,8 @@ export default async function SignInPage({
             Local authentication is disabled until the database and Google development credentials are configured.
           </p>
         )}
-        {configured && guestModeEnabled() ? <GuestSignIn siteKey={process.env.TURNSTILE_SITE_KEY?.trim() || null} /> : null}
-        <Link className="auth-secondary" href="/">Return to demo preview</Link>
+        {configured && guestModeEnabled() ? <GuestSignIn locale={locale} siteKey={process.env.TURNSTILE_SITE_KEY?.trim() || null} /> : null}
+        <Link className="auth-secondary" href={`/trips/new?locale=${locale}`}>Create trip</Link>
         {privacyUrl ? (
           <p className="auth-privacy">
             <a href={privacyUrl} target="_blank" rel="noopener noreferrer">Privacy notice</a>: what this instance stores, who receives it, and how long it is kept.

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { localeNames, menuLocales, type Locale } from "@/lib/i18n";
+import { getMessages, localeNames, menuLocales, type Locale } from "@/lib/i18n";
+import { saveLocalePreference } from "@/lib/locale-preference-client";
 import type { TripCreationOptions } from "@/lib/app/trip-creation-options";
 import { submitTripCreation, tripCreationLocalDate, type TripCreationFailure, type TripCreationField } from "@/lib/app/trip-creation-feedback";
 import { canSubmitTripCreation, initialTripCreationFormState, normalizedFormDestination, tripCreationFormReducer, type TripCreationFormAction } from "@/lib/app/trip-creation-form-state";
@@ -11,12 +12,17 @@ import type { DestinationLookupResponse } from "@/lib/app/trip-destination-contr
 import { infoTipLabel } from "@/lib/app/info-tip-i18n";
 import { createTripCopy } from "@/lib/app/create-trip-i18n";
 import { InfoTip } from "@/components/info-tip";
+import { GuestSignIn } from "@/components/guest-sign-in";
+import { guestMessages } from "@/lib/app/guest-i18n";
 
 export { createTripCopy } from "@/lib/app/create-trip-i18n";
 
-export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,lookupEntitled = false }:{locale:Locale;now:string;options:TripCreationOptions;authenticated:boolean;signupEnabled:boolean;lookupEntitled?:boolean}) {
+export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,lookupEntitled = false,guest = false,guestEnabled = false,guestSiteKey = null }:{locale:Locale;now:string;options:TripCreationOptions;authenticated:boolean;signupEnabled:boolean;lookupEntitled?:boolean;guest?:boolean;guestEnabled?:boolean;guestSiteKey?:string|null}) {
   // The page carries one language's copy and choices (JOB-085): another language reloads them, keeping the form.
   const [requestedLocale,setRequestedLocale] = useState<Locale | null>(null);
+  const [localeSaving,setLocaleSaving] = useState(false);
+  const [localeFailed,setLocaleFailed] = useState(false);
+  const localeSaveInFlight = useRef(false);
   const switching = requestedLocale !== null && requestedLocale !== locale;
   const [busy,setBusy] = useState(false);
   const [failure,setFailure] = useState<TripCreationFailure | null>(null);
@@ -99,13 +105,20 @@ export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,
       if (field instanceof HTMLElement) field.focus();
     });
   }
-  function chooseLocale(next:Locale) {
+  async function chooseLocale(next:Locale) {
+    if (localeSaveInFlight.current) return;
+    localeSaveInFlight.current = true;
+    setLocaleSaving(true); setLocaleFailed(false);
+    const saved = await saveLocalePreference(next);
+    localeSaveInFlight.current = false;
+    setLocaleSaving(false);
+    if (!saved) { setLocaleFailed(true); return; }
     setRequestedLocale(next);
     if (next !== locale) router.replace(`/trips/new?locale=${encodeURIComponent(next)}`,{scroll:false});
   }
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current || switching) return;
+    if (inFlight.current || switching || localeSaving) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     if (!canSubmitTripCreation(stateRef.current)) {
@@ -116,7 +129,7 @@ export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,
     setBusy(true); setFailure(null);
     const result = await submitTripCreation({ name:data.get("name"),destinationName:data.get("destinationName"),
           startsOn:data.get("startsOn"),endsOn:data.get("endsOn"),timeZone:data.get("timeZone"),
-          defaultCurrency:data.get("defaultCurrency"),maxMembers:Number(data.get("maxMembers")),defaultLocale:locale,
+          defaultCurrency:data.get("defaultCurrency"),maxMembers:guest ? 1 : Number(data.get("maxMembers")),defaultLocale:locale,
           ...(stateRef.current.lookupId ? {destinationLookupId:stateRef.current.lookupId} : {}) },stateRef.current);
     if (result) { setFailure(result); setBusy(false); inFlight.current = false; focusFailure(form,result); return; }
     lookupAbort.current?.abort();
@@ -124,10 +137,12 @@ export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,
     router.refresh();
   }
   return <main className="auth-page"><section className="auth-panel trip-creation-panel">
-    <label>{copy.language}<select aria-label={copy.language} disabled={busy} value={switching ? requestedLocale : locale} onChange={(event) => chooseLocale(event.target.value as Locale)}>
+    <label>{copy.language}<select aria-label={copy.language} disabled={busy || localeSaving || switching} value={switching ? requestedLocale : locale} onChange={(event) => void chooseLocale(event.target.value as Locale)}>
       {menuLocales.map((value) => <option key={value} value={value}>{localeNames[value]}</option>)}
     </select></label>
+    {localeFailed ? <p role="alert">{getMessages(locale).languageSaveFailed}</p> : null}
     <h1>{copy.title}</h1>
+    {guest ? <p>{guestMessages(locale).separateAccount}</p> : null}
     {authenticated ? <><p>{copy.intro}</p><form onSubmit={submit} noValidate>
       <fieldset disabled={busy} style={{border:0,padding:0,display:"grid",gap:"1rem"}}>
         <label>{copy.name}<input name="name" required maxLength={160} {...fieldProps("name")}/>{fieldError("name")}</label>
@@ -159,13 +174,13 @@ export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,
           : state.response?.currencyCandidates.some((code) => code !== state.response?.currency) ? copy.currencyMultiple
           : state.currencySource === "lookup" && state.currency ? copy.currencySuggested : copy.currencyCheck} {copy.currencyHint}</small>{fieldError("defaultCurrency")}</label>
         {state.currencySource === "manual" && state.response?.currency && state.currency !== state.response.currency ? <button type="button" className="auth-secondary" onClick={() => send({type:"useSuggestedCurrency"})}>{copy.currencyUseSuggested.replace("{code}",state.response.currency)}</button> : null}
-        <label>{copy.capacity}<input name="maxMembers" type="number" required min={1} max={20} defaultValue={10} {...fieldProps("maxMembers")}/>{fieldError("maxMembers")}</label>
+        {!guest ? <label>{copy.capacity}<input name="maxMembers" type="number" required min={1} max={20} defaultValue={10} {...fieldProps("maxMembers")}/>{fieldError("maxMembers")}</label> : null}
         <button className="auth-primary" type="submit" aria-disabled={!ready || busy || switching}>{busy ? copy.busy : copy.create}</button>
       </fieldset>
       {busy ? <p role="status">{copy.busy}</p> : null}
       {failure ? <p role="alert">{failure.kind === "fields" || failure.kind === "invalid" ? copy.error : copy[failure.kind]}</p> : null}
       {failure?.kind === "auth" ? <Link className="auth-secondary" href="/auth/sign-in">{copy.signin}</Link> : null}
-    </form></> : <><p>{signupEnabled ? copy.required : copy.closed}</p><form action="/api/auth/google/start" method="get"><button className="auth-primary" type="submit">{copy.signin}</button></form></>}
-    <a className="auth-secondary" href={`/${locale}`}>{copy.back}</a>
+    </form></> : <><p>{signupEnabled ? copy.required : copy.closed}</p><form action="/api/auth/google/start" method="get"><button className="auth-primary" type="submit">{copy.signin}</button></form>{guestEnabled ? <GuestSignIn siteKey={guestSiteKey} locale={locale}/> : null}</>}
+    {authenticated && !guest ? <a className="auth-secondary" href={`/${locale}`}>{copy.back}</a> : null}
   </section></main>;
 }

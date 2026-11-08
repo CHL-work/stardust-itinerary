@@ -91,16 +91,13 @@ Decision: [D-077](DECISIONS.md#d-077-guest-accounts-for-trying-the-public-instan
    - `403` when the Turnstile check fails. The check must also report this site's hostname and the `guest` action;
    - `429` beyond three new guests an hour from one address, or three active guests from one address (`GUEST_PER_ADDRESS_LIMIT`). The address is Cloudflare's `CF-Connecting-IP`, never the user agent or a client-supplied `X-Forwarded-For`. Only a keyed hash of it is stored;
    - `503` when the active-guest cap (`GUEST_ACTIVE_LIMIT`, default 200) is reached.
-2. Otherwise one transaction creates:
-   - a guest account (`app_users.guest_expires_at`, 24 hours ahead) with an identity under `urn:stardust:guest`;
-   - a three-day synthetic demo trip in Tokyo (`trips.guest_expires_at`, one member place), written in the browser's language;
-   - seven demo events, through the same validated, audited path as an owner's edits;
-   - an owner session that ends with the account.
+2. Otherwise one transaction creates a guest account (`app_users.guest_expires_at`, 24 hours ahead), its `urn:stardust:guest` identity and a 15-minute one-use onboarding grant. It opens Create Trip and creates no trip or event.
+3. Explicit form submission creates one empty isolated trip, its days and owner session. The trip has one seat, no sponsorship, and the account's original expiry; submitting later never renews that lifetime. A stale, expired or consumed grant cannot create another trip.
 
 A guest:
 - **Can:** use the trip like an owner, save their own AI keys and use AI with them. The trip is never sponsored. Because anyone can create a guest, its allowances are smaller: 5 key checks a day, 20 own-key AI requests a day, 20 map loads and 4 weather refreshes an hour, and no attached pictures.
-- **Cannot:** add members, create join or claim links, create more trips, connect Google Calendar, send feedback or use the operator-funded destination lookup. Invitations and members are refused by database triggers as well as by the application.
-- **Is never mixed with real trips:** a guest belongs only to its own guest trip, and an account can never become, or stop being, a guest.
+- **Cannot:** add members, create join or claim links, create additional trips, connect Google Calendar, send feedback or use the operator-funded destination lookup. Invitations and members are refused by database triggers as well as by the application. Joining a real trip requires completed Google sign-in.
+- **Is never mixed with real trips:** a guest belongs only to its own guest trip, and an account can never become, or stop being, a guest. Google sign-in opens the separate Google account: no trips, expenses, chats, keys or profile settings transfer to an existing or new account. The UI discloses this before sign-in. Guest expiry/purge remains unchanged.
 
 An hourly job (`guest-purge`) calls `app_purge_expired_guest` for each expired guest. It permanently deletes the account, its identity, keys and sessions, and every row of its trips. A one-line notice shows the guest when the deletion happens; it says AI needs their own API key only while Free AI is off and they have none (JOB-077).
 

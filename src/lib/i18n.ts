@@ -33,6 +33,7 @@ export function documentLanguage(locale: Locale): string {
 }
 
 export type Messages = {
+  languageSaveFailed: string;
   appName: string;
   demoMode: string;
   tripLabel: string;
@@ -401,6 +402,7 @@ export type Messages = {
 };
 
 const en: Messages = {
+  languageSaveFailed: "Could not save the language. Try again.",
   appName: "Stardust Itinerary",
   demoMode: "Demo mode · changes are not saved",
   tripLabel: "Current expedition",
@@ -769,6 +771,7 @@ const en: Messages = {
 };
 
 const zhHk: Messages = {
+  languageSaveFailed: "未能儲存語言設定，請再試。",
   appName: "星塵遠征軍",
   demoMode: "示範模式 · 變更不會儲存",
   tripLabel: "目前旅程",
@@ -1198,6 +1201,7 @@ const zhHkLihkg: Messages = {
 };
 
 const jaJp: Messages = {
+  languageSaveFailed: "言語を保存できませんでした。もう一度お試しください。",
   appName: "スターダスト・イティネラリー",
   demoMode: "デモモード · 変更は保存されません",
   tripLabel: "現在の旅",

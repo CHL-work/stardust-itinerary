@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AiCredentialContextMissingError, withOperatorAiCredential } from "@/lib/ai/credential-context";
-import { geminiEndpoint as geminiEndpointDirect, geminiFailureCode, generateWithGemini, parseGeminiResponse } from "@/lib/ai/gemini";
+import { geminiEndpoint as geminiEndpointDirect, geminiEndpointFor, geminiFailureCode, generateWithGemini, parseGeminiResponse } from "@/lib/ai/gemini";
 import { AiProviderFailureError } from "@/lib/ai/provider-failure";
 
 // The operator's endpoint, so these cases run in an explicit operator context.
@@ -26,6 +26,8 @@ describe("Gemini endpoint configuration", () => {
   it("refuses malformed project or location values instead of building another host", () => {
     expect(geminiEndpoint({ STARDUST_GEMINI_API_KEY: "k", STARDUST_GEMINI_VERTEX_PROJECT: "evil.example/x" })).toBeNull();
     expect(geminiEndpoint({ STARDUST_GEMINI_API_KEY: "k", STARDUST_GEMINI_VERTEX_PROJECT: "synthetic-project", STARDUST_GEMINI_VERTEX_LOCATION: "x.evil" })).toBeNull();
+    expect(geminiEndpointFor("synthetic", "synthetic-project", null, true)).toBeNull();
+    expect(geminiEndpointFor("synthetic", null, "global", true)).toBeNull();
   });
 });
 

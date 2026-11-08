@@ -2,6 +2,16 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-101: Empty onboarding, remembered language and explicit Google key modes (accepted November 8, 2026)
+
+JOB-089 replaces automatic guest demo seeding with explicit Create Trip. A guest may create one empty isolated trip, expiring with the original 24-hour account. Guests cannot join real trips before Google sign-in. There is no guest-data merge into either an existing or new Google account: identity remains immutable, the purge remains guest-only, and the UI explains the separation. Existing guest trips are not rewritten.
+
+English is the initial interface language. Explicit language selections are remembered by the browser and account; Google sign-in restores that account's preference or English, never importing guest/browser state into another account. Visiting a localized URL only chooses that view. This supersedes the older spicy-Cantonese default and `DEFAULT_LOCALE` override, not the trip's locale or authored content.
+
+Google key setup explicitly distinguishes AI Studio, Vertex express (key only), and project-based Vertex (key, project ID and location). A project field is never a key field. Validation is read-only, bounded and stays on the selected Google endpoint; it distinguishes configuration, quota and service failures without exposing upstream text or trying another backend. Existing keys/funding and KMS/Secret Manager ownership remain unchanged. [Key setup](AI_KEYS.md).
+
+Implementation/release evidence is tracked in [JOB-089](jobs/JOB-089-onboarding-language-keys.md); this decision alone does not authorize production changes.
+
 ## D-099: Account-owned keys may live in Secret Manager (accepted November 7, 2026)
 
 The user will paste keys in Settings and requested Google Secret Manager rather than importing operator keys. The account/provider binding, explicit grants and free/paid model choices do not change. New configured writes put KMS ciphertext in separate opaque Secret Manager resources, with pinned references only in PostgreSQL. Existing KMS/ring rows keep working; no silent bulk migration. Keep the KMS deny policy, verify cloud payloads, recheck session/account/member/revision after network work, and clean abandoned/replaced resources through a delete-only worker. Guest resources expire with the guest. The public instance enabled it through a separately authorized, verified configuration rollout; other deployments opt in explicitly. [Full contract and costs](AI_KEYS.md).
@@ -237,6 +247,8 @@ The owner chose to deploy every push to `main` without an approval step, since t
 - **Other instances** can add reviewers to their own environment.
 
 ## D-077: Guest accounts for trying the public instance (accepted November 4, 2026)
+
+**Onboarding superseded by D-101:** guests now explicitly create an empty trip; no seeded demo, new-trip ban before their first trip, or guest-to-Google transfer. The historical isolation and purge protections below remain.
 
 The owner wants people to try the public instance without signing in, with guest data deleted within a day, and AI only with the guest's own key.
 

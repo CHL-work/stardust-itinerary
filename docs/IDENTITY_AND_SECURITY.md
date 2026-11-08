@@ -24,6 +24,8 @@ Ordinary sign-in selects the user's last explicitly selected trip if its exact b
 
 Public signup remains separately gated. [Self-service creation](PUBLIC_TRIPS_AND_MEMBERS.md) accepts an existing active bound member or a valid one-use onboarding identity; destination lookup does not consume the onboarding grant. [Auto defaults](TRIP_DESTINATION_DEFAULTS.md) recheck account eligibility before admission and after provider work, bind replay IDs to payloads, and never turn model output into creation authority.
 
+An account without a trip opens Create Trip, with no automatic demo. Guest onboarding may create one isolated empty guest trip, never a real-trip membership. Google callbacks use only the verified Google issuer/subject, never a guest cookie as identity or a merge source. No guest data transfers, even for a new Google account. A successful Google login restores that account's saved language (English if unset) instead of importing browser/guest preferences (JOB-089).
+
 ## 2. Member identity and claim link
 
 An owner creates an invited member with name/role but no Google binding. **Invite** issues a one-time link, copies it and shows confirmation. Disabled or already-bound members have no Invite action. Raw tokens are shown once and only keyed hashes are stored.

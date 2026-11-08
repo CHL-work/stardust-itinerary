@@ -3,9 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ path: "/en" }));
-vi.mock("next/navigation", () => ({ usePathname: () => state.path }));
-import { FeedbackWidget } from "@/components/feedback-widget";
+const state = vi.hoisted(() => ({ path: "/en", search: "" }));
+vi.mock("next/navigation", () => ({ usePathname: () => state.path, useSearchParams: () => new URLSearchParams(state.search) }));
+import { feedbackLocaleForLocation, FeedbackWidget } from "@/components/feedback-widget";
 import { FeedbackOperations } from "@/components/feedback-operations";
 import { feedbackCopy } from "@/lib/feedback/i18n";
 import { locales } from "@/lib/i18n";
@@ -49,10 +49,26 @@ describe("global private feedback UI boundaries", () => {
     expect(launcher).toMatch(/width:\s*44px;\s*height:\s*44px;/u);
     expect(css).not.toMatch(/position:\s*(?:fixed|sticky)\b/u);
     const layout = await readFile("src/app/layout.tsx", "utf8");
-    expect(layout).toMatch(/\{children\}\s*<FeedbackWidget\s*\/>\s*<\/body>/u);
+    expect(layout).toMatch(/\{children\}\s*<Suspense fallback=\{null\}><FeedbackWidget fallbackLocale=\{locale\}\s*\/><\/Suspense>\s*<\/body>/u);
     const globals = await readFile("src/app/globals.css", "utf8");
     const offlineHeader = globals.match(/\.offline-itinerary-topbar\s*\{([^}]+)\}/u)?.[1];
     expect(offlineHeader).toContain("padding-right: calc(max(12px, env(safe-area-inset-right)) + 62px)");
+  });
+  it("uses English on fresh non-locale pages, explicit creation language, then remembered browser language", () => {
+    expect(feedbackLocaleForLocation("/trips/new")).toBe("en");
+    expect(feedbackLocaleForLocation("/auth/sign-in")).toBe("en");
+    expect(feedbackLocaleForLocation("/trips/new", "en", "zh-HK-lihkg")).toBe("en");
+    expect(feedbackLocaleForLocation("/trips/new", "es")).toBe("es");
+    expect(feedbackLocaleForLocation("/trips/new", null, "fr")).toBe("fr");
+    expect(feedbackLocaleForLocation("/en", "ja-JP", "fr")).toBe("en");
+    expect(feedbackLocaleForLocation("/trips/new", "not-a-locale")).toBe("en");
+  });
+  it("renders the English feedback control on the English Create Trip screen", () => {
+    state.path = "/trips/new"; state.search = "locale=en";
+    const html = renderToStaticMarkup(createElement<{ fallbackLocale?: (typeof locales)[number] }>(FeedbackWidget, { fallbackLocale: "zh-HK-lihkg" }));
+    expect(html).toContain(`aria-label="${feedbackCopy.en.open}"`);
+    expect(html).not.toContain(feedbackCopy["zh-HK"].open);
+    state.path = "/en"; state.search = "";
   });
   it.each(locales)("renders an accessible localized global entry while signed out (%s)", (locale) => {
     state.path = `/${locale}/privacy`;

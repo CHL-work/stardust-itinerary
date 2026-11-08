@@ -8,4 +8,4 @@ const documentLanguages: Record<string, string> = Object.fromEntries(locales.map
  * stacks are right on first paint (DocumentLanguage keeps it in sync after hydration). There is one
  * layout since JOB-081: the server renders `<html data-ui="new">`, and this script never changes it.
  */
-export const documentLanguageBootstrapScript = `(function(){try{var l=${JSON.stringify(documentLanguages)}[location.pathname.split("/")[1]];if(l)document.documentElement.lang=l;}catch(e){}})();`;
+export const documentLanguageBootstrapScript = `(function(){try{var m=${JSON.stringify(documentLanguages)},l=m[location.pathname.split("/")[1]]||m[new URLSearchParams(location.search).get("locale")];if(l)document.documentElement.lang=l;}catch(e){}})();`;

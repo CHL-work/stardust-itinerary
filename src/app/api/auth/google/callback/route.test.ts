@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   signInExistingIdentity: vi.fn(),
   issueAccountOnboarding: vi.fn(),
   publicSignupEnabled: vi.fn(),
+  readGoogleSignInLocale: vi.fn(),
 }));
 
 const config: AuthConfig = {
@@ -31,6 +32,7 @@ const config: AuthConfig = {
 };
 
 vi.mock("@/lib/auth/config", () => ({ getAuthConfig: () => config }));
+vi.mock("@/lib/auth/locale-preference", () => ({ readGoogleSignInLocale: mocks.readGoogleSignInLocale }));
 vi.mock("@/lib/auth/google", () => ({
   completeGoogleAuthorization: mocks.completeGoogleAuthorization,
 }));
@@ -95,6 +97,7 @@ describe("GET /api/auth/google/callback invitation cleanup", () => {
     mocks.getPool.mockReturnValue({ synthetic: true });
     mocks.authenticatedSession.mockResolvedValue(null);
     mocks.publicSignupEnabled.mockReturnValue(false);
+    mocks.readGoogleSignInLocale.mockResolvedValue("en");
     mocks.completeGoogleAuthorization.mockResolvedValue({
       issuer: "https://accounts.google.com",
       subject: "synthetic-subject",
@@ -112,6 +115,18 @@ describe("GET /api/auth/google/callback invitation cleanup", () => {
     expect(response.headers.get("set-cookie")).toContain("stardust.account-onboarding=synthetic-onboarding");
     expect(mocks.issueAccountOnboarding).toHaveBeenCalledOnce();
     expect(mocks.consumeClaim).not.toHaveBeenCalled();
+  });
+
+  it("restores the signed-in account language instead of a different guest/browser choice", async () => {
+    mocks.signInExistingIdentity.mockResolvedValue(sessionGrant("returning-session-token"));
+    mocks.readGoogleSignInLocale.mockResolvedValue("ja-JP");
+    const response = await GET(callbackRequest({
+      [authCookieNames.oauthState]: "state", [authCookieNames.oauthNonce]: "nonce", [authCookieNames.oauthVerifier]: "verifier",
+      "stardust.locale": "fr", [authCookieNames.session]: "guest-session",
+    }));
+    expect(response.headers.get("set-cookie")).toContain("stardust.locale=ja-JP");
+    expect(response.headers.get("location")).toBe(`${config.appBaseUrl.origin}/`);
+    expect(mocks.readGoogleSignInLocale).toHaveBeenCalledWith({ synthetic: true }, expect.objectContaining({ subject: "synthetic-subject" }));
   });
 
   it("does not turn an unavailable invitation into public onboarding",async () => {

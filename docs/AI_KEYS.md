@@ -2,6 +2,18 @@
 
 Users paste OpenAI, Anthropic or Gemini API keys in **Settings → AI keys**. A key belongs to the immutable app account and provider, not an email, trip or owner role. Saving it makes that provider's models available across the user's trips. Free AI remains selectable without a key. No server keys are imported and no sharing is enabled by saving a key; existing explicit sharing grants still apply.
 
+## Google key setup (JOB-089)
+
+Select the API type matching where the key was created, then paste the key only into **API key**:
+
+- **Gemini API (AI Studio):** no project or location; validation lists models without generating content.
+- **Vertex AI express:** key only, using Google's projectless global endpoint.
+- **Vertex AI (project and location):** a supported service-account-bound key, the Cloud project ID (for example `my-project-123`) and a location (`global` by default). The project field does not accept an API key.
+
+Vertex checks use `countTokens`, not a generated answer. Keys are never sent in URLs or across redirects, and the app never retries a key against another backend. Invalid configuration, rate limits and unavailable providers have distinct, safe messages. A successful check proves access to that validation operation, not every model or quota. Key restrictions, enabled APIs, region/model availability and provider billing still apply. [Google key guidance](https://cloud.google.com/vertex-ai/generative-ai/docs/start/api-keys), [express mode](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview), [Gemini models API](https://ai.google.dev/api/models).
+
+Migration `0066` adds the explicit express-mode flag, default false for all existing rows. No key material is copied, decrypted or revalidated by the migration. Older builds cannot route express keys correctly; keep the compatible build or replace express keys before rolling back. Existing Gemini/project-based keys remain unchanged.
+
 ## Storage (JOB-087, D-099)
 
 Secret Manager is enabled for new account-key saves on the public instance; its cleanup runs every 15 minutes. Other deployments opt in through the [deployment steps](DEPLOYMENT.md#account-owned-keys-in-secret-manager). Code deployment alone does not configure this backend. [Activation evidence](jobs/JOB-087-user-secret-manager.md#release-evidence-2026-11-08-utc).

@@ -18,7 +18,6 @@ import { eventEditorMessages } from "@/lib/app/event-editor-i18n";
 import { expensePageMessages } from "@/lib/app/expense-page-i18n";
 import { expenseSplitMessages } from "@/lib/app/expense-split-i18n";
 import { flightMessages } from "@/lib/app/flight-i18n";
-import { guestDemoTitles } from "@/lib/app/guest";
 import { guestMessages } from "@/lib/app/guest-i18n";
 import { infoTipLabel } from "@/lib/app/info-tip-i18n";
 import { memberManagementMessages } from "@/lib/app/member-management-i18n";
@@ -64,7 +63,6 @@ export const packCatalogs: Record<string, unknown> = {
   feedbackOperations: feedbackOperationsCopy("en"),
   flight: flightMessages("en"),
   guest: guestMessages("en"),
-  guestDemo: guestDemoTitles.en,
   infoTip: { more: infoTipLabel("en") },
   memberManagement: memberManagementMessages("en"),
   memberPayment: memberPaymentMessages("en"),

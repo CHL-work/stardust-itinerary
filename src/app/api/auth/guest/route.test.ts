@@ -34,7 +34,7 @@ describe("starting a guest trip", () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "synthetic-turnstile-secret");
     vi.stubEnv("GUEST_ALLOW_WITHOUT_TURNSTILE", "");
     mocks.turnstile.mockResolvedValue(true);
-    mocks.create.mockResolvedValue({ grant, tripId: "synthetic-trip" });
+    mocks.create.mockResolvedValue({ grant, userId: "synthetic-user" });
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -55,13 +55,15 @@ describe("starting a guest trip", () => {
     expect(mocks.turnstile).not.toHaveBeenCalled();
   });
 
-  it("limits by Cloudflare's address, checks Turnstile for this site, and sets only the session cookie", async () => {
+  it("limits by Cloudflare's address and sets only a creation grant, never a trip session", async () => {
     const response = await POST(request({ turnstileToken: "synthetic-token", locale: "ja-JP" },
       { "x-forwarded-for": "198.51.100.1", "user-agent": "Another browser" }));
     expect(response.status).toBe(201);
-    expect(await response.json()).toEqual({ tripId: "synthetic-trip" });
+    expect(await response.json()).toEqual({ next: "/trips/new?locale=ja-JP" });
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("set-cookie")).toContain("synthetic-session-token");
+    expect(response.cookies.get("stardust.account-onboarding")?.value).toBe("synthetic-session-token");
+    expect(response.cookies.get("stardust.session")?.value ?? "").toBe("");
     expect(mocks.limit).toHaveBeenCalledWith("pool", config, { scope: "guest-create", key: "203.0.113.7", maximum: 3, windowSeconds: 3600 });
     expect(mocks.turnstile).toHaveBeenCalledWith("synthetic-token", "203.0.113.7", { hostname: "stardust.test", action: "guest" });
     expect(mocks.create).toHaveBeenCalledWith("pool", config, { userAgent: "Another browser", locale: "ja-JP", address: "203.0.113.7" });

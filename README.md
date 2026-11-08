@@ -2,7 +2,7 @@
 
 A mobile-first planner for group trips, where AI proposes and application code decides: one shared itinerary, expense splitting, day maps, weather and disruption checks, and flight status checks before departure. In English, Cantonese, Japanese, Simplified and Traditional Chinese, Spanish, Portuguese, French, German, Russian and Indonesian.
 
-**Try it:** <https://stardust-itinerary.chl-work.com>. Sign in with Google, or try a guest demo trip with a few free AI requests; it is deleted after 24 hours.
+**Try it:** <https://stardust-itinerary.chl-work.com>. Sign in with Google, or create an empty guest trip with a few free AI requests. Guest data expires after 24 hours and is not transferred when you sign in.
 
 <p align="center">
   <img src="docs/screenshots/today.png" width="18%" alt="Today: trip progress, the four members and the next event with its weather">

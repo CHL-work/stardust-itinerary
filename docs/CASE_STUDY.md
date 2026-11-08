@@ -49,7 +49,7 @@ Up to 20 people share one trip: day-by-day events, private events visible only t
 
 ## Letting strangers try it safely
 
-Guest accounts (JOB-064) give anyone a 24-hour demo trip. Real trips deliberately keep their history forever (append-only triggers and `RESTRICT` foreign keys), so "delete everything about this guest" cannot be a cascade. The solution is one guarded function:
+Guest accounts start without a trip and may create one empty, isolated trip within their 24-hour lifetime (JOB-089). They never merge into Google accounts. Real trips deliberately keep their history forever (append-only triggers and `RESTRICT` foreign keys), so "delete everything about this guest" cannot be a cascade. The solution is one guarded function:
 1. It checks that the guest is expired and isolated.
 2. It deletes the guest's rows from every table with a `trip_id`, plus the guest's account rows, with triggers suspended for its own deletes only.
 3. It turns triggers back on and proves that no foreign key still references the deleted rows. Otherwise everything rolls back.

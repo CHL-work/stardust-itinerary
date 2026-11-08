@@ -24,6 +24,7 @@ export type AiCredential =
       source: "own" | "shared";
       provider: AiCredentialProvider;
       apiKey: string;
+      vertexExpress?: boolean;
       vertex: { project: string; location: string } | null;
       stateDirectory: string;
     };
@@ -66,7 +67,7 @@ async function sweepStaleStateDirectories(root: string, now: number): Promise<vo
 
 /** Run `work` with a user's key; the per-request provider state directory is removed afterwards. */
 export async function withUserAiCredential<T>(
-  credential: { source: "own" | "shared"; provider: AiCredentialProvider; apiKey: string; vertex: { project: string; location: string } | null },
+  credential: { source: "own" | "shared"; provider: AiCredentialProvider; apiKey: string; vertex: { project: string; location: string } | null; vertexExpress?: boolean },
   work: () => Promise<T>,
 ): Promise<T> {
   const root = tmpdir();

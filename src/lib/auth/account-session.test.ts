@@ -58,7 +58,7 @@ describe("separate account onboarding scope",() => {
     const db=database();
     expect(await consumeAccountOnboarding(db.client,principal)).toEqual(new Date("2030-01-31T00:00:00Z"));
     expect(db.query).toHaveBeenCalledWith(expect.stringContaining("SET consumed_at=CURRENT_TIMESTAMP"),["account","user",identity.issuer,identity.subject]);
-    const consumeSql=db.query.mock.calls[0][0];
+    const consumeSql=db.query.mock.calls.find(([sql])=>sql.includes("SET consumed_at=CURRENT_TIMESTAMP"))![0];
     expect(consumeSql).toContain("account_session.created_at + interval '720 hours'");
     expect(consumeSql).toContain("WITH locked_account AS MATERIALIZED");
     expect(consumeSql).toContain("locked_account.expires_at>clock_timestamp()");
@@ -69,6 +69,27 @@ describe("separate account onboarding scope",() => {
     const disabled=database();
     await expect(consumeAccountOnboarding(disabled.client,principal)).rejects.toBeInstanceOf(SessionUnavailableError);
     expect(disabled.query).not.toHaveBeenCalled();
+  });
+  it("accepts an unexpired guest onboarding grant only while guest mode is enabled",async()=>{
+    const row={id:"guest-grant",user_id:"guest",issuer:"urn:stardust:guest",subject:"guest-subject",display_name:"Guest",
+      guest_expires_at:new Date(Date.now()+60_000)};
+    const query=vi.fn(async()=>({rows:[row]}));
+    vi.stubEnv("PUBLIC_SIGNUP_ENABLED","false");
+    vi.stubEnv("GUEST_MODE_ENABLED","true");
+    expect(await verifyAccountOnboarding({query} as unknown as PoolClient,config,"a".repeat(43))).toMatchObject({userId:"guest",guestExpiresAt:row.guest_expires_at});
+    row.guest_expires_at=new Date(0);
+    expect(await verifyAccountOnboarding({query} as unknown as PoolClient,config,"a".repeat(43))).toBeNull();
+    vi.stubEnv("GUEST_MODE_ENABLED","false");
+    query.mockClear();
+    expect(await verifyAccountOnboarding({query} as unknown as PoolClient,config,"a".repeat(43))).toBeNull();
+    expect(query).not.toHaveBeenCalled();
+  });
+  it("does not allow a guest-marked account through Google onboarding or an unknown issuer",async()=>{
+    const query=vi.fn(async()=>({rows:[{id:"grant",user_id:"user",issuer:identity.issuer,subject:"s",display_name:"Synthetic",
+      guest_expires_at:new Date(Date.now()+60_000)}]}));
+    expect(await verifyAccountOnboarding({query} as unknown as PoolClient,config,"a".repeat(43))).toBeNull();
+    query.mockResolvedValueOnce({rows:[{id:"grant",user_id:"user",issuer:"https://other.example",subject:"s",display_name:"Synthetic",guest_expires_at:null as unknown as Date}]});
+    expect(await verifyAccountOnboarding({query} as unknown as PoolClient,config,"a".repeat(43))).toBeNull();
   });
   it("issues a created-trip session using only its trusted inherited ceiling, never trip dates",async()=>{
     const db=database();

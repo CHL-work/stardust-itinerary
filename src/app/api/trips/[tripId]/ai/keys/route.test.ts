@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AiCredentialRejectedError } from "@/lib/ai/credentials";
+import { AiCredentialRejectedError, AiKeyCheckError } from "@/lib/ai/credentials";
 import { RateLimitError } from "@/lib/auth/errors";
 
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), limit: vi.fn(), list: vi.fn(), save: vi.fn(), remove: vi.fn(), usage: vi.fn() }));
@@ -81,6 +81,17 @@ describe("own AI keys route", () => {
     expect(mocks.save).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
   });
+
+  it.each(["AI_KEY_CONFIGURATION", "AI_KEY_PROVIDER_UNAVAILABLE", "AI_KEY_PROVIDER_LIMITED"] as const)(
+    "returns a safe actionable %s code, never the submitted key", async (code) => {
+      mocks.save.mockRejectedValueOnce(new AiKeyCheckError(code));
+      const response = await PUT(request("PUT", { provider: "google", apiKey: syntheticKey, vertexExpress: true }), context);
+      expect(response.status).toBe(code === "AI_KEY_CONFIGURATION" ? 400 : 503);
+      const body = await response.json();
+      expect(body.code).toBe(code);
+      expect(JSON.stringify(body)).not.toContain(syntheticKey);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    });
 
   it("deletes one known provider", async () => {
     expect((await DELETE(request("DELETE", undefined, "?provider=anthropic"), context)).status).toBe(204);

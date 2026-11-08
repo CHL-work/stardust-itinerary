@@ -5,6 +5,8 @@ import pg from "pg";
 // @ts-expect-error The shared JavaScript migration runner has no declaration file.
 import { migrate } from "./db/migration-lib.mjs";
 import { createGuestSession } from "../src/lib/app/guest";
+import { createTrip } from "../src/lib/app/repository";
+import { verifyAccountOnboarding } from "../src/lib/auth/account-session";
 import { signInExistingIdentity, verifySession } from "../src/lib/auth/repository";
 import { runAiPlanner } from "../src/lib/ai/planner";
 import { freeAiSettings } from "../src/lib/ai/free-model";
@@ -34,6 +36,7 @@ async function main() {
     process.env.FREE_AI_PER_USER_DAILY = "10";
     process.env.FREE_AI_HOURLY = "20";
     process.env.FREE_AI_DAILY = "20";
+    process.env.GUEST_MODE_ENABLED = "true";
     assert.ok(freeAiSettings().enabled);
     await migrate({ connectionString });
     const userId = randomUUID(), memberId = randomUUID(), tripId = randomUUID(), companionId = randomUUID();
@@ -82,7 +85,17 @@ async function main() {
     console.log(JSON.stringify({ case: "registered-event-linked-expense", passed: true, proposals: result.proposalCount }));
 
     const guest = await createGuestSession(pool, config, { userAgent: "Synthetic free guest", locale: "en", address: "203.0.113.123" });
-    const guestSession = await verifySession(pool, config, guest.grant.rawToken);
+    const guestPrincipal = await verifyAccountOnboarding(pool, config, guest.grant.rawToken);
+    assert.ok(guestPrincipal);
+    assert.equal(await verifySession(pool, config, guest.grant.rawToken), null, "A creation grant is not a trip session.");
+    const { rows: [dates] } = await pool.query("SELECT starts_on::text, ends_on::text FROM trips WHERE id=$1", [tripId]);
+    const guestTrip = await createTrip(pool, guestPrincipal, {
+      name: "Synthetic free guest trip", destinationName: "Tokyo, Japan", timeZone: "Asia/Tokyo",
+      defaultLocale: "en", defaultCurrency: "JPY", startsOn: dates.starts_on, endsOn: dates.ends_on, maxMembers: 1,
+    }, { config, userAgent: "Synthetic free guest" });
+    assert.ok(guestTrip.sessionGrant);
+    assert.equal(await verifyAccountOnboarding(pool, config, guest.grant.rawToken), null, "Creation consumes the one-use grant.");
+    const guestSession = await verifySession(pool, config, guestTrip.sessionGrant.rawToken);
     assert.ok(guestSession);
     const guestResult = await runAiPlanner(pool, guestSession, "add dinner tmrw at 7pm at Example Cafe in tokyo, dont search", "guest-free", "en",
       undefined, undefined, [], selectedFreeModel);

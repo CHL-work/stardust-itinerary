@@ -89,4 +89,12 @@ describe("per-request AI credentials", () => {
       expect(endpoint?.url("gemini-3.8-flash")).toContain("/projects/synthetic-project/locations/global/");
     });
   });
+
+  it("keeps a user's Vertex express route through the isolated credential context", async () => {
+    await withUserAiCredential({ source: "own", provider: "google", apiKey: "synthetic-express", vertex: null, vertexExpress: true }, async () => {
+      const endpoint = geminiEndpoint(operatorEnv);
+      expect(endpoint?.url("gemini-3.8-flash")).toBe("https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.8-flash:generateContent");
+      expect(endpoint?.apiKey).toBe("synthetic-express");
+    });
+  });
 });

@@ -2,6 +2,14 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 8, 2026 Google key setup
+
+Reviewed for JOB-089 with synthetic tests only, no saved provider keys:
+
+- [Google Cloud API keys](https://cloud.google.com/vertex-ai/generative-ai/docs/start/api-keys): express-mode keys versus project-based, service-account-bound keys.
+- [Express mode overview](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview) and [API reference](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/express-mode/api-reference): projectless global API paths, API-key authentication and `countTokens`.
+- [Gemini models API](https://ai.google.dev/api/models): model-list validation without generated content or dependence on one model ID.
+
 ## November 7, 2026 free AI for every account
 
 Reviewed for JOB-086 (D-098), without installing or executing the upstream project:

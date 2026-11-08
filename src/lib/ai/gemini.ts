@@ -3,7 +3,7 @@ import { AiProviderFailureError, type AiProviderFailureCode } from "@/lib/ai/pro
 
 /**
  * Gemini over its REST API, with no SDK subprocess: either the Gemini API with an API key, or
- * Vertex AI with a service-account-bound API key plus its project and location. The key is sent
+ * Vertex AI with either a project-bound API key or an explicitly selected express key. The key is sent
  * in a header (never the URL) and never leaves this process.
  */
 export type GeminiEndpoint = Readonly<{ apiKey: string; url: (model: string) => string; backend: "gemini_api" | "vertex_ai" }>;
@@ -12,9 +12,14 @@ const projectPattern = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u;
 const locationPattern = /^[a-z][a-z0-9-]{0,39}$/u;
 const modelPattern = /^[a-z0-9][a-z0-9.-]{0,80}$/u;
 
-export function geminiEndpointFor(apiKey: string | undefined, project?: string | null, location?: string | null): GeminiEndpoint | null {
+export function geminiEndpointFor(apiKey: string | undefined, project?: string | null, location?: string | null, express = false): GeminiEndpoint | null {
   const key = apiKey?.trim();
   if (!key) return null;
+  if (express) {
+    if (project?.trim() || location?.trim()) return null;
+    return { apiKey: key, backend: "vertex_ai",
+      url: (model) => `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent` };
+  }
   if (!project?.trim()) {
     return { apiKey: key, backend: "gemini_api",
       url: (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` };
@@ -37,7 +42,7 @@ export function geminiEndpoint(env: Record<string, string | undefined> = process
   if (credential.source === "free") return null;
   if (credential.source !== "operator") {
     return credential.provider === "google"
-      ? geminiEndpointFor(credential.apiKey, credential.vertex?.project, credential.vertex?.location) : null;
+      ? geminiEndpointFor(credential.apiKey, credential.vertex?.project, credential.vertex?.location, credential.vertexExpress) : null;
   }
   return geminiEndpointFor(env.STARDUST_GEMINI_API_KEY, env.STARDUST_GEMINI_VERTEX_PROJECT, env.STARDUST_GEMINI_VERTEX_LOCATION);
 }

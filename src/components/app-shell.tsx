@@ -287,7 +287,7 @@ function isPendingEventEditorTarget(
 type Overview = {
   session: {
     memberId: string; userId?: string; displayName: string; role: string; isOwner: boolean;
-    /** A 24-hour guest account (JOB-064): when it and its demo trip are deleted. */
+    /** A 24-hour guest account: when it and its isolated trip are deleted. */
     isGuest?: boolean; guestExpiresAt?: string | null;
   };
   availableTrips: Array<{
@@ -3960,7 +3960,7 @@ export function GoogleCalendarPanel({ overview, messages, state, busy, compact =
 }
 
 /**
- * A guest's one-line reminder (JOB-064, D-088): when the demo trip is deleted and how to keep trips.
+ * A guest's one-line reminder: when its isolated trip is deleted; sign-in starts separate saved trips.
  * It mentions the AI key only when AI here needs one (JOB-077): the server's `ai.keyRequired`, which
  * is false while free guest AI is on, so the browser never needs the free-AI settings themselves.
  */

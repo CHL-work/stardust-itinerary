@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AiKeysView, aiKeyProviders, savedKeyLine } from "@/components/ai-keys-settings";
+import { AiKeysView, aiKeyProviders, keyDraftPayload, savedKeyLine } from "@/components/ai-keys-settings";
 import { aiKeysMessages } from "@/lib/ai/keys-i18n";
 import { formatMessage, locales } from "@/lib/i18n";
 
@@ -22,13 +22,36 @@ describe("Settings → AI keys", () => {
     expect(html.match(/No key saved/gu)).toHaveLength(2);
   });
 
-  it("uses password fields with autocomplete off and offers a Vertex AI project only for Gemini", () => {
+  it("uses password fields and keeps project configuration hidden for ordinary Gemini keys", () => {
     const html = render();
     expect(html.match(/type="password"/gu)).toHaveLength(aiKeyProviders.length);
     expect(html.match(/autoComplete="off"|autocomplete="off"/giu)?.length).toBeGreaterThanOrEqual(aiKeyProviders.length);
-    expect(html.match(/ai-key-google-vertex/gu)?.length).toBeGreaterThan(0);
+    expect(html).toContain("ai-key-google-mode");
+    expect(html).not.toContain('id="ai-key-google-vertex"');
     expect(html).not.toContain("ai-key-openai-vertex");
     expect(html).toContain("Check and replace");
+  });
+
+  it("separates explicit Google modes and sends only the chosen endpoint's configuration", () => {
+    const draft = { apiKey: "  synthetic-google-key  ", vertexProject: "synthetic-project", vertexLocation: "asia-northeast1" };
+    expect(keyDraftPayload("google", draft)).toEqual({ provider: "google", apiKey: "synthetic-google-key" });
+    expect(keyDraftPayload("google", { ...draft, googleMode: "express" })).toEqual({ provider: "google", apiKey: "synthetic-google-key", vertexExpress: true });
+    expect(keyDraftPayload("google", { ...draft, googleMode: "vertex" })).toEqual({ provider: "google", apiKey: "synthetic-google-key", vertexProject: "synthetic-project", vertexLocation: "asia-northeast1" });
+    expect(keyDraftPayload("openai", { ...draft, googleMode: "express" })).toEqual({ provider: "openai", apiKey: "synthetic-google-key" });
+  });
+
+  it("requires a project ID only for standard Vertex and explains that it is not a key", () => {
+    const copy = aiKeysMessages("en");
+    const html = renderToStaticMarkup(createElement(AiKeysView, {
+      copy, locale: "en", keys: [], phase: "ready", busy: null, notice: null,
+      drafts: { openai: empty, anthropic: empty, google: { ...empty, googleMode: "vertex" } },
+      edit: () => undefined, save: () => () => undefined, remove: () => () => undefined, reload: () => undefined,
+    }));
+    expect(html).toContain(copy.vertexProject);
+    expect(html).toContain(copy.vertexHelp);
+    expect(html).toContain('id="ai-key-google-location"');
+    expect(html).not.toContain('id="ai-key-anthropic-vertex"');
+    expect(html).toContain('placeholder="my-project-123"');
   });
 
   it("shows the owner how much each saved key was used, and shared use only when there is some", () => {

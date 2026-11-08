@@ -35,3 +35,4 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 | JOB-086 | Free AI for signed-in users and guests | done |
 | JOB-087 | Account-owned keys in Google Secret Manager | done |
 | JOB-088 | Lightweight event type icons | done |
+| JOB-089 | Empty-trip onboarding, remembered language and Google key setup | review |

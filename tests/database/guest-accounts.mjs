@@ -4,7 +4,9 @@ import { migrate } from "../../scripts/db/migration-lib.mjs";
 import { createGuestSession, GUEST_ISSUER, GuestAddressLimitError, GuestCapacityError, purgeExpiredGuests } from "../../src/lib/app/guest.ts";
 import { AppForbiddenError, createTrip, createTripMember, getAiPolicy, getAppOverview, inTransaction } from "../../src/lib/app/repository.ts";
 import { saveAiCredential } from "../../src/lib/ai/credentials.ts";
-import { issueJoinLink, verifySession } from "../../src/lib/auth/repository.ts";
+import { consumeClaim, consumeJoinLink, issueJoinLink, verifySession } from "../../src/lib/auth/repository.ts";
+import { issueAccountOnboarding, verifyAccountOnboarding } from "../../src/lib/auth/account-session.ts";
+import { createGuestTripFixture } from "./guest-fixture.mjs";
 
 /**
  * Guest accounts (JOB-064): creation, isolation from real trips, and the guarded purge. Synthetic
@@ -16,6 +18,9 @@ export async function testGuestAccounts(pool, connectionString) {
   const config = { authSecret: "synthetic-guest-account-secret-only", tripGraceDays: 2,
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
   const previousKey = process.env.CREDENTIAL_ENCRYPTION_KEY;
+  const previousGuestMode = process.env.GUEST_MODE_ENABLED;
+  const previousSignup = process.env.PUBLIC_SIGNUP_ENABLED;
+  process.env.GUEST_MODE_ENABLED = "true";
   process.env.CREDENTIAL_ENCRYPTION_KEY = randomBytes(32).toString("base64");
   try {
     // A real trip that must survive every purge untouched.
@@ -33,18 +38,32 @@ export async function testGuestAccounts(pool, connectionString) {
     [realTrip, realUser])).rows[0];
     const realBefore = await realRows();
 
-    // Creating a guest gives a session, a synthetic demo trip, and AI that only the guest's own key can pay for.
-    const created = await createGuestSession(pool, config, { userAgent: "Synthetic guest browser", locale: "en", address: "203.0.113.20" });
+    // Starting a guest writes no trip, event or trip session. It only authorizes explicit creation.
+    const empty = await createGuestSession(pool, config, { userAgent: "Synthetic guest browser", locale: "en", address: "203.0.113.20" });
+    const principal = await verifyAccountOnboarding(pool, config, empty.grant.rawToken);
+    assert.ok(principal);
+    assert.equal(await verifySession(pool,config,empty.grant.rawToken), null);
+    assert.equal((await pool.query("SELECT count(*)::int AS count FROM trips WHERE owner_user_id=$1",[empty.userId])).rows[0].count,0);
+    const today = new Date().toISOString().slice(0,10);
+    const input = {name:"Synthetic guest trip",destinationName:"Tokyo, Japan",timeZone:"UTC",defaultLocale:"en",
+      defaultCurrency:"JPY",startsOn:today,endsOn:today,maxMembers:10};
+    const explicit = await createTrip(pool,principal,input,{config,userAgent:null});
+    const created = {tripId:explicit.tripId,grant:explicit.sessionGrant};
+    assert.equal(await verifyAccountOnboarding(pool,config,empty.grant.rawToken),null,"single-use grant consumed");
+    await assert.rejects(createTrip(pool,principal,input,{config,userAgent:null}));
     const session = await verifySession(pool, config, created.grant.rawToken);
     assert.ok(session);
     assert.equal(session.issuer, GUEST_ISSUER);
+    const guestIdentity = {issuer:GUEST_ISSUER,subject:session.subject,emailHint:null,displayNameHint:"Guest"};
+    await assert.rejects(consumeJoinLink(pool,config,{rawToken:"synthetic-unused",identity:guestIdentity,userAgent:null}),/Sign in with Google/u);
+    await assert.rejects(consumeClaim(pool,config,{rawToken:"synthetic-unused",identity:guestIdentity,userAgent:null}));
     assert.equal(session.tripId, created.tripId);
     const hours = (session.absoluteExpiresAt.getTime() - Date.now()) / 3_600_000;
     assert.ok(hours > 23.9 && hours <= 24, "the session ends with the guest account");
     const overview = await getAppOverview(pool, session);
     assert.deepEqual({ isGuest: overview.session.isGuest, owner: overview.session.isOwner, keyRequired: overview.ai.keyRequired },
       { isGuest: true, owner: true, keyRequired: true });
-    assert.equal(overview.itinerary.length, 7, "the demo trip comes with a synthetic itinerary");
+    assert.equal(overview.itinerary.length, 0, "the guest creates an empty itinerary");
     assert.equal(overview.trip.maxMembers, 1);
     await assert.rejects(inTransaction(pool, (client) => getAiPolicy(client, session)), { reasonCode: "ai_key_required" });
     await saveAiCredential(pool, session, created.tripId, { provider: "openai", apiKey: `sk-synthetic-${randomUUID()}-GST1` }, async () => true);
@@ -83,7 +102,7 @@ export async function testGuestAccounts(pool, connectionString) {
     assert.equal((await pool.query("SELECT app_purge_expired_guest($1) AS purged", [realUser])).rows[0].purged, false, "a real account is never purged");
 
     // A second guest that breaks isolation is refused, and nothing of it is deleted.
-    const leaky = await createGuestSession(pool, config, { userAgent: "Synthetic guest browser", locale: "ja-JP", address: "203.0.113.21" });
+    const leaky = await createGuestTripFixture(pool, config, { userAgent: "Synthetic guest browser", locale: "ja-JP", address: "203.0.113.21" });
     const leakySession = await verifySession(pool, config, leaky.grant.rawToken);
     await pool.query("ALTER TABLE trip_members DISABLE TRIGGER trip_members_guest_isolation");
     const leakyMember = randomUUID();
@@ -163,12 +182,30 @@ export async function testGuestAccounts(pool, connectionString) {
     assert.deepEqual(await purgeExpiredGuests(pool), { purged: 1, refused: 0 });
     assert.deepEqual(await realRows(), realBefore);
 
+    // No-trip guests also purge safely, and Google onboarding never adopts their identity or data.
+    const abandoned = await createGuestSession(pool,config,{userAgent:null,locale:"en",address:"203.0.113.24"});
+    const google = {issuer:"https://accounts.google.com",subject:randomUUID(),emailHint:"synthetic-onboarding@example.test",displayNameHint:"Synthetic"};
+    process.env.PUBLIC_SIGNUP_ENABLED = "true";
+    const newGoogle = await verifyAccountOnboarding(pool,config,(await issueAccountOnboarding(pool,config,google)).rawToken);
+    assert.notEqual(newGoogle.userId,abandoned.userId,"new Google account is separate, not an upgraded guest");
+    const returningGoogle = await verifyAccountOnboarding(pool,config,(await issueAccountOnboarding(pool,config,google)).rawToken);
+    assert.equal(returningGoogle.userId,newGoogle.userId,"returning Google account keeps its exact identity");
+    assert.equal((await pool.query("SELECT count(*)::int AS count FROM trips WHERE owner_user_id=$1",[newGoogle.userId])).rows[0].count,0);
+    await pool.query("UPDATE app_users SET guest_expires_at=CURRENT_TIMESTAMP - interval '1 minute' WHERE id=$1",[abandoned.userId]);
+    assert.equal(await verifyAccountOnboarding(pool,config,abandoned.grant.rawToken),null);
+    assert.equal((await pool.query("SELECT app_purge_expired_guest($1) AS purged",[abandoned.userId])).rows[0].purged,true);
+    assert.ok(await verifyAccountOnboarding(pool,config,(await issueAccountOnboarding(pool,config,google)).rawToken));
+
     // An "expired guest" written straight into the table, without the synthetic guest identity, is refused.
     const forged = randomUUID();
     await pool.query("INSERT INTO app_users(id,display_name,guest_expires_at) VALUES($1,'Synthetic forged guest',CURRENT_TIMESTAMP - interval '1 hour')", [forged]);
     await assert.rejects(pool.query("SELECT app_purge_expired_guest($1)", [forged]), /no guest identity/u);
     await pool.query("DELETE FROM app_users WHERE id=$1", [forged]);
   } finally {
+    if (previousGuestMode === undefined) delete process.env.GUEST_MODE_ENABLED;
+    else process.env.GUEST_MODE_ENABLED = previousGuestMode;
+    if (previousSignup === undefined) delete process.env.PUBLIC_SIGNUP_ENABLED;
+    else process.env.PUBLIC_SIGNUP_ENABLED = previousSignup;
     await pool.query("ALTER TABLE trip_members ENABLE TRIGGER trip_members_guest_isolation").catch(() => {});
     if (previousKey === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
     else process.env.CREDENTIAL_ENCRYPTION_KEY = previousKey;

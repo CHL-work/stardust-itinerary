@@ -35,7 +35,7 @@ Important enforced rules:
 
 ## 2. Migration contract
 
-The repository contains **54 SQL files through `0058_private_feedback_repository.sql`**. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
+The ordered files in `database/migrations/` are the authoritative migration inventory. Numbering gaps 0045–0048 are intentional historical separation, not a request to invent replacements.
 
 `scripts/db/migration-lib.mjs` sorts unique `NNNN_name.sql` files, takes an advisory lock, validates every applied SHA-256 against `app_schema_migrations`, runs each missing migration in its own transaction and records it only after success. A missing applied file or changed checksum is a hard failure. Never edit an applied migration; add a forward migration.
 
@@ -71,6 +71,8 @@ Checksums are taken over raw file bytes, so line endings matter. `.gitattributes
 | 0062 | Flight status checks (JOB-083, [D-095](DECISIONS.md)): `itinerary_revisions.changed_by_source` (`member` or `flight_status`, with `changed_by_member_id` now null for the latter only); `flight_status_checks`, one row per event, departure time and slot (minutes before departure) with a lease and outcome; and append-only `flight_status_changes`, the previous and new times, status and details of each automatic update with its sources. |
 | 0063 | Eight more interface locales (JOB-084, [D-096](DECISIONS.md)): `zh-CN`, `zh-TW`, `es`, `pt-BR`, `fr`, `de`, `ru` and `id` join the checks on `trips.default_locale`, `account_ai_lookups.display_locale` and the feedback diagnostics locale. |
 | 0064 | Optional account-owned Secret Manager storage (JOB-087): `sealed_with=secret_manager`, pinned `secret_version`, generated `secret_name` and a resource registry; ciphertext/nonce/key version must be NULL for these rows. A restrictive foreign key protects referenced resources. Legacy rows remain readable; there is no automatic migration. Once reference rows exist, keep compatible code and cloud settings. Backups cannot restore deleted cloud payloads: users must re-enter those keys. Pause cleanup during historical restore comparisons. [Lifecycle](AI_KEYS.md). |
+| 0065 | Nullable allowlisted `app_users.preferred_locale` (JOB-089). Only explicit language selection writes it; existing accounts remain NULL, with English as initial fallback. Older code ignores it. |
+| 0066 | `user_ai_credentials.vertex_express`, default false, constrained to Google keys without project/location (JOB-089). Existing keys keep their mode; express keys need compatible routing code. Key ciphertext/ownership is unchanged. |
 
 Owner-editable trip dates changed no schema: retained day IDs remain, but current-range guards are required. After date edits, an older range-unaware build may be schema-compatible but behaviorally unsafe. Prefer a forward fix; never alter real dates or restore old data to fit old code.
 

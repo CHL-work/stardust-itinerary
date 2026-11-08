@@ -1584,7 +1584,8 @@ export async function createTrip(
   input: CreateTripInput,
   options?: { config: import("@/lib/auth/config").AuthConfig; userAgent: string | null },
 ): Promise<{ tripId: string; memberId: string; sessionGrant?: import("@/lib/auth/repository").SessionGrant }> {
-  if ("issuer" in session) assertNotGuest(session, "create more trips");
+  if ("tripId" in session) assertNotGuest(session, "create more trips");
+  const guest = isGuestSession(session);
   const parsed = createTripSchema.parse(input);
   const startMs = Date.parse(`${parsed.startsOn}T00:00:00Z`);
   const endMs = Date.parse(`${parsed.endsOn}T00:00:00Z`);
@@ -1623,7 +1624,7 @@ export async function createTrip(
       if ((usage.rows[0]?.count ?? 0) >= 10) throw new TripDailyLimitError("The daily limit of 10 new trips has been reached.");
     }
     const { isPlatformOperator } = await import("@/lib/auth/operator-access");
-    const hostEntitlement = accountCreationEnabled ? await isPlatformOperator(client,session.userId) : true;
+    const hostEntitlement = guest ? false : accountCreationEnabled ? await isPlatformOperator(client,session.userId) : true;
     const dateEligibility = await client.query<{ current_local_date: string }>(
       `SELECT (CURRENT_TIMESTAMP AT TIME ZONE $1)::date::text AS current_local_date`,
       [parsed.timeZone],
@@ -1637,11 +1638,11 @@ export async function createTrip(
     await client.query(
       `INSERT INTO trips (
          id, owner_user_id, name, destination_name, time_zone, default_locale,
-         default_currency, starts_on, ends_on, max_members
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+         default_currency, starts_on, ends_on, max_members${guest ? ", guest_expires_at" : ""}
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10${guest ? ",$11" : ""})`,
       [tripId, session.userId, parsed.name, parsed.destinationName, parsed.timeZone,
         parsed.defaultLocale, parsed.defaultCurrency, parsed.startsOn, parsed.endsOn,
-        parsed.maxMembers],
+        guest ? 1 : parsed.maxMembers,...(guest ? [authenticationCeiling!] : [])],
     );
     await client.query(
       `INSERT INTO trip_members (
@@ -1654,7 +1655,7 @@ export async function createTrip(
          trip_id, member_id, can_edit_itinerary, itinerary_requires_approval,
          can_edit_expenses, expense_requires_approval, can_sync_calendar,
          updated_by_member_id
-       ) VALUES ($1,$2,true,false,true,false,true,$2)`,
+       ) VALUES ($1,$2,true,false,true,false,${guest ? "false" : "true"},$2)`,
       [tripId, memberId],
     );
     // AI starts on in every trip (D-075); sponsorship only decides whether the operator's keys may pay.
@@ -1710,7 +1711,7 @@ export async function createTrip(
         defaultCurrency: parsed.defaultCurrency,
         startsOn: parsed.startsOn,
         endsOn: parsed.endsOn,
-        maxMembers: parsed.maxMembers,
+        maxMembers: guest ? 1 : parsed.maxMembers,
       },
       metadata: { sourceTripId: "tripId" in session ? session.tripId : null, source: accountSession ? "account_onboarding" : "trip_member", destinationLookup },
     });

@@ -1,5 +1,6 @@
 {
   "messages": {
+    "languageSaveFailed": "無法儲存語言設定，請再試。",
     "appName": "星塵遠征軍",
     "demoMode": "示範模式 · 變更不會儲存",
     "tripLabel": "目前旅程",
@@ -695,8 +696,18 @@
     "savedKey": "結尾為 {hint} 的金鑰，{date} 已檢查",
     "vertexKey": "結尾為 {hint} 的 Vertex AI 金鑰，{date} 已檢查",
     "label": "API 金鑰",
-    "vertexProject": "Vertex AI 專案（選填）",
-    "vertexHelp": "僅適用於 Vertex AI 金鑰。",
+    "googleMode": "Google API 類型",
+    "googleModeGemini": "Gemini API（AI Studio）",
+    "googleModeExpress": "Vertex AI express（僅需金鑰）",
+    "googleModeVertex": "Vertex AI（專案和位置）",
+    "googleKeyHelp": "選擇建立金鑰的平台，再貼到下方的「API 金鑰」。",
+    "vertexProject": "Google Cloud 專案 ID",
+    "vertexHelp": "請輸入專案 ID，而不是 API 金鑰。例如：my-project-123。",
+    "vertexLocation": "位置（預設：global）",
+    "invalidProject": "請檢查專案 ID 和位置。金鑰應貼在「API 金鑰」，而不是「專案 ID」。",
+    "googleConfiguration": "Google 無法驗證設定。請檢查 API 類型、金鑰限制、專案、位置及已啟用的 API。",
+    "providerUnavailable": "供應商暫時無法檢查金鑰，請稍後再試。",
+    "providerLimited": "供應商正在限制金鑰檢查次數，請稍後再試。",
     "save": "檢查並儲存",
     "replace": "檢查並取代",
     "saving": "檢查中…",
@@ -1228,22 +1239,17 @@
     "checkedAt": "檢查時間：{time}。"
   },
   "guest": {
+    "startNotice": "建立訪客旅程，24 小時後刪除。",
+    "startGuest": "以訪客身分試用",
+    "startingGuest": "正在開啟訪客存取…",
+    "failed": "無法開啟訪客存取。請檢查網路連線後重試。",
+    "limited": "訪客嘗試次數過多。請稍後再試或使用 Google 登入。",
+    "challengeFailed": "驗證未通過，請再試。",
+    "unavailable": "訪客存取暫不可用。請使用 Google 登入或稍後再試。",
     "banner": "此訪客旅程將於 {time} 刪除。",
     "bannerNeedsKey": "此訪客旅程將於 {time} 刪除。AI 需要你自己的 API 金鑰。",
-    "signIn": "登入即可保留旅程。"
-  },
-  "guestDemo": {
-    "trip": "東京示範旅程",
-    "guest": "訪客",
-    "events": [
-      "飯店入住",
-      "新宿晚餐",
-      "明治神宮晨間散步",
-      "原宿午餐",
-      "澀谷夕陽",
-      "築地場外市場早餐",
-      "搭電車前往羽田機場"
-    ]
+    "signIn": "登入以建立可保存的旅程。",
+    "separateAccount": "登入不會轉移訪客資料。"
   },
   "infoTip": {
     "more": "更多資訊"

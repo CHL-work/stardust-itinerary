@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  AiCredentialRejectedError, aiCredentialInputSchema, aiCredentialProviders, aiKeyProtection, aiKeyUsage, AiKeysUnavailableError,
+  AiCredentialRejectedError, AiKeyCheckError, aiCredentialInputSchema, aiCredentialProviders, aiKeyProtection, aiKeyUsage, AiKeysUnavailableError,
   deleteAiCredential, listAiCredentials, saveAiCredential,
 } from "@/lib/ai/credentials";
 import { apiError } from "@/lib/app/http";
@@ -29,6 +29,8 @@ const GUEST_KEY_CHECKS_PER_DAY = 5;
 function failure(error: unknown) {
   const response = error instanceof AiCredentialRejectedError
     ? NextResponse.json({ error: error.message, code: "AI_KEY_REJECTED" }, { status: 400 })
+    : error instanceof AiKeyCheckError
+      ? NextResponse.json({ error: error.message, code: error.code }, { status: error.code === "AI_KEY_CONFIGURATION" ? 400 : 503 })
     : error instanceof AiKeysUnavailableError
       ? NextResponse.json({ error: error.message, code: "AI_KEYS_UNAVAILABLE" }, { status: 403 })
       : error instanceof RateLimitError

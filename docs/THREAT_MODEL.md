@@ -54,6 +54,8 @@ What could go wrong when strangers can use the public instance, and what stops i
 
 ## Before public sign-up or guest mode is turned on
 
+JOB-089 removes automatic guest/demo seeding. Guests use a one-use creation grant and remain isolated: no guest-to-Google merge for new or existing accounts, no invitations before Google sign-in, no guest expiry extension. Language selection is a same-origin account setting with allowlisted values, not authentication or trip authority.
+
 The owner turned on guest mode and then public sign-up on 4 November 2026 (D-077, D-080). These were the gates:
 
 1. ~~Deploy a build with JOB-061 to JOB-064.~~ Done on 4 November 2026.

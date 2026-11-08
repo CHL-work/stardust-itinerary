@@ -26,7 +26,7 @@ try {
 
 const authSecret = randomBytes(32).toString("base64url");
 const bootstrapSecret = randomBytes(32).toString("base64url");
-const contents = `# Generated local-only configuration. This file is gitignored.\nDATABASE_URL=${databaseUrl}\nDATABASE_DIRECT_URL=${databaseUrl}\nAPP_BASE_URL=http://localhost:3100\nDEFAULT_LOCALE=zh-HK-lihkg\n\nGOOGLE_CLIENT_ID=\nGOOGLE_CLIENT_SECRET=\nAUTH_SECRET=${authSecret}\nAUTH_TRIP_GRACE_DAYS=2\nOWNER_GOOGLE_EMAIL=${ownerEmail}\nOWNER_BOOTSTRAP_SECRET=${bootstrapSecret}\n`;
+const contents = `# Generated local-only configuration. This file is gitignored.\nDATABASE_URL=${databaseUrl}\nDATABASE_DIRECT_URL=${databaseUrl}\nAPP_BASE_URL=http://localhost:3100\n\nGOOGLE_CLIENT_ID=\nGOOGLE_CLIENT_SECRET=\nAUTH_SECRET=${authSecret}\nAUTH_TRIP_GRACE_DAYS=2\nOWNER_GOOGLE_EMAIL=${ownerEmail}\nOWNER_BOOTSTRAP_SECRET=${bootstrapSecret}\n`;
 
 await writeFile(target, contents, { encoding: "utf8", flag: "wx" });
 console.log("Created ignored .env.local with local database, owner restriction, and random secrets.");

@@ -1,6 +1,6 @@
 # Privacy notice
 
-This notice covers the public instance at <https://stardust-itinerary.chl-work.com>, which the project's maintainer runs as a personal project (the operator). It describes what the software stores and shares. Last updated 7 November 2026.
+This notice covers the public instance at <https://stardust-itinerary.chl-work.com>, which the project's maintainer runs as a personal project (the operator). It describes what the software stores and shares. Last updated 8 November 2026.
 
 If you run your own instance, adapt this notice to your hosting and contact details, and link it with `PRIVACY_NOTICE_URL` (see [deployment](DEPLOYMENT.md)).
 
@@ -17,6 +17,7 @@ The optional account-key storage backend keeps encrypted key material in Google 
 - **Your account:**
   - Your Google account's subject identifier, email address and display name, used to sign you in.
   - A guest account has none of these. It has a random identifier, plus a keyed hash of the network address that created it, used to limit guests per address.
+  - Your explicitly chosen language, remembered on your account and in a browser cookie. The initial language is English.
 - **Trips you take part in:** events, places, times, notes, expenses, repayments, approvals and their history.
   - Trip history is kept even when a trip is deleted for its members, so that money and changes stay traceable.
   - Guest trips are the exception: they are permanently deleted after 24 hours.
@@ -77,7 +78,7 @@ The optional account-key storage backend keeps encrypted key material in Google 
 
 - Leave a trip, ask an owner to remove you, or, as an owner, delete a trip. Its records are kept as described above.
 - Remove your AI keys and disconnect Calendar at any time.
-- Use a guest account, which needs no personal details and is deleted automatically after 24 hours.
+- Use a guest account, which needs no personal details and is deleted automatically after 24 hours. It starts empty; guest trips, chats and keys are never transferred into a Google account when you sign in.
 - Ask the operator to delete your Google-linked account; this is not self-service yet.
 
 ## Using the public instance

@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { isAuthConfigured } from "@/lib/auth/config";
+import { resolveLocalePreference } from "@/lib/locale-preference-server";
 
-import { isLocale } from "@/lib/i18n";
-
-export default function Home() {
-  const configuredLocale = process.env.DEFAULT_LOCALE ?? "zh-HK-lihkg";
-  const locale = isLocale(configuredLocale) ? configuredLocale : "zh-HK-lihkg";
+export default async function Home() {
+  const { locale, session } = await resolveLocalePreference(await cookies());
+  if (isAuthConfigured() && !session) redirect(`/trips/new?locale=${locale}`);
   redirect(`/${locale}`);
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { createGuestSession } from "../../src/lib/app/guest.ts";
+import { createGuestTripFixture as createGuestSession } from "./guest-fixture.mjs";
 import { getAiPolicy, getAppOverview, inTransaction, setAiKeyGrant } from "../../src/lib/app/repository.ts";
 import { signInExistingIdentity, verifySession } from "../../src/lib/auth/repository.ts";
 import { saveAiCredential } from "../../src/lib/ai/credentials.ts";

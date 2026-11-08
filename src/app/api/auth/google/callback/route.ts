@@ -30,6 +30,8 @@ import {
 } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 import { recordRefusal } from "@/lib/admin/daily-counts";
+import { readGoogleSignInLocale } from "@/lib/auth/locale-preference";
+import { setLocaleCookie } from "@/lib/locale-preference-server";
 
 export async function GET(request: NextRequest) {
   const config = getAuthConfig();
@@ -77,7 +79,9 @@ export async function GET(request: NextRequest) {
       catch (error) {
         if (!publicSignupEnabled() || !(error instanceof SessionUnavailableError || error instanceof MembershipDisabledError)) throw error;
         const accountGrant = await issueAccountOnboarding(pool,config,identity);
+        const locale = await readGoogleSignInLocale(pool, identity);
         const response = NextResponse.redirect(new URL("/trips/new",config.appBaseUrl));
+        setLocaleCookie(response, locale, config.appBaseUrl.protocol === "https:");
         clearOAuthCookies(response,config);
         response.cookies.delete(authCookieNames.claimIntent);
         response.cookies.delete(authCookieNames.joinIntent);
@@ -87,6 +91,7 @@ export async function GET(request: NextRequest) {
       }
     }
     const response = NextResponse.redirect(new URL("/", config.appBaseUrl));
+    setLocaleCookie(response, await readGoogleSignInLocale(pool, identity), config.appBaseUrl.protocol === "https:");
     clearOAuthCookies(response, config);
     response.cookies.delete(authCookieNames.claimIntent);
     response.cookies.delete(authCookieNames.joinIntent);

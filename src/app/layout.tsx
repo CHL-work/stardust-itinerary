@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
+import { Suspense } from "react";
 
 import { OfflineServiceWorkerRegistration } from "@/components/offline-service-worker";
 import { SessionRefresher } from "@/components/session-refresher";
 import { FeedbackWidget } from "@/components/feedback-widget";
 import { documentLanguageBootstrapScript } from "@/lib/document-language-bootstrap";
+import { documentLanguage } from "@/lib/i18n";
+import { localeCookieName, preferredLocale } from "@/lib/locale-preference";
 
 import "./globals.css";
 import "./new-ui/base.css";
@@ -14,8 +18,8 @@ import "./new-ui/ai-settings.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "星塵遠征軍",
-    template: "%s · 星塵遠征軍",
+    default: "Stardust Itinerary",
+    template: "%s · Stardust Itinerary",
   },
   description: "A private group trip planner for a very small expedition party.",
 };
@@ -29,11 +33,13 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = preferredLocale(null, (await cookies()).get(localeCookieName)?.value);
+  const language = documentLanguage(locale);
   return (
-    <html lang="zh-HK" data-ui="new" suppressHydrationWarning>
+    <html lang={language} data-ui="new" suppressHydrationWarning>
       <head>
         {/* Sets the document language from the locale route before first paint. */}
         <script dangerouslySetInnerHTML={{ __html: documentLanguageBootstrapScript }} />
@@ -42,7 +48,7 @@ export default function RootLayout({
         <OfflineServiceWorkerRegistration />
         <SessionRefresher />
         {children}
-        <FeedbackWidget />
+        <Suspense fallback={null}><FeedbackWidget fallbackLocale={locale} /></Suspense>
       </body>
     </html>
   );

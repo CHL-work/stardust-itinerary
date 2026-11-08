@@ -564,6 +564,9 @@ export async function consumeJoinLink(
   config: AuthConfig,
   input: { rawToken: string; identity: GoogleIdentity; userAgent: string | null },
 ): Promise<SessionGrant> {
+  if (input.identity.issuer !== "https://accounts.google.com" || !input.identity.subject) {
+    throw new JoinUnavailableError("Sign in with Google before joining a trip.");
+  }
   const authenticationCeiling = freshAuthenticationCeiling();
   return withTransaction(pool, async (client) => {
     const tokenHash = hashOpaqueToken(config.authSecret, "trip-join", input.rawToken);
@@ -790,6 +793,9 @@ export async function consumeClaim(
   config: AuthConfig,
   input: { rawToken: string; identity: GoogleIdentity; userAgent: string | null },
 ): Promise<SessionGrant> {
+  if (input.identity.issuer !== "https://accounts.google.com" || !input.identity.subject) {
+    throw new ClaimUnavailableError();
+  }
   const authenticationCeiling = freshAuthenticationCeiling();
   return withTransaction(pool, async (client) => {
     const tokenHash = hashOpaqueToken(config.authSecret, "claim", input.rawToken);

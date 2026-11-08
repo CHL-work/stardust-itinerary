@@ -1,5 +1,6 @@
 {
   "messages": {
+    "languageSaveFailed": "Não foi possível salvar o idioma. Tente novamente.",
     "appName": "Stardust Itinerary",
     "demoMode": "Modo demo · as alterações não são salvas",
     "tripLabel": "Expedição atual",
@@ -695,8 +696,18 @@
     "savedKey": "Chave terminada em {hint}, verificada em {date}",
     "vertexKey": "Chave da Vertex AI terminada em {hint}, verificada em {date}",
     "label": "Chave de API",
-    "vertexProject": "Projeto da Vertex AI (opcional)",
-    "vertexHelp": "Só para chaves da Vertex AI.",
+    "googleMode": "Tipo de API do Google",
+    "googleModeGemini": "API Gemini (AI Studio)",
+    "googleModeExpress": "Vertex AI express (somente chave)",
+    "googleModeVertex": "Vertex AI (projeto e local)",
+    "googleKeyHelp": "Escolha onde criou a chave e cole-a abaixo, em Chave de API.",
+    "vertexProject": "ID do projeto do Google Cloud",
+    "vertexHelp": "Digite o ID do projeto, não uma chave de API. Exemplo: my-project-123.",
+    "vertexLocation": "Local (padrão: global)",
+    "invalidProject": "Confira o ID do projeto e o local. Cole a chave em Chave de API, não em ID do projeto.",
+    "googleConfiguration": "O Google não conseguiu validar a configuração. Confira o tipo de API, as restrições da chave, o projeto, o local e a API ativada.",
+    "providerUnavailable": "O provedor não pode verificar a chave agora. Tente novamente mais tarde.",
+    "providerLimited": "O provedor está limitando as verificações de chaves. Tente novamente mais tarde.",
     "save": "Verificar e salvar",
     "replace": "Verificar e substituir",
     "saving": "Verificando…",
@@ -1228,22 +1239,17 @@
     "checkedAt": "Verificado: {time}."
   },
   "guest": {
+    "startNotice": "Crie uma viagem de visitante, excluída após 24 horas.",
+    "startGuest": "Experimentar como visitante",
+    "startingGuest": "Iniciando acesso de visitante…",
+    "failed": "Não foi possível iniciar o acesso. Verifique sua conexão e tente novamente.",
+    "limited": "Tentativas demais. Tente mais tarde ou entre com o Google.",
+    "challengeFailed": "A verificação falhou. Tente novamente.",
+    "unavailable": "O acesso de visitante está indisponível. Entre com o Google ou tente mais tarde.",
     "banner": "Esta viagem de visitante é excluída em {time}.",
     "bannerNeedsKey": "Esta viagem de visitante é excluída em {time}. A IA exige sua própria chave de API.",
-    "signIn": "Entre para manter suas viagens."
-  },
-  "guestDemo": {
-    "trip": "Viagem de demonstração a Tóquio",
-    "guest": "Visitante",
-    "events": [
-      "Check-in no hotel",
-      "Jantar em Shinjuku",
-      "Caminhada matinal no Meiji Jingu",
-      "Almoço em Harajuku",
-      "Shibuya ao pôr do sol",
-      "Café da manhã no Mercado Externo de Tsukiji",
-      "Trem para o Aeroporto de Haneda"
-    ]
+    "signIn": "Entre para viagens salvas.",
+    "separateAccount": "Os dados de visitante não são transferidos ao entrar."
   },
   "infoTip": {
     "more": "Mais informações"

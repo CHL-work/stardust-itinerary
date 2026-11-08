@@ -6,6 +6,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Empty onboarding, remembered language and Google key setup (JOB-089, D-101):** guests and accounts without trips start at Create Trip, never an automatic demo. Guests explicitly create one empty isolated trip with the original 24-hour expiry and must sign in before joining real trips. No guest records transfer into either existing or new Google accounts. English is the initial language; explicit selection persists on browser/account and Google sign-in restores that account's choice. Google keys have distinct AI Studio, Vertex express and project-based setup; safe errors separate configuration, provider limits and outages. Migrations 0065–0066 add language and express-mode metadata without rewriting trips or keys.
+
 - **Account-owned Secret Manager storage (JOB-087, D-099):** users paste keys in Settings; an opt-in Google Cloud backend stores account/provider-bound KMS ciphertext in Secret Manager and only pinned references in PostgreSQL. Legacy keys remain readable. Verified writes, revision/access rechecks, fixed guest expiry and a delete-only cleanup worker cover replacement/removal and failed saves. Existing sharing and paid-model rules are unchanged. Migration 0064 and least-privilege infrastructure are included; activation requires a separate rollout. Settings accurately explains server-side use in every language.
   Activated on GKE on November 8 UTC after CI, deployment, scoped IAM and synthetic workload-identity storage/deletion checks passed. The restarted web server reports Secret Manager protection for new keys; cleanup runs every 15 minutes. Existing KMS storage stays readable. No keys were imported.
 
