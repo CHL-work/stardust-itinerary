@@ -75,4 +75,5 @@ Every document in this repository, by area, with one line each. The [README](../
 
 - [Documentation policy](DOCUMENTATION_POLICY.md): what every change must keep accurate, including this index.
 - [Sources](SOURCES.md): dated research bibliography.
+- [License](../LICENSE) and [notice](../NOTICE): the Apache License 2.0 and attributions for bundled data.
 - [Screenshots](screenshots/): the README's phone screenshots, synthetic data only ([how they were made](jobs/JOB-095-readme-and-license.md#how-the-screenshots-were-made)).
