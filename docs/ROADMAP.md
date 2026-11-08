@@ -15,7 +15,7 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 | JOB-095 | README story and features, English screenshots, phone install, and the Apache 2.0 license | Done: why the app exists, key features, phone install, hosting and feedback in the README; five English screenshots; Apache 2.0 with a NOTICE (D-107) |
 | JOB-094 | Routine checks on your own key, effort settings, and trip setup on your key or a free model | Done, deployed and verified on GKE: member-funded flight and disruption checks in the web server behind a web search check, chosen model and effort, chat effort, lookups on own key or free model (D-106) |
 | JOB-093 | One AI tab with usage and estimated cost, keys, instructions and past conversations | Done, deployed and verified on GKE: collapsible sections, 30-day token chart with estimated cost from published prices, keys and instructions moved from Settings (D-105) |
-| JOB-092 | Capability-aware free models and full upstream route audit | Review: full local checks passed; same catalog for users/guests, live inference and release awaiting separate approval (D-104) |
+| JOB-092 | Capability-aware free models and full upstream route audit | Done: both new models passed synthetic registered/guest creation and full combined-tree checks; same catalog for users/guests, authorized CI-gated release (D-104) |
 | JOB-091 | Location-local times for all events | Implemented and verified; location-aware editing/display, UTC instants preserved (D-103) |
 | JOB-090 | Flight icons and airport-local endpoint times | Review: local checks passed; authorized CI-gated release (D-102) |
 | JOB-089 | Empty-trip onboarding, remembered language and Google key setup | Review: local checks passed; authorized CI-gated release |
