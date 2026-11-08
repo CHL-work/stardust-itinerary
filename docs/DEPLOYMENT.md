@@ -176,6 +176,8 @@ To check the key's use, read the Data Access logs: `protoPayload.serviceName="cl
 
 JOB-087 adds this storage backend but does **not** enable it on an existing instance. Users still paste their own OpenAI, Anthropic or Gemini key in **Settings → AI keys**. It belongs to their immutable account across trips, not their email text or the operator's environment. No keys are imported or shared automatically.
 
+The public instance completed the separately authorized activation on November 8, 2026 UTC; [the job records verification](jobs/JOB-087-user-secret-manager.md#release-evidence-2026-11-08-utc). New deployments follow the steps below before enabling it.
+
 ### Enable after operator approval
 
 1. Review/apply `infra/user-credential-secrets.tf` with the existing infrastructure. It adds narrowly scoped custom roles, a cleanup-only configuration secret and Secret Manager Data Access logging. Do not change the KMS deny policy. Application deployment does not apply this infrastructure.

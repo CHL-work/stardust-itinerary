@@ -4,7 +4,7 @@ Current decisions are summarized here; accepted direction does not imply impleme
 
 ## D-099: Account-owned keys may live in Secret Manager (accepted November 7, 2026)
 
-The user will paste keys in Settings and requested Google Secret Manager rather than importing operator keys. The account/provider binding, explicit grants and free/paid model choices do not change. New configured writes put KMS ciphertext in separate opaque Secret Manager resources, with pinned references only in PostgreSQL. Existing KMS/ring rows keep working; no silent bulk migration. Keep the KMS deny policy, verify cloud payloads, recheck session/account/member/revision after network work, and clean abandoned/replaced resources through a delete-only worker. Guest resources expire with the guest. This is implemented behind configuration, not activated by the code change. [Full contract and costs](AI_KEYS.md).
+The user will paste keys in Settings and requested Google Secret Manager rather than importing operator keys. The account/provider binding, explicit grants and free/paid model choices do not change. New configured writes put KMS ciphertext in separate opaque Secret Manager resources, with pinned references only in PostgreSQL. Existing KMS/ring rows keep working; no silent bulk migration. Keep the KMS deny policy, verify cloud payloads, recheck session/account/member/revision after network work, and clean abandoned/replaced resources through a delete-only worker. Guest resources expire with the guest. The public instance enabled it through a separately authorized, verified configuration rollout; other deployments opt in explicitly. [Full contract and costs](AI_KEYS.md).
 
 ## D-100: Small inline event icons (accepted November 7, 2026)
 

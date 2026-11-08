@@ -4,7 +4,7 @@ Users paste OpenAI, Anthropic or Gemini API keys in **Settings → AI keys**. A 
 
 ## Storage (JOB-087, D-099)
 
-Secret Manager support is implemented but **not activated by this change**. Activation requires the separately authorized [deployment steps](DEPLOYMENT.md#account-owned-keys-in-secret-manager).
+Secret Manager is enabled for new account-key saves on the public instance; its cleanup runs every 15 minutes. Other deployments opt in through the [deployment steps](DEPLOYMENT.md#account-owned-keys-in-secret-manager). Code deployment alone does not configure this backend. [Activation evidence](jobs/JOB-087-user-secret-manager.md#release-evidence-2026-11-08-utc).
 
 | Configuration | New keys | Existing keys |
 | --- | --- | --- |

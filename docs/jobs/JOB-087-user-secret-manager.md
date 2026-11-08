@@ -1,6 +1,6 @@
 # JOB-087: Account-owned keys in Google Secret Manager
 
-- Status: review
+- Status: done
 - Priority: P1
 - Dependencies: JOB-061, JOB-069 (implemented credential and account protections)
 - Claimant: Codex
@@ -27,7 +27,7 @@ Users paste provider keys in Settings. On a configured Google Cloud deployment, 
 
 ## Handoff
 
-Code is merged and deployed. Cloud preflight is now complete: scoped IAM, the cleanup-only configuration and synthetic workload-identity checks passed. The source enables scheduled cleanup; deploy it before adding the two web storage settings and restarting as described in [deployment](../DEPLOYMENT.md#account-owned-keys-in-secret-manager). Existing encrypted database keys remain supported. No provider keys were read or imported, and CI permissions were not broadened.
+Accepted, merged, deployed and activated on November 8, 2026 UTC. New account-key saves use Secret Manager; existing encrypted database keys remain supported. Cleanup runs every 15 minutes. No provider keys were read or imported, and CI permissions were not broadened. Future changes follow the [deployment procedure](../DEPLOYMENT.md#account-owned-keys-in-secret-manager) and require their own authority.
 
 ### Release evidence (2026-11-08 UTC)
 
@@ -36,7 +36,8 @@ Code is merged and deployed. Cloud preflight is now complete: scoped IAM, the cl
 - Applied the reviewed OpenTofu plan against the existing state: nine additions, no changes or deletions. Existing KMS deny/WIF grants were untouched. The dedicated cleanup configuration contains only the runtime database connection and project setting; secret values were transferred between tools without display.
 - Manual cleanup completed with zero failed resources. A synthetic, ten-minute-expiring secret passed KMS/Secret Manager roundtrip, wrong-account/AAD rejection, web delete denial, cleanup payload-read denial and cleanup deletion. Web access then confirmed 404; the temporary pod was removed. No real account, trip or provider key was used.
 - The documentation-only follow-up CI exposed an existing 999 ms real-clock route-test flake. The release follow-up rechecks early timer wakes and uses deterministic clock tests without reducing the required one-second spacing.
-- Remaining activation checks: deploy enabled cleanup, configure/restart web, confirm effective storage mode and public health. Actual provider-key save/remove in Settings awaits a key pasted by its user; the cloud storage path was verified with synthetic data instead.
+- Activation release `152964a`: [CI](https://github.com/CHL-work/stardust-itinerary/actions/runs/42444324538) and [GKE deployment](https://github.com/CHL-work/stardust-itinerary/actions/runs/42444527448) passed. The enabled cleanup template completed another manual run with zero failures. Added the two Secret Manager settings to the web-only credential configuration without removing KMS/legacy settings, then performed a successful web rollout restart.
+- Post-restart verification reported `secret_manager`, public health/database ready, and cleanup unsuspended on its 15-minute schedule. Actual provider-key save/remove in Settings awaits a key pasted by its user; cloud storage and identity isolation were verified with synthetic data, not a real provider key.
 
 ## Verification
 
@@ -44,14 +45,14 @@ Code is merged and deployed. Cloud preflight is now complete: scoped IAM, the cl
 - Lint and types passed (one pre-existing warning in an ignored local screenshot helper).
 - Final combined gate: **250 unit files / 5,917 tests passed**, disposable PostgreSQL suite, lint/types, production build and smoke passed. The migration inventory was updated for 0064. Final regression coverage also proves account/session lock ordering during revocation and that cleanup retry backoff never extends a save's fixed publication deadline.
 - Relative documentation links and diff checks passed. JOB-088's full-app synthetic phone screenshots were refreshed and inspected. Temporary app/browser processes and the owned disposable PostgreSQL server were stopped after checks.
-- Live Secret Manager/IAM preflight passed as recorded above. Push, GKE deployment and the scoped activation were authorized; future unrelated production changes still require separate authority.
+- Live Secret Manager/IAM checks and activation passed as recorded above. Push, GKE deployment and the scoped activation were authorized; future unrelated production changes still require separate authority.
 - Activation follow-up gate: **250 unit files / 5,919 tests**, full disposable PostgreSQL integration suite, lint/types, production build and smoke all passed. The existing ignored screenshot-helper lint warning is unchanged. The map tests now verify early timer wake/cancellation deterministically; the cleanup manifest test expects the explicitly enabled public schedule.
 
 ## Documentation impact
 
 Updated: entry points/rules/history, design decisions, roadmap/job indexes, architecture/source map, database compatibility, AI key contract, security/privacy/threat model, member funding cross-reference, case study, self-hosting/deployment, environment template and documentation inventory. Settings protection/help copy is updated in all locales. No schema or user-facing data enters Git.
 
-Release follow-up updates CHANGELOG, roadmap, deployment guidance, the cleanup manifest/contract test and this handoff with verified cloud evidence. The focused route-rate repair preserves its existing public-provider contract; its source/tests and publication-fence test fixture changed. Remaining feature contracts are unchanged.
+Release follow-up updates CHANGELOG, roadmap/job indexes, key contract/decision, deployment guidance, the cleanup manifest/contract test and this handoff with verified cloud evidence. The focused route-rate repair preserves its existing public-provider contract; its source/tests and publication-fence test fixture changed. Remaining feature contracts are unchanged.
 
 Reviewed but unaffected: CLAUDE/CONTRIBUTING/security reporting entry points; core product journeys and money semantics; destination defaults; instructions/retired preferences; activity and feedback; pending edits, venue hours, research, booking prices, image inputs, recovery, provider failures and conversation history; communications, Calendar, maps, weather/disruption/flight logic; expense/repayment/mobile-card/layout contracts; localization architecture; CI workflow, Dockerfile/Compose, sources bibliography and job-runner policy. New source links live with the key contract. JOB-088 separately owns icon/screenshots changes.
 
