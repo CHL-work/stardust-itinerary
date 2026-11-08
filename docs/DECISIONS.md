@@ -2,6 +2,15 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-108: Routine checks turn on by themselves, with capable defaults, and Chat joins Conversations (accepted November 8, 2026)
+
+The owner asked that routine checks turn on automatically when a member enters an OpenAI, Claude or Gemini key that passes the check, by default with GPT-6 Astra, Claude Opus 5.5 or Gemini 4 Argon at medium effort, and that the AI tab's Chat section merge into Conversations at the bottom (JOB-096). The owner authorized deploying without further approval.
+
+- **On by themselves:** saving a key starts D-106's one-time web search check in the background, and checks turn on when it passes; this replaces D-106's opt-in. A member who turns checks off stays off, through later keys, until they turn them on again. Each saved key is tested once, so a failing key is not retried until it is saved again, and only the most recently saved key is tried by itself. A new key changes nothing while checks run on another key; removing the key checks run on hands them to the most recently saved remaining key once it passes its own check.
+- **Defaults:** `gpt-6-astra`, `claude-opus-5-5` and `gemini-4-argon` (Gemini API or Vertex AI keys) at medium effort, replacing D-106's low-cost defaults; a model the member chose for the same provider is kept. They cost more per check, and the Usage section shows the estimate. Trip setup keeps its lightest models.
+- **How:** the key save claims the check with a row lock, so replicas never test one key twice, and runs it after responding; the AI tab starts it for keys saved before this change and shows progress. Rate limits, the gate, payer rules and records are D-106's.
+- **Layout:** Usage, Routine checks, API keys, AI instructions, then Conversations, with the chat above the past conversations; this supersedes D-105's layout. [Contract](AI_TAB.md).
+
 ## D-107: Apache License 2.0, and a README that says why (accepted November 8, 2026)
 
 The owner, the sole copyright holder, relicensed the application under the Apache License 2.0 (canonical text in `LICENSE`, attributions in `NOTICE`); earlier commits remain available under MIT, and bundled third-party data keeps its own licenses. The README now leads with why the app exists, what it does, how to install it on a phone and how to try the public instance and send feedback, with five English screenshots from a local build with synthetic data (JOB-095).
@@ -13,7 +22,7 @@ The owner asked that routine flight and event checks run for anyone who saves an
 - **Who pays:** the operator's keys still pay only in sponsored trips, from the background worker. In any other trip, one active, unsuspended member who turned routine checks on pays with their own key: owners first, then whoever turned them on earliest. This supersedes D-075's "background workers never use a user's key" for routine checks only, and D-095's sponsored-trips-only rule. The trip's background switch keeps governing the operator's checks; the member's opt-in replaces it in unsponsored trips.
 - **Gate:** a one-time live web search on the member's key with the chosen model must succeed before checks turn on, and again after the key is saved anew. Free models cannot search, so they never run routine checks; shared keys never pay for them.
 - **Where:** member-funded checks run in the web server (`ROUTINE_CHECKS_ENABLED`), the only workload allowed to decrypt users' keys; the KMS deny policy and the worker's lack of key and KMS access are unchanged. Small bounded batches every five minutes; database claims prevent double checks across replicas.
-- **Defaults:** routine checks use each provider's low-cost model at medium effort (`gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.8-flash`). Chat effort defaults to each model's tuned registry effort; low, medium or high override it on requests the requester pays for.
+- **Defaults:** routine checks use each provider's low-cost model at medium effort (`gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.8-flash`); D-108 replaced these with Astra, Opus 5.5 and Argon and made checks turn on by themselves. Chat effort defaults to each model's tuned registry effort; low, medium or high override it on requests the requester pays for.
 - **Trip setup:** the platform operator keeps the operator's lookup. Others use their own key's lightest model (`gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.5-flash-lite`), else a free model where free AI is on (ten a day per account, 200 a day per instance), else, on instances without free AI, D-071's operator-funded lookup. This extends D-098's free text use to this tool-free lookup.
 - **Records and privacy:** system requests name the paying member and model; prompts carry the same public facts as before. Changes are audited without keys. [Contract](AI_TAB.md).
 
@@ -21,7 +30,7 @@ The owner asked that routine flight and event checks run for anyone who saves an
 
 The owner asked for a token usage chart with an estimated cost and which service used how many tokens, API keys and AI instructions moved to the AI tab, past conversations at the bottom, and collapsible sections (JOB-093).
 
-- **Layout:** Chat, Usage, Routine checks, API keys, AI instructions and Conversations, each a native disclosure remembered per browser. Owners' trip AI access and log stay in Settings → Advanced.
+- **Layout:** Chat, Usage, Routine checks, API keys, AI instructions and Conversations, each a native disclosure remembered per browser (D-108 moved Chat into Conversations). Owners' trip AI access and log stay in Settings → Advanced.
 - **Usage:** the account's own requests, members' requests on its shared key, routine checks its key paid for and its destination lookups, over 30 UTC days. Only requests on the account's own keys carry a cost.
 - **Estimate:** published standard per-token prices and search fees in code, checked against the providers' pages with dated windows for announced changes; always labeled an estimate. Search counts are recorded from migration 0068 on. [Contract](AI_TAB.md).
 

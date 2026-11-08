@@ -12,7 +12,7 @@ Before a flight departs, the server looks up its current status and keeps the ev
 ## Which flights
 
 All of these must hold:
-- someone pays: in a trip sponsored by the operator, the operator's keys, with the trip's background checks on (the same switch the disruption monitor uses); in any other trip, one member's own key after that member turned routine checks on (JOB-094, D-106; owners first, then whoever turned them on earliest);
+- someone pays: in a trip sponsored by the operator, the operator's keys, with the trip's background checks on (the same switch the disruption monitor uses); in any other trip, one member's own key whose routine checks are on (JOB-094, D-106; on by themselves once a saved key passes the web search check, JOB-096, D-108; owners first, then whoever's checks turned on earliest);
 - the event is a trip-visible, planned transport event with a flight number;
 - the event departs within the next 24 hours.
 
@@ -21,7 +21,7 @@ Legacy title-only flight recognition is presentation only (JOB-090, D-102); it d
 
 ## The lookup
 
-On the operator's keys, `gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it. On a member's key, the model and effort that member chose (default `gpt-6.1-terra`, `claude-haiku-5-5` or `gemini-3.8-flash` at medium), with that provider's web search. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports, planned departure instant and departure-local date/time. The departure zone uses the [shared event resolver](EVENT_LOCAL_TIME.md), honoring new explicit corrections ahead of legacy flight zones and airport/location evidence, including DST. An unresolved zone is labeled as a trip-zone fallback, not claimed as airport-local. Local resolution never adds map URLs, titles, notes, people or booking details to the prompt. The answer is structured JSON:
+On the operator's keys, `gpt-6.1-sol` at medium effort with live web search, as the disruption monitor runs it. On a member's key, the model and effort that member chose (default `gpt-6-astra`, `claude-opus-5-5` or `gemini-4-argon` at medium), with that provider's web search. The prompt carries only public flight facts: the flight number, airline, departure and arrival airports, planned departure instant and departure-local date/time. The departure zone uses the [shared event resolver](EVENT_LOCAL_TIME.md), honoring new explicit corrections ahead of legacy flight zones and airport/location evidence, including DST. An unresolved zone is labeled as a trip-zone fallback, not claimed as airport-local. Local resolution never adds map URLs, titles, notes, people or booking details to the prompt. The answer is structured JSON:
 - status;
 - scheduled and estimated departure and arrival;
 - terminals and gate;

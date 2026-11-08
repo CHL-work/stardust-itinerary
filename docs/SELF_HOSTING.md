@@ -3,7 +3,7 @@
 Runs everything on one machine: PostgreSQL 17, the web app and a scheduler for background checks. You need:
 - Docker with Compose v2;
 - a Google account for the sign-in client;
-- for AI, either enable the optional keyless free service below, configure a provider API key (OpenAI, Anthropic or Google Gemini), or let users add their own in AI → API keys. Manual planning needs no AI key. Members who save a key that can search the web can turn on routine flight and disruption checks; the web service runs them (`ROUTINE_CHECKS_ENABLED`, on by default in `compose.yaml`).
+- for AI, either enable the optional keyless free service below, configure a provider API key (OpenAI, Anthropic or Google Gemini), or let users add their own in AI → API keys. Manual planning needs no AI key. When a member saves a key that can search the web, routine flight and disruption checks turn on by themselves unless the member turned them off; the web service runs them (`ROUTINE_CHECKS_ENABLED`, on by default in `compose.yaml`).
 
 Kubernetes is covered in [deployment](DEPLOYMENT.md).
 

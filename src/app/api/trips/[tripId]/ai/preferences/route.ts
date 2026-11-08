@@ -1,22 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
-import { aiPreferencesInputSchema, getAiPreferences, RoutineSearchCheckError, saveAiPreferences } from "@/lib/ai/preferences";
+import {
+  aiPreferencesInputSchema, claimRoutineAutoCheck, getAiPreferences, limitRoutineSearchChecks, RoutineSearchCheckError, runRoutineAutoCheck,
+  saveAiPreferences,
+} from "@/lib/ai/preferences";
 import { apiError } from "@/lib/app/http";
 import { getAuthConfig } from "@/lib/auth/config";
 import { RateLimitError } from "@/lib/auth/errors";
-import { isGuestSession } from "@/lib/auth/guest-identity";
-import { enforceRateLimit } from "@/lib/auth/repository";
 import { requireAuthenticatedSession, requireSameOrigin } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
 
 /**
  * The signed-in account's AI preferences (JOB-094): chat effort and routine checks. Turning routine checks
- * on runs one live web search on the account's own key, so those checks are rate limited.
+ * on runs one live web search on the account's own key, so those checks are rate limited. POST starts the
+ * automatic check for a key saved before routine checks turned on by themselves (JOB-096); it runs after
+ * the response, and the AI tab reads its progress with GET.
  */
 type Context = { params: Promise<{ tripId: string }> };
 const headers = { "Cache-Control": "private, no-store" };
-const SEARCH_CHECKS_PER_HOUR = 10;
-const GUEST_SEARCH_CHECKS_PER_DAY = 3;
 
 function failure(error: unknown) {
   const response = error instanceof RoutineSearchCheckError
@@ -48,14 +49,23 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     const input = aiPreferencesInputSchema.parse(await request.json());
     const pool = getPool(config);
     return NextResponse.json(await saveAiPreferences(pool, session, tripId, input, {
-      beforeSearchCheck: async () => {
-        await enforceRateLimit(pool, config, { scope: "ai-routine-search-check", key: session.userId, userId: session.userId,
-          maximum: SEARCH_CHECKS_PER_HOUR, windowSeconds: 3600 });
-        if (isGuestSession(session)) {
-          await enforceRateLimit(pool, config, { scope: "ai-routine-search-check-guest", key: session.userId, userId: session.userId,
-            maximum: GUEST_SEARCH_CHECKS_PER_DAY, windowSeconds: 86_400 });
-        }
-      },
+      beforeSearchCheck: () => limitRoutineSearchChecks(pool, config, session),
     }), { headers });
+  } catch (error) { return failure(error); }
+}
+
+export async function POST(request: NextRequest, { params }: Context) {
+  try {
+    const config = getAuthConfig();
+    requireSameOrigin(request, config);
+    const session = await requireAuthenticatedSession(request, config);
+    const { tripId } = await params;
+    const pool = getPool(config);
+    const claim = await claimRoutineAutoCheck(pool, session, tripId, { beforeCheck: () => limitRoutineSearchChecks(pool, config, session) });
+    if (claim) {
+      after(() => runRoutineAutoCheck(pool, session, tripId, claim).then(() => undefined,
+        () => console.warn(JSON.stringify({ routineAutoCheck: { error: "finish" } }))));
+    }
+    return NextResponse.json(await getAiPreferences(pool, session, tripId), { headers });
   } catch (error) { return failure(error); }
 }

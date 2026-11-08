@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { saveAiCredential } from "../../src/lib/ai/credentials.ts";
-import { getAiPreferences, RoutineSearchCheckError, saveAiPreferences } from "../../src/lib/ai/preferences.ts";
+import { deleteAiCredential, saveAiCredential } from "../../src/lib/ai/credentials.ts";
+import { claimRoutineAutoCheck, getAiPreferences, RoutineSearchCheckError, runRoutineAutoCheck, saveAiPreferences } from "../../src/lib/ai/preferences.ts";
 import { getAiUsageSummary } from "../../src/lib/ai/usage-summary.ts";
 import { AppConflictError, AppInvalidInputError } from "../../src/lib/app/repository.ts";
 import { insertSession, verifySession } from "../../src/lib/auth/repository.ts";
@@ -11,9 +11,10 @@ import { runDueFlightStatusChecks } from "../../src/lib/flights/monitor.ts";
 const GOOGLE = "https://accounts.google.com";
 
 /**
- * AI preferences and routine checks on a member's own key (JOB-093, JOB-094, D-105, D-106), at migration
- * head with a scripted provider and a synthetic local key ring: constraints, the web search gate, who pays,
- * the request records and the usage summary. Synthetic data only.
+ * AI preferences and routine checks on a member's own key (JOB-093, JOB-094, JOB-096, D-105, D-106, D-108), at
+ * migration head with a scripted provider and a synthetic local key ring: constraints, the web search gate, who
+ * pays, the request records, the usage summary, and checks turning on by themselves after a key is saved.
+ * Synthetic data only.
  */
 export async function testAiPreferencesAndRoutine(pool, connectionString) {
   const previousKey = process.env.CREDENTIAL_ENCRYPTION_KEY;
@@ -60,7 +61,7 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
 
     // Defaults: nothing stored, nothing on, no providers.
     assert.deepEqual(await getAiPreferences(pool, editor.session, tripId), { chatEffort: null, providers: [], revision: 0,
-      routine: { enabled: false, model: null, effort: "medium", active: false, lastCheckAt: null, checksToday: 0 } });
+      routine: { enabled: false, model: null, effort: "medium", active: false, lastCheckAt: null, checksToday: 0, optedOut: false, autoCheck: null } });
     await assert.rejects(saveAiPreferences(pool, editor.session, tripId, { expectedRevision: 0, routine: { enabled: true } }), AppInvalidInputError);
 
     // A key, then a failed search check: nothing is saved.
@@ -71,10 +72,10 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
       (error) => error instanceof RoutineSearchCheckError && error.reason === "no_search");
     assert.equal((await getAiPreferences(pool, editor.session, tripId)).revision, 0);
 
-    // A passing check turns checks on with the provider's low-cost default; changing only the effort needs no new check.
-    const pass = async (input) => { checks += 1; assert.equal(input.model, "claude-haiku-5-5"); return { ok: true }; };
+    // A passing check turns checks on with the provider's default; changing only the effort needs no new check.
+    const pass = async (input) => { checks += 1; assert.equal(input.model, "claude-opus-5-5"); return { ok: true }; };
     let saved = await saveAiPreferences(pool, editor.session, tripId, { expectedRevision: 0, routine: { enabled: true } }, { verify: pass });
-    assert.deepEqual([saved.routine.enabled, saved.routine.active, saved.routine.model, saved.providers], [true, true, "claude-haiku-5-5", ["anthropic"]]);
+    assert.deepEqual([saved.routine.enabled, saved.routine.active, saved.routine.model, saved.providers], [true, true, "claude-opus-5-5", ["anthropic"]]);
     saved = await saveAiPreferences(pool, editor.session, tripId, { expectedRevision: saved.revision, chatEffort: "high",
       routine: { enabled: true, effort: "low" } }, { verify: pass });
     assert.deepEqual([saved.chatEffort, saved.routine.effort, checks], ["high", "low", 2]);
@@ -88,14 +89,14 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
         departure_location_name,destination_location_name,flight,visibility)
       VALUES($1,$2,$3,$4,'Synthetic routine flight','transport','2031-05-01T03:00:00Z','2031-05-01T06:00:00Z','HND','CTS',
         '{"flightNumber":"NH9999","airline":"Synthetic Air"}'::jsonb,'trip')`, [tripId, flightId, dayId, owner.memberId]);
-    const scripted = (rawOutput) => () => ({ check: async () => ({ rawOutput, effectiveModel: "claude-haiku-5-5", inputTokens: 2000, outputTokens: 100,
+    const scripted = (rawOutput) => () => ({ check: async () => ({ rawOutput, effectiveModel: "claude-opus-5-5", inputTokens: 2000, outputTokens: 100,
       cachedInputTokens: 500, webSearchCount: 2, webSearchQueries: ["NH9999 status"] }) });
     const now = new Date("2031-05-01T00:30:00Z");
     const flights = await runDueFlightStatusChecks(pool, { funding: "member", now, memberProvider: scripted("{}") });
     assert.equal(flights.checked, 1);
     const request = (await pool.query(`SELECT provider, transport, requested_model, credential_source, credential_member_id, web_search_count, status
       FROM ai_requests WHERE trip_id=$1 AND feature='flight_status'`, [tripId])).rows;
-    assert.deepEqual(request, [{ provider: "anthropic", transport: "claude_agent_sdk", requested_model: "claude-haiku-5-5", credential_source: "own",
+    assert.deepEqual(request, [{ provider: "anthropic", transport: "claude_agent_sdk", requested_model: "claude-opus-5-5", credential_source: "own",
       credential_member_id: editor.memberId, web_search_count: 2, status: "succeeded" }]);
 
     // The editor sees the check and its estimated cost; the owner's usage shows none of it.
@@ -132,7 +133,7 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
     assert.equal(disruptions.succeededTrips, 1, JSON.stringify({ disruptions, runs }));
     const disruptionRequest = (await pool.query(`SELECT provider, requested_model, credential_source, credential_member_id, web_search_count
       FROM ai_requests WHERE trip_id=$1 AND feature='disruption_monitor'`, [todayTripId])).rows;
-    assert.deepEqual(disruptionRequest, [{ provider: "google", requested_model: "gemini-3.8-flash", credential_source: "own",
+    assert.deepEqual(disruptionRequest, [{ provider: "google", requested_model: "gemini-4-argon", credential_source: "own",
       credential_member_id: todayOwner, web_search_count: 2 }]);
 
     // A key saved again must pass the search check again before it pays; a suspended account never pays.
@@ -143,6 +144,66 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
     assert.equal((await runDueFlightStatusChecks(pool, { funding: "member", now: later, memberProvider: scripted("{}") })).checked, 0);
     await pool.query("UPDATE app_users SET suspended_at = NULL WHERE id=$1", [editor.userId]);
     assert.equal((await runDueFlightStatusChecks(pool, { funding: "member", now: later, memberProvider: scripted("{}") })).checked, 1);
+
+    // JOB-096: a saved key turns checks on by itself after one web search check; one claim at a time.
+    const auto = await person("Synthetic auto member", "editor");
+    await saveAiCredential(pool, auto.session, tripId, { provider: "openai", apiKey: "sk-synthetic-routine-auto-0001" }, async () => true);
+    assert.deepEqual((await getAiPreferences(pool, auto.session, tripId)).routine.autoCheck, { state: "due", model: "gpt-6-astra", reason: null });
+    let budgeted = 0;
+    const beforeCheck = async () => { budgeted += 1; };
+    const claim = await claimRoutineAutoCheck(pool, auto.session, tripId, { beforeCheck });
+    assert.deepEqual([claim.model, claim.effort, budgeted], ["gpt-6-astra", "medium", 1]);
+    assert.equal(await claimRoutineAutoCheck(pool, auto.session, tripId, { beforeCheck }), null, "never two checks of one key");
+    let viewed = await getAiPreferences(pool, auto.session, tripId);
+    assert.deepEqual([viewed.routine.autoCheck?.state, viewed.routine.enabled, budgeted], ["running", false, 1]);
+    assert.equal(await runRoutineAutoCheck(pool, auto.session, tripId, claim, { verify: async (input) => {
+      assert.deepEqual([input.model, input.effort], ["gpt-6-astra", "medium"]); return { ok: true }; } }), "enabled");
+    viewed = await getAiPreferences(pool, auto.session, tripId);
+    assert.deepEqual([viewed.routine.enabled, viewed.routine.active, viewed.routine.model, viewed.routine.autoCheck],
+      [true, true, "gpt-6-astra", null]);
+    const autoAudit = await pool.query(`SELECT metadata FROM audit_events WHERE trip_id=$1 AND actor_member_id=$2
+      AND action='ai.routine.enabled'`, [tripId, auto.memberId]);
+    assert.equal(autoAudit.rows[0].metadata.automatic, true);
+    // A stale finish of the same claim changes nothing.
+    assert.equal(await runRoutineAutoCheck(pool, auto.session, tripId, { ...claim, claimedAt: new Date(claim.claimedAt.getTime() - 1000) },
+      { verify: async () => ({ ok: true }) }), "skipped");
+
+    // The key saved again while checks run on it is checked again with the chosen model; a failure shows and is not retried.
+    await saveAiCredential(pool, auto.session, tripId, { provider: "openai", apiKey: "sk-synthetic-routine-auto-0002" }, async () => true);
+    const recheck = await claimRoutineAutoCheck(pool, auto.session, tripId);
+    assert.equal(recheck.model, "gpt-6-astra");
+    assert.equal(await runRoutineAutoCheck(pool, auto.session, tripId, recheck, { verify: async () => ({ ok: false, reason: "no_search" }) }), "failed");
+    viewed = await getAiPreferences(pool, auto.session, tripId);
+    assert.deepEqual([viewed.routine.enabled, viewed.routine.active, viewed.routine.autoCheck],
+      [true, false, { state: "failed", model: "gpt-6-astra", reason: "no_search" }]);
+    assert.equal(await claimRoutineAutoCheck(pool, auto.session, tripId), null, "a failed key waits until it is saved again");
+
+    // A key saved during a check is not the key that passed.
+    await saveAiCredential(pool, auto.session, tripId, { provider: "openai", apiKey: "sk-synthetic-routine-auto-0003" }, async () => true);
+    const raced = await claimRoutineAutoCheck(pool, auto.session, tripId);
+    await pool.query("UPDATE user_ai_credentials SET updated_at = CURRENT_TIMESTAMP + interval '1 minute' WHERE user_id=$1", [auto.userId]);
+    assert.equal(await runRoutineAutoCheck(pool, auto.session, tripId, raced, { verify: async () => ({ ok: true }) }), "skipped");
+    assert.equal((await getAiPreferences(pool, auto.session, tripId)).routine.active, false);
+
+    // Turning checks off is kept: a key saved later leaves them off until the member turns them on.
+    viewed = await getAiPreferences(pool, auto.session, tripId);
+    viewed = await saveAiPreferences(pool, auto.session, tripId, { expectedRevision: viewed.revision, routine: { enabled: false } });
+    assert.deepEqual([viewed.routine.enabled, viewed.routine.optedOut, viewed.routine.autoCheck], [false, true, null]);
+    await saveAiCredential(pool, auto.session, tripId, { provider: "anthropic", apiKey: "sk-ant-synthetic-routine-auto-0004" }, async () => true);
+    assert.equal(await claimRoutineAutoCheck(pool, auto.session, tripId), null);
+    viewed = await getAiPreferences(pool, auto.session, tripId);
+    viewed = await saveAiPreferences(pool, auto.session, tripId, { expectedRevision: viewed.revision,
+      routine: { enabled: true, model: "claude-opus-5-5" } }, { verify: async () => ({ ok: true }) });
+    assert.deepEqual([viewed.routine.enabled, viewed.routine.active, viewed.routine.optedOut, viewed.routine.autoCheck], [true, true, false, null]);
+
+    // Removing the key checks run on stops them; the newest remaining key is then tested once, and saving only the
+    // chat effort no longer needs the removed key.
+    await deleteAiCredential(pool, auto.session, tripId, "anthropic");
+    viewed = await getAiPreferences(pool, auto.session, tripId);
+    assert.deepEqual([viewed.routine.enabled, viewed.routine.active, viewed.routine.autoCheck],
+      [false, false, { state: "due", model: "gpt-6-astra", reason: null }]);
+    viewed = await saveAiPreferences(pool, auto.session, tripId, { expectedRevision: viewed.revision, chatEffort: "low" });
+    assert.deepEqual([viewed.chatEffort, viewed.routine.enabled, viewed.routine.optedOut], ["low", false, false]);
 
     // Destination lookups accept the new funding columns.
     await pool.query(`INSERT INTO account_ai_lookups(id,user_id,client_request_id,request_payload_hash,input_hash,destination_text,display_locale,

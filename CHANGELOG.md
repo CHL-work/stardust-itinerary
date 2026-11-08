@@ -6,6 +6,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Added
 
+- **Routine checks turn on by themselves (JOB-096, D-108):** saving an OpenAI, Claude or Gemini key starts the web search check in the background, and routine checks turn on when it passes. The Routine checks header says "Checking…" meanwhile, and a key that fails shows why. Turning checks off is remembered. Keys saved earlier are tested the next time the AI tab opens.
 - **One AI tab (JOB-093, D-105):** Chat, Usage, Routine checks, API keys, AI instructions and Conversations as collapsible sections, each remembered per browser. Usage charts 30 days of tokens by service and lists them by model, with an estimated cost for requests on your own keys from a published price table. API keys and AI instructions moved from Settings; past conversations sit at the bottom.
 - **Routine checks on your own key (JOB-094, D-106):** flight status and disruption checks run in trips the operator does not sponsor when a member turns them on in the AI tab, on that member's key, with the model and effort they choose (defaults `gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.8-flash` at medium). A one-time live web search on the key gates them; owners pay first; the web server runs them in small batches (`ROUTINE_CHECKS_ENABLED`). A "?" explains what they check.
 - **Chat effort (JOB-094):** Default, Low, Medium or High for chat on your own key; Default keeps each model's tuned effort. Gemini requests can now carry a thinking level.
@@ -99,6 +100,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Changed
 
+- **Routine check defaults (JOB-096, D-108):** GPT-6 Astra, Claude Opus 5.5 and Gemini 4 Argon at medium effort, instead of the low-cost Terra, Haiku and Flash; a model you chose for the same provider is kept.
+- **AI tab (JOB-096):** Chat moved into Conversations at the bottom: the chat sits above your past conversations in one section, open at first.
 - **Apache License 2.0 (JOB-095, D-107):** the application is relicensed from MIT to Apache 2.0, with a NOTICE for bundled data.
 - **README (JOB-095):** why the app exists, what it does, phone install, how to try the public instance and send feedback, and five new English screenshots: overview, a flight time changed by a routine check, an AI proposal, a three-stop day map and the API keys section.
 - **Trip setup on your key or a free model (JOB-094, D-106):** the create-trip destination lookup uses the creator's own key with its provider's lightest model, else a free model where free AI is on, else the operator's key; the platform operator keeps the operator's key. Lookups record who paid.
@@ -157,6 +160,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **Chat effort after removing a key:** saving only the chat effort no longer fails when the key routine checks ran on was removed.
 - **CI secret scan download:** GitHub's release-download URL for gitleaks was returning gateway errors, so CI now fetches the pinned release through the REST API with the workflow's own token, retries a dropped transfer, and checks the archive against the published checksum before the scan runs.
 - **French AI status lines:** a missing space after « L’IA » in two conversation messages.
 - **Deterministic route-rate verification:** OSRM walking/driving requests recheck the one-second deadline after an early timer wake. Fake-clock tests preserve the full 1,000 ms spacing assertion and cover cancellation, removing a 999 ms CI timing flake.

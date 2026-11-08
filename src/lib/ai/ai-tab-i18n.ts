@@ -6,7 +6,6 @@ import { localizedCatalog } from "@/lib/locale-packs";
  * in both Cantonese modes. Notes are one line; details sit behind each section's single "?" (D-088).
  */
 const english = {
-  chatSection: "Chat",
   usageSection: "Usage",
   routineSection: "Routine checks",
   keysSection: "API keys",
@@ -14,6 +13,7 @@ const english = {
   conversationsSection: "Conversations",
   summaryOn: "On",
   summaryOff: "Off",
+  summaryChecking: "Checking…",
   loading: "Loading…",
   loadFailed: "Settings could not be loaded.",
   usageLoading: "Loading usage…",
@@ -37,11 +37,11 @@ const english = {
   paidMine: "Your key",
   paidFree: "Free",
   paidOthers: "Not you",
-  routineNeedsKey: "Add an API key that can search the web to use routine checks.",
+  routineNeedsKey: "Routine checks turn on when you save an API key that can search the web.",
   routineToggle: "Check my trips automatically",
   routineModel: "Model",
   routineEffort: "Effort",
-  routineHelp: "Every 5 minutes, on your key: flights 24 and 12 hours before departure, then hourly from 6 hours, for delays, cancellations and gate changes; other events in the next 7 days for official closures, strikes and severe weather. Changes and warnings show on the event. Each check uses web search and your tokens. In a group trip, one member's key pays: an owner's first.",
+  routineHelp: "They turn on by themselves when you save a key that passes a web search test, and stay on until you turn them off. Every 5 minutes, on your key: flights 24 and 12 hours before departure, then hourly from 6 hours, for delays, cancellations and gate changes; other events in the next 7 days for official closures, strikes and severe weather. Changes and warnings show on the event. Each check uses web search and your tokens. In a group trip, one member's key pays: an owner's first.",
   routineChecking: "Checking that this key can search the web…",
   routineStatus: "On · last check {time} · {count} today",
   routineStatusNone: "On · no checks yet",
@@ -62,7 +62,6 @@ const english = {
 export type AiTabCopy = { [K in keyof typeof english]: string };
 
 const cantonese: AiTabCopy = {
-  chatSection: "對話",
   usageSection: "用量",
   routineSection: "定時檢查",
   keysSection: "API 金鑰",
@@ -70,6 +69,7 @@ const cantonese: AiTabCopy = {
   conversationsSection: "對話紀錄",
   summaryOn: "已開啟",
   summaryOff: "已關閉",
+  summaryChecking: "檢查緊…",
   loading: "載入中…",
   loadFailed: "未能載入設定。",
   usageLoading: "正在載入用量…",
@@ -93,11 +93,11 @@ const cantonese: AiTabCopy = {
   paidMine: "你的金鑰",
   paidFree: "免費",
   paidOthers: "唔係你",
-  routineNeedsKey: "要用定時檢查，請先加入一條可以上網搜尋的 API 金鑰。",
+  routineNeedsKey: "儲存一條可以上網搜尋的 API 金鑰後，定時檢查會自動開啟。",
   routineToggle: "自動檢查我的行程",
   routineModel: "模型",
   routineEffort: "思考程度",
-  routineHelp: "每 5 分鐘用你的金鑰檢查：航班喺起飛前 24 同 12 小時，之後由 6 小時前起每小時，查延誤、取消同登機閘口更改；未來 7 日內其他活動，查官方關閉、罷工同惡劣天氣。有更改同警告會顯示喺活動上。每次檢查都會用網上搜尋同你的 token。團體行程只會用一位成員的金鑰，行程擁有人優先。",
+  routineHelp: "儲存的金鑰通過網上搜尋測試後，定時檢查會自動開啟，直至你關閉為止。每 5 分鐘用你的金鑰檢查：航班喺起飛前 24 同 12 小時，之後由 6 小時前起每小時，查延誤、取消同登機閘口更改；未來 7 日內其他活動，查官方關閉、罷工同惡劣天氣。有更改同警告會顯示喺活動上。每次檢查都會用網上搜尋同你的 token。團體行程只會用一位成員的金鑰，行程擁有人優先。",
   routineChecking: "正在確認呢條金鑰可以上網搜尋…",
   routineStatus: "已開啟 · 最近檢查 {time} · 今日 {count} 次",
   routineStatusNone: "已開啟 · 未有檢查",
@@ -116,7 +116,6 @@ const cantonese: AiTabCopy = {
 };
 
 const japanese: AiTabCopy = {
-  chatSection: "チャット",
   usageSection: "使用量",
   routineSection: "定期チェック",
   keysSection: "APIキー",
@@ -124,6 +123,7 @@ const japanese: AiTabCopy = {
   conversationsSection: "会話",
   summaryOn: "オン",
   summaryOff: "オフ",
+  summaryChecking: "確認中…",
   loading: "読み込み中…",
   loadFailed: "設定を読み込めませんでした。",
   usageLoading: "使用量を読み込み中…",
@@ -147,11 +147,11 @@ const japanese: AiTabCopy = {
   paidMine: "あなたのキー",
   paidFree: "無料",
   paidOthers: "あなた以外",
-  routineNeedsKey: "定期チェックを使うには、ウェブ検索できるAPIキーを追加してください。",
+  routineNeedsKey: "ウェブ検索できるAPIキーを保存すると、定期チェックが自動でオンになります。",
   routineToggle: "旅行を自動でチェック",
   routineModel: "モデル",
   routineEffort: "推論の深さ",
-  routineHelp: "5分ごとにあなたのキーで確認します。フライトは出発の24時間前と12時間前、6時間前からは1時間ごとに遅延・欠航・ゲート変更を確認し、7日以内のその他の予定は公式の閉鎖・ストライキ・荒天を確認します。変更と警告は予定に表示されます。チェックごとにウェブ検索とトークンを使います。グループ旅行ではメンバー1人のキーを使い、オーナーが優先です。",
+  routineHelp: "ウェブ検索テストに合格したキーを保存すると自動でオンになり、オフにするまで続きます。5分ごとにあなたのキーで確認します。フライトは出発の24時間前と12時間前、6時間前からは1時間ごとに遅延・欠航・ゲート変更を確認し、7日以内のその他の予定は公式の閉鎖・ストライキ・荒天を確認します。変更と警告は予定に表示されます。チェックごとにウェブ検索とトークンを使います。グループ旅行ではメンバー1人のキーを使い、オーナーが優先です。",
   routineChecking: "このキーでウェブ検索できるか確認中…",
   routineStatus: "オン · 最終チェック {time} · 今日 {count} 回",
   routineStatusNone: "オン · まだチェックはありません",

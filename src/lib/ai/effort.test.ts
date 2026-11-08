@@ -11,8 +11,13 @@ describe("effort and default models (JOB-094)", () => {
     expect(ROUTINE_DEFAULT_EFFORT).toBe("medium");
   });
 
-  it("defaults routine checks and trip setup to a registered, low-cost model of each provider", () => {
-    for (const [provider, model] of [...Object.entries(routineDefaultModels), ...Object.entries(lookupModels)]) {
+  it("turns routine checks on with each provider's most capable searching model (JOB-096, D-108)", () => {
+    expect(routineDefaultModels).toEqual({ openai: "gpt-6-astra", anthropic: "claude-opus-5-5", google: "gemini-4-argon" });
+    for (const [provider, model] of Object.entries(routineDefaultModels)) expect(modelProvider(model)).toBe(provider);
+  });
+
+  it("defaults trip setup to a registered, low-cost model of each provider", () => {
+    for (const [provider, model] of Object.entries(lookupModels)) {
       expect(modelProvider(model)).toBe(provider);
       // Never the most expensive model of the provider.
       const prices = Object.values(modelPrices).filter((price) => price.provider === provider).map((price) => price.windows[0].output);

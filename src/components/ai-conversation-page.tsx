@@ -31,9 +31,9 @@ export type AiConversationPageProps = {
   resumeConversation: (conversationId: string) => Promise<boolean | void>;
   activeConversationChanged?: (conversationId: string | null) => void;
   onAuthorizationLost?: () => void;
-  /** Under the composer in the Chat section, such as the chat effort picker (JOB-094). */
+  /** Under the composer, such as the chat effort picker (JOB-094). */
   chatFooter?: ReactNode;
-  /** The AI tab's other sections, between Chat and the Conversations list at the bottom (JOB-093). */
+  /** The AI tab's other sections, above Conversations, which holds the chat and past conversations (JOB-093, JOB-096). */
   sections?: ReactNode;
 };
 
@@ -115,8 +115,8 @@ export function AiConversationPage(props: AiConversationPageProps) {
   const { tripId, locale, messages, timeZone, recovery, refreshToken, request, activeConversationChanged, onAuthorizationLost } = props;
   const instructionsCopy = aiInstructionsMessages(locale);
   const tabCopy = aiTabMessages(locale);
-  const [chatOpen, setChatOpen] = useAiSectionOpen("chat", true);
-  const [listOpen, setListOpen] = useAiSectionOpen("conversations", true);
+  // One section for the chat and past conversations (JOB-096); a new id, so it starts open for everyone.
+  const [open, setOpen] = useAiSectionOpen("conversation", true);
   const chatSection = useRef<HTMLDivElement | null>(null);
   const [snapshot, setSnapshot] = useState<{ tripId: string; value: AiHistoryState } | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -186,8 +186,7 @@ export function AiConversationPage(props: AiConversationPageProps) {
     olderScroll.current = null;
     setActionError(false);
     void historyClient.current?.select(id);
-    // The list sits at the bottom of the tab: open Chat and bring it into view to read the conversation.
-    setChatOpen(true);
+    // The list sits under the chat: bring the chat into view to read the conversation.
     window.requestAnimationFrame(() => chatSection.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   };
   const loadOlder = () => {
@@ -216,35 +215,35 @@ export function AiConversationPage(props: AiConversationPageProps) {
   };
 
   return <section className="ai-conversation-page ai-tab" aria-label={messages.title}>
-    <div className="ai-tab-chat" ref={chatSection}><AiSection id="chat" title={tabCopy.chatSection} open={chatOpen} onOpenChange={setChatOpen}>
-      <div className="ai-history-actions ai-chat-actions"><button data-feedback-action="ai_new" type="button" className="ghost-button" disabled={!canChangeConversation} onClick={() => void changeConversation()}><Plus size={16} />{messages.newConversation}</button></div>
-      <div className="ai-history-main">
-        <div className="ai-history-conversation-heading"><div><h3>{history.conversation?.title || (selectedActive ? messages.currentConversation : messages.selectConversation)}</h3>
-          {archived ? <span className="ai-purpose-badge">{instructionsCopy.archived}</span> : null}</div>
-          <button type="button" className="ghost-button" onClick={() => { nearBottom.current = true; transcript.current?.scrollTo({ top: transcript.current.scrollHeight, behavior: "smooth" }); }}><ArrowDown size={15} />{messages.latestMessages}</button></div>
-        <div className="ai-history-transcript" ref={transcript} tabIndex={0} aria-label={messages.title}
-          onScroll={(event) => { const node = event.currentTarget; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100; }}>
-          {history.messageCursor ? <button type="button" className="ghost-button ai-history-older" disabled={history.olderLoading || history.messageLoading} onClick={loadOlder}><ChevronLeft size={15} />{messages.loadOlder}</button> : null}
-          {history.messageLoading || history.olderLoading ? <p className="ai-history-feedback" role="status">{messages.loading}</p> : null}
-          {history.messageError ? <div className="ai-history-feedback" role="status"><p>{messages.loadFailed}</p><button type="button" className="ghost-button" onClick={() => void historyClient.current?.retryMessages()}><RefreshCw size={15} />{messages.retry}</button></div> : null}
-          <AiConversationTranscript turns={history.messages} locale={locale} timeZone={timeZone} messages={messages} tripId={tripId} isOwner={props.isOwner} />
-          {!history.messages.length && !history.messageLoading && !history.messageError ? <p className="ai-history-feedback">{history.selectedConversationId ? messages.emptyMessages : messages.selectConversation}</p> : null}
-        </div>
-        {recovery.phase !== "idle" ? <p className="ai-history-feedback" role="status">{messages.busyNotice}</p> : null}
-        {actionError ? <p className="ai-history-feedback" role="status">{messages.loadFailed}</p> : null}
-        {!history.accessDenied && !history.listLoading && !history.listError ? archived
-          ? <p className="ai-history-feedback">{instructionsCopy.archivedNotice}</p>
-          : selectedActive || !history.activeConversationId && !history.selectedConversationId
-          ? <fieldset className="ai-history-composer" disabled={actionBusy || history.messageLoading} aria-busy={actionBusy}>{props.renderComposer(history.activeConversationId, history.conversation?.purpose ?? "trip")}</fieldset>
-          : history.conversation ? <div className="ai-history-continue"><p>{messages.continueNotice}</p>
-            {history.conversation.canResume && history.conversation.purpose !== "preferences" ? <button data-feedback-action="ai_resume" type="button" className="primary-button fit-button" disabled={!canChangeConversation} onClick={() => void changeConversation(history.conversation!.conversationId)}>{messages.continueConversation}</button> : null}</div>
-            : null : null}
-        {props.chatFooter}
-      </div>
-    </AiSection></div>
     {props.sections}
-    <AiSection id="conversations" title={tabCopy.conversationsSection} open={listOpen} onOpenChange={setListOpen}
+    <AiSection id="conversation" title={tabCopy.conversationsSection} open={open} onOpenChange={setOpen}
       summary={history.conversations.length ? String(history.conversations.length) + (history.listCursor ? "+" : "") : undefined}>
+      <div className="ai-tab-chat" ref={chatSection}>
+        <div className="ai-history-actions ai-chat-actions"><button data-feedback-action="ai_new" type="button" className="ghost-button" disabled={!canChangeConversation} onClick={() => void changeConversation()}><Plus size={16} />{messages.newConversation}</button></div>
+        <div className="ai-history-main">
+          <div className="ai-history-conversation-heading"><div><h3>{history.conversation?.title || (selectedActive ? messages.currentConversation : messages.selectConversation)}</h3>
+            {archived ? <span className="ai-purpose-badge">{instructionsCopy.archived}</span> : null}</div>
+            <button type="button" className="ghost-button" onClick={() => { nearBottom.current = true; transcript.current?.scrollTo({ top: transcript.current.scrollHeight, behavior: "smooth" }); }}><ArrowDown size={15} />{messages.latestMessages}</button></div>
+          <div className="ai-history-transcript" ref={transcript} tabIndex={0} aria-label={messages.title}
+            onScroll={(event) => { const node = event.currentTarget; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100; }}>
+            {history.messageCursor ? <button type="button" className="ghost-button ai-history-older" disabled={history.olderLoading || history.messageLoading} onClick={loadOlder}><ChevronLeft size={15} />{messages.loadOlder}</button> : null}
+            {history.messageLoading || history.olderLoading ? <p className="ai-history-feedback" role="status">{messages.loading}</p> : null}
+            {history.messageError ? <div className="ai-history-feedback" role="status"><p>{messages.loadFailed}</p><button type="button" className="ghost-button" onClick={() => void historyClient.current?.retryMessages()}><RefreshCw size={15} />{messages.retry}</button></div> : null}
+            <AiConversationTranscript turns={history.messages} locale={locale} timeZone={timeZone} messages={messages} tripId={tripId} isOwner={props.isOwner} />
+            {!history.messages.length && !history.messageLoading && !history.messageError ? <p className="ai-history-feedback">{history.selectedConversationId ? messages.emptyMessages : messages.selectConversation}</p> : null}
+          </div>
+          {recovery.phase !== "idle" ? <p className="ai-history-feedback" role="status">{messages.busyNotice}</p> : null}
+          {actionError ? <p className="ai-history-feedback" role="status">{messages.loadFailed}</p> : null}
+          {!history.accessDenied && !history.listLoading && !history.listError ? archived
+            ? <p className="ai-history-feedback">{instructionsCopy.archivedNotice}</p>
+            : selectedActive || !history.activeConversationId && !history.selectedConversationId
+            ? <fieldset className="ai-history-composer" disabled={actionBusy || history.messageLoading} aria-busy={actionBusy}>{props.renderComposer(history.activeConversationId, history.conversation?.purpose ?? "trip")}</fieldset>
+            : history.conversation ? <div className="ai-history-continue"><p>{messages.continueNotice}</p>
+              {history.conversation.canResume && history.conversation.purpose !== "preferences" ? <button data-feedback-action="ai_resume" type="button" className="primary-button fit-button" disabled={!canChangeConversation} onClick={() => void changeConversation(history.conversation!.conversationId)}>{messages.continueConversation}</button> : null}</div>
+              : null : null}
+          {props.chatFooter}
+        </div>
+      </div>
       <div className="ai-conversation-section" aria-label={messages.conversations}>
         <p className="muted-copy">{messages.privateNotice}</p>
         {history.listError ? <div className="ai-history-feedback" role="status"><p>{messages.loadFailed}</p>

@@ -48,7 +48,7 @@ The optional account-key storage backend keeps encrypted key material in Google 
   - a trip owner's key shared with you, in which case the request also appears in that owner's provider account;
   - or the operator's key, in a trip the operator sponsors.
 - **Flight status checks:** in a trip the operator sponsors, the flight number, airline, airports and planned departure of a flight visible to the whole trip go to OpenAI, with web search, up to eight times in the day before it departs. Nothing else about the trip or its members is sent.
-- **Routine checks on a member's key:** in other trips, if a member turns on routine checks in the AI tab, the same public flight facts, and the names, places and times of trip-visible events in the coming week for disruption checks, go to that member's chosen provider (OpenAI, Anthropic or Google) under their key, with web search. Private events are never sent.
+- **Routine checks on a member's key:** in other trips, once a member's saved key passes the web search check (routine checks then turn on by themselves unless the member turned them off in the AI tab), the same public flight facts, and the names, places and times of trip-visible events in the coming week for disruption checks, go to that member's chosen provider (OpenAI, Anthropic or Google) under their key, with web search. Private events are never sent.
 - **Trip setup:** the destination you type on Create Trip goes to your own key's provider, or, without a key, to Kilo Code's AI Gateway and a free model's provider, which may keep it.
 
   Their own terms apply to what they keep.

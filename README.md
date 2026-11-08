@@ -19,7 +19,7 @@ I wanted a travel AI assistant that organizes travel, for a group or just for me
 
 ## What it does
 
-- **Watches for surprises:** with your own AI key, routine checks look up your flights and events automatically: delays, cancellations, gate and terminal changes, closures, strikes and severe weather. Changes and warnings appear on the event, and an open page can notify you.
+- **Watches for surprises:** save your own AI key and routine checks turn on by themselves, looking up your flights and events automatically: delays, cancellations, gate and terminal changes, closures, strikes and severe weather. Changes and warnings appear on the event, and an open page can notify you.
 - **Events from a photo:** take a picture of a ticket, a booking or a screenshot, and the AI creates the event (on your own key).
 - **Paste an email or a text:** paste a confirmation email or a message, and the AI turns it into events and expenses.
 - **Expenses that add up:** who paid, who owes whom, repayments and suggested settlements, all calculated by code, so nobody has to chase the numbers.

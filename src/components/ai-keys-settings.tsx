@@ -13,7 +13,8 @@ type Request = <T>(url: string, init?: RequestInit) => Promise<T>;
 type Props = { tripId: string; scope: string; locale: Locale; request: Request; changed?: () => void;
   /** Inside an AI tab section, which already shows the title (JOB-093). */
   embedded?: boolean };
-type Notice = { provider: Provider; kind: "savedNotice" | "removedNotice" | "rejected" | "failed" | "unavailable" | "limited" | "providerLimited" | "providerUnavailable" | "googleConfiguration" | "invalidProject" };
+type Notice = { provider: Provider; kind: "savedNotice" | "savedCheckingNotice" | "removedNotice" | "rejected" | "failed" | "unavailable" | "limited" | "providerLimited" | "providerUnavailable" | "googleConfiguration" | "invalidProject" };
+const statusNotices: ReadonlySet<Notice["kind"]> = new Set(["savedNotice", "savedCheckingNotice", "removedNotice"]);
 type GoogleMode = "gemini" | "express" | "vertex";
 type KeyDraft = { apiKey: string; vertexProject: string; vertexLocation?: string; googleMode?: GoogleMode };
 
@@ -93,12 +94,13 @@ function AiKeysEditor({ tripId, locale, request, changed, embedded = false }: Pr
     setBusy(provider);
     setNotice(null);
     try {
-      const body = await request<{ key: AiCredentialSummary }>(url, {
+      const body = await request<{ key: AiCredentialSummary; routineCheck?: "running" | "limited" | null }>(url, {
         method: "PUT",
         body: JSON.stringify(keyDraftPayload(provider, draft)),
       });
       setKeys((current) => [...(current ?? []).filter((key) => key.provider !== provider), body.key]);
-      setNotice({ provider, kind: "savedNotice" });
+      // The server tests a saved key for routine checks by itself (JOB-096); the Routine checks section shows how it went.
+      setNotice({ provider, kind: body.routineCheck === "running" ? "savedCheckingNotice" : "savedNotice" });
       changed?.();
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : null;
@@ -196,7 +198,7 @@ export function AiKeysView({ copy, locale, keys, usage = null, protection = null
           {saved ? <button type="button" className="ghost-button" disabled={busy !== null} onClick={remove(provider)}>{copy.remove}</button> : null}
         </form>
         {notice?.provider === provider
-          ? <p role={notice.kind === "savedNotice" || notice.kind === "removedNotice" ? "status" : "alert"}>
+          ? <p role={statusNotices.has(notice.kind) ? "status" : "alert"}>
             {formatMessage(copy[notice.kind], { provider: name })}</p>
           : null}
       </section>;

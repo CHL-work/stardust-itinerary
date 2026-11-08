@@ -16,11 +16,14 @@ export function isSelectableModel(value: unknown): value is SelectableOwnerModel
   return typeof value === "string" && (selectableOwnerModels as readonly string[]).includes(value);
 }
 
-/** Routine checks run often in the background, so each provider's default is a capable, low-cost model. */
+/**
+ * The model routine checks turn on with when a key is saved (JOB-096, D-108): each provider's most capable
+ * searching model, at medium effort, so a warning about a delay or closure is worth trusting.
+ */
 export const routineDefaultModels: Readonly<Record<KeyedModelProvider, SelectableOwnerModel>> = {
-  openai: "gpt-6.1-terra",
-  anthropic: "claude-haiku-5-5",
-  google: "gemini-3.8-flash",
+  openai: "gpt-6-astra",
+  anthropic: "claude-opus-5-5",
+  google: "gemini-4-argon",
 };
 export const ROUTINE_DEFAULT_EFFORT: AiEffort = "medium";
 

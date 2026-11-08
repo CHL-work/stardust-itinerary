@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiCredentialRejectedError, AiKeyCheckError } from "@/lib/ai/credentials";
 import { RateLimitError } from "@/lib/auth/errors";
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), limit: vi.fn(), list: vi.fn(), save: vi.fn(), remove: vi.fn(), usage: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), origin: vi.fn(), limit: vi.fn(), list: vi.fn(), save: vi.fn(), remove: vi.fn(), usage: vi.fn(),
+  claim: vi.fn(), run: vi.fn(), searchLimit: vi.fn(), after: vi.fn() }));
 const session = { tripId: "trip-a", memberId: "member-a", userId: "user-a", role: "editor" };
 const config = { appBaseUrl: new URL("https://stardust.test"), databaseUrl: "postgresql://local/test", authSecret: "synthetic" };
+vi.mock("next/server", async (importOriginal) => ({ ...await importOriginal<typeof import("next/server")>(), after: mocks.after }));
+vi.mock("@/lib/ai/preferences", () => ({ claimRoutineAutoCheck: mocks.claim, runRoutineAutoCheck: mocks.run, limitRoutineSearchChecks: mocks.searchLimit }));
 vi.mock("@/lib/auth/config", () => ({ getAuthConfig: () => config }));
 vi.mock("@/lib/auth/web", () => ({ requireAuthenticatedSession: mocks.auth, requireSameOrigin: mocks.origin,
   trustedClientAddress: () => "203.0.113.9" }));
@@ -36,6 +39,34 @@ describe("own AI keys route", () => {
     mocks.list.mockResolvedValue([saved]);
     mocks.save.mockResolvedValue(saved);
     mocks.usage.mockResolvedValue(usage);
+    mocks.claim.mockResolvedValue(null);
+    mocks.run.mockResolvedValue("enabled");
+  });
+
+  it("starts the routine web search test after the response when a saved key needs one (JOB-096)", async () => {
+    const claim = { model: "gpt-6-astra", effort: "medium", claimedAt: new Date("2030-01-01T00:00:01Z") };
+    mocks.claim.mockResolvedValueOnce(claim);
+    const response = await PUT(request("PUT", { provider: "openai", apiKey: syntheticKey }), context);
+    expect(await response.json()).toEqual({ key: saved, routineCheck: "running" });
+    expect(mocks.claim.mock.invocationCallOrder[0]!).toBeGreaterThan(mocks.save.mock.invocationCallOrder[0]!);
+    expect(mocks.run).not.toHaveBeenCalled();
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    await mocks.after.mock.calls[0]![0]();
+    expect(mocks.run).toHaveBeenCalledWith("pool", session, "trip-a", claim);
+    // The search check budget is spent only when a check starts.
+    await mocks.claim.mock.calls[0]![3].beforeCheck();
+    expect(mocks.searchLimit).toHaveBeenCalledWith("pool", config, session);
+  });
+
+  it("keeps the key saved when no test is needed or it cannot start", async () => {
+    expect(await (await PUT(request("PUT", { provider: "openai", apiKey: syntheticKey }), context)).json()).toEqual({ key: saved, routineCheck: null });
+    mocks.claim.mockRejectedValueOnce(new RateLimitError(600));
+    const limited = await PUT(request("PUT", { provider: "openai", apiKey: syntheticKey }), context);
+    expect([limited.status, (await limited.json()).routineCheck]).toEqual([200, "limited"]);
+    mocks.claim.mockRejectedValueOnce(new Error("database unavailable"));
+    const failed = await PUT(request("PUT", { provider: "openai", apiKey: syntheticKey }), context);
+    expect([failed.status, (await failed.json()).routineCheck]).toEqual([200, null]);
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 
   it("lists only summaries, never cached", async () => {

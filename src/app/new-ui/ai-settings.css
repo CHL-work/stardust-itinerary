@@ -1714,8 +1714,20 @@
   padding: 0 var(--space-5) var(--space-5);
 }
 
-:root[data-ui="new"] .ai-section[data-section="chat"] > .ai-section-body {
+/* Conversations: the chat runs edge to edge, then the past conversations under a rule. */
+:root[data-ui="new"] .ai-section[data-section="conversation"] > .ai-section-body {
   padding: 0;
+}
+
+:root[data-ui="new"] .ai-section[data-section="conversation"] .ai-conversation-section {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+:root[data-ui="new"] .ai-section[data-section="conversation"] .ai-conversation-section > p {
+  margin: 0;
 }
 
 :root[data-ui="new"] .ai-section .ai-history-main {
@@ -1909,6 +1921,10 @@
 @media (max-width: 760px) {
   :root[data-ui="new"] .ai-section > summary {
     padding: var(--space-3) var(--space-4);
+  }
+
+  :root[data-ui="new"] .ai-section[data-section="conversation"] .ai-conversation-section {
+    padding: var(--space-4);
   }
 
   :root[data-ui="new"] .ai-section-body {

@@ -14,8 +14,9 @@ import { aiTabMessages } from "@/lib/ai/ai-tab-i18n";
 type Request = <T>(url: string, init?: RequestInit) => Promise<T>;
 
 /**
- * The AI tab (JOB-093, JOB-094): Chat, then Usage, Routine checks, API keys and AI instructions, then past
- * Conversations at the bottom. Every section collapses and remembers its state in this browser.
+ * The AI tab (JOB-093, JOB-094, JOB-096): Usage, Routine checks, API keys and AI instructions, then
+ * Conversations at the bottom, which holds the chat and the past conversations. Every section collapses
+ * and remembers its state in this browser.
  */
 export function AiTab(props: Omit<AiConversationPageProps, "chatFooter" | "sections"> & {
   /** Remounts the key and instruction editors before another identity can see their state. */

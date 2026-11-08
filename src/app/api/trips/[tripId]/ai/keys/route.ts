@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 import {
   AiCredentialRejectedError, AiKeyCheckError, aiCredentialInputSchema, aiCredentialProviders, aiKeyProtection, aiKeyUsage, AiKeysUnavailableError,
   deleteAiCredential, listAiCredentials, saveAiCredential,
 } from "@/lib/ai/credentials";
+import { claimRoutineAutoCheck, limitRoutineSearchChecks, runRoutineAutoCheck } from "@/lib/ai/preferences";
+import type { Pool } from "pg";
+
 import { apiError } from "@/lib/app/http";
 import { AppInvalidInputError } from "@/lib/app/repository";
-import { getAuthConfig } from "@/lib/auth/config";
+import { getAuthConfig, type AuthConfig } from "@/lib/auth/config";
 import { RateLimitError } from "@/lib/auth/errors";
-import { enforceRateLimit } from "@/lib/auth/repository";
+import { enforceRateLimit, type AuthenticatedSession } from "@/lib/auth/repository";
 import { isGuestSession } from "@/lib/auth/guest-identity";
 import { requireAuthenticatedSession, requireSameOrigin, trustedClientAddress } from "@/lib/auth/web";
 import { getPool } from "@/lib/db/pool";
@@ -17,6 +20,7 @@ import { getPool } from "@/lib/db/pool";
  * The signed-in account's own AI provider keys. Responses carry only the provider, the last four
  * characters and timestamps; a key is never returned after it has been saved. `protection` says how
  * this server stores new keys ("secret_manager", "kms", "local" or null), so Settings can tell the user.
+ * A save also says whether it started the routine check's web search test (`routineCheck`, JOB-096).
  */
 type Context = { params: Promise<{ tripId: string }> };
 const headers = { "Cache-Control": "private, no-store" };
@@ -69,8 +73,27 @@ export async function PUT(request: NextRequest, { params }: Context) {
       await enforceRateLimit(pool, config, { scope: "ai-key-check-guest", key: session.userId, userId: session.userId,
         maximum: GUEST_KEY_CHECKS_PER_DAY, windowSeconds: 86_400 });
     }
-    return NextResponse.json({ key: await saveAiCredential(pool, session, tripId, input) }, { headers });
+    const key = await saveAiCredential(pool, session, tripId, input);
+    return NextResponse.json({ key, routineCheck: await startRoutineCheck(pool, config, session, tripId) }, { headers });
   } catch (error) { return failure(error); }
+}
+
+/**
+ * A saved key turns routine checks on by itself once it passes a web search check (JOB-096, D-108). The
+ * check runs after the response; the key stays saved whatever happens to it, and the AI tab shows progress.
+ */
+async function startRoutineCheck(pool: Pool, config: AuthConfig, session: AuthenticatedSession, tripId: string): Promise<"running" | "limited" | null> {
+  try {
+    const claim = await claimRoutineAutoCheck(pool, session, tripId, { beforeCheck: () => limitRoutineSearchChecks(pool, config, session) });
+    if (!claim) return null;
+    after(() => runRoutineAutoCheck(pool, session, tripId, claim).then(() => undefined,
+      () => console.warn(JSON.stringify({ routineAutoCheck: { error: "finish" } }))));
+    return "running";
+  } catch (error) {
+    if (error instanceof RateLimitError) return "limited";
+    console.warn(JSON.stringify({ routineAutoCheck: { error: "start" } }));
+    return null;
+  }
 }
 
 export async function DELETE(request: NextRequest, { params }: Context) {
