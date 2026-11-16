@@ -72,6 +72,11 @@ Until now a trip had one destination and one time zone. A Tokyo-then-New York tr
   - commit 8e2ba6d passed CI and deployed: the backup and migration jobs completed, the web server runs the new image, and health is ok;
   - a read-only probe found migration 0070 applied, with each of the 8 trips having its destination at position 0, matching the trip's own name and zone;
   - no trip had several destinations yet.
+- **Real model (JOB-079's method):** synthetic planner prompts for a Tokyo (16–18 November) then New York (18–21 November) trip went from a read-only pod probe to Claude Sonnet 5.5. All three passed:
+  - "dinner at Joe's Pizza in New York on the 19th at 7pm" became 7:00 PM New York on the 19th;
+  - "breakfast at 9am on the 20th at the diner near our hotel", with no city named, took that day's New York clock;
+  - "ramen tomorrow at 8pm" on a Tokyo day became 8:00 PM Tokyo on the 17th.
+- **Not checked:** the OpenAI calls could not run because the operator's OpenAI account had no credits left. The free models listed that day rejected every request, including a one-destination baseline, so Free AI was not checked either.
 - **Documents:**
   - D-110 and the new [destinations contract](../TRIP_DESTINATIONS.md);
   - the event-local time, AI, Create Trip defaults and database docs;
