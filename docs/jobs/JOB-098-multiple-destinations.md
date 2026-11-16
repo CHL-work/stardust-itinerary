@@ -68,6 +68,10 @@ Until now a trip had one destination and one time zone. A Tokyo-then-New York tr
   - Settings listed and saved a third destination, with Paris's zone suggested, and the header followed;
   - Create Trip showed the main destination as a fixed first row and suggested Los Angeles's zone for "ロサンゼルス";
   - no page scrolled sideways.
+- **Production (16 November 2026 UTC):**
+  - commit 8e2ba6d passed CI and deployed: the backup and migration jobs completed, the web server runs the new image, and health is ok;
+  - a read-only probe found migration 0070 applied, with each of the 8 trips having its destination at position 0, matching the trip's own name and zone;
+  - no trip had several destinations yet.
 - **Documents:**
   - D-110 and the new [destinations contract](../TRIP_DESTINATIONS.md);
   - the event-local time, AI, Create Trip defaults and database docs;
