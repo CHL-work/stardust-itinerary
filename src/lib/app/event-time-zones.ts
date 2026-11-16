@@ -6,7 +6,8 @@ import { placeTimeZone } from "@/lib/app/place-time-zones";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 import { isTrustedGoogleMapsUrl } from "@/lib/app/transport";
 
-export type EventZoneSource = "explicit" | "airport" | "coordinates" | "place" | "trip";
+/** `destination`: the zone of the trip destination for the event's day (JOB-098), when it differs from the trip's. */
+export type EventZoneSource = "explicit" | "airport" | "coordinates" | "place" | "destination" | "trip";
 export type EventTimeZoneInput = FlightPresentationInput & {
   timeZones?: EventTimeZones | null;
   locationName?: string | null;
@@ -79,9 +80,16 @@ function locationZone(name: string | null | undefined, mapUrl: string | null | u
   return place ? { zone: place, source: "place" } : null;
 }
 
-/** Same instant, local clock. Shared by forms, views, Calendar and AI; no I/O or model calls. */
-export function resolveEventTimeZones(item: EventTimeZoneInput, tripZone: string): EventTimeZonePresentation {
-  const fallback = canonicalTripTimeZone(tripZone) ?? "UTC";
+/**
+ * Same instant, local clock. Shared by forms, views, Calendar and AI; no I/O or model calls. Without place
+ * evidence an event uses `dayTimeZone`, the zone of the destination the travellers are in on its day
+ * (JOB-098, D-110), else the trip's zone.
+ */
+export function resolveEventTimeZones(item: EventTimeZoneInput, tripZone: string, dayTimeZone?: string | null): EventTimeZonePresentation {
+  const tripFallback = canonicalTripTimeZone(tripZone) ?? "UTC";
+  const dayZone = dayTimeZone ? canonicalTripTimeZone(dayTimeZone) : null;
+  const fallbackZone: Zone = dayZone && dayZone !== tripFallback ? { zone: dayZone, source: "destination" } : { zone: tripFallback, source: "trip" };
+  const fallback = fallbackZone.zone;
   const flight = resolveFlightPresentation(item, fallback);
   const explicit = readEventTimeZones(item.timeZones);
   const transport = item.itemType === "transport";
@@ -94,7 +102,7 @@ export function resolveEventTimeZones(item: EventTimeZoneInput, tripZone: string
       source: end ? flight.arrivalZoneSource : flight.departureZoneSource };
     const found = locationZone(transport ? end ? item.destinationLocationName : item.departureLocationName : item.locationName,
       transport ? end ? item.destinationMapUrl : item.departureMapUrl : item.mapUrl);
-    return found ?? { zone: fallback, source: "trip" };
+    return found ?? fallbackZone;
   };
   const start = resolve(false);
   const end = transport ? resolve(true) : start;

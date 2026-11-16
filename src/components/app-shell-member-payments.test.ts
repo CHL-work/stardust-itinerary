@@ -5,6 +5,7 @@ import { eligiblePaymentMember, type PaymentDecision, type PaymentDraft } from "
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
 import { paymentAmountInput } from "@/lib/app/member-payment-format";
 import { parseExpenseAmount } from "@/lib/app/expense-entry";
+import { moneyTimeZone } from "@/lib/app/trip-destinations";
 import type { MemberPayment } from "@/lib/app/member-payments";
 
 // Execute the real screen closures with inert HTTP and synthetic people/money.
@@ -46,7 +47,7 @@ function harness() {
   const paymentAttempt = { current: null as Attempt | null }; const paymentInFlight = { current: false }; const paymentScopeRef = { current: scope as string | null };
   const jsonRequest = vi.fn<(url: string, init: RequestInit) => Promise<MemberPayment>>(async () => ({ ...payment }));
   const refresh = vi.fn(async () => {}); const setNotice = vi.fn(); const randomUUID = vi.fn(() => id(90));
-  const bindings = () => ({ ...time, eligiblePaymentMember, paymentAmountInput, parseExpenseAmount, overview: state.overview, busy: state.busy,
+  const bindings = () => ({ ...time, moneyTimeZone, eligiblePaymentMember, paymentAmountInput, parseExpenseAmount, overview: state.overview, busy: state.busy,
     paymentDialog: state.dialog, paymentAttempt, paymentInFlight, paymentScopeRef, paymentCopy: copy, jsonRequest, refresh, setNotice,
     crypto: { randomUUID },
     setBusy: (value: boolean) => { state.busy = value; }, setPaymentDialog: (value: Dialog | null) => { state.dialog = value; },

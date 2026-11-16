@@ -9,7 +9,7 @@ Hotels, meals, activities, notes and transport display their location's local ti
 1. An explicit validated `timeZones.start` / `timeZones.end` correction wins. Non-transport uses `start` for both ends.
 2. Existing flight endpoint zones and unambiguous airport codes remain supported.
 3. Saved venue coordinates or unambiguous locality/address evidence resolve offline. A Maps camera center or short link is not coordinate evidence; links are never followed.
-4. Unknown or contradictory evidence uses the trip zone. The event editor says **Trip time** beside its time fields, where users can correct the zone; the app never claims that fallback is verified local time.
+4. Unknown or contradictory evidence uses the trip zone, or, on a day dated to another destination, that destination's zone ([destinations](TRIP_DESTINATIONS.md), JOB-098). The event editor says **Trip time** beside its time fields, where users can correct the zone; the app never claims that fallback is verified local time.
 
 **Display (JOB-097, D-109).** Every time shows its place's own clock with no zone name: no `GMT+9`, `UTC`, `CST` or "Trip time" beside it, because the airport or place shown with it already says where. A local date that differs from the trip date still appears. The event editor, where times are typed and corrected, names the zone in words ("Japan / Tokyo", "Central European Time"; `timeZoneDisplayName`), never as an offset.
 
@@ -19,7 +19,7 @@ Create/edit/pending forms, Now, duration, cards, next-up, hotel check-in/out, ap
 
 AI keeps the existing current-date anchors for “today/tomorrow,” then validates the requested date in the venue's clock. The resulting instant selects the trip-calendar day separately: a late-night SLC visit can fall on the next Chicago trip day. Linked-page offsets are preserved; expense date validation remains unchanged.
 
-**Unchanged:** UTC ordering, countdowns, elapsed duration, trip-calendar day grouping and trip-range validation. A local date different from the trip date appears beside the clock. Financial dates stay in trip time; a zone correction does not move a bill. Old incorrectly entered booking instants are not automatically rewritten. Date-only Calendar imports retain date-only semantics.
+**Unchanged:** UTC ordering, countdowns, elapsed duration, trip-calendar day grouping and trip-range validation. A local date different from the trip date appears beside the clock. Financial dates stay in trip time, or on a trip with several clocks their day's clock ([destinations](TRIP_DESTINATIONS.md)); a zone correction does not move a bill. Old incorrectly entered booking instants are not automatically rewritten. Date-only Calendar imports retain date-only semantics.
 
 Google Calendar's source zone is not a manual venue override. Known venue geography wins for raw rows, preview and import; a valid source zone is retained only for an unresolved place, rechecked when a place is supplied during import.
 

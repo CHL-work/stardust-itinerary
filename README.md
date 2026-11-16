@@ -23,7 +23,7 @@ I wanted a travel AI assistant that organizes travel, for a group or just for me
 - **Events from a photo:** take a picture of a ticket, a booking or a screenshot, and the AI creates the event (on your own key).
 - **Paste an email or a text:** paste a confirmation email or a message, and the AI turns it into events and expenses.
 - **Expenses that add up:** who paid, who owes whom, repayments and suggested settlements, all calculated by code, so nobody has to chase the numbers.
-- **One shared itinerary:** each day in time order with local clocks, private events, day maps and weather.
+- **One shared itinerary:** one destination or several, each day in time order on its own local clock, with private events, day maps and weather.
 - **Usage you can see:** the AI tab charts your tokens per day with an estimated cost.
 - **Free or your own key:** free AI for text planning, or your own OpenAI, Anthropic or Gemini key. Keys are encrypted (Cloud KMS, kept in Google Secret Manager on the public instance) and never shown again.
 - **Twelve languages:** English, Cantonese, Japanese, Simplified and Traditional Chinese, Spanish, Portuguese, French, German, Russian and Indonesian.

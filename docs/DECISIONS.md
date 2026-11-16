@@ -2,6 +2,16 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-110: Several destinations, each with its own clock and optional days (accepted November 15, 2026)
+
+The owner asked that a trip allow multiple destinations, with optional dates for when the travellers are in each, that time zones be respected, and that the AI know the destinations and create events accordingly (JOB-098). The owner authorized deploying without further approval.
+
+- **List:** up to 12 destinations in order, each with a place, an IANA zone and optional inclusive dates inside the trip. The first is the trip's own destination and zone, which `trips` keeps mirroring, so a one-destination trip without dates behaves exactly as before.
+- **Clocks:** a day dated to a destination uses that destination's clock: the zone fallback for events without a location zone, which day an instant belongs to, today, and the trip's opening and closing midnights. On a travel day it uses the destination the travellers arrive at. D-103's explicit corrections, airports and place evidence still win, and stored instants are never rewritten.
+- **Money:** bills and repayments are dated, shown and typed on the clock of the day they fall on, which narrows D-103's "financial dates stay in trip time" to trips with one clock. Amounts, shares and balances are unaffected.
+- **AI:** planning and Free AI see the destinations, each day's destination and, on multi-zone trips, each day's zone and today's own clock; proposals are checked against the same day clocks. Weather, Calendar export and offline snapshots follow the day's destination.
+- **Limits:** zones for extra destinations are suggested offline from the place's name, or chosen by hand; the AI lookup still serves only the main destination. Activity, flight status and public research keep the trip zone as their fallback. [Contract](TRIP_DESTINATIONS.md).
+
 ## D-109: Plain local times, and no free-model refresh button (accepted November 8, 2026)
 
 The owner asked that the app stop showing time zones such as "GMT 0", noticed the itinerary screenshot was out of date, and asked to remove the refresh-models button from the AI conversation (JOB-097).

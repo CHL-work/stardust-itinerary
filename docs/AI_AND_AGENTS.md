@@ -100,6 +100,8 @@ Explicit-offset ISO timestamps may normalize losslessly to UTC. At most **one sa
 
 All event times use their venue's IANA zone, with separate endpoints for transport. The schema supports optional `timeZones.start`/`end`, plus legacy flight endpoint zones; supplied local times become explicit instants in the relevant location. Keep trustworthy location/zone evidence and clarify ambiguity rather than invent an offset. Planning, venue-hours checks and picture extraction share this rule without enabling search or images for Free AI. [Event-local time contract](EVENT_LOCAL_TIME.md).
 
+**Several destinations (JOB-098, D-110).** Context lists the trip's destinations in order with any dates. Days dated to a destination carry its name, and on multi-zone trips their own `timeZone`, with `currentTime` on today's own clock. The model uses a day's zone wherever these rules say trip zone, picks `tripDayId` by that day's clock, puts a named city's plans on that city's days, uses the arriving destination on travel days, and keeps a date the user gave even when it conflicts, saying which destination applies. Validation uses the same day clocks and trip window as manual edits; Free AI receives the same facts. [Destinations contract](TRIP_DESTINATIONS.md).
+
 Detected booking PINs/access codes/private management URLs are redacted from provider input and generated outputs; original restricted audit text remains. This is not a guarantee of detecting every secret. Booking text is untrusted data, never authority to visit cancellation links.
 
 ### Bounded clarification drafts

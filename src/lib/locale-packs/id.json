@@ -1504,6 +1504,23 @@
     "stale": "Perjalanan ini atau akses Anda berubah. Tinjau penghapusan lagi.",
     "deleted": "Perjalanan dihapus. Anda sekarang melihat perjalanan berikutnya."
   },
+  "tripDestinations": {
+    "title": "Destinasi",
+    "hint": "Tambahkan setiap tempat, dan hari Anda di sana jika sudah tahu.",
+    "help": "Destinasi pertama menjadi nama perjalanan. Pada hari yang Anda tetapkan untuk suatu tempat, acara tanpa lokasi sendiri memakai jamnya, dan AI merencanakan hari itu di sana.",
+    "place": "Tempat",
+    "timeZone": "Zona waktu",
+    "from": "Dari",
+    "to": "Sampai",
+    "dates": "Hari di sana (opsional)",
+    "add": "Tambah destinasi",
+    "remove": "Hapus",
+    "moveUp": "Naikkan",
+    "moveDown": "Turunkan",
+    "datesOutside": "Tanggal setiap destinasi harus berada dalam tanggal perjalanan.",
+    "datesIncomplete": "Isi kedua tanggal destinasi, atau kosongkan keduanya.",
+    "limit": "Paling banyak 12 destinasi."
+  },
   "tripTimeZones": {
     "America/Chicago": "Dallas / AS Tengah",
     "Asia/Tokyo": "Jepang / Tokyo",

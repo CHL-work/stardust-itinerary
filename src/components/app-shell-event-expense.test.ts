@@ -15,6 +15,7 @@ import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { eventTimeInputsFromInstants } from "@/lib/app/flight-editor-time";
 import { wallTimeToIso, ZonedEventTimeError } from "@/lib/app/zoned-event-time";
 import { tripLocalDateKey } from "@/lib/app/day-view";
+import { moneyTimeZone, pickTripToday, tripDayIdForInstant, tripDayZones } from "@/lib/app/trip-destinations";
 import { addMinutesToWallTime } from "@/lib/app/wall-time";
 import { locales, messages } from "@/lib/i18n";
 
@@ -33,6 +34,10 @@ const flightBindings = {
     { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}; return { flightDraft, flightFromDraft, flightTimeSource };`)(normalizeFlightNumber) as Record<string, unknown>,
   normalizeFlightNumber, isFlightNumber, flightMessages, locale: "en",
   resolveEventTimeZones, eventTimeInputsFromInstants, wallTimeToIso, ZonedEventTimeError, tripLocalDateKey,
+  // Each day's destination zone (JOB-098).
+  ...new Function("tripDayZones", `${ts.transpileModule(topLevelFunction("overviewDayZone"),
+    { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}; return { overviewDayZone };`)(tripDayZones) as Record<string, unknown>,
+  tripDayZones, tripDayIdForInstant, pickTripToday, moneyTimeZone,
 };
 function closure<T>(name: string, next: string, bindings: Record<string, unknown>): T {
   const start = source.indexOf(`  const ${name} =`);

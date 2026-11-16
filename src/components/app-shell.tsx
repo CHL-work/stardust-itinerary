@@ -95,6 +95,8 @@ import { isFlightNumber, normalizeFlightNumber, type FlightChange, type FlightDe
 import { FlightChangeBadge } from "@/components/flight-change-badge";
 import { flightMessages, flightPointLocation } from "@/lib/app/flight-i18n";
 import { timeZoneDisplayName } from "@/lib/app/trip-creation-options";
+import { destinationDraftProblem, destinationDrafts, destinationsFromDrafts, destinationZoneOptions, TripDestinationsEditor, type TripDestinationDraft } from "@/components/trip-destinations-editor";
+import { tripDestinationsMessages } from "@/lib/app/trip-destinations-i18n";
 import {
   constrainNewEventExpense,
   currencyFactor,
@@ -119,7 +121,8 @@ import { TripAdjacentNav } from "@/components/trip-adjacent-nav";
 import { TripDeletionCard, TripDeletionReview } from "@/components/trip-deletion-controls";
 import type { TripDeletionPreview } from "@/lib/app/trip-deletion-contract";
 import { tripDeletionMessages } from "@/lib/app/trip-deletion-i18n";
-import { countdownParts, pickCurrentTripDay, shiftTripDay, tripLocalDateKey } from "@/lib/app/day-view";
+import { countdownParts, shiftTripDay, tripLocalDateKey } from "@/lib/app/day-view";
+import { currentTripDate, moneyTimeZone, pickTripToday, singleDestination, tripDayIdForInstant, tripDayZones, type TripDestination } from "@/lib/app/trip-destinations";
 import { createRevalidationCoordinator, type RevalidationMode } from "@/lib/app/revalidation";
 import { notifyBrowserDisruptions } from "@/lib/disruptions/notifications";
 import {
@@ -303,6 +306,8 @@ type Overview = {
     name: string;
     destinationName: string;
     timeZone: string;
+    /** Where the trip goes, in order (JOB-098); the first is `destinationName` in `timeZone`. */
+    destinations: TripDestination[];
     defaultLocale: string;
     defaultCurrency: string;
     startsOn: string;
@@ -393,6 +398,14 @@ type Overview = {
   calendar: { connected: boolean; connectionUrl: string; setupUrl: string };
 };
 
+/** The zone of the destination for a trip day, or for a date typed in the editor (JOB-098); null when it is the trip's own. */
+function overviewDayZone(overview: Pick<Overview, "trip" | "days">, dayId?: string | null, wallTime?: string | null): string | null {
+  const zones = tripDayZones(overview.trip.destinations, overview.trip.timeZone, overview.days);
+  if (!zones) return null;
+  const date = wallTime && /^\d{4}-\d{2}-\d{2}/u.test(wallTime) ? wallTime.slice(0, 10) : null;
+  return (date ? zones.byDate.get(date) : undefined) ?? (dayId ? zones.byDayId.get(dayId) : undefined) ?? null;
+}
+
 export function aiLogExecutionLabel(log: {
   requestedModel: string;
   effectiveModel: string | null;
@@ -477,6 +490,8 @@ type TripSettingsDraft = {
   scope: string;
   destinationName: string;
   timeZone: string;
+  /** The whole destination list; the first is the trip's name and zone (JOB-098). */
+  destinations: TripDestinationDraft[];
   maxMembers: string;
   startsOn: string;
   endsOn: string;
@@ -486,7 +501,7 @@ type TripSettingsDraft = {
 
 type TripSettingsOverview = {
   session: Pick<Overview["session"], "memberId" | "userId" | "isOwner">;
-  trip: Pick<Overview["trip"], "id" | "destinationName" | "timeZone" | "maxMembers" | "startsOn" | "endsOn">;
+  trip: Pick<Overview["trip"], "id" | "destinationName" | "timeZone" | "maxMembers" | "startsOn" | "endsOn"> & { destinations?: TripDestination[] };
 };
 
 export function tripSettingsScope(data: Pick<TripSettingsOverview, "session"> & { trip: { id: string } }): string {
@@ -498,6 +513,7 @@ export function reconcileTripSettingsDraft(current: TripSettingsDraft | null, da
   const scope = tripSettingsScope(data);
   if (!syncDrafts && current?.scope === scope) return current;
   return { scope, destinationName: data.trip.destinationName, timeZone: data.trip.timeZone,
+    destinations: destinationDrafts(data.trip.destinations ?? singleDestination(data.trip.destinationName, data.trip.timeZone)),
     maxMembers: String(data.trip.maxMembers), startsOn: data.trip.startsOn, endsOn: data.trip.endsOn,
     expectedStartsOn: data.trip.startsOn, expectedEndsOn: data.trip.endsOn };
 }
@@ -818,7 +834,7 @@ function OfflineItineraryPanel({
 }) {
   const days = useMemo(() => [...snapshot.days], [snapshot.days]);
   const [selectedDayId, setSelectedDayId] = useState(() => (
-    pickCurrentTripDay(days, snapshot.trip.timeZone)?.id ?? days[0]!.id
+    pickTripToday(days, snapshot.trip)?.id ?? days[0]!.id
   ));
   const offlineSwipeStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -827,7 +843,8 @@ function OfflineItineraryPanel({
   const points = useMemo(() => projectTimelinePoints(snapshot.itinerary, {
     tripDays: days,
     timeZone: snapshot.trip.timeZone,
-  }).filter((point) => point.tripDayId === selectedDay.id), [days, selectedDay.id, snapshot.itinerary, snapshot.trip.timeZone]);
+    destinations: snapshot.trip.destinations,
+  }).filter((point) => point.tripDayId === selectedDay.id), [days, selectedDay.id, snapshot.itinerary, snapshot.trip]);
   const moveDay = (offset: -1 | 1) => {
     const nextDay = days[selectedDayIndex + offset];
     if (nextDay) setSelectedDayId(nextDay.id);
@@ -1099,7 +1116,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     setActivityAccessLost(false);
     setSelectedOverviewDate((current) => data.days.some((day) => day.date === current)
       ? current
-      : pickCurrentTripDay(data.days, data.trip.timeZone)?.date ?? null);
+      : pickTripToday(data.days, data.trip)?.date ?? null);
     if (syncDrafts) {
       setSelectedModel(data.ai.ownerDefaultModel);
       setProfileName(data.session.displayName);
@@ -1439,7 +1456,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     if (!overview || eventSaveInFlight.current) return;
     setEventSaveError(null);
     const currentTripDay = overview.days.find((day) => day.date === preferredDate)
-      ?? pickCurrentTripDay(overview.days, overview.trip.timeZone);
+      ?? pickTripToday(overview.days, overview.trip);
     const defaultStart = currentTripDay
       ? (tripLocalDateKey(new Date(), overview.trip.timeZone) === currentTripDay.date
         ? inputDateTime(new Date().toISOString(), overview.trip.timeZone)
@@ -1484,7 +1501,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       title: item.title,
       tripDayId: item.tripDayId,
       itemType: item.itemType as EventDraft["itemType"],
-      ...eventTimeInputsFromInstants(item, overview.trip.timeZone),
+      ...eventTimeInputsFromInstants(item, overview.trip.timeZone, overviewDayZone(overview, item.tripDayId)),
       durationMinutes: item.startsAt && item.endsAt
         ? String(Math.max(1, Math.round((new Date(item.endsAt).getTime() - new Date(item.startsAt).getTime()) / 60_000)))
         : "",
@@ -1502,7 +1519,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       isLocked: item.isLocked,
       linkedExpense: {
         ...emptyLinkedExpense,
-        occurredAt: inputDateTime(item.startsAt, overview.trip.timeZone),
+        occurredAt: inputDateTime(item.startsAt, moneyTimeZone(overview.trip, item.startsAt)),
       },
     });
   };
@@ -1521,7 +1538,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       const expenseSelection = eventExpenseDefaults(overview.members, {
         ...patch, createdByMemberId: detail.createdByMemberId,
       }, detail.createdByMemberId);
-      const timing = eventTimeInputsFromInstants(patch, overview.trip.timeZone);
+      const timing = eventTimeInputsFromInstants(patch, overview.trip.timeZone, overviewDayZone(overview, patch.tripDayId));
       const linkedExpense = patch.linkedExpense;
       setEditingItem({ kind: "pending", detail });
       setEventDraft({
@@ -1550,7 +1567,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           amount: expenseAmountInput(linkedExpense.amountMinor, linkedExpense.currency),
           currency: linkedExpense.currency,
           payerMemberId: linkedExpense.payerMemberId,
-          occurredAt: inputDateTime(linkedExpense.occurredAt, overview.trip.timeZone),
+          occurredAt: inputDateTime(linkedExpense.occurredAt, moneyTimeZone(overview.trip, linkedExpense.occurredAt)),
           status: linkedExpense.status ?? "posted",
           splitMemberIds: linkedExpense.splitMemberIds,
           ...initializeExpenseSplits(linkedExpense.amountMinor, linkedExpense.currency, linkedExpense.splitMemberIds, linkedExpense.splitAmounts),
@@ -1560,7 +1577,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
           amount: "",
           currency: overview.trip.defaultCurrency,
           payerMemberId: expenseSelection.payerMemberId,
-          occurredAt: inputDateTime(patch.startsAt, overview.trip.timeZone),
+          occurredAt: inputDateTime(patch.startsAt, moneyTimeZone(overview.trip, patch.startsAt)),
           status: "posted",
           splitMemberIds: expenseSelection.splitMemberIds,
           splitMode: "equal",
@@ -1592,7 +1609,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       currency: expense.currency,
       payerMemberId: expense.payerMemberId,
       itineraryItemId: expense.itineraryItemId ?? "",
-      occurredAt: inputDateTime(expense.occurredAt, overview.trip.timeZone),
+      occurredAt: inputDateTime(expense.occurredAt, moneyTimeZone(overview.trip, expense.occurredAt)),
       splitMemberIds: expense.splits.map((split) => split.memberId),
       ...initializeExpenseSplits(expense.amountMinor, expense.currency, expense.splits.map((split) => split.memberId),
         expense.splits.map((split) => ({ memberId: split.memberId, amountMinor: split.shareMinor }))),
@@ -1604,7 +1621,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       currency: overview.trip.defaultCurrency,
       payerMemberId: overview.session.memberId,
       itineraryItemId: linkedItem?.id ?? "",
-      occurredAt: inputDateTime(new Date().toISOString(), overview.trip.timeZone),
+      occurredAt: inputDateTime(new Date().toISOString(), moneyTimeZone(overview.trip, new Date().toISOString())),
       splitMemberIds: individual ? members.filter((member) => member.id === overview.session.memberId).map((member) => member.id)
         : members.map((member) => member.id),
       splitMode: "equal",
@@ -1649,7 +1666,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       fromMemberId, toMemberId: useSuggestion ? suggestion.toMemberId : "",
       amount: useSuggestion ? paymentAmountInput(suggestion.amountMinor, suggestion.currency) : "",
       currency: useSuggestion ? suggestion.currency : overview.trip.defaultCurrency,
-      occurredAt: inputDateTime(new Date().toISOString(), overview.trip.timeZone), note: "", confirmation: false,
+      occurredAt: inputDateTime(new Date().toISOString(), moneyTimeZone(overview.trip, new Date().toISOString())), note: "", confirmation: false,
       ...(useSuggestion ? { suggestion: { fromMemberId, toMemberId: suggestion.toMemberId, currency: suggestion.currency, amountMinor: suggestion.amountMinor } } : {}),
     } });
     setPaymentDialogOpen(true);
@@ -1691,8 +1708,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         if (!draft.confirmation || !/^[A-Z]{3}$/.test(draft.currency) || draft.note.length > 1000 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(draft.occurredAt)) { setPaymentError(paymentCopy.invalid); return; }
         let occurredAt: string;
         try {
-          occurredAt = zonedInputToIso(draft.occurredAt, overview.trip.timeZone);
-          if (inputDateTime(occurredAt, overview.trip.timeZone) !== draft.occurredAt) throw new Error("Invalid payment time");
+          const paymentZone = moneyTimeZone(overview.trip, null, draft.occurredAt);
+          occurredAt = zonedInputToIso(draft.occurredAt, paymentZone);
+          if (inputDateTime(occurredAt, paymentZone) !== draft.occurredAt) throw new Error("Invalid payment time");
         } catch { setPaymentError(paymentCopy.invalid); return; }
         payload = { fromMemberId: draft.fromMemberId, toMemberId: draft.toMemberId, amountMinor, currency: draft.currency,
           occurredAt, ...(draft.note.trim() ? { note: draft.note.trim() } : {}), confirmation: true };
@@ -2219,7 +2237,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     if (!overview || !eventDraft) return;
     const duration = Number(eventDraft.durationMinutes);
     const next = { ...eventDraft, startsAt };
-    const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone);
+    const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone,
+      overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt));
     try {
       const instant = wallTimeToIso(startsAt, zones.departureTimeZone, preferredInstant ?? eventDraft.preferredStartsAt);
       next.preferredStartsAt = instant;
@@ -2239,7 +2258,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const updateEventEnd = (endsAt: string, preferredInstant?: string) => {
     if (!overview || !eventDraft) return;
     const next = { ...eventDraft, endsAt, durationMinutes: "", durationWasEdited: false };
-    const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone);
+    const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone,
+      overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt));
     try {
       const end = wallTimeToIso(endsAt, zones.arrivalTimeZone, preferredInstant ?? next.preferredEndsAt);
       next.preferredEndsAt = end;
@@ -2256,7 +2276,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     const next = { ...eventDraft, durationMinutes, durationWasEdited: true };
     if (!durationMinutes.trim()) { next.endsAt = ""; next.preferredEndsAt = null; }
     else if (Number.isSafeInteger(duration) && duration > 0) {
-      const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone);
+      const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone,
+        overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt));
       try {
         const start = wallTimeToIso(next.startsAt, zones.departureTimeZone, next.preferredStartsAt);
         next.preferredEndsAt = new Date(Date.parse(start) + duration * 60_000).toISOString();
@@ -2268,7 +2289,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
 
   const fillEventTimeNow = (field: "startsAt" | "endsAt") => {
     if (!overview || !eventDraft || eventSaveInFlight.current) return;
-    const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone);
+    const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone,
+      overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt));
     const instant = new Date().toISOString();
     const currentTime = inputDateTime(instant, field === "startsAt" ? zones.departureTimeZone : zones.arrivalTimeZone);
     if (field === "startsAt") updateEventStart(currentTime, instant);
@@ -2278,7 +2300,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const updateEventIdentity = (next: EventDraft, clearInvalidTimes = false) => {
     if (!eventDraft || !overview) return;
     try {
-      const times = rebaseFlightTimeInputs(eventDraft, flightTimeSource(eventDraft), flightTimeSource(next), overview.trip.timeZone, clearInvalidTimes);
+      const times = rebaseFlightTimeInputs(eventDraft, flightTimeSource(eventDraft), flightTimeSource(next), overview.trip.timeZone, clearInvalidTimes,
+        overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt));
       const clearedTime = (eventDraft.startsAt && !times.startsAt) || (eventDraft.endsAt && !times.endsAt);
       setEventDraft({ ...next, ...times, ...(clearedTime ? { durationMinutes: "", durationWasEdited: false } : {}) });
       setEventSaveError(clearedTime ? eventEditorCopy.formInvalid : null);
@@ -2430,7 +2453,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     setEventDraft({ ...eventDraft, linkedExpense: {
       ...eventDraft.linkedExpense, enabled,
       description: eventDraft.linkedExpense.description || eventDraft.title,
-      occurredAt: eventDraft.linkedExpense.occurredAt || eventExpenseTimeFromStart(eventDraft, flightTimeSource(eventDraft), overview.trip.timeZone),
+      occurredAt: eventDraft.linkedExpense.occurredAt || eventExpenseTimeFromStart(eventDraft, flightTimeSource(eventDraft), overview.trip.timeZone,
+        overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt), overview.trip.destinations),
     } });
   };
 
@@ -2474,19 +2498,27 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       if (eventDraft.itemType === "transport" && typedFlightNumber && !isFlightNumber(typedFlightNumber)) {
         throw new Error(flightMessages(locale).invalidNumber);
       }
-      const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone);
+      const zones = resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone,
+        overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt));
       const startsAt = wallTimeToIso(eventDraft.startsAt, zones.departureTimeZone, eventDraft.preferredStartsAt);
-      const tripDay = overview.days.find((day) => day.date === tripLocalDateKey(startsAt, overview.trip.timeZone));
+      // The day it falls on, on each day's own clock when the trip's days have their own zones (JOB-098).
+      const tripDayId = tripDayIdForInstant(startsAt, { tripZone: overview.trip.timeZone,
+        dayIdByDate: new Map(overview.days.map((day) => [day.date, day.id])),
+        dayZones: tripDayZones(overview.trip.destinations, overview.trip.timeZone, overview.days), eventZone: zones.departureTimeZone });
+      const tripDay = overview.days.find((day) => day.id === tripDayId);
       if (!tripDay) throw new Error(messages.startDateOutsideTrip);
       const endsAt = !eventDraft.endsAt ? null
         : eventDraft.durationWasEdited && eventDraft.durationMinutes.trim()
           ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString()
         : wallTimeToIso(eventDraft.endsAt, zones.arrivalTimeZone, eventDraft.preferredEndsAt);
+      const multiZone = tripDayZones(overview.trip.destinations, overview.trip.timeZone, overview.days) !== null;
       if (endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
         throw new Error(eventEditorCopy.endAfterStart);
       }
-      if (endsAt && (tripLocalDateKey(endsAt, overview.trip.timeZone) < overview.trip.startsOn
-          || tripLocalDateKey(endsAt, overview.trip.timeZone) > overview.trip.endsOn)) {
+      // On a trip whose days have their own zones, the end is checked on its own local clock (JOB-098).
+      const endZone = multiZone ? zones.arrivalTimeZone : overview.trip.timeZone;
+      if (endsAt && (tripLocalDateKey(endsAt, endZone) < overview.trip.startsOn
+          || tripLocalDateKey(endsAt, endZone) > overview.trip.endsOn)) {
         throw new Error(eventEditorCopy.endDateOutsideTrip);
       }
       const linkedAmountMinor = eventDraft.linkedExpense.enabled ? parseExpenseAmount(eventDraft.linkedExpense.amount, eventDraft.linkedExpense.currency) : null;
@@ -2497,14 +2529,14 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         amountMinor: linkedAmountMinor!,
         currency: eventDraft.linkedExpense.currency,
         payerMemberId: eventDraft.linkedExpense.payerMemberId,
-        occurredAt: zonedInputToIso(eventDraft.linkedExpense.occurredAt, overview.trip.timeZone),
+        occurredAt: zonedInputToIso(eventDraft.linkedExpense.occurredAt, moneyTimeZone(overview.trip, null, eventDraft.linkedExpense.occurredAt)),
         status: eventDraft.linkedExpense.status,
         splitMemberIds: splitPatch.splitMemberIds ?? originalExpense?.splitMemberIds ?? eventDraft.linkedExpense.splitMemberIds,
         ...(Object.keys(splitPatch).length ? splitPatch : originalExpense?.splitAmounts ? { splitAmounts: originalExpense.splitAmounts } : {}),
       } : null;
       const linkedExpense = expenseInput ? preserveUnchangedLinkedExpense(
         originalExpense, expenseInput,
-        originalExpense ? inputDateTime(originalExpense.occurredAt, overview.trip.timeZone) : "",
+        originalExpense ? inputDateTime(originalExpense.occurredAt, moneyTimeZone(overview.trip, originalExpense.occurredAt)) : "",
         eventDraft.linkedExpense.occurredAt,
         eventDraft.linkedExpense.amount,
       ) : null;
@@ -2684,8 +2716,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         splitMemberIds: original.splits.map((split) => split.memberId),
         splitAmounts: original.splits.map((split) => ({ memberId: split.memberId, amountMinor: split.shareMinor })),
       } : null);
-      const occurredAt = original && inputDateTime(original.occurredAt, overview.trip.timeZone) === expenseDraft.occurredAt
-        ? original.occurredAt : zonedInputToIso(expenseDraft.occurredAt, overview.trip.timeZone);
+      const occurredAt = original && inputDateTime(original.occurredAt, moneyTimeZone(overview.trip, original.occurredAt)) === expenseDraft.occurredAt
+        ? original.occurredAt : zonedInputToIso(expenseDraft.occurredAt, moneyTimeZone(overview.trip, null, expenseDraft.occurredAt));
       const result = await jsonRequest<{ status: string }>(`/api/trips/${overview.trip.id}/change-requests`, {
         method: "POST",
         body: JSON.stringify({
@@ -2821,8 +2853,15 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const saveTripSettings = async (event: FormEvent) => {
     event.preventDefault();
     if (!overview || !tripSettings || !overview.session.isOwner || tripSettingsSaving.current) return;
-    const { scope, ...submittedSettings } = tripSettings;
+    const { scope, destinations: destinationRows, ...submittedSettings } = tripSettings;
     if (scope !== tripSettingsScope(overview) || scope !== tripSettingsScopeRef.current) return;
+    const destinationsCopy = tripDestinationsMessages(locale);
+    const destinationProblem = destinationDraftProblem(destinationRows, tripSettings.startsOn, tripSettings.endsOn);
+    if (destinationRows.some((row) => !row.name.trim() || !row.timeZone) || destinationProblem) {
+      setNotice(destinationProblem ? destinationsCopy[destinationProblem] : messages.tripSettingsSaveFailed);
+      return;
+    }
+    const destinations = destinationsFromDrafts(destinationRows);
     const maxMembers = Number(tripSettings.maxMembers);
     if (!Number.isInteger(maxMembers) || maxMembers < overview.trip.memberCount || maxMembers > 20) {
       setNotice(formatMessage(messages.tripSettingsInvalidMembers, { count: overview.trip.memberCount }));
@@ -2847,7 +2886,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     try {
       await jsonRequest(`/api/trips/${overview.trip.id}/settings`, {
         method: "PATCH",
-        body: JSON.stringify({ ...submittedSettings, maxMembers }),
+        body: JSON.stringify({ ...submittedSettings, destinationName: destinations[0]!.name, timeZone: destinations[0]!.timeZone,
+          destinations, maxMembers }),
       });
       if (tripSettingsScopeRef.current === scope) {
         // The PATCH is known to have committed even if the following read fails.
@@ -2862,6 +2902,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       if (tripSettingsScopeRef.current === scope) setNotice(reason === tripDateErrors.occupied ? messages.tripSettingsDatesOccupied
         : reason === tripDateErrors.stale ? messages.tripSettingsDatesStale
         : reason === tripDateErrors.order || reason === tripDateErrors.length ? messages.tripSettingsInvalidDates
+        : reason === tripDateErrors.destination ? destinationsCopy.datesOutside
         : messages.tripSettingsSaveFailed);
     }
     if (settingsSaved) {
@@ -2945,7 +2986,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     moveOverviewDay(horizontalDistance < 0 ? 1 : -1);
   };
 
-  const todayDate = overview ? tripLocalDateKey(new Date(nowMs), overview.trip.timeZone) : "";
+  // Today on the clock of the day it is where the travellers are (JOB-098); the trip zone's date otherwise.
+  const todayDate = overview ? currentTripDate(new Date(nowMs), overview.trip.timeZone,
+    tripDayZones(overview.trip.destinations, overview.trip.timeZone, overview.days)) : "";
   const dayGroupsScope = overview ? `${overview.trip.id}:${overview.session.memberId}:${todayDate}` : "";
   const revealItineraryItem = (itemId: string) => {
     setSection("itinerary");
@@ -2996,7 +3039,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   };
   const expenseDayGroups = useMemo(() => overview ? groupExpenseDays({
     days: overview.days, expenses: overview.expenses, pendingExpenses: overview.pendingExpenses,
-    memberPayments: overview.memberPayments, timeZone: overview.trip.timeZone,
+    memberPayments: overview.memberPayments, timeZone: overview.trip.timeZone, destinations: overview.trip.destinations,
   }) : [], [overview]);
   const pendingItinerary = useMemo(() => (overview?.pendingItinerary ?? [])
     .filter((request) => request.status === "pending")
@@ -3010,6 +3053,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     ? projectCalendarAwareTimelinePoints(overview.itinerary, {
         tripDays: overview.days,
         timeZone: overview.trip.timeZone,
+        destinations: overview.trip.destinations,
       })
     : [], [overview]);
   const pendingUpdateTargets = useMemo(
@@ -3023,7 +3067,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const pendingTimelinePoints = useMemo(() => overview
     ? projectCalendarAwareTimelinePoints(
         pendingItinerary.map((request) => ({ ...request, id: request.requestId })),
-        { tripDays: overview.days, timeZone: overview.trip.timeZone },
+        { tripDays: overview.days, timeZone: overview.trip.timeZone, destinations: overview.trip.destinations },
       )
     : [], [overview, pendingItinerary]);
   const personalCalendarPoints = useMemo(() => overview && calendarState
@@ -3055,7 +3099,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
   const selectedOverviewDay = useMemo(() => {
     if (!overview) return null;
     return overview.days.find((day) => day.date === selectedOverviewDate)
-      ?? pickCurrentTripDay(overview.days, overview.trip.timeZone);
+      ?? pickTripToday(overview.days, overview.trip);
   }, [overview, selectedOverviewDate]);
   const overviewTimelinePoints = useMemo(() => overview && selectedOverviewDay
     ? itineraryTimelinePoints.filter((point) => point.tripDayId === selectedOverviewDay.id)
@@ -3110,7 +3154,8 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
     return <OfflineItineraryPanel snapshot={offlineSnapshot} locale={locale} messages={messages} retry={() => void refresh()} />;
   }
   if (!overview) return <LoadingPanel error={loadError} retry={() => void refresh()} />;
-  const editorZones = eventDraft ? resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone) : null;
+  const editorZones = eventDraft ? resolveEventTimeZones(flightTimeSource(eventDraft), overview.trip.timeZone,
+    overviewDayZone(overview, eventDraft.tripDayId, eventDraft.startsAt)) : null;
 
   const eventCreatorId = editingItem === "new"
     ? overview.session.memberId
@@ -3186,10 +3231,11 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                 </div>
                 <section className="stay-card" aria-label={messages.stayForDay}>
                   <div><p className="eyebrow">{messages.stayForDay}</p><h2>{overviewLodgings.length ? countLabel(overviewLodgings.length, messages.hotelCountOne, messages.hotelCountMany) : messages.noHotelListed}</h2></div>
-                  <div className="stay-links">{overviewLodgings.length ? overviewLodgings.map((item) => <a href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" key={item.id} aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}><EventTypeIcon itemType={item.itemType} size={20} /><span><strong>{item.title}</strong><small>{item.locationName || messages.openGoogleMaps}</small>{!item.sourceCalendar?.allDay && item.startsAt ? <small>{formatEventLocalTime(item, item.startsAt, locale, overview.trip.timeZone, "start", true)}{item.endsAt ? ` – ${formatEventLocalTime(item, item.endsAt, locale, overview.trip.timeZone, "end", true)}` : ""}</small> : null}</span><ChevronRight size={17} /></a>) : <p>{messages.addLodgingHint}</p>}</div>
+                  <div className="stay-links">{overviewLodgings.length ? overviewLodgings.map((item) => <a href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" key={item.id} aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}><EventTypeIcon itemType={item.itemType} size={20} /><span><strong>{item.title}</strong><small>{item.locationName || messages.openGoogleMaps}</small>{!item.sourceCalendar?.allDay && item.startsAt ? <small>{formatEventLocalTime(item, item.startsAt, locale, overview.trip.timeZone, "start", true, overviewDayZone(overview, item.tripDayId))}{item.endsAt ? ` – ${formatEventLocalTime(item, item.endsAt, locale, overview.trip.timeZone, "end", true, overviewDayZone(overview, item.tripDayId))}` : ""}</small> : null}</span><ChevronRight size={17} /></a>) : <p>{messages.addLodgingHint}</p>}</div>
                 </section>
                 <article className="departure-card">
-                  <NextEventHeader item={nextPoint?.item} weather={nextPoint?.weather ?? null} locale={locale} messages={messages} timeZone={overview.trip.timeZone} weatherTimeZone={nextPoint?.timeZone} showDisruption={() => nextPoint && setDisruptionDetailItem(nextPoint.item)} />
+                  <NextEventHeader item={nextPoint?.item} weather={nextPoint?.weather ?? null} locale={locale} messages={messages} timeZone={overview.trip.timeZone}
+                    dayTimeZone={nextPoint ? overviewDayZone(overview, nextPoint.item.tripDayId) : null} weatherTimeZone={nextPoint?.timeZone} showDisruption={() => nextPoint && setDisruptionDetailItem(nextPoint.item)} />
                   {nextPoint ? <div className="departure-main"><div><p className="departure-time-label">{messages.startsIn}</p><p className="departure-time">{countdown}</p><p className="planned-time-copy"><Clock3 size={16} /> {messages.plannedFor} <strong>{nextPoint.at ? formatTimelinePointTime(nextPoint, locale, overview.trip.timeZone) : messages.timeNotSet}</strong></p></div><EventDestination point={nextPoint} locale={locale} messages={messages} timeZone={overview.trip.timeZone} /></div> : <div className="no-next-event"><Clock3 size={26} /><div><h2>{messages.noUpcomingEvent}</h2><p>{formatTripDay(selectedOverviewDay.date, locale)}</p></div></div>}
                 </article>
               </> : null}
@@ -3277,22 +3323,22 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
               ? group.totals.map(([currency, total]) => formatMoney(total, currency, locale)).join(" · ")
               : formatMoney(0, overview.trip.defaultCurrency, locale)}</strong></span></summary>
             <div className="expense-day-body"><div className="data-list expense-list">{[
-              ...group.expenses.map((expense) => ({ key: `expense:${expense.id}`, at: expense.occurredAt, node: <ExpenseDisplayCard recordId={expense.id} key={`expense:${expense.id}`} expense={expense} memberId={overview.session.memberId} locale={locale} timeZone={overview.trip.timeZone}>
+              ...group.expenses.map((expense) => ({ key: `expense:${expense.id}`, at: expense.occurredAt, node: <ExpenseDisplayCard recordId={expense.id} key={`expense:${expense.id}`} expense={expense} memberId={overview.session.memberId} locale={locale} timeZone={moneyTimeZone(overview.trip, expense.occurredAt)}>
                 {overview.permissions.canEditExpenses && expense.status !== "void" ? <button data-feedback-action="expense_edit" className="mini-button" disabled={busy} onClick={() => openExpense(expense)}><PencilLine size={14} /> {expensePageCopy.edit}</button> : null}
                 {expense.status === "draft" && overview.session.isOwner ? <>
                   <button data-feedback-action="expense_approve" className="mini-button" disabled={busy} onClick={() => void reviewExpenseDraft(expense, "approve")}><Check size={14} /> {messages.approveRequest}</button>
                   <button data-feedback-action="expense_reject" className="mini-button danger-button" disabled={busy} onClick={() => void reviewExpenseDraft(expense, "reject")}><X size={14} /> {messages.rejectRequest}</button>
                 </> : null}
               </ExpenseDisplayCard> })),
-              ...group.pendingExpenses.map((expense) => ({ key: `pending:${expense.requestId}`, at: expense.occurredAt, node: <PendingExpenseList key={`pending:${expense.requestId}`} expenses={[expense]} locale={locale} messages={messages} timeZone={overview.trip.timeZone} memberId={overview.session.memberId} busy={busy} isOwner={overview.session.isOwner} embedded
+              ...group.pendingExpenses.map((expense) => ({ key: `pending:${expense.requestId}`, at: expense.occurredAt, node: <PendingExpenseList key={`pending:${expense.requestId}`} expenses={[expense]} locale={locale} messages={messages} timeZone={moneyTimeZone(overview.trip, expense.occurredAt)} memberId={overview.session.memberId} busy={busy} isOwner={overview.session.isOwner} embedded
                 review={(requestId, decision, proposalRevision) => void review(requestId, decision, proposalRevision)} /> })),
-              ...group.payments.map((payment) => ({ key: `payment:${payment.id}`, at: payment.occurredAt, node: <MemberPaymentCard key={`payment:${payment.id}`} payment={payment} locale={locale} timeZone={overview.trip.timeZone} busy={busy} isOwner={overview.session.isOwner} act={openPaymentAction} /> })),
+              ...group.payments.map((payment) => ({ key: `payment:${payment.id}`, at: payment.occurredAt, node: <MemberPaymentCard key={`payment:${payment.id}`} payment={payment} locale={locale} timeZone={moneyTimeZone(overview.trip, payment.occurredAt)} busy={busy} isOwner={overview.session.isOwner} act={openPaymentAction} /> })),
             ].sort(compareExpenseDayEntries).map((entry) => entry.node)}
             {!group.expenses.length && !group.pendingExpenses.length && !group.payments.length ? <p className="empty-state">{expensePageCopy.noExpenses}</p> : null}</div></div>
           </DayAccordion>)}</CurrentDayGroups>
         </section>}
 
-        {section === "requests" && overview.session.isOwner && <section className="page-panel"><div className="section-heading"><div><p className="eyebrow">{messages.approvalQueueLabel}</p><h2>{messages.approvalQueueTitle}</h2></div><button className="ghost-button" disabled={busy || approvalHistoryLoading} onClick={() => void loadApprovalHistory("reset")}><RefreshCw size={15} /> {messages.refreshApprovalHistory}</button></div><ApprovalReviewContent requests={approvalHistoryTripId === overview.trip.id ? approvalHistory : []} locale={locale} messages={messages} timeZone={overview.trip.timeZone} busy={busy} loading={approvalHistoryLoading} error={approvalHistoryError} hasMore={approvalHistoryTripId === overview.trip.id && Boolean(approvalHistoryNextCursor)} retry={() => void loadApprovalHistory("reset")} loadMore={() => void loadApprovalHistory("more")} review={(requestId, decision, proposalRevision) => void review(requestId, decision, proposalRevision)} payments={overview.memberPayments ?? []} paymentAction={openPaymentAction} />
+        {section === "requests" && overview.session.isOwner && <section className="page-panel"><div className="section-heading"><div><p className="eyebrow">{messages.approvalQueueLabel}</p><h2>{messages.approvalQueueTitle}</h2></div><button className="ghost-button" disabled={busy || approvalHistoryLoading} onClick={() => void loadApprovalHistory("reset")}><RefreshCw size={15} /> {messages.refreshApprovalHistory}</button></div><ApprovalReviewContent requests={approvalHistoryTripId === overview.trip.id ? approvalHistory : []} locale={locale} messages={messages} timeZone={overview.trip.timeZone} destinations={overview.trip.destinations} busy={busy} loading={approvalHistoryLoading} error={approvalHistoryError} hasMore={approvalHistoryTripId === overview.trip.id && Boolean(approvalHistoryNextCursor)} retry={() => void loadApprovalHistory("reset")} loadMore={() => void loadApprovalHistory("more")} review={(requestId, decision, proposalRevision) => void review(requestId, decision, proposalRevision)} payments={overview.memberPayments ?? []} paymentAction={openPaymentAction} />
           {paymentLocked && paymentDialog?.scope === paymentScope && !paymentDialogOpen && <button type="button" className="ghost-button" disabled={busy} onClick={() => setPaymentDialogOpen(true)}>{paymentCopy.resume}</button>}
         </section>}
 
@@ -3303,7 +3349,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
 
         {section === "settings" && <section className="page-panel settings-grid">
           <article className="settings-card"><h2>{messages.switchTripTitle}</h2><p>{messages.switchTripDescription}</p><label>{messages.currentTripField}<select data-feedback-action="trip_switch" value={overview.trip.id} disabled={busy} onChange={(event) => void switchTrip(event.target.value)}>{overview.availableTrips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name} · {trip.role}</option>)}</select></label><small>{overview.trip.destinationName} · {overview.trip.startsOn} – {overview.trip.endsOn}</small>{overview.session.isGuest ? null : <button className="primary-button fit-button" disabled={busy} onClick={openNewTrip}><Plus size={16} /> {messages.createNewTrip}</button>}</article>
-          {overview.session.isOwner && tripSettings?.scope === tripSettingsScope(overview) ? <TripSettingsCard settings={tripSettings} setSettings={setTripSettings} busy={busy} memberCount={overview.trip.memberCount} messages={messages} submit={saveTripSettings} /> : null}
+          {overview.session.isOwner && tripSettings?.scope === tripSettingsScope(overview) ? <TripSettingsCard settings={tripSettings} setSettings={setTripSettings} busy={busy} memberCount={overview.trip.memberCount} messages={messages} submit={saveTripSettings} locale={locale} /> : null}
           {overview.session.isOwner && !activityAccessLost ? <TripDeletionCard locale={locale} busy={busy} open={() => void previewTripDeletion()} /> : null}
           <article className="settings-card"><h2>{messages.disruptionNotificationsTitle}</h2><p>{messages.disruptionNotificationsDescription}</p>{notificationPermission === "granted" ? <strong>{messages.disruptionNotificationsEnabled}</strong> : notificationPermission === "denied" ? <strong>{messages.disruptionNotificationsDenied}</strong> : notificationPermission === "unsupported" ? <small>{messages.disruptionNotificationsDenied}</small> : <button className="primary-button fit-button" disabled={busy} onClick={() => void enableDisruptionNotifications()}><Bell size={15} /> {messages.enableDisruptionNotifications}</button>}</article>
           {overview.session.isGuest ? null : <article className="settings-card"><h2>{messages.googleCalendar}</h2><strong>{overview.calendar.connected ? messages.calendarConnectedStatus : messages.calendarNotConnectedStatus}</strong><p>{formatMessage(messages.calendarConnectionPersonal, { name: overview.session.displayName })}</p>{overview.permissions.canSyncCalendar ? (!overview.calendar.connected ? <button data-feedback-action="calendar_connect" className="primary-button fit-button" disabled={busy} onClick={() => setCalendarConnectIntent({ mode: "connect" })}><CalendarRange size={15} /> {messages.linkGoogleCalendar}</button> : null) : <small>{messages.calendarAccessDisabledDescription}</small>}</article>}
@@ -3407,7 +3453,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       </Modal> : null}
 
       {overview.session.isOwner && !activityAccessLost && activityDetail?.scope === memberAdminScope && <Modal title={activityMessages(locale).requestDetail} closeLabel={messages.cancelButton} close={() => setActivityDetail(null)}>
-        <ApprovalRequestCards requests={[activityDetail.request]} locale={locale} messages={messages} timeZone={overview.trip.timeZone} busy={busy} readOnly review={() => undefined} />
+        <ApprovalRequestCards requests={[activityDetail.request]} locale={locale} messages={messages} timeZone={overview.trip.timeZone} destinations={overview.trip.destinations} busy={busy} readOnly review={() => undefined} />
       </Modal>}
 
       {newMemberName !== null ? <Modal title="Add trip member" close={() => setNewMemberName(null)}><form data-feedback-action="member_change" className="form-grid" onSubmit={addMember}><label className="full-field">Member name<input autoFocus required maxLength={120} value={newMemberName} onChange={(event) => setNewMemberName(event.target.value)} /></label><label className="check-field full-field"><input type="checkbox" checked={newMemberShareKeys && ownKeysToShare} disabled={busy || !ownKeysToShare} onChange={(event) => setNewMemberShareKeys(event.target.checked)} />{keysCopy.shareCheckbox}</label>{!ownKeysToShare ? <small className="full-field">{keysCopy.shareNeedsKey}</small> : null}<p className="full-field muted-copy">This creates an inactive member. Afterward, click Invite to copy a one-time link. The first Google account that completes that link becomes this member’s identity.</p><div className="dialog-actions full-field"><button className="primary-button fit-button" disabled={busy || !newMemberName.trim()}><UserPlus size={16} /> Create member</button><button data-feedback-action="dialog_close" type="button" className="ghost-button" onClick={() => setNewMemberName(null)}>Cancel</button></div></form></Modal> : null}
@@ -3492,7 +3538,7 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
                   <label className="full-field">{messages.expenseDescriptionField}<input required maxLength={240} disabled={!overview.permissions.canEditExpenses} value={eventDraft.linkedExpense.description} onChange={(event) => setEventDraft({ ...eventDraft, linkedExpense: { ...eventDraft.linkedExpense, description: event.target.value } })} /></label>
                   <label>{messages.expenseAmountField}<input required disabled={!overview.permissions.canEditExpenses} type="number" inputMode="decimal" min={1 / currencyFactor(eventDraft.linkedExpense.currency)} step={1 / currencyFactor(eventDraft.linkedExpense.currency)} value={eventDraft.linkedExpense.amount} onChange={(event) => setEventDraft({ ...eventDraft, linkedExpense: { ...eventDraft.linkedExpense, amount: event.target.value } })} /></label>
                   <label>{messages.expenseCurrencyField}<input required disabled={!overview.permissions.canEditExpenses} maxLength={3} pattern="[A-Z]{3}" value={eventDraft.linkedExpense.currency} onChange={(event) => setEventDraft({ ...eventDraft, linkedExpense: { ...eventDraft.linkedExpense, currency: event.target.value.toUpperCase() } })} /></label>
-                  <label>{formatMessage(messages.expenseWhenField, { timeZone: overview.trip.timeZone })}<input required disabled={!overview.permissions.canEditExpenses} type="datetime-local" value={eventDraft.linkedExpense.occurredAt} onChange={(event) => setEventDraft({ ...eventDraft, linkedExpense: { ...eventDraft.linkedExpense, occurredAt: event.target.value } })} /></label>
+                  <label>{formatMessage(messages.expenseWhenField, { timeZone: moneyTimeZone(overview.trip, null, eventDraft.linkedExpense.occurredAt) })}<input required disabled={!overview.permissions.canEditExpenses} type="datetime-local" value={eventDraft.linkedExpense.occurredAt} onChange={(event) => setEventDraft({ ...eventDraft, linkedExpense: { ...eventDraft.linkedExpense, occurredAt: event.target.value } })} /></label>
                   <EventExpenseParticipants members={eventExpenseMembers} allMembers={overview.members}
                     payerMemberId={eventDraft.linkedExpense.payerMemberId} splitMemberIds={eventDraft.linkedExpense.splitMemberIds}
                     disabled={!overview.permissions.canEditExpenses} payerLabel={messages.expensePaidByField}
@@ -3514,9 +3560,9 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
       ) : null}
 
       {paymentDialogOpen && paymentDialog?.scope === paymentScope ? <Modal title={paymentDialog.kind === "create" ? paymentCopy.record : paymentCopy[paymentDialog.decision.action]} close={closeMemberPayment} closeLabel={paymentCopy.cancel}>
-        {paymentDialog.kind === "create" ? <MemberPaymentForm draft={paymentDialog.draft} members={overview.members} isOwner={overview.session.isOwner} locale={locale} timeZone={overview.trip.timeZone} busy={busy} locked={paymentLocked} error={paymentError}
+        {paymentDialog.kind === "create" ? <MemberPaymentForm draft={paymentDialog.draft} members={overview.members} isOwner={overview.session.isOwner} locale={locale} timeZone={moneyTimeZone(overview.trip, null, paymentDialog.draft.occurredAt)} busy={busy} locked={paymentLocked} error={paymentError}
           change={(draft) => { if (!paymentInFlight.current && !paymentAttempt.current) setPaymentDialog({ ...paymentDialog, draft }); }} submit={submitMemberPayment} close={closeMemberPayment} />
-          : <MemberPaymentDecisionForm decision={paymentDialog.decision} locale={locale} timeZone={overview.trip.timeZone} busy={busy} locked={paymentLocked} error={paymentError}
+          : <MemberPaymentDecisionForm decision={paymentDialog.decision} locale={locale} timeZone={moneyTimeZone(overview.trip, paymentDialog.decision.payment.occurredAt)} busy={busy} locked={paymentLocked} error={paymentError}
             change={(decision) => { if (!paymentInFlight.current && !paymentAttempt.current) setPaymentDialog({ ...paymentDialog, decision }); }} submit={submitMemberPayment} close={closeMemberPayment} />}
       </Modal> : null}
 
@@ -3535,12 +3581,12 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
             <label className="full-field">{messages.expenseDescriptionField}<input required maxLength={240} value={expenseDraft.description} onChange={(event) => setExpenseDraft({ ...expenseDraft, description: event.target.value })} /></label>
             <label>{messages.expenseAmountField}<input required type="number" min={1 / currencyFactor(expenseDraft.currency)} step={1 / currencyFactor(expenseDraft.currency)} inputMode="decimal" value={expenseDraft.amount} onChange={(event) => setExpenseDraft({ ...expenseDraft, amount: event.target.value })} /></label>
             <label>{messages.expenseCurrencyField}<input required pattern="[A-Z]{3}" maxLength={3} value={expenseDraft.currency} onChange={(event) => setExpenseDraft({ ...expenseDraft, currency: event.target.value.toUpperCase() })} /></label>
-            <label className="full-field">{formatMessage(messages.expenseWhenField, { timeZone: overview.trip.timeZone })}<input required type="datetime-local" value={expenseDraft.occurredAt} onChange={(event) => setExpenseDraft({ ...expenseDraft, occurredAt: event.target.value })} /></label>
+            <label className="full-field">{formatMessage(messages.expenseWhenField, { timeZone: moneyTimeZone(overview.trip, null, expenseDraft.occurredAt) })}<input required type="datetime-local" value={expenseDraft.occurredAt} onChange={(event) => setExpenseDraft({ ...expenseDraft, occurredAt: event.target.value })} /></label>
             <label className="full-field">{expensePageCopy.linkedField}<select disabled={Boolean(expenseDraft.id && expenseLinkedItem?.visibility === "private")} value={expenseDraft.itineraryItemId} onChange={(event) => updateExpenseEvent(event.target.value)}>
               {expenseDraft.itineraryItemId && expenseLinkedItem && !overview.itinerary.some((item) => item.id === expenseDraft.itineraryItemId)
                 ? <option value={expenseDraft.itineraryItemId}>{expenseLinkedItem.title} · {cardCopy.removedLink}</option> : null}
               <option value="">{expensePageCopy.unlinked}</option>{overview.itinerary.filter((item) => item.status !== "cancelled" || item.id === expenseDraft.itineraryItemId).map((item) =>
-                <option key={item.id} value={item.id}>{item.visibility === "private" ? `${expensePageCopy.private} · ` : ""}{item.title}{item.startsAt ? ` · ${formatEventLocalTime(item, item.startsAt, locale, overview.trip.timeZone, "start", true)}` : ""}</option>)}
+                <option key={item.id} value={item.id}>{item.visibility === "private" ? `${expensePageCopy.private} · ` : ""}{item.title}{item.startsAt ? ` · ${formatEventLocalTime(item, item.startsAt, locale, overview.trip.timeZone, "start", true, overviewDayZone(overview, item.tripDayId))}` : ""}</option>)}
             </select></label>
             <p className="full-field muted-copy">{expensePageCopy.linkedHelp}</p>
             {expenseLinkedItem?.visibility === "private" ? <p className="full-field private-expense-note"><Lock size={14} /> {expensePageCopy.privateHelp}</p> : null}
@@ -3708,16 +3754,18 @@ function DisruptionBadge({ item, messages, showDisruption }: {
   return <button type="button" className={`disruption-badge severity-${item.disruption.severity}`} onClick={showDisruption} aria-label={formatMessage(messages.openDisruptionDetail, { event: item.title })}><AlertTriangle size={18} aria-hidden="true" /><small>{disruptionReasonLabel(item.disruption.reasonCode, messages)}</small></button>;
 }
 
-export function NextEventHeader({ item, weather, locale, messages, timeZone, weatherTimeZone, showDisruption }: {
+export function NextEventHeader({ item, weather, locale, messages, timeZone, dayTimeZone, weatherTimeZone, showDisruption }: {
   item?: ItineraryItem | null;
   weather?: EventWeatherForecast | null;
   locale: Locale;
   messages: Messages;
   timeZone: string;
+  /** The zone of the destination for the event's day (JOB-098). */
+  dayTimeZone?: string | null;
   weatherTimeZone?: string;
   showDisruption: () => void;
 }) {
-  const zones = item ? resolveEventTimeZones(item, timeZone) : null;
+  const zones = item ? resolveEventTimeZones(item, timeZone, dayTimeZone) : null;
   return <div className="departure-topline">
     {weather ? <WeatherBadge weather={weather} locale={locale} messages={messages} timeZone={weatherTimeZone ?? timeZone} /> : null}
     <div className="departure-topline-actions">
@@ -3735,7 +3783,7 @@ function EventDestination({ point, locale, messages, timeZone }: { point: Timeli
     return <a className="departure-destination event-map-destination transport-next-event" href={endpointMapUrl(point.locationName ?? item.title, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName ?? item.title })}>{content}<span className="sr-only">{formatTimelinePointTime(point, locale, timeZone, true)}</span></a>;
   }
   const content = <><span>{eventStatusLabel(item.status, messages)}</span><h2><EventTypeIcon itemType={item.itemType} size={24} /> {item.title}</h2><p>{item.locationName || eventTypeLabel(item.itemType, messages)}</p><small><MapPin size={15} /> {messages.openGoogleMaps}</small></>;
-  return <a className="departure-destination event-map-destination" href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}>{content}<span className="sr-only">{formatEventLocalTime(item, item.startsAt, locale, timeZone, "start", true)}</span></a>;
+  return <a className="departure-destination event-map-destination" href={itineraryMapUrl(item)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openEventInGoogleMaps, { title: item.title })}>{content}<span className="sr-only">{formatEventLocalTime(item, item.startsAt, locale, timeZone, "start", true, point.kind === "event" ? point.timeZone : null)}</span></a>;
 }
 
 function ownsVisibleTimelineActions<TItem extends TimelineSource>(
@@ -3783,7 +3831,7 @@ export function PendingItineraryList({ points, locale, messages, timeZone, busy,
         ? point.locationName
           ? <a className="transport-endpoint" href={endpointMapUrl(point.locationName, point.mapUrl)} target="_blank" rel="noreferrer" aria-label={formatMessage(messages.openLocationInGoogleMaps, { location: point.locationName })}><span className="transport-endpoint-label">{pointLabel}</span><strong>{flightPointLocation(point.kind, point.locationName, request.flight, locale)}</strong><time><Clock3 size={12} aria-hidden="true" /> {point.at ? formatTimelinePointTime(point, locale, timeZone, true) : messages.timeNotSet}</time><small><MapPin size={12} aria-hidden="true" /> {messages.openGoogleMaps}</small></a>
           : null
-        : <><p>{point.locationName ? <><MapPin size={14} aria-hidden="true" /> {point.locationName}</> : eventTypeLabel(request.itemType, messages)}</p><small>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : <>{point.at ? formatTimelinePointTime(point, locale, timeZone, true) : messages.timeNotSet}{request.endsAt ? ` – ${formatEventLocalTime(request, request.endsAt, locale, timeZone, "end", true)}` : ""}</>}</small></>}
+        : <><p>{point.locationName ? <><MapPin size={14} aria-hidden="true" /> {point.locationName}</> : eventTypeLabel(request.itemType, messages)}</p><small>{request.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : <>{point.at ? formatTimelinePointTime(point, locale, timeZone, true) : messages.timeNotSet}{request.endsAt ? ` – ${formatEventLocalTime(request, request.endsAt, locale, timeZone, "end", true, point.kind === "event" ? point.timeZone : null)}` : ""}</>}</small></>}
       {request.notes ? <p className="pending-itinerary-notes">{request.notes}</p> : null}
       <small>{formatMessage(messages.pendingEventRequestedBy, { name: request.requestedByName })} · {formatDateTime(request.createdAt, locale, timeZone)}</small>
       <p className="pending-itinerary-warning"><Clock3 size={14} aria-hidden="true" /> {request.operation !== "create" ? messages.pendingEventUpdateNotApplied : messages.pendingEventNotConfirmed}</p>
@@ -3823,15 +3871,16 @@ export function PendingExpenseList({ expenses, locale, messages, timeZone, busy,
   return embedded ? <>{cards}</> : <section className="data-list expense-list" aria-label={messages.pendingExpenses}>{cards}</section>;
 }
 
-export function ApprovalRequestList({ requests, locale, messages, timeZone, busy, review }: {
+export function ApprovalRequestList({ requests, locale, messages, timeZone, destinations, busy, review }: {
   requests: ApprovalRequest[];
   locale: Locale;
   messages: Messages;
   timeZone?: string;
+  destinations?: readonly TripDestination[] | null;
   busy: boolean;
   review: (requestId: string, decision: "approve" | "reject", proposalRevision: number) => void;
 }) {
-  return <ApprovalRequestCards requests={requests} locale={locale} messages={messages} timeZone={timeZone} busy={busy} review={review} />;
+  return <ApprovalRequestCards requests={requests} locale={locale} messages={messages} timeZone={timeZone} destinations={destinations} busy={busy} review={review} />;
 }
 
 export function ApprovalReviewContent({ payments, paymentAction, ...history }: Parameters<typeof ApprovalHistoryPanel>[0] & {
@@ -3842,6 +3891,7 @@ export function ApprovalReviewContent({ payments, paymentAction, ...history }: P
   const remainingPayments = payments.filter((payment) => payment.status === "rejected"
     || (payment.status === "pending" && !payment.canReview));
   const paymentProps = { locale: history.locale, timeZone: history.timeZone ?? "UTC", busy: history.busy,
+    timeZoneFor: (payment: MemberPayment) => moneyTimeZone({ timeZone: history.timeZone ?? "UTC", destinations: history.destinations }, payment.occurredAt),
     isOwner: true, reviewOnly: true, act: paymentAction };
   return <>
     {pendingPayments.length > 0 ? <MemberPaymentHistory payments={pendingPayments} {...paymentProps} /> : null}
@@ -3855,6 +3905,7 @@ export function ApprovalHistoryPanel({
   locale,
   messages,
   timeZone,
+  destinations,
   busy,
   loading,
   error,
@@ -3867,6 +3918,7 @@ export function ApprovalHistoryPanel({
   locale: Locale;
   messages: Messages;
   timeZone?: string;
+  destinations?: readonly TripDestination[] | null;
   busy: boolean;
   loading: boolean;
   error: string | null;
@@ -3882,7 +3934,7 @@ export function ApprovalHistoryPanel({
     return <div className="empty-state" role="alert"><p>{error}</p><button type="button" className="ghost-button" onClick={retry}><RefreshCw size={15} aria-hidden="true" /> {messages.retryApprovalHistory}</button></div>;
   }
   return <>
-    <ApprovalRequestList requests={mergeApprovalHistory([], requests)} locale={locale} messages={messages} timeZone={timeZone} busy={busy} review={review} />
+    <ApprovalRequestList requests={mergeApprovalHistory([], requests)} locale={locale} messages={messages} timeZone={timeZone} destinations={destinations} busy={busy} review={review} />
     {error ? <div className="empty-state" role="alert"><p>{error}</p><button type="button" className="ghost-button" onClick={retry}><RefreshCw size={15} aria-hidden="true" /> {messages.retryApprovalHistory}</button></div> : null}
     {hasMore ? <button type="button" className="ghost-button" disabled={busy || loading} onClick={loadMore}>{loading ? messages.approvalHistoryLoadingMore : messages.loadMoreApprovalHistory}</button> : null}
   </>;
@@ -3958,7 +4010,7 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
 }) {
   const rows = points.map((point) => {
     const item = point.item;
-    const zones = resolveEventTimeZones(item, overview.trip.timeZone);
+    const zones = resolveEventTimeZones(item, overview.trip.timeZone, overviewDayZone(overview, item.tripDayId));
     const ownsActions = ownsVisibleTimelineActions(point, points, allowActionFallback);
     const pointLabel = point.kind === "departure" ? messages.departureLabel : point.kind === "arrival" ? messages.destinationLabel : null;
     const pointHref = point.kind === "event"
@@ -3980,7 +4032,7 @@ export function TimelineList({ overview, locale, messages, points, allowActionFa
             {item.status === "cancelled" ? <span className="cancelled-event-label"><X size={14} aria-hidden="true" /> {messages.eventStatusCancelled}</span> : null}
             <h3>{item.title}{item.visibility === "private" ? <span className="private-event-tag"><Lock size={11} aria-hidden="true" /> {messages.privateEvent}</span> : null}{item.isLocked ? <span className="private-event-tag"><Lock size={11} aria-hidden="true" /> {messages.ownerLock}</span> : null}</h3>
             <p>{point.locationName ? <><MapPin size={14} />{flightPointLocation(point.kind, point.locationName, item.flight, locale)}</> : eventTypeLabel(item.itemType, messages)}</p>
-            <small>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : <>{formatTimelinePointTime(point, locale, overview.trip.timeZone, true)}{point.kind === "event" && item.endsAt ? ` – ${formatEventLocalTime(item, item.endsAt, locale, overview.trip.timeZone, "end", true)}` : ""}</>}{item.visibility === "private" ? ` · ${formatMessage(messages.sharedByCreator, { name: item.creatorName })}` : ""}</small>
+            <small>{item.sourceCalendar?.allDay ? calendarImportMessages(locale).allDay : <>{formatTimelinePointTime(point, locale, overview.trip.timeZone, true)}{point.kind === "event" && item.endsAt ? ` – ${formatEventLocalTime(item, item.endsAt, locale, overview.trip.timeZone, "end", true, overviewDayZone(overview, item.tripDayId))}` : ""}</>}{item.visibility === "private" ? ` · ${formatMessage(messages.sharedByCreator, { name: item.creatorName })}` : ""}</small>
           </a>
         </div>
         {ownsActions && (item.disruption || item.flightChange) ? <div className="event-live-signals">{item.flightChange ? <FlightChangeBadge change={item.flightChange} locale={locale} timeZone={zones.departureTimeZone} endTimeZone={zones.arrivalTimeZone} /> : null}{item.disruption ? <DisruptionBadge item={item} messages={messages} showDisruption={() => showDisruption(item)} /> : null}</div> : null}
@@ -4303,14 +4355,16 @@ function LiveOperationsCard({ status, locale, timeZone, messages }: {
   </article>;
 }
 
-export function TripSettingsCard({ settings, setSettings, busy, memberCount, messages, submit }: {
+export function TripSettingsCard({ settings, setSettings, busy, memberCount, messages, submit, locale = "en" }: {
   settings: TripSettingsDraft;
   setSettings: (settings: TripSettingsDraft) => void;
   busy: boolean;
   memberCount: number;
   messages: Messages;
   submit: (event: FormEvent) => Promise<void>;
+  locale?: Locale;
 }) {
+  const zoneOptions = destinationZoneOptions(locale);
   const maximumEndsOn = tripEndDateIsWithinBounds(settings.startsOn, "0001-01-01", "9998-12-31")
     ? maximumTripEndDate(settings.startsOn) : undefined;
   return <article className="settings-card trip-date-settings">
@@ -4323,8 +4377,8 @@ export function TripSettingsCard({ settings, setSettings, busy, memberCount, mes
           <label>{messages.endDateField}<input aria-label={messages.endDateField} name="endsOn" required type="date" min={settings.startsOn || undefined} max={maximumEndsOn} value={settings.endsOn} onChange={(event) => setSettings({ ...settings, endsOn: event.target.value })} /></label>
         </div>
         <small>{messages.tripDatesHint}</small>
-        <label>{messages.travelDestinationField}<input required maxLength={160} value={settings.destinationName} onChange={(event) => setSettings({ ...settings, destinationName: event.target.value })} /></label>
-        <label>{messages.timeZoneField}<input required list="stardust-time-zones" maxLength={80} value={settings.timeZone} onChange={(event) => setSettings({ ...settings, timeZone: event.target.value })} /><datalist id="stardust-time-zones"><option value="Asia/Tokyo">Japan · Asia/Tokyo</option><option value="America/Chicago">US Central · America/Chicago</option><option value="Europe/London">UK · Europe/London</option><option value="Asia/Hong_Kong">Hong Kong · Asia/Hong_Kong</option></datalist></label>
+        <TripDestinationsEditor drafts={settings.destinations} onChange={(destinations) => setSettings({ ...settings, destinations })}
+          locale={locale} zoneOptions={zoneOptions} tripStartsOn={settings.startsOn} tripEndsOn={settings.endsOn} disabled={busy} />
         <label>{messages.maximumMembersField}<input required type="number" min={memberCount} max="20" step="1" value={settings.maxMembers} onChange={(event) => setSettings({ ...settings, maxMembers: event.target.value })} /><small>{countLabel(memberCount, messages.tripCapacityHintOne, messages.tripCapacityHint)}</small></label>
         <button className="primary-button fit-button" disabled={busy}>{busy ? messages.tripSettingsSaving : messages.saveTripSettings}</button>
       </fieldset>

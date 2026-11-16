@@ -20,13 +20,14 @@ export function tripLocalDateKey(value: string | Date, timeZone: string): string
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+/** `today` defaults to the trip zone's date; multi-zone trips pass `currentTripDate` (JOB-098). */
 export function pickCurrentTripDay<T extends TripDaySummary>(
   days: T[],
   timeZone: string,
   now: Date = new Date(),
+  today: string = tripLocalDateKey(now, timeZone),
 ): T | null {
   if (!days.length) return null;
-  const today = tripLocalDateKey(now, timeZone);
   return days.find((day) => day.date === today)
     ?? days.find((day) => day.date > today)
     ?? days.at(-1)

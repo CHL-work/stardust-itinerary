@@ -936,7 +936,7 @@ describe("pending repayment approval placement", () => {
     expect(group.props.payments[0]).toBe(payment); expect(group.props.payments[0].revision).toBe(3);
     const source = readFileSync("src/components/app-shell.tsx", "utf8");
     expect(source).toContain('section === "requests" && overview.session.isOwner');
-    expect(source).toContain('payment={payment} locale={locale} timeZone={overview.trip.timeZone} busy={busy} isOwner={overview.session.isOwner} act={openPaymentAction}');
+    expect(source).toContain('payment={payment} locale={locale} timeZone={moneyTimeZone(overview.trip, payment.occurredAt)} busy={busy} isOwner={overview.session.isOwner} act={openPaymentAction}');
   });
 });
 

@@ -1504,6 +1504,23 @@
     "stale": "Ce voyage ou votre accès a changé. Vérifiez à nouveau la suppression.",
     "deleted": "Le voyage a été supprimé. Vous voyez maintenant votre voyage suivant."
   },
+  "tripDestinations": {
+    "title": "Destinations",
+    "hint": "Ajoutez chaque lieu et, si vous les connaissez, les jours que vous y passez.",
+    "help": "La première destination donne son nom au voyage. Les jours que vous fixez pour un lieu, les événements sans lieu propre utilisent son heure, et l’IA planifie ces jours-là sur place.",
+    "place": "Lieu",
+    "timeZone": "Fuseau horaire",
+    "from": "Du",
+    "to": "Au",
+    "dates": "Jours sur place (facultatif)",
+    "add": "Ajouter une destination",
+    "remove": "Retirer",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "datesOutside": "Les dates de chaque destination doivent être comprises dans celles du voyage.",
+    "datesIncomplete": "Indiquez les deux dates d’une destination, ou aucune.",
+    "limit": "Jusqu’à 12 destinations."
+  },
   "tripTimeZones": {
     "America/Chicago": "Dallas / Centre des États-Unis",
     "Asia/Tokyo": "Japon / Tokyo",

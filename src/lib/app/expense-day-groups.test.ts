@@ -106,6 +106,17 @@ describe("chronological heterogeneous expense-day entries", () => {
     const late = { key: "payment:late", at: "2030-11-03T01:15:00-05:00" };
     expect([late, early].sort(compareExpenseDayEntries)).toEqual([early, late]);
   });
+  it("puts each record on the day whose own clock reads its date on a trip with several clocks (JOB-098)", () => {
+    const destinations = [{ name: "Tokyo", timeZone: "Asia/Tokyo", startsOn: "2030-04-01", endsOn: "2030-04-02" },
+      { name: "New York", timeZone: "America/New_York", startsOn: "2030-04-02", endsOn: "2030-04-04" }];
+    // 20:00 on 3 April in New York is 09:00 on 4 April in Tokyo.
+    const dinner = expense("new-york-dinner", "2030-04-04T00:00:00Z");
+    const days = ["01", "02", "03", "04"].map((day) => ({ date: `2030-04-${day}`, label: null }));
+    const groups = groupExpenseDays({ ...defaults, days, expenses: [dinner], destinations });
+    expect(groups.find((group) => group.expenses.length)?.date).toBe("2030-04-03");
+    expect(groupExpenseDays({ ...defaults, days, expenses: [dinner] }).find((group) => group.expenses.length)?.date).toBe("2030-04-04");
+  });
+
   it("uses namespaced keys to resolve equal instants and cross-table ID collisions deterministically", () => {
     const entries = [
       { key: "pending:shared-id", at: "2030-04-01T10:00:00+09:00" },

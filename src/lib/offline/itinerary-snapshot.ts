@@ -1,4 +1,5 @@
 import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
+import { MAX_TRIP_DESTINATIONS, tripDayZones, type TripDestination } from "@/lib/app/trip-destinations";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 
 const OFFLINE_ITINERARY_VERSION = 2 as const;
@@ -58,6 +59,8 @@ export type OfflineItinerarySnapshot = Readonly<{
     name: string;
     destinationName: string;
     timeZone: string;
+    /** Where the trip goes (JOB-098); absent in snapshots saved before. */
+    destinations?: readonly Readonly<TripDestination>[];
     defaultLocale: string;
     startsOn: string;
     endsOn: string;
@@ -76,6 +79,7 @@ export type OfflineItinerarySource = {
     name: string;
     destinationName: string;
     timeZone: string;
+    destinations?: readonly TripDestination[];
     defaultLocale: string;
     startsOn: string;
     endsOn: string;
@@ -222,6 +226,24 @@ function parseItem(value: unknown, dayIds: ReadonlySet<string>): OfflineItinerar
   });
 }
 
+/** Destinations of a saved snapshot: absent is fine, malformed rejects the snapshot. */
+function parseDestinations(value: unknown, startsOn: string, endsOn: string): readonly Readonly<TripDestination>[] | undefined | null {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_TRIP_DESTINATIONS) return null;
+  const parsed: Readonly<TripDestination>[] = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) return null;
+    const name = boundedString(entry.name, 160);
+    const zone = canonicalTripTimeZone(boundedString(entry.timeZone, 80) ?? "");
+    const first = calendarDate(entry.startsOn);
+    const last = calendarDate(entry.endsOn);
+    if (!name || !zone || (first === null) !== (last === null)) return null;
+    if (first && last && (last < first || first < startsOn || last > endsOn)) return null;
+    parsed.push(Object.freeze({ name, timeZone: zone, startsOn: first, endsOn: last }));
+  }
+  return Object.freeze(parsed);
+}
+
 export function parseOfflineItinerarySnapshot(value: unknown): OfflineItinerarySnapshot | null {
   if (!isRecord(value) || value.version !== OFFLINE_ITINERARY_VERSION) return null;
   if (!isRecord(value.session) || !isRecord(value.trip)) return null;
@@ -271,6 +293,8 @@ export function parseOfflineItinerarySnapshot(value: unknown): OfflineItineraryS
   }
   safeDays.sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
 
+  const destinations = parseDestinations(value.trip.destinations, startsOn, endsOn);
+  if (destinations === null) return null;
   const itinerary = value.itinerary.map((item) => parseItem(item, dayIds));
   if (itinerary.some((item) => item === null)) return null;
   const safeItinerary = itinerary as OfflineItineraryItem[];
@@ -285,6 +309,7 @@ export function parseOfflineItinerarySnapshot(value: unknown): OfflineItineraryS
       name: tripName,
       destinationName,
       timeZone,
+      ...(destinations ? { destinations } : {}),
       defaultLocale,
       startsOn,
       endsOn,
@@ -299,6 +324,7 @@ export function createOfflineItinerarySnapshot(
   now: Date = new Date(),
 ): OfflineItinerarySnapshot {
   const sourceDayIds = new Set(source.days.map((day) => day.id));
+  const dayZones = tripDayZones(source.trip.destinations, source.trip.timeZone, source.days);
   const candidate = {
     version: OFFLINE_ITINERARY_VERSION,
     savedAt: now.toISOString(),
@@ -311,6 +337,7 @@ export function createOfflineItinerarySnapshot(
       name: source.trip.name,
       destinationName: source.trip.destinationName,
       timeZone: source.trip.timeZone,
+      ...(source.trip.destinations?.length ? { destinations: source.trip.destinations } : {}),
       defaultLocale: source.trip.defaultLocale,
       startsOn: source.trip.startsOn,
       endsOn: source.trip.endsOn,
@@ -326,7 +353,7 @@ export function createOfflineItinerarySnapshot(
       // browser can never inherit creator/selected-viewer private events.
       .filter((item) => sourceDayIds.has(item.tripDayId) && item.visibility === "trip")
       .map((item) => {
-        const flight = resolveEventTimeZones(item, source.trip.timeZone);
+        const flight = resolveEventTimeZones(item, source.trip.timeZone, dayZones?.byDayId.get(item.tripDayId));
         return {
           id: item.id,
           tripDayId: item.tripDayId,

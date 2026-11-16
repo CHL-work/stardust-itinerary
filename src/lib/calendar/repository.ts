@@ -14,6 +14,8 @@ import {
   getMemberPermissions,
   inTransaction,
 } from "@/lib/app/repository";
+import { destinationOnDate } from "@/lib/app/trip-destinations";
+import { readTripDestinations } from "@/lib/app/trip-destinations-store";
 import type { AuthConfig } from "@/lib/auth/config";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 import { decryptCalendarToken, encryptCalendarToken } from "@/lib/calendar/tokens";
@@ -692,14 +694,18 @@ async function syncItineraryItemToCalendarInternal(
     status: string;
     current_revision: number;
     time_zone: string;
+    destination_name: string;
+    day_date: string | null;
     flight: unknown;
     time_zones?: unknown;
   }>(
     `SELECT i.id, i.title, i.item_type, i.starts_at, i.ends_at, i.location_name, i.map_url,
             i.departure_location_name, i.departure_map_url, i.destination_location_name, i.destination_map_url, i.notes,
-            i.status, i.current_revision, t.time_zone, i.flight, to_jsonb(i)->'time_zones' AS time_zones
+            i.status, i.current_revision, t.time_zone, t.destination_name, d.day_date::text AS day_date, i.flight,
+            to_jsonb(i)->'time_zones' AS time_zones
        FROM itinerary_items i
        JOIN trips t ON t.id = i.trip_id
+       LEFT JOIN trip_days d ON d.trip_id = i.trip_id AND d.id = i.trip_day_id
       WHERE i.trip_id = $1 AND i.id = $2
         AND to_jsonb(i)->>'removed_at' IS NULL
         AND app_member_can_view_itinerary_item(i.trip_id, i.id, $3)`,
@@ -746,7 +752,10 @@ async function syncItineraryItemToCalendarInternal(
   const presentation = resolveEventTimeZones({ itemType: item.item_type, title: item.title, flight: item.flight,
     timeZones: readEventTimeZones(item.time_zones), locationName: item.location_name, mapUrl: item.map_url,
     departureLocationName: item.departure_location_name, departureMapUrl: item.departure_map_url,
-    destinationLocationName: item.destination_location_name, destinationMapUrl: item.destination_map_url }, item.time_zone);
+    destinationLocationName: item.destination_location_name, destinationMapUrl: item.destination_map_url }, item.time_zone,
+    // An event without place evidence is on the clock of the destination for its day (JOB-098).
+    item.day_date ? destinationOnDate(await readTripDestinations(client, tripId,
+      { name: item.destination_name, timeZone: item.time_zone }), item.day_date)?.timeZone : null);
   const eventBody: CalendarEventBody = {
     summary: item.status === "cancelled" ? `[Cancelled] ${item.title}` : item.title,
     description: [

@@ -5,6 +5,7 @@ import { eventTimeZonesSchema } from "@/lib/app/event-time-zone-contract";
 import { isTrustedGoogleMapsUrl, transportMapUrlMessage } from "@/lib/app/transport";
 import { isSupportedLedgerCurrency } from "@/lib/app/supported-currencies";
 import { tripDateErrors, validTripDate } from "@/lib/app/trip-date-range";
+import { MAX_TRIP_DESTINATIONS } from "@/lib/app/trip-destinations";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 
 import { ownerModels, selectableOwnerModels } from "@/lib/app/types";
@@ -173,9 +174,34 @@ function isIanaTimeZone(value: string): boolean {
   }
 }
 
+/** One stop on the trip (JOB-098, D-110): where, its clock, and optionally the first and last day there. */
+export const tripDestinationSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  timeZone: z.string().trim().min(1).max(80).refine((value) => canonicalTripTimeZone(value) !== null, "Enter a valid IANA time zone."),
+  startsOn: z.iso.date().refine(validTripDate).nullable().optional(),
+  endsOn: z.iso.date().refine(validTripDate).nullable().optional(),
+}).strict().superRefine((value, context) => {
+  if (Boolean(value.startsOn) !== Boolean(value.endsOn)) {
+    context.addIssue({ code: "custom", path: ["endsOn"], message: "Give both dates for a destination, or neither." });
+  } else if (value.startsOn && value.endsOn && value.endsOn < value.startsOn) {
+    context.addIssue({ code: "custom", path: ["endsOn"], message: tripDateErrors.order });
+  }
+}).transform((value) => ({ name: value.name, timeZone: value.timeZone, startsOn: value.startsOn ?? null, endsOn: value.endsOn ?? null }));
+
+export const tripDestinationsSchema = z.array(tripDestinationSchema).min(1).max(MAX_TRIP_DESTINATIONS);
+
+/** Destination dates must sit inside the trip's own dates. */
+export function destinationsOutsideTrip(destinations: readonly { startsOn: string | null; endsOn: string | null }[],
+  startsOn: string, endsOn: string): number[] {
+  return destinations.flatMap((destination, index) => destination.startsOn && destination.endsOn
+    && (destination.startsOn < startsOn || destination.endsOn > endsOn) ? [index] : []);
+}
+
 export const tripSettingsSchema = z.object({
   destinationName: z.string().trim().min(1).max(160),
   timeZone: z.string().trim().min(1).max(80).refine(isIanaTimeZone, "Enter a valid IANA time zone."),
+  /** The whole list, in order; its first destination becomes the trip's name and zone (JOB-098). */
+  destinations: tripDestinationsSchema,
   maxMembers: z.number().int().min(1).max(20),
   startsOn: z.iso.date().refine(validTripDate),
   endsOn: z.iso.date().refine(validTripDate),
@@ -184,6 +210,7 @@ export const tripSettingsSchema = z.object({
 }).partial().refine(
   (input) => input.destinationName !== undefined
     || input.timeZone !== undefined
+    || input.destinations !== undefined
     || input.maxMembers !== undefined
     || input.startsOn !== undefined
     || input.endsOn !== undefined,
@@ -191,6 +218,12 @@ export const tripSettingsSchema = z.object({
 ).superRefine((input, context) => {
   if ((input.expectedStartsOn === undefined) !== (input.expectedEndsOn === undefined)) {
     context.addIssue({ code: "custom", path: ["expectedStartsOn"], message: "Supply both expected trip dates." });
+  }
+  // A destination list names the trip: a name or zone sent with it must be its first destination's.
+  const first = input.destinations?.[0];
+  if (first && ((input.destinationName !== undefined && input.destinationName !== first.name)
+    || (input.timeZone !== undefined && input.timeZone !== first.timeZone))) {
+    context.addIssue({ code: "custom", path: ["destinations"], message: "The first destination must match the trip's destination and time zone." });
   }
   if (input.startsOn && input.endsOn) {
     if (input.endsOn < input.startsOn) {
@@ -212,6 +245,8 @@ export const createTripSchema = z.object({
   startsOn: z.iso.date(),
   endsOn: z.iso.date(),
   maxMembers: z.number().int().min(1).max(20),
+  /** Optional full list in order (JOB-098); its first destination must be `destinationName` in `timeZone`. */
+  destinations: tripDestinationsSchema.optional(),
 }).superRefine((input, context) => {
   const start = Date.parse(`${input.startsOn}T00:00:00Z`);
   const end = Date.parse(`${input.endsOn}T00:00:00Z`);
@@ -227,5 +262,12 @@ export const createTripSchema = z.object({
       path: ["endsOn"],
       message: "A trip can contain at most 366 calendar days.",
     });
+  }
+  const first = input.destinations?.[0];
+  if (first && (first.name !== input.destinationName || first.timeZone !== input.timeZone)) {
+    context.addIssue({ code: "custom", path: ["destinations"], message: "The first destination must match the trip's destination and time zone." });
+  }
+  for (const index of destinationsOutsideTrip(input.destinations ?? [], input.startsOn, input.endsOn)) {
+    context.addIssue({ code: "custom", path: ["destinations", index, "startsOn"], message: tripDateErrors.destination });
   }
 });

@@ -8,6 +8,7 @@ import { expenseAmountInput } from "@/lib/app/expense-currency";
 import * as splitHelpers from "@/lib/app/expense-split-editor";
 import { resolveExpenseEvent } from "@/lib/app/expense-retained-event";
 import { expensePageMessages } from "@/lib/app/expense-page-i18n";
+import { moneyTimeZone } from "@/lib/app/trip-destinations";
 import { locales, messages } from "@/lib/i18n";
 
 // Exercise the actual screen callbacks with synthetic trip data and inert HTTP calls.
@@ -51,7 +52,7 @@ const bindings = {
   ...expenseHelpers, ...splitHelpers, expenseAmountInput, eligibleEventExpenseMembers: expenseHelpers.eventExpenseMembers,
   eventEditorCopy: eventEditorMessages("en"), eventEditorFailureMessage,
   expensePageCopy: expensePageMessages("en"), parseExpenseAmount,
-  messages: messages.en, inputDateTime, resolveExpenseEvent,
+  messages: messages.en, inputDateTime, resolveExpenseEvent, moneyTimeZone,
 };
 const requestErrorClass = tree.statements.find((node): node is ts.ClassDeclaration => ts.isClassDeclaration(node) && node.name?.text === "JsonRequestError");
 const requestErrorCode = ts.transpileModule(requestErrorClass!.getText(tree).replace(/^export /, ""), {

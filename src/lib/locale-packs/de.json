@@ -1504,6 +1504,23 @@
     "stale": "Diese Reise oder dein Zugriff hat sich geändert. Prüfe das Löschen erneut.",
     "deleted": "Die Reise wurde gelöscht. Du siehst jetzt deine nächste Reise."
   },
+  "tripDestinations": {
+    "title": "Reiseziele",
+    "hint": "Füge jeden Ort hinzu und, falls bekannt, die Tage dort.",
+    "help": "Das erste Reiseziel gibt der Reise ihren Namen. An den Tagen, die du für einen Ort festlegst, nutzen Termine ohne eigenen Ort dessen Uhrzeit, und die KI plant diese Tage dort.",
+    "place": "Ort",
+    "timeZone": "Zeitzone",
+    "from": "Von",
+    "to": "Bis",
+    "dates": "Tage dort (optional)",
+    "add": "Reiseziel hinzufügen",
+    "remove": "Entfernen",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
+    "datesOutside": "Die Daten jedes Reiseziels müssen innerhalb der Reisedaten liegen.",
+    "datesIncomplete": "Gib für ein Reiseziel beide Daten an oder keines.",
+    "limit": "Bis zu 12 Reiseziele."
+  },
   "tripTimeZones": {
     "America/Chicago": "Dallas / US-Zentralzeit",
     "Asia/Tokyo": "Japan / Tokio",

@@ -1,4 +1,4 @@
-import { tripLocalDateKey } from "./day-view";
+import { destinationClockAt, type TripDestination } from "./trip-destinations";
 
 type DatedRecord = { occurredAt: string };
 type ExpenseRecord = DatedRecord & {
@@ -18,13 +18,15 @@ export type ExpenseDayGroup<E extends ExpenseRecord, P extends DatedRecord, M ex
 
 /** Presentation only: retain the complete server-authorized rows, never infer an audience or a balance. */
 export function groupExpenseDays<E extends ExpenseRecord, P extends DatedRecord, M extends DatedRecord = DatedRecord>({
-  days, expenses, pendingExpenses, memberPayments = [], timeZone,
+  days, expenses, pendingExpenses, memberPayments = [], timeZone, destinations,
 }: {
   days: readonly { date: string; label: string | null }[];
   expenses: readonly E[];
   pendingExpenses: readonly P[];
   memberPayments?: readonly M[];
   timeZone: string;
+  /** On a trip with several clocks, each record goes on the day whose own clock reads its date (JOB-098). */
+  destinations?: readonly TripDestination[] | null;
 }): ExpenseDayGroup<E, P, M>[] {
   const groups = new Map<string, ExpenseDayGroup<E, P, M>>();
   const create = (date: string, label: string | null = null): ExpenseDayGroup<E, P, M> => ({
@@ -32,7 +34,7 @@ export function groupExpenseDays<E extends ExpenseRecord, P extends DatedRecord,
   });
   for (const day of days) groups.set(day.date, create(day.date, day.label));
   const groupFor = (record: DatedRecord) => {
-    const date = tripLocalDateKey(record.occurredAt, timeZone);
+    const { date } = destinationClockAt(record.occurredAt, timeZone, destinations);
     let group = groups.get(date);
     if (!group) { group = create(date); groups.set(date, group); }
     return group;

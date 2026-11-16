@@ -4,6 +4,7 @@ export const tripDateErrors = {
   order: "The end date must be on or after the start date.",
   length: "A trip can contain at most 366 calendar days.",
   event: "The event dates must be within the current trip dates.",
+  destination: "Each destination's dates must be within the trip dates.",
 } as const;
 
 export function validTripDate(value: string): boolean {

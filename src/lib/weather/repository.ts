@@ -155,44 +155,49 @@ async function loadCandidates(
 ): Promise<WeatherCandidate[]> {
   const result = await pool.query<WeatherCandidateRow>(
     `SELECT i.id, i.current_revision, i.item_type, i.starts_at, i.ends_at,
-            td.day_date::timestamp AT TIME ZONE t.time_zone AS day_start_at,
-            (td.day_date::timestamp + time '12:00') AT TIME ZONE t.time_zone AS day_noon_at,
-            (td.day_date::timestamp + interval '1 day') AT TIME ZONE t.time_zone AS day_end_at,
-            CASE WHEN i.visibility = 'private' THEN t.destination_name
+            td.day_date::timestamp AT TIME ZONE COALESCE(day_destination.time_zone, t.time_zone) AS day_start_at,
+            (td.day_date::timestamp + time '12:00') AT TIME ZONE COALESCE(day_destination.time_zone, t.time_zone) AS day_noon_at,
+            (td.day_date::timestamp + interval '1 day') AT TIME ZONE COALESCE(day_destination.time_zone, t.time_zone) AS day_end_at,
+            CASE WHEN i.visibility = 'private' THEN COALESCE(day_destination.name, t.destination_name)
                  ELSE NULLIF(btrim(i.location_name), '') END AS location_name,
             CASE WHEN i.visibility = 'private'
                        AND NULLIF(btrim(i.departure_location_name), '') IS NOT NULL
-                   THEN t.destination_name
+                   THEN COALESCE(day_destination.name, t.destination_name)
                  ELSE NULLIF(btrim(i.departure_location_name), '') END AS departure_location_name,
             CASE WHEN i.visibility = 'private'
                        AND NULLIF(btrim(i.destination_location_name), '') IS NOT NULL
-                   THEN t.destination_name
+                   THEN COALESCE(day_destination.name, t.destination_name)
                  ELSE NULLIF(btrim(i.destination_location_name), '') END AS destination_location_name,
             CASE WHEN i.visibility = 'private'
                  THEN 'trip_destination' ELSE 'event' END AS lookup_precision,
-            t.destination_name
+            COALESCE(day_destination.name, t.destination_name) AS destination_name
        FROM itinerary_items i
        JOIN trip_days td ON td.trip_id = i.trip_id AND td.id = i.trip_day_id
        JOIN trips t ON t.id = i.trip_id
+       -- The destination the travellers are in that day (JOB-098); on a travel day, the arriving one.
+       LEFT JOIN LATERAL (
+         SELECT dz.name, dz.time_zone FROM trip_destinations dz
+          WHERE dz.trip_id = i.trip_id AND td.day_date BETWEEN dz.starts_on AND dz.ends_on
+          ORDER BY dz.starts_on DESC, dz.position DESC LIMIT 1) day_destination ON true
       WHERE i.trip_id = $1
         AND i.status NOT IN ('cancelled', 'completed')
         AND to_jsonb(i)->>'removed_at' IS NULL
         AND app_member_can_view_itinerary_item(i.trip_id, i.id, $2)
         AND (
           (i.starts_at IS NULL AND i.ends_at IS NULL
-            AND (td.day_date::timestamp + interval '1 day') AT TIME ZONE t.time_zone > $3
-            AND td.day_date::timestamp AT TIME ZONE t.time_zone <= $3 + interval '7 days')
+            AND (td.day_date::timestamp + interval '1 day') AT TIME ZONE COALESCE(day_destination.time_zone, t.time_zone) > $3
+            AND td.day_date::timestamp AT TIME ZONE COALESCE(day_destination.time_zone, t.time_zone) <= $3 + interval '7 days')
           OR
           ((i.starts_at IS NOT NULL OR i.ends_at IS NOT NULL)
             AND COALESCE(i.ends_at, i.starts_at) >= $3
             AND COALESCE(
                   i.starts_at,
-                  td.day_date::timestamp AT TIME ZONE t.time_zone
+                  td.day_date::timestamp AT TIME ZONE COALESCE(day_destination.time_zone, t.time_zone)
                 ) <= $3 + interval '7 days')
         )
       ORDER BY COALESCE(
                  i.starts_at,
-                 td.day_date::timestamp AT TIME ZONE t.time_zone
+                 td.day_date::timestamp AT TIME ZONE COALESCE(day_destination.time_zone, t.time_zone)
                ), i.id`,
     [session.tripId, session.memberId, now],
   );

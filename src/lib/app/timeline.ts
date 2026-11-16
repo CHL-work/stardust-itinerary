@@ -1,5 +1,5 @@
-import { tripLocalDateKey } from "./day-view";
 import { resolveEventTimeZones } from "./event-time-zones";
+import { tripDayIdForInstant, tripDayZones, type TripDayZones, type TripDestination } from "./trip-destinations";
 
 export type TimelineWeatherTargetRole = "location" | "departure" | "destination";
 
@@ -51,11 +51,13 @@ export type TimelinePoint<TItem extends TimelineSource> = Readonly<{
   key: string;
   kind: TimelinePointKind;
   at: string | null;
-  /** Display only: day assignment and ordering still use the trip zone / UTC. */
+  /** Display only: ordering uses UTC; day assignment uses the trip zone, or each day's zone (JOB-098). */
   timeZone: string;
   timeZoneKnown: boolean;
   isFlight: boolean;
   tripDayId: string;
+  /** The date of `tripDayId`, set only on trips whose days have their own zones (JOB-098). */
+  dayDate?: string;
   locationName: string | null;
   mapUrl: string | null;
   ownsActions: boolean;
@@ -66,6 +68,8 @@ export type TimelinePoint<TItem extends TimelineSource> = Readonly<{
 export type TimelineProjectionOptions = Readonly<{
   tripDays: readonly TimelineTripDay[];
   timeZone: string;
+  /** The trip's destinations (JOB-098): each day's zone groups that day and clocks events without a place. */
+  destinations?: readonly TripDestination[] | null;
 }>;
 
 type IndexedTimelinePoint<TItem extends TimelineSource> = {
@@ -90,11 +94,13 @@ function resolveTripDayId(
   assignedTripDayId: string,
   tripDayIdByDate: ReadonlyMap<string, string>,
   timeZone: string,
+  dayZones: TripDayZones | null,
+  eventZone: string,
 ): string {
   const parsed = timestampMs(at);
   if (parsed === null) return assignedTripDayId;
-  const actualDate = tripLocalDateKey(new Date(parsed), timeZone);
-  return tripDayIdByDate.get(actualDate) ?? assignedTripDayId;
+  return tripDayIdForInstant(new Date(parsed), { tripZone: timeZone, dayIdByDate: tripDayIdByDate, dayZones,
+    eventZone, assignedDayId: assignedTripDayId }) ?? assignedTripDayId;
 }
 
 function roleWeather<TItem extends TimelineSource>(
@@ -132,27 +138,27 @@ function point<TItem extends TimelineSource>(input: {
   kind: TimelinePointKind;
   at: string | null;
   tripDayIdByDate: ReadonlyMap<string, string>;
+  dayZones: TripDayZones | null;
   timeZone: string;
   locationName: string | null | undefined;
   mapUrl: string | null | undefined;
   ownsActions: boolean;
   weather: WeatherValue<TItem> | null;
 }): TimelinePoint<TItem> {
-  const flight = resolveEventTimeZones(input.item, input.timeZone);
+  const flight = resolveEventTimeZones(input.item, input.timeZone, input.dayZones?.byDayId.get(input.item.tripDayId));
   const arrival = input.kind === "arrival";
+  const zone = arrival ? flight.arrivalTimeZone : flight.departureTimeZone;
+  const tripDayId = resolveTripDayId(input.at, input.item.tripDayId, input.tripDayIdByDate, input.timeZone, input.dayZones, zone);
+  const dayDate = input.dayZones ? [...input.tripDayIdByDate].find(([, id]) => id === tripDayId)?.[0] : undefined;
   return {
     key: `${input.item.id}:${input.kind}`,
     kind: input.kind,
     at: input.at,
-    timeZone: arrival ? flight.arrivalTimeZone : flight.departureTimeZone,
+    timeZone: zone,
     timeZoneKnown: arrival ? flight.arrivalZoneKnown : flight.departureZoneKnown,
     isFlight: flight.isFlight,
-    tripDayId: resolveTripDayId(
-      input.at,
-      input.item.tripDayId,
-      input.tripDayIdByDate,
-      input.timeZone,
-    ),
+    tripDayId,
+    ...(dayDate ? { dayDate } : {}),
     locationName: input.locationName ?? null,
     mapUrl: input.mapUrl ?? null,
     ownsActions: input.ownsActions,
@@ -174,6 +180,7 @@ export function projectTimelinePoints<TItem extends TimelineSource>(
   for (const day of options.tripDays) {
     if (!tripDayIdByDate.has(day.date)) tripDayIdByDate.set(day.date, day.id);
   }
+  const dayZones = tripDayZones(options.destinations, options.timeZone, options.tripDays);
 
   const indexedPoints: IndexedTimelinePoint<TItem>[] = [];
   items.forEach((item, sourceIndex) => {
@@ -183,6 +190,7 @@ export function projectTimelinePoints<TItem extends TimelineSource>(
         kind: "event",
         at: item.startsAt,
         tripDayIdByDate,
+        dayZones,
         timeZone: options.timeZone,
         locationName: item.locationName,
         mapUrl: item.mapUrl,
@@ -208,6 +216,7 @@ export function projectTimelinePoints<TItem extends TimelineSource>(
         kind: "departure",
         at: item.startsAt,
         tripDayIdByDate,
+        dayZones,
         timeZone: options.timeZone,
         locationName: item.departureLocationName,
         mapUrl: item.departureMapUrl,
@@ -230,6 +239,7 @@ export function projectTimelinePoints<TItem extends TimelineSource>(
         kind: "arrival",
         at: item.endsAt,
         tripDayIdByDate,
+        dayZones,
         timeZone: options.timeZone,
         locationName: item.destinationLocationName,
         mapUrl: item.destinationMapUrl,

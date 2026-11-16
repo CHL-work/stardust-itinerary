@@ -39,6 +39,9 @@ import {
   ownKeyDirectAddScope,
   type AiPolicy,
 } from "@/lib/app/repository";
+import { withTripDestinations } from "@/lib/ai/trip-destination-context";
+import { destinationClockAt, tripDayIdForInstant } from "@/lib/app/trip-destinations";
+import { readTripDestinations } from "@/lib/app/trip-destinations-store";
 import {
   ownerModelRegistry,
   type ChangeRequestInput,
@@ -1513,8 +1516,14 @@ export async function runAiPlanner(
        FROM trips t WHERE t.id = $1`,
       [session.tripId, session.memberId],
     );
-    const canonicalContext = contextResult.rows[0]?.context;
-    if (!canonicalContext) throw new Error("Trip context is unavailable.");
+    const loadedContext = contextResult.rows[0]?.context;
+    if (!loadedContext) throw new Error("Trip context is unavailable.");
+    // Destinations, each day's destination and zone, and "now" on today's own clock (JOB-098, D-110).
+    const loadedTrip = (loadedContext as { trip?: { destinationName?: string; timeZone?: string } }).trip;
+    const tripDestinations = await readTripDestinations(pool, session.tripId,
+      { name: loadedTrip?.destinationName ?? "", timeZone: loadedTrip?.timeZone ?? "UTC" });
+    const { context: canonicalContext, dayZones: tripDayZoneMap } = withTripDestinations(loadedContext as Parameters<typeof withTripDestinations>[0],
+      tripDestinations, new Date());
     // Pending proposals have their own identity/revision and never masquerade as
     // canonical itinerary rows. Only authorized editable drafts enter context.
     const pendingContext = await inTransaction(pool, async (client) => {
@@ -2019,8 +2028,10 @@ export async function runAiPlanner(
               && !contextRecord.itinerary?.some((item) => item.id === expensePatch.itineraryItemId)) {
             throw new AppConflictError(`AI proposal ${index + 1} references an unavailable event.`);
           }
+          // On a trip with several clocks a bill's date is read on its day's clock (JOB-098).
           const proposedDate = timeZone
-            ? instantDateInTimeZone(expensePatch.occurredAt, timeZone)
+            ? tripDayZoneMap ? destinationClockAt(expensePatch.occurredAt, timeZone, tripDestinations).date
+              : instantDateInTimeZone(expensePatch.occurredAt, timeZone)
             : null;
           if (relativeDate && proposedDate !== relativeDate) {
             throw new AppConflictError(
@@ -2187,10 +2198,18 @@ export async function runAiPlanner(
           throw new AppConflictError(`AI proposal ${index + 1} references a day outside this trip.`);
         }
         const effectiveStartsAt = patchValue.startsAt !== undefined ? patchValue.startsAt : existingItem?.startsAt;
+        // A day of a multi-zone trip keeps its own clock (JOB-098): its zone is the event's fallback zone,
+        // and the event belongs to the day whose own clock reads its date.
+        const localDeparture = itineraryProposalLocalDate(patchValue, existingItem, timeZone ?? "UTC",
+          selectedDay ? tripDayZoneMap?.byDayId.get(selectedDay.id) : undefined);
         const proposedDate = effectiveStartsAt && timeZone
-          ? instantDateInTimeZone(effectiveStartsAt, timeZone)
+          ? tripDayZoneMap
+            ? contextRecord.days?.find((day) => day.id === tripDayIdForInstant(effectiveStartsAt, { tripZone: timeZone,
+              dayIdByDate: new Map((contextRecord.days ?? []).map((candidate) => [candidate.date, candidate.id])),
+              dayZones: tripDayZoneMap, eventZone: localDeparture.timeZone, assignedDayId: selectedDay?.id }))?.date
+              ?? instantDateInTimeZone(effectiveStartsAt, localDeparture.timeZone)
+            : instantDateInTimeZone(effectiveStartsAt, timeZone)
           : selectedDay?.date;
-        const localDeparture = itineraryProposalLocalDate(patchValue, existingItem, timeZone ?? "UTC");
         if (relativeDate && (localDeparture.date ?? proposedDate) !== relativeDate) {
           throw new AppConflictError(
             `The AI resolved the relative date incorrectly. The requested date is ${relativeDate} in ${localDeparture.timeZone}; no change was applied.`,

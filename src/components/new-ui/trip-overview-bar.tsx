@@ -3,6 +3,7 @@
 import { CalendarDays } from "lucide-react";
 import { useEffect, useRef, useState, type TouchEvent } from "react";
 
+import { destinationsLabel } from "@/lib/app/trip-destinations";
 import { uiRefreshMessages } from "@/lib/app/ui-refresh-i18n";
 import { formatMessage, type Locale } from "@/lib/i18n";
 
@@ -48,7 +49,8 @@ export function dateRange(startsOn: string, endsOn: string, locale: Locale): str
   }
 }
 
-type TripSummary = { name: string; destinationName: string; startsOn: string; endsOn: string };
+/** `destinations`, when the trip has several, shows its route ("Tokyo → Osaka", JOB-098). */
+type TripSummary = { name: string; destinationName: string; startsOn: string; endsOn: string; destinations?: readonly { name: string }[] };
 type MemberSummary = { id: string; displayName: string; status: string };
 
 export function TripOverviewBarView({ trip, members, today, locale }: {
@@ -61,7 +63,7 @@ export function TripOverviewBarView({ trip, members, today, locale }: {
   const percent = progress?.state === "active" ? Math.round((progress.day / progress.total) * 100) : progress?.state === "past" ? 100 : 0;
   return <section className="new-trip-bar" data-trip-state={progress?.state ?? "unknown"}>
     <div className="new-trip-bar-main">
-      {trip.destinationName ? <p className="new-trip-bar-destination">{trip.destinationName}</p> : null}
+      {trip.destinationName ? <p className="new-trip-bar-destination">{destinationsLabel(trip.destinations, trip.destinationName)}</p> : null}
       <h2>{trip.name}</h2>
       {range || progress ? <p className="new-trip-bar-dates">
         <CalendarDays size={16} aria-hidden="true" />

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { CurrentDayGroups, DayAccordion } from "./current-day-groups";
 import { MemberPaymentCard } from "./member-payment-controls";
 import { groupExpenseDays, compareExpenseDayEntries } from "@/lib/app/expense-day-groups";
+import { moneyTimeZone } from "@/lib/app/trip-destinations";
 import { expensePageMessages } from "@/lib/app/expense-page-i18n";
 import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
 import { formatPaymentMoney } from "@/lib/app/member-payment-format";
@@ -44,7 +45,7 @@ function renderPage(locale: Locale, overview = fixture(), options: { today?: str
   const openPaymentAction = vi.fn(); const setPaymentDialogOpen = vi.fn();
   const expenseGroupsRef = { current: null };
   const bindings = {
-    createElement, groupExpenseDays, compareExpenseDayEntries, useMemo: (read: () => unknown) => read(), overview,
+    createElement, groupExpenseDays, compareExpenseDayEntries, moneyTimeZone, useMemo: (read: () => unknown) => read(), overview,
     locale, busy: options.busy ?? false, paymentCopy: memberPaymentMessages(locale), expensePageCopy: expensePageMessages(locale), messages: messages[locale],
     countLabel, formatMessage, formatMoney: formatPaymentMoney, CurrentDayGroups, DayAccordion, MemberPaymentCard, expenseGroupsRef,
     todayDate: options.today ?? "2030-04-02", dayGroupsScope: "synthetic-visit", Check, ChevronRight, PencilLine, Plus, X,

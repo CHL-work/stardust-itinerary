@@ -34,12 +34,15 @@ import {
 } from "@/lib/app/types";
 import {
   createTripSchema,
+  destinationsOutsideTrip,
   expensePatchSchema,
   itineraryPatchSchema,
   pendingItineraryEditSchema,
   tripSettingsSchema,
 } from "@/lib/app/validation";
 import { tripDateErrors } from "@/lib/app/trip-date-range";
+import { destinationOnDate, singleDestination, type TripDestination } from "@/lib/app/trip-destinations";
+import { readTripDestinations, replaceTripDestinations } from "@/lib/app/trip-destinations-store";
 import { readFlightDetails, type FlightChange, type FlightDetails } from "@/lib/app/flight";
 import { readEventTimeZones, resolveEventTimeZonesPatch, resolveLegacyFlightTimeZonesPatch, type EventTimeZones } from "@/lib/app/event-time-zone-contract";
 import type { FlightStatusDecision } from "@/lib/flights/status";
@@ -1252,6 +1255,7 @@ async function readAppOverviewSnapshot(
 
   const trip = tripResult.rows[0];
   if (!trip) throw new AppNotFoundError("Trip not found.");
+  const destinations = await readTripDestinations(client, session.tripId, { name: trip.destination_name, timeZone: trip.time_zone });
   const settings = settingsResult.rows[0] ?? {
     enabled: false,
     owner_default_model: DEFAULT_OWNER_MODEL,
@@ -1368,6 +1372,7 @@ async function readAppOverviewSnapshot(
       name: trip.name,
       destinationName: trip.destination_name,
       timeZone: trip.time_zone,
+      destinations,
       defaultLocale: trip.default_locale,
       defaultCurrency: trip.default_currency,
       startsOn: trip.starts_on,
@@ -1691,6 +1696,8 @@ export async function createTrip(
          FROM unnest($2::uuid[], $3::date[]) AS generated(id, day_date)`,
       [tripId, tripDates.map(() => randomUUID()), tripDates],
     );
+    const destinations = parsed.destinations ?? singleDestination(parsed.destinationName, parsed.timeZone);
+    await replaceTripDestinations(client, tripId, destinations);
     let destinationLookup: Record<string, unknown> | null = null;
     if (parsed.destinationLookupId) {
       const destination = normalizeDestination(parsed.destinationName);
@@ -1714,6 +1721,7 @@ export async function createTrip(
         name: parsed.name,
         destinationName: parsed.destinationName,
         timeZone: parsed.timeZone,
+        ...(destinations.length > 1 || destinations[0]?.startsOn ? { destinations } : {}),
         defaultLocale: parsed.defaultLocale,
         defaultCurrency: parsed.defaultCurrency,
         startsOn: parsed.startsOn,
@@ -1771,9 +1779,18 @@ export async function updateTripSettings(
     if (!before) throw new AppNotFoundError("Trip not found.");
     if (parsed.expectedStartsOn !== undefined && (parsed.expectedStartsOn !== before.starts_on
       || parsed.expectedEndsOn !== before.ends_on)) throw new AppConflictError(tripDateErrors.stale);
+    // The destination list names the trip (JOB-098): a lone name or zone edits its first destination.
+    const beforeDestinations = await readTripDestinations(client, tripId, { name: before.destination_name, timeZone: before.time_zone });
+    const firstBefore = beforeDestinations[0]!;
+    const nextDestinations: TripDestination[] = parsed.destinations
+      ?? (parsed.destinationName !== undefined || parsed.timeZone !== undefined
+        ? [{ ...firstBefore, name: parsed.destinationName ?? firstBefore.name, timeZone: parsed.timeZone ?? firstBefore.timeZone },
+          ...beforeDestinations.slice(1)]
+        : beforeDestinations);
+    const destinationsChanged = JSON.stringify(nextDestinations) !== JSON.stringify(beforeDestinations);
     const next = {
-      destinationName: parsed.destinationName ?? before.destination_name,
-      timeZone: parsed.timeZone ?? before.time_zone,
+      destinationName: nextDestinations[0]!.name,
+      timeZone: nextDestinations[0]!.timeZone,
       maxMembers: parsed.maxMembers ?? before.max_members,
       startsOn: parsed.startsOn ?? before.starts_on,
       endsOn: parsed.endsOn ?? before.ends_on,
@@ -1789,6 +1806,9 @@ export async function updateTripSettings(
     ) / 86_400_000;
     if (tripLengthDays > 365) {
       throw new AppConflictError(tripDateErrors.length);
+    }
+    if (destinationsOutsideTrip(nextDestinations, next.startsOn, next.endsOn).length) {
+      throw new AppConflictError(tripDateErrors.destination);
     }
     // A timezone-only edit and unchanged/expanded travel dates do not newly
     // invalidate old data. Contractions inspect private records without exposing
@@ -1844,6 +1864,7 @@ export async function updateTripSettings(
         WHERE id = $1`,
       [tripId, next.destinationName, next.timeZone, next.maxMembers, next.endsOn, next.startsOn],
     );
+    if (destinationsChanged) await replaceTripDestinations(client, tripId, nextDestinations);
     const tripDates: string[] = [];
     for (
       let value = Date.parse(`${next.startsOn}T00:00:00Z`);
@@ -1870,11 +1891,12 @@ export async function updateTripSettings(
       before: {
         destinationName: before.destination_name,
         timeZone: before.time_zone,
+        ...(destinationsChanged ? { destinations: beforeDestinations } : {}),
         maxMembers: before.max_members,
         startsOn: before.starts_on,
         endsOn: before.ends_on,
       },
-      after: next,
+      after: destinationsChanged ? { ...next, destinations: nextDestinations } : next,
     });
   });
 }
@@ -1889,18 +1911,27 @@ async function assertCurrentItineraryDates(
   current?: { tripDayId?: string; entityId: string },
 ): Promise<void> {
   const dayId = patch.tripDayId ?? current?.tripDayId;
+  // The trip opens at midnight where the travellers are on its first day and closes at midnight after its
+  // last day where they are then (JOB-098); with one destination both are the trip's zone, as before.
+  const tripRow = await client.query<{ starts_on: string; ends_on: string; time_zone: string; destination_name: string }>(
+    "SELECT starts_on::text, ends_on::text, time_zone, destination_name FROM trips WHERE id = $1", [tripId]);
+  const tripDates = tripRow.rows[0];
+  const destinations = tripDates
+    ? await readTripDestinations(client, tripId, { name: tripDates.destination_name, timeZone: tripDates.time_zone }) : [];
+  const startZone = tripDates ? destinationOnDate(destinations, tripDates.starts_on)?.timeZone ?? tripDates.time_zone : "UTC";
+  const endZone = tripDates ? destinationOnDate(destinations, tripDates.ends_on)?.timeZone ?? tripDates.time_zone : "UTC";
   const day = await client.query<{ dates_valid: boolean }>(
     `SELECT 1, ((COALESCE(original.trip_day_id = d.id, false) OR d.day_date BETWEEN t.starts_on AND t.ends_on)
         AND ($3::timestamptz IS NULL OR $3::timestamptz = original.starts_at
-          OR ($3::timestamptz >= t.starts_on::timestamp AT TIME ZONE t.time_zone
-            AND $3::timestamptz < (t.ends_on + 1)::timestamp AT TIME ZONE t.time_zone))
+          OR ($3::timestamptz >= t.starts_on::timestamp AT TIME ZONE $6
+            AND $3::timestamptz < (t.ends_on + 1)::timestamp AT TIME ZONE $7))
         AND ($4::timestamptz IS NULL OR $4::timestamptz = original.ends_at
-          OR ($4::timestamptz >= t.starts_on::timestamp AT TIME ZONE t.time_zone
-            AND $4::timestamptz <= (t.ends_on + 1)::timestamp AT TIME ZONE t.time_zone))) AS dates_valid
+          OR ($4::timestamptz >= t.starts_on::timestamp AT TIME ZONE $6
+            AND $4::timestamptz <= (t.ends_on + 1)::timestamp AT TIME ZONE $7))) AS dates_valid
        FROM trip_days d JOIN trips t ON t.id = d.trip_id
        LEFT JOIN itinerary_items original ON original.trip_id = d.trip_id AND original.id = $5
        WHERE d.trip_id = $1 AND d.id = $2`,
-    [tripId, dayId, patch.startsAt ?? null, patch.endsAt ?? null, current?.entityId ?? null],
+    [tripId, dayId, patch.startsAt ?? null, patch.endsAt ?? null, current?.entityId ?? null, startZone, endZone],
   );
   if (day.rowCount !== 1) throw new AppNotFoundError("Trip day not found.");
   if (day.rows[0]?.dates_valid !== true) throw new AppConflictError(tripDateErrors.event);

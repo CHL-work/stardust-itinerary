@@ -16,6 +16,7 @@ Every authenticated account currently eligible to create a trip may use this loo
 - Stale replies are discarded when destination or request generation changes. Replies contain labels for every locale; switching language renders the current locale without another costly lookup or stale-language prose. A lookup never submits the form or creates a trip. The final explicit Create action is still required.
 - The creation API requires explicit validated `timeZone` and `defaultCurrency`. Strict IANA validation rejects abbreviations/offsets such as `EST` and `GMT+9`, preserves recognized IANA aliases, and is scoped to creation rather than silently changing old Settings semantics.
 - Every UI language uses neutral transactional wording.
+- Further destinations (JOB-098) sit below the main one. Their zones are suggested offline from the place name, never by this lookup, and their dates are optional ([destinations](TRIP_DESTINATIONS.md)).
 
 ## Trust, privacy and accounting
 

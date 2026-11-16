@@ -125,6 +125,10 @@ describe("repayment entry and history presentation", () => {
     const all = elements(MemberPaymentHistory({ ...historyProps, payments }))
       .filter((element) => element.type === MemberPaymentCard);
     expect(all.map((card) => (card.props.payment as MemberPayment).id)).toEqual(["payment-a", "posted", "voided", "older"]);
+    // A trip with several clocks shows each repayment on its own day's clock (JOB-098).
+    const zoned = elements(MemberPaymentHistory({ ...historyProps, payments, timeZoneFor: (row) => row.id === "older" ? "America/New_York" : "Asia/Tokyo" }))
+      .filter((element) => element.type === MemberPaymentCard);
+    expect(zoned.map((card) => card.props.timeZone)).toEqual(["Asia/Tokyo", "Asia/Tokyo", "Asia/Tokyo", "America/New_York"]);
   });
   it("does not expose owner review to members or unsupported reversal capability", () => {
     const html = renderToStaticMarkup(createElement(MemberPaymentHistory, { ...historyProps, isOwner: false, payments: [{ ...payment, canVoid: false }] }));

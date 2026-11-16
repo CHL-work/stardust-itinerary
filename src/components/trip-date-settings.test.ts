@@ -6,8 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 import { reconcileTripSettingsDraft, TripSettingsCard, tripSettingsScope } from "./app-shell";
 import { tripDateErrors, validTripDateRange } from "@/lib/app/trip-date-range";
 import { formatMessage, locales, messages, type Locale } from "@/lib/i18n";
+import { destinationDraftProblem, destinationsFromDrafts } from "@/components/trip-destinations-editor";
+import { tripDestinationsMessages } from "@/lib/app/trip-destinations-i18n";
 
 const draft = () => ({ scope: "synthetic-trip:synthetic-member:synthetic-user", destinationName: "Synthetic city", timeZone: "Asia/Tokyo", maxMembers: "10",
+  destinations: [{ key: "synthetic-destination", name: "Synthetic city", timeZone: "Asia/Tokyo", startsOn: "", endsOn: "", zonePicked: true }],
   startsOn: "2030-04-01", endsOn: "2030-04-05", expectedStartsOn: "2030-04-01", expectedEndsOn: "2030-04-05" });
 const source = readFileSync("src/components/app-shell.tsx", "utf8");
 const tree = ts.createSourceFile("app-shell.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -24,7 +27,8 @@ function saveHarness(locale: Locale = "en", settings = draft(), owner = true) {
     tripSettings: settings, setTripSettings, tripSettingsScope, tripSettingsScopeRef: { current: draft().scope as string | null },
     tripSettingsSaving: { current: false }, jsonRequest: request, refresh, setNotice, setBusy,
     messages: messages[locale], locale, formatMessage, formatTripDay: (date: string) => date,
-    tripDateErrors, validTripDateRange, window: { confirm } };
+    tripDateErrors, validTripDateRange, window: { confirm },
+    tripDestinationsMessages, destinationDraftProblem, destinationsFromDrafts };
   const code = ts.transpileModule(`const save = ${save.initializer!.getText(tree)};`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const run = new Function(...Object.keys(bindings), `${code}; return save;`)(...Object.values(bindings)) as (event: { preventDefault: () => void }) => Promise<void>;
   return { run: () => run({ preventDefault: vi.fn() }), request, refresh, setNotice, setBusy, confirm, bindings, getSettings: () => settingsState };
@@ -74,9 +78,11 @@ describe("owner trip dates in everyday Settings", () => {
     await test.run();
     expect(test.confirm).toHaveBeenCalledOnce();
     for (const value of [settings.startsOn, settings.endsOn, settings.expectedStartsOn, settings.expectedEndsOn]) expect(test.confirm.mock.calls[0][0]).toContain(value);
-    const { scope, ...payload } = settings;
+    const { scope, destinations, ...payload } = settings;
     expect(scope).toBe(draft().scope);
-    expect(JSON.parse(test.request.mock.calls[0][1].body)).toEqual({ ...payload, maxMembers: 10 });
+    // The destination list names the trip (JOB-098): its first destination is the trip's name and zone.
+    expect(JSON.parse(test.request.mock.calls[0][1].body)).toEqual({ ...payload, maxMembers: 10,
+      destinations: [{ name: destinations[0]!.name, timeZone: destinations[0]!.timeZone, startsOn: null, endsOn: null }] });
     expect(test.refresh).toHaveBeenCalledOnce();
     expect(test.setNotice).toHaveBeenCalledWith(messages[locale].tripSettingsSaved);
     expect(test.bindings.tripSettingsSaving.current).toBe(false);
@@ -151,7 +157,9 @@ describe("owner trip dates in everyday Settings", () => {
       { ...overview, session: { ...overview.session, userId: "other-user" } },
     ]) expect(reconcileTripSettingsDraft(current, changed, false)).toEqual({ scope: tripSettingsScope(changed),
       destinationName: "Server city", timeZone: "UTC", maxMembers: "8", startsOn: "2030-04-01", endsOn: "2030-04-05",
-      expectedStartsOn: "2030-04-01", expectedEndsOn: "2030-04-05" });
+      expectedStartsOn: "2030-04-01", expectedEndsOn: "2030-04-05",
+      // A trip without a stored list edits its one destination (JOB-098).
+      destinations: [expect.objectContaining({ name: "Server city", timeZone: "UTC", startsOn: "", endsOn: "", zonePicked: true })] });
     expect(reconcileTripSettingsDraft(current, { ...overview, session: { ...overview.session, isOwner: false } }, false)).toBeNull();
     expect(reconcileTripSettingsDraft(current, overview, true)?.startsOn).toBe(overview.trip.startsOn);
     expect(source).toContain("setTripSettings((current) => reconcileTripSettingsDraft(current, data, syncDrafts))");

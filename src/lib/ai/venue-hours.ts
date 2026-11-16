@@ -29,7 +29,8 @@ function localDate(instant: string, timeZone: string): string | null {
 }
 export type VenueHoursContext = {
   timeZone: string;
-  days: readonly { id: string; date: string }[];
+  /** On a multi-zone trip, each day may carry its own zone (JOB-098). */
+  days: readonly { id: string; date: string; timeZone?: string }[];
   itinerary: readonly (EventState & { id: string })[];
   pendingItinerary: readonly { requestId: string; patch: EventState }[];
 };
@@ -51,7 +52,8 @@ export function venueHoursCandidates(prepared: readonly Prepared[], context: Ven
     // A multi-night hotel stay is not a restaurant visit; check-in rules need a different contract.
     if (!effective.locationName?.trim() || !["meal", "activity"].includes(effective.itemType ?? "")) continue;
     const timeZone = resolveEventTimeZones({ ...effective, itemType: effective.itemType ?? "activity",
-      timeZones: resolveEventTimeZonesPatch(patch, base) }, context.timeZone).departureTimeZone;
+      timeZones: resolveEventTimeZonesPatch(patch, base) }, context.timeZone,
+    context.days.find((day) => day.id === effective.tripDayId)?.timeZone).departureTimeZone;
     const startsAt = effective.startsAt ?? null;
     const date = startsAt ? localDate(startsAt, timeZone)
       : context.days.find((day) => day.id === effective.tripDayId)?.date ?? null;

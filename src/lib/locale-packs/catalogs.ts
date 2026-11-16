@@ -26,6 +26,7 @@ import { memberPaymentMessages } from "@/lib/app/member-payment-i18n";
 import { mobileCardsMessages } from "@/lib/app/mobile-cards-i18n";
 import { commonTimeZoneLabels } from "@/lib/app/trip-creation-options";
 import { tripDeletionMessages } from "@/lib/app/trip-deletion-i18n";
+import { tripDestinationsMessages } from "@/lib/app/trip-destinations-i18n";
 import { uiRefreshMessages } from "@/lib/app/ui-refresh-i18n";
 import { calendarImportMessages } from "@/lib/calendar/import-i18n";
 import { expenseSummaryCopy } from "@/lib/expense-copy";
@@ -75,6 +76,7 @@ export const packCatalogs: Record<string, unknown> = {
   reservationClarification: reservationClarificationMessages.en,
   reservationReview: { notice: reservationExpenseReviewNotice("en") },
   tripDeletion: tripDeletionMessages("en"),
+  tripDestinations: tripDestinationsMessages("en"),
   tripTimeZones: commonTimeZoneLabels.en,
   uiRefresh: uiRefreshMessages("en"),
   venueHours: venueHoursMessages.en,

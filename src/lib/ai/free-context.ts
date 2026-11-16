@@ -89,11 +89,13 @@ export function safeFreePlanningContext(context: unknown, prompt: string): DataR
       ? member.displayName : `Member ${index + 1}`,
   }));
 
+  // Destinations are trip-wide planning facts (JOB-098): names, zones and dates only.
+  const destinations = rows(record(source.trip).destinations).map((destination) => scalarFields(destination, ["name", "timeZone", "startsOn", "endsOn"]));
   return {
-    trip: scalarFields(record(source.trip), tripFields),
+    trip: { ...scalarFields(record(source.trip), tripFields), ...(destinations.length ? { destinations } : {}) },
     actor: source.actor === null ? null : scalarFields(record(source.actor), ["memberId", "role"]),
     currentTime: scalarFields(record(source.currentTime), timeFields),
-    days: rows(source.days).map((day) => scalarFields(day, ["id", "date"])),
+    days: rows(source.days).map((day) => scalarFields(day, ["id", "date", "destination", "timeZone"])),
     audienceDirectory,
     itinerary,
     pendingItinerary,

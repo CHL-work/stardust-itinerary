@@ -7,9 +7,10 @@ import type { Locale } from "@/lib/i18n";
  * A time on the clock of the place it happens, with no zone name such as "GMT+9" (JOB-097, D-109): the airport
  * or place shown beside it says where. A local date that differs from the trip date is shown with it.
  */
-function formatZonedTime(at: string | null, locale: Locale, tripZone: string, zone: string, includeDate: boolean): string {
+function formatZonedTime(at: string | null, locale: Locale, tripZone: string, zone: string, includeDate: boolean, dayDate?: string): string {
   if (!at) return "";
-  const localDateDiffers = tripLocalDateKey(at, zone) !== tripLocalDateKey(at, tripZone);
+  // On a trip whose days have their own zones (JOB-098), compare with the date of the day it is listed under.
+  const localDateDiffers = tripLocalDateKey(at, zone) !== (dayDate ?? tripLocalDateKey(at, tripZone));
   return new Intl.DateTimeFormat(locale === "zh-HK-lihkg" ? "zh-HK" : locale, {
     timeZone: zone, hour: "2-digit", minute: "2-digit",
     ...(includeDate || localDateDiffers ? { month: "short" as const, day: "numeric" as const } : {}),
@@ -22,14 +23,17 @@ export function formatTimelinePointTime(
 ): string {
   const zones = resolveEventTimeZones(point.item, tripZone);
   const zone = point.timeZone ?? (point.kind === "arrival" ? zones.arrivalTimeZone : zones.departureTimeZone);
-  return formatZonedTime(point.at, locale, tripZone, zone, includeDate);
+  return formatZonedTime(point.at, locale, tripZone, zone, includeDate, point.dayDate);
 }
 
-/** Use for check-in/out, linked-event selectors and other views without a timeline point. */
+/**
+ * Use for check-in/out, linked-event selectors and other views without a timeline point. `dayTimeZone` is the
+ * zone of the destination for the event's day (JOB-098), used when the event has no place evidence.
+ */
 export function formatEventLocalTime(
   item: Parameters<typeof resolveEventTimeZones>[0], at: string | null, locale: Locale, tripZone: string,
-  endpoint: "start" | "end" = "start", includeDate = false,
+  endpoint: "start" | "end" = "start", includeDate = false, dayTimeZone?: string | null,
 ): string {
-  const zones = resolveEventTimeZones(item, tripZone);
+  const zones = resolveEventTimeZones(item, tripZone, dayTimeZone);
   return formatZonedTime(at, locale, tripZone, endpoint === "end" ? zones.arrivalTimeZone : zones.departureTimeZone, includeDate);
 }

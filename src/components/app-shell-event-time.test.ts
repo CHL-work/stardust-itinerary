@@ -12,6 +12,7 @@ import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { eventExpenseTimeFromStart, eventTimeInputsFromInstants, rebaseFlightTimeInputs } from "@/lib/app/flight-editor-time";
 import { isoToWallTime, wallTimeToIso, ZonedEventTimeError } from "@/lib/app/zoned-event-time";
 import { tripLocalDateKey } from "@/lib/app/day-view";
+import { moneyTimeZone, tripDayIdForInstant, tripDayZones } from "@/lib/app/trip-destinations";
 import * as splitHelpers from "@/lib/app/expense-split-editor";
 import { expenseAmountInput } from "@/lib/app/expense-currency";
 import { parseExpenseAmount } from "@/lib/app/expense-entry";
@@ -66,7 +67,10 @@ type Draft = {
 } & Record<string, unknown>;
 const flightHelpers = evaluate<Record<string, unknown>>(["flightDraft", "flightFromDraft", "flightTimeSource"].map(declaration).join("\n"),
   "({flightDraft, flightFromDraft, flightTimeSource})", { normalizeFlightNumber });
+// Each day's destination zone (JOB-098); the synthetic trips here have one destination.
+const dayZoneHelpers = evaluate<Record<string, unknown>>(declaration("overviewDayZone"), "({overviewDayZone})", { tripDayZones });
 const baseBindings = { ...expenseHelpers, ...splitHelpers, expenseAmountInput, parseExpenseAmount, ...timing, overview, messages: messages.en,
+  ...dayZoneHelpers, tripDayZones, tripDayIdForInstant, moneyTimeZone,
   eventEditorCopy: eventEditorMessages("en"), eventEditorFailureMessage, addMinutesToWallTime, minutesBetweenWallTimes,
   ...flightHelpers, normalizeFlightNumber, isFlightNumber, flightMessages, resolveEventTimeZones,
   eventExpenseTimeFromStart, eventTimeInputsFromInstants, rebaseFlightTimeInputs, isoToWallTime, wallTimeToIso, ZonedEventTimeError, tripLocalDateKey, locale: "en" };
@@ -78,6 +82,7 @@ function editor(initial: Draft | null = null, context = overview) {
   const bindings = (): Record<string, unknown> => ({ ...baseBindings, overview: context, eventDraft: draft, eventSaveInFlight, setEventDraft, setEventSaveError,
     setEditingItem: vi.fn(), setBusy: vi.fn(), setNotice: vi.fn(), setPendingEventLoadingId: vi.fn(),
     pickCurrentTripDay: () => context.days[0],
+    pickTripToday: () => context.days[0],
     updateEventIdentity: (next: Draft, clearInvalidTimes = false) => closure<(next: Draft, clearInvalidTimes: boolean) => void>("updateEventIdentity", bindings())(next, clearInvalidTimes) });
   const update = (name: string, value: string, preferredInstant?: string) => closure<(value: string, preferredInstant?: string) => void>(name, bindings())(value, preferredInstant);
   return {

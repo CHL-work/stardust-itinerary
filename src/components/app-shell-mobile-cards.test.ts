@@ -10,6 +10,7 @@ import { ExpenseDisplayCard } from "@/components/expense-display-card";
 import { expensePageMessages } from "@/lib/app/expense-page-i18n";
 import { mobileCardsMessages } from "@/lib/app/mobile-cards-i18n";
 import { projectTimelinePoints } from "@/lib/app/timeline";
+import { moneyTimeZone } from "@/lib/app/trip-destinations";
 import { projectPersonalCalendarEvents } from "@/lib/calendar/timeline";
 import { calendarImportMessages } from "@/lib/calendar/import-i18n";
 import type { PendingExpenseProjection, PendingItineraryProjection } from "@/lib/app/types";
@@ -257,7 +258,7 @@ describe("expense card action cleanup", () => {
         const expense = { ...pendingExpense, id: "synthetic-linked-bill", currentRevision: 6, status };
         const openExpense = vi.fn(); const reviewExpenseDraft = vi.fn();
         const copy = expensePageMessages(locale);
-        const bindings = { createElement, Fragment, ExpenseDisplayCard, PencilLine, Check, X, Plus, expense, locale,
+        const bindings = { createElement, Fragment, ExpenseDisplayCard, PencilLine, Check, X, Plus, expense, locale, moneyTimeZone,
           overview: { session: { memberId: "synthetic-member", isOwner }, trip: { timeZone: "Asia/Tokyo" },
             permissions: { canEditExpenses: true }, itinerary: [item] },
           busy: false, expensePageCopy: copy, messages: messages[locale], openExpense, reviewExpenseDraft };

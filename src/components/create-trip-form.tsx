@@ -13,6 +13,7 @@ import { infoTipLabel } from "@/lib/app/info-tip-i18n";
 import { createTripCopy } from "@/lib/app/create-trip-i18n";
 import { InfoTip } from "@/components/info-tip";
 import { GuestSignIn } from "@/components/guest-sign-in";
+import { destinationDraftProblem, destinationsFromDrafts, TripDestinationsEditor, type TripDestinationDraft } from "@/components/trip-destinations-editor";
 import { guestMessages } from "@/lib/app/guest-i18n";
 
 export { createTripCopy } from "@/lib/app/create-trip-i18n";
@@ -33,6 +34,9 @@ export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,
   const [allZones,setAllZones] = useState(false);
   const initialToday = tripCreationLocalDate(now,"Asia/Tokyo");
   const [startsOn,setStartsOn] = useState(initialToday);
+  const [endsOn,setEndsOn] = useState(initialToday);
+  // Row 0 is the destination above (its place and zone come from those fields); more rows are optional (JOB-098).
+  const [destinations,setDestinations] = useState<TripDestinationDraft[]>(() => [{key:"main",name:"",timeZone:"",startsOn:"",endsOn:"",zonePicked:true}]);
   const inFlight = useRef(false);
   const router = useRouter();
   const copy = createTripCopy(locale);
@@ -125,12 +129,19 @@ export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,
       const result:TripCreationFailure = {kind:"fields",fields:[!stateRef.current.zone || stateRef.current.currency ? "timeZone" : "defaultCurrency"]};
       setFailure(result); focusFailure(form,result); return;
     }
+    const rows = destinations.map((row,index) => index === 0 ? {...row,name:String(data.get("destinationName") ?? ""),timeZone:stateRef.current.zone} : row);
+    if (rows.slice(1).some((row) => !row.name.trim() || !row.timeZone) || destinationDraftProblem(rows,startsOn,endsOn)) {
+      setFailure({kind:"invalid"}); return;
+    }
+    const destinationList = destinationsFromDrafts(rows);
+    const sendDestinations = destinationList.length > 1 || Boolean(destinationList[0]?.startsOn);
     inFlight.current = true;
     setBusy(true); setFailure(null);
     const result = await submitTripCreation({ name:data.get("name"),destinationName:data.get("destinationName"),
           startsOn:data.get("startsOn"),endsOn:data.get("endsOn"),timeZone:data.get("timeZone"),
           defaultCurrency:data.get("defaultCurrency"),maxMembers:guest ? 1 : Number(data.get("maxMembers")),defaultLocale:locale,
-          ...(stateRef.current.lookupId ? {destinationLookupId:stateRef.current.lookupId} : {}) },stateRef.current);
+          ...(stateRef.current.lookupId ? {destinationLookupId:stateRef.current.lookupId} : {}),
+          ...(sendDestinations ? {destinations:destinationList} : {}) },stateRef.current);
     if (result) { setFailure(result); setBusy(false); inFlight.current = false; focusFailure(form,result); return; }
     lookupAbort.current?.abort();
     router.push(`/${locale}`);
@@ -166,7 +177,10 @@ export function CreateTripForm({ locale,now,options,authenticated,signupEnabled,
           </details>
         </section>
         <label>{copy.start}<input name="startsOn" type="date" required value={startsOn} onChange={(event) => setStartsOn(event.target.value)} {...fieldProps("startsOn")}/>{fieldError("startsOn")}</label>
-        <label>{copy.end}<input name="endsOn" type="date" required min={startsOn > today ? startsOn : today} defaultValue={initialToday} {...fieldProps("endsOn")}/>{fieldError("endsOn")}</label>
+        <label>{copy.end}<input name="endsOn" type="date" required min={startsOn > today ? startsOn : today} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} {...fieldProps("endsOn")}/>{fieldError("endsOn")}</label>
+        <TripDestinationsEditor drafts={destinations.map((row,index) => index === 0 ? {...row,name:state.destination,timeZone:state.zone} : row)}
+          onChange={setDestinations} locale={locale} zoneOptions={options.timeZones} tripStartsOn={startsOn} tripEndsOn={endsOn}
+          fixedFirst={{name:state.destination.trim(),zoneLabel:state.zone ? zoneLabel : ""}} disabled={busy}/>
         <label>{copy.currency}<select name="defaultCurrency" required value={state.currency} onChange={(event) => send({type:"currencyChosen",value:event.target.value})} {...fieldProps("defaultCurrency")}>
           <option value="">{copy.zoneChoose}</option>
           {options.currencies.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

@@ -1504,6 +1504,23 @@
     "stale": "Este viaje o tu acceso cambiaron. Vuelve a revisar la eliminación.",
     "deleted": "Se eliminó el viaje. Ahora ves tu siguiente viaje."
   },
+  "tripDestinations": {
+    "title": "Destinos",
+    "hint": "Añade cada lugar y, si los sabes, los días que estarás allí.",
+    "help": "El primer destino da nombre al viaje. En los días que fijes para un lugar, los eventos sin ubicación propia usan su hora, y la IA planifica esos días allí.",
+    "place": "Lugar",
+    "timeZone": "Zona horaria",
+    "from": "Desde",
+    "to": "Hasta",
+    "dates": "Días allí (opcional)",
+    "add": "Añadir un destino",
+    "remove": "Quitar",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "datesOutside": "Las fechas de cada destino deben estar dentro de las fechas del viaje.",
+    "datesIncomplete": "Indica las dos fechas de un destino, o ninguna.",
+    "limit": "Hasta 12 destinos."
+  },
   "tripTimeZones": {
     "America/Chicago": "Dallas / Centro de EE. UU.",
     "Asia/Tokyo": "Japón / Tokio",

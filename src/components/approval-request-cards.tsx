@@ -4,6 +4,7 @@ import { CalendarDays, Check, Clock3, Lock, MapPin, ReceiptText, X } from "lucid
 import { EventTypeIcon } from "@/components/event-type-icon";
 import { flightMessages } from "@/lib/app/flight-i18n";
 import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
+import { destinationOnDate, moneyTimeZone, type TripDestination } from "@/lib/app/trip-destinations";
 import { approvalMessages, type ApprovalMessages } from "@/lib/app/approval-i18n";
 import type { ApprovalEventDisplay, ApprovalExpenseDisplay } from "@/lib/app/approval-presentation-types";
 import type { ApprovalRequest } from "@/lib/app/types";
@@ -41,25 +42,29 @@ function labelEventType(type: ApprovalEventDisplay["itemType"], messages: Messag
   return type === "meal" ? messages.eventTypeMeal : type === "lodging" ? messages.eventTypeLodging : type === "transport" ? messages.eventTypeTransport : type === "note" ? messages.eventTypeNote : messages.eventTypeActivity;
 }
 
-export function ApprovalExpenseSummary({ expense, locale, timeZone, copy, messages, pending, linked = false }: {
-  expense: ApprovalExpenseDisplay; locale: Locale; timeZone: string; copy: ApprovalMessages; messages: Messages; pending: boolean; linked?: boolean;
+export function ApprovalExpenseSummary({ expense, locale, timeZone, destinations, copy, messages, pending, linked = false }: {
+  expense: ApprovalExpenseDisplay; locale: Locale; timeZone: string; destinations?: readonly TripDestination[] | null;
+  copy: ApprovalMessages; messages: Messages; pending: boolean; linked?: boolean;
 }) {
   return <section className="approval-expense-summary" aria-label={linked ? copy.linkedExpense : copy.expense}>
     <div className="approval-expense-heading"><div><small><ReceiptText size={15} aria-hidden="true" />{linked ? copy.linkedExpense : copy.expense}</small><h4>{expense.description}</h4></div>
       <div className="approval-expense-total"><small>{copy.total}</small><strong>{approvalMoney(expense.amountMinor, expense.currency, locale)}</strong></div></div>
     <p><strong>{copy.payer}:</strong> {expense.payerName ?? copy.memberUnavailable}</p>
-    <p><Clock3 size={14} aria-hidden="true" />{dateTime(expense.occurredAt, locale, timeZone, copy.untimed)}</p>
+    <p><Clock3 size={14} aria-hidden="true" />{dateTime(expense.occurredAt, locale, expense.occurredAt ? moneyTimeZone({ timeZone, destinations }, expense.occurredAt) : timeZone, copy.untimed)}</p>
     {expense.hasLinkedEvent ? <p>{copy.linkedEvent}</p> : null}
     <dl className="approval-expense-shares" aria-label={copy.shares}>{expense.splits.map((split, index) => <div key={index}><dt>{split.memberName ?? copy.memberUnavailable}</dt><dd>{approvalMoney(split.shareMinor, expense.currency, locale)}</dd></div>)}</dl>
     {pending ? <p className="approval-muted">{messages.pendingExpenseNotIncluded}</p> : null}
   </section>;
 }
 
-function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending }: {
-  event: ApprovalEventDisplay; locale: Locale; timeZone: string; copy: ApprovalMessages; messages: Messages; pending: boolean;
+function ApprovalEventSummary({ event, locale, timeZone, destinations, copy, messages, pending }: {
+  event: ApprovalEventDisplay; locale: Locale; timeZone: string; destinations?: readonly TripDestination[] | null;
+  copy: ApprovalMessages; messages: Messages; pending: boolean;
 }) {
+  // Without place evidence, an event is on the clock of the destination for its day (JOB-098).
   const flight = resolveEventTimeZones({ ...event,
-    flightPresentation: event.flightPresentation ?? (event.isFlight ? { isFlight: true } : undefined) }, timeZone);
+    flightPresentation: event.flightPresentation ?? (event.isFlight ? { isFlight: true } : undefined) }, timeZone,
+    event.dayDate ? destinationOnDate(destinations, event.dayDate)?.timeZone : null);
   const endpoints = event.itemType === "transport" ? [
     event.departureLocationName ? { kind: "departure" as const, label: copy.departure, name: event.departureLocationName, map: event.departureMapUrl, at: event.startsAt, zone: flight.departureTimeZone } : null,
     event.destinationLocationName ? { kind: "arrival" as const, label: copy.arrival, name: event.destinationLocationName, map: event.destinationMapUrl, at: event.endsAt, zone: flight.arrivalTimeZone } : null,
@@ -79,12 +84,14 @@ function ApprovalEventSummary({ event, locale, timeZone, copy, messages, pending
     </>}
     {event.visibility === "private" ? <p className="approval-event-audience"><strong>{copy.audience}:</strong> {event.audienceNames.map((name) => name ?? copy.memberUnavailable).join(" · ")}</p> : null}
     {event.notes ? <div className="approval-event-notes"><strong>{copy.notes}</strong><p>{event.notes}</p></div> : null}
-    {event.linkedExpense ? <ApprovalExpenseSummary expense={event.linkedExpense} locale={locale} timeZone={timeZone} copy={copy} messages={messages} pending={pending} linked /> : null}
+    {event.linkedExpense ? <ApprovalExpenseSummary expense={event.linkedExpense} locale={locale} timeZone={timeZone} destinations={destinations} copy={copy} messages={messages} pending={pending} linked /> : null}
   </>;
 }
 
-export function ApprovalRequestCards({ requests, locale, messages, timeZone = "Asia/Tokyo", busy, review, readOnly = false }: {
-  requests: ApprovalRequest[]; locale: Locale; messages: Messages; timeZone?: string; busy: boolean;
+export function ApprovalRequestCards({ requests, locale, messages, timeZone = "Asia/Tokyo", destinations, busy, review, readOnly = false }: {
+  requests: ApprovalRequest[]; locale: Locale; messages: Messages; timeZone?: string;
+  /** The trip's destinations (JOB-098), for events without place evidence. */
+  destinations?: readonly TripDestination[] | null; busy: boolean;
   review: (requestId: string, decision: "approve" | "reject", proposalRevision: number) => void;
   readOnly?: boolean;
 }) {
@@ -104,8 +111,8 @@ export function ApprovalRequestCards({ requests, locale, messages, timeZone = "A
     const source = request.source === "ai" ? copy.ai : request.source === "owner" ? copy.owner : request.source === "member" ? copy.member : request.source === "import" ? copy.import : copy.change;
     return <article className={`approval-review-card approval-review-${request.status}`} key={request.id}>
       <header><div className="approval-review-status"><span className={`status-tag status-${request.status}`}>{labelStatus(request.status, messages)}</span><span>{labelOperation(request.operation, copy)} · {request.entityType === "expense" ? copy.expense : copy.event}</span></div><h3>{title}</h3></header>
-      {display.kind === "itinerary" ? <ApprovalEventSummary event={display.event} locale={locale} timeZone={timeZone} copy={copy} messages={messages} pending={request.status !== "approved"} />
-        : display.kind === "expense" ? <ApprovalExpenseSummary expense={display.expense} locale={locale} timeZone={timeZone} copy={copy} messages={messages} pending={request.status !== "approved"} />
+      {display.kind === "itinerary" ? <ApprovalEventSummary event={display.event} locale={locale} timeZone={timeZone} destinations={destinations} copy={copy} messages={messages} pending={request.status !== "approved"} />
+        : display.kind === "expense" ? <ApprovalExpenseSummary expense={display.expense} locale={locale} timeZone={timeZone} destinations={destinations} copy={copy} messages={messages} pending={request.status !== "approved"} />
           : <p className="approval-review-warning">{copy.unavailable}</p>}
       {blocked ? <p className="approval-review-warning">{copy.memberRemoved}</p> : null}
       <div className="approval-review-meta"><p>{request.requestedByName} · {copy.source}: {source}</p>

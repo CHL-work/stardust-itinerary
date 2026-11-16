@@ -379,6 +379,8 @@ export type ChangeRequestInput = {
 export type TripSettingsInput = {
   destinationName?: string;
   timeZone?: string;
+  /** The whole destination list, in order (JOB-098); the first is the trip's name and zone. */
+  destinations?: import("@/lib/app/trip-destinations").TripDestination[];
   maxMembers?: number;
   startsOn?: string;
   endsOn?: string;
@@ -396,4 +398,6 @@ export type CreateTripInput = {
   startsOn: string;
   endsOn: string;
   maxMembers: number;
+  /** Optional full list in order (JOB-098); the first must be `destinationName` in `timeZone`. */
+  destinations?: import("@/lib/app/trip-destinations").TripDestination[];
 };

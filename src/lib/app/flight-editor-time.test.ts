@@ -124,6 +124,13 @@ describe("rebasing only the editor's clock representation", () => {
       expect(input.startsAt).toBe(startsAt);
     }
   });
+  it("puts a linked bill on its day's clock on a trip with several (JOB-098)", () => {
+    const destinations = [{ name: "Tokyo", timeZone: "Asia/Tokyo", startsOn: "2026-11-08", endsOn: "2026-11-11" },
+      { name: "New York", timeZone: "America/New_York", startsOn: "2026-11-11", endsOn: "2026-11-14" }];
+    const dinner = { startsAt: "2026-11-13T20:00", endsAt: "" };
+    expect(eventExpenseTimeFromStart(dinner, { itemType: "meal" }, "Asia/Tokyo", "America/New_York", destinations)).toBe("2026-11-13T20:00");
+    expect(eventExpenseTimeFromStart(dinner, { itemType: "meal" }, "Asia/Tokyo", "America/New_York")).toBe("2026-11-14T10:00");
+  });
   it("clears an unresolved arrival without losing a valid selected departure occurrence", () => {
     const before = { ...flight, flight: { flightNumber: "AA123", departureTimeZone: "America/New_York", arrivalTimeZone: "America/New_York" } };
     const after = { ...before, flight: { flightNumber: "AA123", departureTimeZone: "UTC", arrivalTimeZone: "UTC" } };

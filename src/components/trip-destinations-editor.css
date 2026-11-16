@@ -1,0 +1,82 @@
+/* The trip's destinations (JOB-098): one bordered card per place, dates side by side, actions in a row. */
+.trip-destinations {
+  display: grid;
+  gap: var(--space-3, 0.75rem);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.trip-destinations legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  margin-bottom: var(--space-2, 0.5rem);
+  padding: 0;
+  font-weight: 600;
+}
+
+.trip-destinations-hint {
+  margin: 0;
+  color: var(--muted, #5f5a6b);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.trip-destination-list {
+  display: grid;
+  gap: var(--space-3, 0.75rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-destination {
+  display: grid;
+  gap: var(--space-2, 0.5rem);
+  min-width: 0;
+  padding: var(--space-3, 0.75rem);
+  border: 1px solid var(--line, #d9d4e3);
+  border-radius: var(--radius-md, 12px);
+}
+
+.trip-destination label {
+  display: grid;
+  gap: var(--space-1, 0.25rem);
+  min-width: 0;
+}
+
+.trip-destination select,
+.trip-destination input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.trip-destination-fixed {
+  margin: 0;
+}
+
+.trip-destination-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2, 0.5rem);
+}
+
+.trip-destination-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem);
+}
+
+.trip-destination-actions button,
+.trip-destination-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 0.25rem);
+}
+
+.trip-destinations-error {
+  margin: 0;
+  color: var(--rose, #b4233f);
+}

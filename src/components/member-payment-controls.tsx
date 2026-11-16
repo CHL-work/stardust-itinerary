@@ -95,14 +95,16 @@ export function MemberPaymentCard({ payment, locale, timeZone, busy, isOwner, ac
     </article>;
 }
 
-export function MemberPaymentHistory({ payments, locale, timeZone, busy, isOwner, reviewOnly = false, act }: {
+export function MemberPaymentHistory({ payments, locale, timeZone, timeZoneFor, busy, isOwner, reviewOnly = false, act }: {
   payments: readonly MemberPayment[]; locale: Locale; timeZone: string; busy: boolean; isOwner: boolean;
+  /** A repayment's own day clock on a trip with several (JOB-098); otherwise `timeZone`. */
+  timeZoneFor?: (payment: MemberPayment) => string;
   reviewOnly?: boolean; act: (payment: MemberPayment, action: PaymentAction) => void;
 }) {
   const copy = memberPaymentMessages(locale);
   const rows = payments.filter((payment) => !reviewOnly || payment.status === "pending" || payment.status === "rejected")
     .slice().sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
-  const content = <div className={styles.rows}>{!rows.length ? <p className={styles.hint}>{reviewOnly ? copy.reviewEmpty : copy.empty}</p> : rows.map((payment) => <MemberPaymentCard key={payment.id} payment={payment} locale={locale} timeZone={timeZone} busy={busy} isOwner={isOwner} act={act} />)}</div>;
+  const content = <div className={styles.rows}>{!rows.length ? <p className={styles.hint}>{reviewOnly ? copy.reviewEmpty : copy.empty}</p> : rows.map((payment) => <MemberPaymentCard key={payment.id} payment={payment} locale={locale} timeZone={timeZoneFor?.(payment) ?? timeZone} busy={busy} isOwner={isOwner} act={act} />)}</div>;
   return reviewOnly ? <section className={styles.history} aria-label={copy.reviewTitle}><h3>{copy.reviewTitle}</h3>{content}</section>
     : <details className={styles.history}><summary><strong>{copy.history}</strong><span className={styles.hint}>{countLabel(rows.length, copy.historyCountOne, copy.historyCount, { pending: rows.filter((payment) => payment.status === "pending").length })}</span></summary>{content}</details>;
 }
