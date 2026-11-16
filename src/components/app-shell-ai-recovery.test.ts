@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { aiRecoveryReply, aiRecoveryStatusMessage } from "@/components/app-shell";
+import { aiRecoveryReply, aiRecoveryStatusMessage, aiRequestFailureMessage, JsonRequestError } from "@/components/app-shell";
 import type { AiRecoveryState } from "@/lib/ai/request-recovery-client";
 import { locales, messages } from "@/lib/i18n";
 import { aiImageMessages } from "@/lib/ai/image-i18n";
@@ -35,6 +35,21 @@ describe("AI mobile recovery language", () => {
       .toBe(messages[locale].aiRequestInterrupted);
     expect(aiRecoveryReply({ ...idle, request: { ...request, errorCode: "SecretProviderDiagnostic" } }, messages[locale]))
       .toBe(messages[locale].aiRequestFailed);
+  });
+
+  it.each(locales)("says in %s that a date is outside the trip, live or after reconnecting (JOB-100)", (locale) => {
+    const copy = messages[locale];
+    expect(copy.aiOutsideTrip).toBeTruthy();
+    const conflict = new JsonRequestError("The event dates must be within the current trip dates.", 409, "TRIP_DATES_OUTSIDE");
+    expect(aiRequestFailureMessage(conflict, copy)).toBe(copy.aiOutsideTrip);
+    const planner = new JsonRequestError("AI proposal 2 references a day outside this trip.", 409, "TRIP_DATES_OUTSIDE");
+    expect(aiRequestFailureMessage(planner, copy)).toBe(copy.aiOutsideTrip);
+    const request = {
+      requestId: "synthetic", clientRequestId: null, conversationId: "synthetic-conversation", status: "failed" as const,
+      createdAt: "2030-04-01T00:00:00Z", completedAt: null, errorCode: "TRIP_DATES_OUTSIDE", message: "Raw diagnostic", result: null,
+    };
+    expect(aiRecoveryReply({ ...idle, request }, copy)).toBe(copy.aiOutsideTrip);
+    if (locale !== "en") expect(copy.aiOutsideTrip).not.toBe(messages.en.aiOutsideTrip);
   });
 
   it("restores a legacy saved answer without inventing quota or memory metadata", () => {

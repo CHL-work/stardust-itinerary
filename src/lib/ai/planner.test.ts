@@ -84,7 +84,11 @@ vi.mock("@/lib/ai/linked-pages", async (importOriginal) => ({
 }));
 
 vi.mock("@/lib/app/repository", () => {
-  class AppConflictError extends Error {}
+  class AppConflictError extends Error {
+    constructor(message?: string, readonly code?: string) {
+      super(message);
+    }
+  }
   class AiPolicyDeniedError extends Error {
     constructor(
       message: string,
@@ -696,6 +700,15 @@ describe("AI planner live-search and approval policy", () => {
       const failed = mocks.query.mock.calls.find(([sql]) => String(sql).includes("'request.failed'"));
       expect(JSON.parse(String(failed?.[1]?.[3]))).toEqual({ errorCode: "Error" });
       expect(JSON.stringify(mocks.query.mock.calls)).not.toContain("PRIVATE raw");
+    });
+    it("records a change outside the trip with a reason the browser can explain (JOB-100)", async () => {
+      mocks.runCodex.mockResolvedValueOnce(reservationReply(hoursPatch({ startsAt: "2026-09-08T06:00:00.000Z", endsAt: "2026-09-08T07:00:00.000Z" })));
+      await expect(runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, hoursRequest))
+        .rejects.toMatchObject({ code: "TRIP_DATES_OUTSIDE", message: "2026-09-08 is outside this trip; no change was applied." });
+      const failed = mocks.query.mock.calls.find(([sql]) => String(sql).includes("'request.failed'"));
+      expect(JSON.parse(String(failed?.[1]?.[3]))).toEqual({ errorCode: "TRIP_DATES_OUTSIDE" });
+      expect(mocks.createChangeRequestsAtomically).not.toHaveBeenCalled();
+      expect(mocks.createChangeRequest).not.toHaveBeenCalled();
     });
   });
 

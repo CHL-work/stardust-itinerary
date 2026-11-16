@@ -19,7 +19,7 @@ A trip can visit up to 12 destinations, in order, each with its own time zone an
 - An event belongs to the day whose own clock shows its date. Near a zone change, two days can claim one instant; the event's own zone decides first, then the day it was saved on, so an evening flight stays on its departure day.
 - Today is the latest day whose own clock shows today's date, so the trip moves forward when the travellers do.
 - Bills and repayments have no place of their own. They are dated, shown and typed on the clock of the day they fall on (the earlier day at a zone change), so a New York dinner's bill sits on its New York day. Amounts, shares and balances do not depend on it.
-- The trip's window opens at midnight on the first day's clock and closes at midnight after the last day's clock. A New York dinner on the last evening of a Tokyo-then-New York trip is inside it.
+- The trip's window opens at midnight on the first day's clock and closes at midnight after the last day's clock. A New York dinner on the last evening of a Tokyo-then-New York trip is inside it. An event's own clock counts too (JOB-100, D-112): a flight home that lands on the last day where it lands is inside, even after midnight on the last day's clock.
 
 ## Editing
 
@@ -33,7 +33,7 @@ A trip can visit up to 12 destinations, in order, each with its own time zone an
 - Planning context lists `trip.destinations`. When dates are set, each day carries its `destination`, and multi-zone trips also give each day its `timeZone`.
 - On multi-zone trips, `currentTime` is today's own clock, so "tonight" and "tomorrow" follow the travellers.
 - The prompt tells the model to use each day's zone wherever its rules say the trip zone, set `timeZones.start`, pick `tripDayId` by that day's clock, put a named city's plans on its days, use the arriving destination on travel days, and keep a date the user gave even when it conflicts, saying which destination applies.
-- Proposal checks use the same day clocks and trip window as manual edits, for bills too. Free AI gets the same destination facts.
+- Proposal checks use the same day clocks and trip window as manual edits, for bills too. A change outside the trip is refused with `TRIP_DATES_OUTSIDE`, and the app says so in the reader's language (JOB-100). Free AI gets the same destination facts.
 
 ## Elsewhere
 
@@ -46,4 +46,4 @@ A trip can visit up to 12 destinations, in order, each with its own time zone an
 
 Migration 0070 is additive. An older build ignores the table and treats the first destination as the trip's only one. If it renames the trip or changes its zone, position 0 goes stale until the list is saved again. Prefer a compatible forward fix; do not drop the table as routine rollback.
 
-Tests use synthetic trips only: the day-zone and travel-day rules, instant grouping, validation, the editor in every language, the AI context, and a database test covering creation, settings, guards and the trip window.
+Tests use synthetic trips only: the day-zone and travel-day rules, instant grouping, validation, the editor in every language, the AI context, and database tests covering creation, settings, guards, the trip window and a flight home on the last day.

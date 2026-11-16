@@ -4,7 +4,8 @@ import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { projectTimelinePoints, type TimelineSource } from "@/lib/app/timeline";
 import { formatTimelinePointTime } from "@/lib/app/timeline-time";
 import {
-  currentTripDate, destinationClockAt, destinationOnDate, destinationsLabel, moneyTimeZone, pickTripToday, tripDayIdForInstant, tripDayZones,
+  currentTripDate, destinationClockAt, destinationOnDate, destinationsLabel, eventTimeWithinTrip, moneyTimeZone, pickTripToday, tripDayIdForInstant,
+  tripDayZones,
   type TripDestination,
 } from "@/lib/app/trip-destinations";
 
@@ -98,6 +99,23 @@ describe("trip destinations (JOB-098, D-110)", () => {
     expect(destinationClockAt("2026-11-14T01:00:00Z", "Asia/Tokyo", osaka)).toEqual({ date: "2026-11-14", timeZone: "Asia/Tokyo" });
     expect(moneyTimeZone({ timeZone: "Asia/Tokyo", destinations: osaka }, null, "2026-11-13T19:30")).toBe("Asia/Tokyo");
     expect(moneyTimeZone({ timeZone: "Asia/Tokyo" }, "2026-11-14T01:00:00Z")).toBe("Asia/Tokyo");
+  });
+
+  it("keeps an event time inside on the trip's clocks or on its own (JOB-100, D-112)", () => {
+    const trip = { startsOn: "2026-11-08", endsOn: "2026-11-14", timeZone: "Asia/Tokyo", destinations };
+    // New York to Los Angeles on the last evening: 23:55 there is still the 14th, though New York has passed midnight.
+    expect(eventTimeWithinTrip("2026-11-15T07:55:00Z", trip)).toBe(false);
+    expect(eventTimeWithinTrip("2026-11-15T07:55:00Z", trip, "America/Los_Angeles")).toBe(true);
+    expect(eventTimeWithinTrip("2026-11-15T09:00:00Z", trip, "America/Los_Angeles")).toBe(false);
+    expect(eventTimeWithinTrip("2026-11-15T04:59:00Z", trip)).toBe(true);
+    // The opening is on Tokyo's clock, or the event's own.
+    expect(eventTimeWithinTrip("2026-11-07T14:00:00Z", trip)).toBe(false);
+    expect(eventTimeWithinTrip("2026-11-07T14:00:00Z", trip, "Pacific/Auckland")).toBe(true);
+    // One destination: a flight home to Seattle that lands on the last day there.
+    const tokyo = { startsOn: "2026-11-08", endsOn: "2026-11-14", timeZone: "Asia/Tokyo" };
+    expect(eventTimeWithinTrip("2026-11-15T01:05:00Z", tokyo)).toBe(false);
+    expect(eventTimeWithinTrip("2026-11-15T01:05:00Z", tokyo, "America/Los_Angeles")).toBe(true);
+    expect(eventTimeWithinTrip("2026-11-15T16:00:00Z", tokyo, "America/Los_Angeles")).toBe(false);
   });
 
   it("labels the route in order", () => {

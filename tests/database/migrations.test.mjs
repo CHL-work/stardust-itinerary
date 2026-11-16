@@ -26,6 +26,7 @@ import { testGoogleKeyModes } from "./google-key-modes.mjs";
 import { testEventTimeZones } from "./event-time-zones.mjs";
 import { testAiPreferencesAndRoutine } from "./ai-preferences-routine.mjs";
 import { testTripDestinations } from "./trip-destinations.mjs";
+import { testTripEdgeClocks } from "./trip-edge-clocks.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
 import { testCustomExpenseSplits } from "./custom-expense-splits.mjs";
@@ -7337,6 +7338,7 @@ test(
       await testEventTimeZones(appPool,connectionString);
       await testAiPreferencesAndRoutine(appPool,connectionString);
       await testTripDestinations(appPool,connectionString);
+      await testTripEdgeClocks(appPool,connectionString);
 
     } finally {
       await appPool.end();

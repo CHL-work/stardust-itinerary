@@ -15,7 +15,7 @@ import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { eventTimeInputsFromInstants } from "@/lib/app/flight-editor-time";
 import { wallTimeToIso, ZonedEventTimeError } from "@/lib/app/zoned-event-time";
 import { tripLocalDateKey } from "@/lib/app/day-view";
-import { moneyTimeZone, pickTripToday, tripDayIdForInstant, tripDayZones } from "@/lib/app/trip-destinations";
+import { eventTimeWithinTrip, moneyTimeZone, pickTripToday, tripDayIdForInstant, tripDayZones } from "@/lib/app/trip-destinations";
 import { addMinutesToWallTime } from "@/lib/app/wall-time";
 import { locales, messages } from "@/lib/i18n";
 
@@ -37,7 +37,7 @@ const flightBindings = {
   // Each day's destination zone (JOB-098).
   ...new Function("tripDayZones", `${ts.transpileModule(topLevelFunction("overviewDayZone"),
     { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}; return { overviewDayZone };`)(tripDayZones) as Record<string, unknown>,
-  tripDayZones, tripDayIdForInstant, pickTripToday, moneyTimeZone,
+  tripDayZones, tripDayIdForInstant, pickTripToday, moneyTimeZone, eventTimeWithinTrip,
 };
 function closure<T>(name: string, next: string, bindings: Record<string, unknown>): T {
   const start = source.indexOf(`  const ${name} =`);
@@ -51,7 +51,7 @@ const id = (number: number) => `a9210000-0000-4000-8000-${String(number).padStar
 const member = (number: number, status = "active") => ({ id: id(number), status, displayName: `Synthetic member ${number}` });
 const overview = { members: [member(1), member(2, "invited"), member(3), member(4, "removed")],
   session: { memberId: id(1), isOwner: true }, days: [{ id: id(5), date: "2030-04-01" }],
-  trip: { id: id(6), timeZone: "UTC", defaultCurrency: "JPY" },
+  trip: { id: id(6), timeZone: "UTC", startsOn: "2030-04-01", endsOn: "2030-04-01", defaultCurrency: "JPY" },
   permissions: { canEditExpenses: true, itineraryRequiresApproval: false, expenseRequiresApproval: false } };
 const item = { id: id(7), tripDayId: id(5), title: "Synthetic event", itemType: "meal", startsAt: "2030-04-01T10:00:00Z",
   endsAt: "2030-04-01T11:00:00Z", createdByMemberId: id(1), viewerMemberIds: [id(2)], visibility: "private", isLocked: false, currentRevision: 1 };

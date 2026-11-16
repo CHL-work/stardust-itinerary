@@ -33,7 +33,7 @@ export function apiError(error: unknown): NextResponse {
     return NextResponse.json({ error: error.message }, { status: 404 });
   }
   if (error instanceof AppConflictError) {
-    return NextResponse.json({ error: error.message }, { status: 409 });
+    return NextResponse.json({ error: error.message, ...(error.code ? { code: error.code } : {}) }, { status: 409 });
   }
   if (error && typeof error === "object" && "code" in error && error.code === "23514"
     && "constraint" in error && error.constraint === "member_payment_financial_capacity_ck") {

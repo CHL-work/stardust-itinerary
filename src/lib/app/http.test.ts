@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { apiError } from "./http";
+import { AppConflictError } from "./repository";
+
+describe("conflict codes (JOB-100)", () => {
+  it("passes a conflict's stable code to the browser, and only when it has one", async () => {
+    const outside = apiError(new AppConflictError("The event dates must be within the current trip dates.", "TRIP_DATES_OUTSIDE"));
+    expect(outside.status).toBe(409);
+    expect(await outside.json()).toEqual({ error: "The event dates must be within the current trip dates.", code: "TRIP_DATES_OUTSIDE" });
+    expect(await apiError(new AppConflictError("The plan item changed. Reload and try again.")).json())
+      .toEqual({ error: "The plan item changed. Reload and try again." });
+  });
+});
 
 describe("financial capacity error response", () => {
   it("returns safe validation feedback without private database details", async () => {

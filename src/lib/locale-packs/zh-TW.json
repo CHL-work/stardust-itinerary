@@ -101,6 +101,7 @@
     "aiApprovalCreated": "等待擁有者核准。",
     "aiApprovalBatchCreated": "已建立 {count} 個變更申請，正在等待擁有者核准。",
     "aiInvalidProposal": "變更未通過檢查，因此沒有新增任何項目。請檢查日期、金額和分攤成員後再試一次。",
+    "aiOutsideTrip": "沒有新增任何項目：其中有日期不在這趟旅程內。",
     "aiSearchEvidenceMissing": "AI 未完成搜尋，因此沒有新增任何項目。請再試一次。",
     "pendingEvents": "待核准活動",
     "pendingEventCountOne": "{count} 個待核准活動",

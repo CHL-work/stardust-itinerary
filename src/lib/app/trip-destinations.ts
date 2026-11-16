@@ -139,6 +139,21 @@ export function moneyTimeZone(trip: { timeZone: string; destinations?: readonly 
   return at ? destinationClockAt(at, trip.timeZone, trip.destinations).timeZone : trip.timeZone;
 }
 
+/**
+ * Whether an event's start or end lies within the trip's dates (JOB-100, D-112): on the trip's clocks (its
+ * first day's at the opening, its last day's at the closing) or on the event's own clock, such as the arrival
+ * airport's for a flight home that lands on the last day. The server checks the same, to the instant.
+ */
+export function eventTimeWithinTrip(at: string | Date, trip: { startsOn: string; endsOn: string; timeZone: string;
+  destinations?: readonly TripDestination[] | null }, ownZone?: string | null): boolean {
+  const opening = destinationOnDate(trip.destinations, trip.startsOn)?.timeZone ?? trip.timeZone;
+  const closing = destinationOnDate(trip.destinations, trip.endsOn)?.timeZone ?? trip.timeZone;
+  if (tripLocalDateKey(at, opening) >= trip.startsOn && tripLocalDateKey(at, closing) <= trip.endsOn) return true;
+  if (!ownZone) return false;
+  const own = tripLocalDateKey(at, ownZone);
+  return own >= trip.startsOn && own <= trip.endsOn;
+}
+
 /** The trip day to show as today: `pickCurrentTripDay` with each day's own clock (JOB-098). */
 export function pickTripToday<T extends { id: string; date: string }>(days: T[],
   trip: { timeZone: string; destinations?: readonly TripDestination[] | null }, now: Date = new Date()): T | null {

@@ -113,6 +113,7 @@ describe("self-only AI recovery", () => {
     [{ status: "failed", error_code: "AI_REQUEST_TIMEOUT" }, "failed", "AI_REQUEST_TIMEOUT"],
     [{ status: "failed", error_code: "AI_SEARCH_EVIDENCE_MISSING" }, "failed", "AI_SEARCH_EVIDENCE_MISSING"],
     [{ status: "failed", error_code: "ZodError" }, "failed", "AI_PROPOSAL_VALIDATION_FAILED"],
+    [{ status: "failed", error_code: "TRIP_DATES_OUTSIDE" }, "failed", "TRIP_DATES_OUTSIDE"],
   ])("reports safe state for %j", async (patch, status, errorCode) => {
     const { pool } = db(row(patch));
     const result = await readAiRequestRecovery(pool, session, session.tripId);

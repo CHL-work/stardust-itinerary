@@ -134,6 +134,7 @@ export type Messages = {
   aiApprovalCreated: string;
   aiApprovalBatchCreated: string;
   aiInvalidProposal: string;
+  aiOutsideTrip: string;
   aiSearchEvidenceMissing: string;
   pendingEvents: string;
   pendingEventCountOne: string;
@@ -503,6 +504,7 @@ const en: Messages = {
   aiApprovalCreated: "Awaiting owner approval.",
   aiApprovalBatchCreated: "{count} change requests were created and are waiting for owner approval.",
   aiInvalidProposal: "Nothing was added because the change did not pass checks. Check dates, amounts and split members, then try again.",
+  aiOutsideTrip: "Nothing was added: one of the dates is outside this trip.",
   aiSearchEvidenceMissing: "The AI did not finish its search, so nothing was added. Try again.",
   pendingEvents: "Pending events",
   pendingEventCountOne: "{count} pending event",
@@ -872,6 +874,7 @@ const zhHk: Messages = {
   aiApprovalCreated: "等待管理員審批。",
   aiApprovalBatchCreated: "已建立 {count} 個變更審批請求，正等待管理員審批。",
   aiInvalidProposal: "更改未能通過檢查，因此未有新增任何項目。請檢查日期、金額及分帳成員後再試。",
+  aiOutsideTrip: "未有新增任何項目：其中一個日期不在今次旅程內。",
   aiSearchEvidenceMissing: "AI 未完成搜尋，所以沒有加入任何內容。請再試一次。",
   pendingEvents: "待審批活動",
   pendingEventCountOne: "{count} 個待審批活動",
@@ -1302,6 +1305,7 @@ const jaJp: Messages = {
   aiApprovalCreated: "オーナーの承認待ちです。",
   aiApprovalBatchCreated: "{count}件の変更リクエストを作成し、オーナーの承認を待っています。",
   aiInvalidProposal: "変更を確認できなかったため、何も追加されていません。日付、金額、分担メンバーを確認して再試行してください。",
+  aiOutsideTrip: "旅行期間外の日付があるため、何も追加されていません。",
   aiSearchEvidenceMissing: "AIが検索を完了できなかったため、何も追加していません。もう一度お試しください。",
   pendingEvents: "承認待ちの予定",
   pendingEventCountOne: "承認待ち {count} 件",
@@ -1654,6 +1658,7 @@ export const restrictedToneKeys = [
   "aiApprovalCreated",
   "aiApprovalBatchCreated",
   "aiInvalidProposal",
+  "aiOutsideTrip",
   "aiSearchEvidenceMissing",
   "tripDatesHint",
   "confirmTripDateChange",

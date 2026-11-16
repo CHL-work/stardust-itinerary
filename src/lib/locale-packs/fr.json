@@ -101,6 +101,7 @@
     "aiApprovalCreated": "En attente de l’approbation du propriétaire.",
     "aiApprovalBatchCreated": "Demandes de modification créées : {count}, en attente de l’approbation du propriétaire.",
     "aiInvalidProposal": "Rien n’a été ajouté : la modification n’a pas passé les vérifications. Vérifiez les dates, les montants et les membres de la répartition, puis réessayez.",
+    "aiOutsideTrip": "Rien n’a été ajouté : une des dates est en dehors du voyage.",
     "aiSearchEvidenceMissing": "L’IA n’a pas terminé sa recherche : rien n’a été ajouté. Réessayez.",
     "pendingEvents": "Événements en attente",
     "pendingEventCountOne": "{count} événement en attente",

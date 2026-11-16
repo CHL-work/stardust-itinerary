@@ -101,6 +101,7 @@
     "aiApprovalCreated": "Menunggu persetujuan pemilik.",
     "aiApprovalBatchCreated": "{count} permintaan perubahan dibuat dan menunggu persetujuan pemilik.",
     "aiInvalidProposal": "Tidak ada yang ditambahkan karena perubahan tidak lolos pemeriksaan. Periksa tanggal, jumlah, dan anggota yang berbagi biaya, lalu coba lagi.",
+    "aiOutsideTrip": "Tidak ada yang ditambahkan: salah satu tanggal berada di luar perjalanan ini.",
     "aiSearchEvidenceMissing": "AI tidak menyelesaikan pencariannya, jadi tidak ada yang ditambahkan. Coba lagi.",
     "pendingEvents": "Acara menunggu persetujuan",
     "pendingEventCountOne": "{count} acara menunggu persetujuan",

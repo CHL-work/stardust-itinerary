@@ -41,6 +41,7 @@ import {
 } from "@/lib/app/repository";
 import { withTripDestinations } from "@/lib/ai/trip-destination-context";
 import { destinationClockAt, tripDayIdForInstant } from "@/lib/app/trip-destinations";
+import { TRIP_DATES_OUTSIDE } from "@/lib/app/trip-date-range";
 import { readTripDestinations } from "@/lib/app/trip-destinations-store";
 import {
   ownerModelRegistry,
@@ -2040,7 +2041,7 @@ export async function runAiPlanner(
           }
           if (proposedDate && !contextRecord.days?.some((day) => day.date === proposedDate)) {
             throw new AppConflictError(
-              `${proposedDate} is outside this trip; no change was applied.`,
+              `${proposedDate} is outside this trip; no change was applied.`, TRIP_DATES_OUTSIDE,
             );
           }
           return { proposal, patch: expensePatch };
@@ -2195,7 +2196,7 @@ export async function runAiPlanner(
         }
         const selectedDay = contextRecord.days?.find((day) => day.id === (patchValue.tripDayId ?? existingItem?.tripDayId));
         if (patchValue.tripDayId && !contextRecord.days?.some((day) => day.id === patchValue.tripDayId)) {
-          throw new AppConflictError(`AI proposal ${index + 1} references a day outside this trip.`);
+          throw new AppConflictError(`AI proposal ${index + 1} references a day outside this trip.`, TRIP_DATES_OUTSIDE);
         }
         const effectiveStartsAt = patchValue.startsAt !== undefined ? patchValue.startsAt : existingItem?.startsAt;
         // A day of a multi-zone trip keeps its own clock (JOB-098): its zone is the event's fallback zone,
@@ -2219,7 +2220,7 @@ export async function runAiPlanner(
           const matchingDay = contextRecord.days?.find((day) => day.date === proposedDate);
           if (!matchingDay) {
             throw new AppConflictError(
-              `${proposedDate ?? "The proposed date"} is outside this trip; no change was applied.`,
+              `${proposedDate ?? "The proposed date"} is outside this trip; no change was applied.`, TRIP_DATES_OUTSIDE,
             );
           }
           patchValue = { ...patchValue, tripDayId: matchingDay.id };
@@ -2689,7 +2690,9 @@ export async function runAiPlanner(
     const errorName = error && typeof error === "object" && "name" in error
       ? (error as { name?: unknown }).name
       : null;
-    const errorCode = typeof errorName === "string" ? errorName.slice(0, 120) : "AI_ERROR";
+    // A conflict with a stable code keeps it, so a reader who reconnects is told the same reason (JOB-100).
+    const conflictCode = error instanceof AppConflictError && typeof error.code === "string" ? error.code : null;
+    const errorCode = conflictCode ?? (typeof errorName === "string" ? errorName.slice(0, 120) : "AI_ERROR");
     const validation = validationFailureSummary(error);
     await pool.query(
       `UPDATE ai_requests

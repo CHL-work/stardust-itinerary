@@ -2,6 +2,14 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-112: An event's own clock at the trip's edges (accepted November 16, 2026)
+
+The owner pasted a round-trip flight booking into the AI, got "AI request failed. Please try again." twice, and asked for it to be diagnosed and fixed (JOB-100).
+
+- **Cause:** the model returned both flights, but saving refused the flight home. It leaves on the trip's last day and lands, several time zones east, the same day where it lands, which is already the next day on the last destination's clock, so it ended after the trip's closing midnight (D-110). The event editor already checked an end on its own clock on trips with several clocks, so the editor and the server disagreed; on one-destination trips both refused the flight.
+- **Rule:** a start or end is inside the trip when it falls within the trip's dates on the trip's clocks (the first day's at the opening, the last day's at the closing) or on the event's own clock for that end, resolved as in D-103: a flight's airport, an event's place, else its day's zone. The server (new events, updates, pending edits and approvals, the AI's included) and the event editor share it, on trips with one destination or several. It only widens what was accepted: past midnight on both clocks is still refused, and the day an event belongs to is unchanged.
+- **Message:** a refusal for falling outside the trip carries the code `TRIP_DATES_OUTSIDE`, which the AI request also records, and the app says "Nothing was added: one of the dates is outside this trip." in the reader's language instead of asking them to try again. Other failures keep their messages.
+
 ## D-111: Free models that can plan, in a schema dialect free providers compile (accepted November 16, 2026)
 
 The owner reported that Free AI failed for every request and asked for it to be diagnosed and fixed, keeping D-098 and D-104's privacy, zero-price, quota and no-paid-fallback rules, and authorized deploying without further approval (JOB-099).

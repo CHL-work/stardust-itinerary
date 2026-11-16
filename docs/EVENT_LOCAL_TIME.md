@@ -19,7 +19,7 @@ Create/edit/pending forms, Now, duration, cards, next-up, hotel check-in/out, ap
 
 AI keeps the existing current-date anchors for “today/tomorrow,” then validates the requested date in the venue's clock. The resulting instant selects the trip-calendar day separately: a late-night SLC visit can fall on the next Chicago trip day. Linked-page offsets are preserved; expense date validation remains unchanged.
 
-**Unchanged:** UTC ordering, countdowns, elapsed duration, trip-calendar day grouping and trip-range validation. A local date different from the trip date appears beside the clock. Financial dates stay in trip time, or on a trip with several clocks their day's clock ([destinations](TRIP_DESTINATIONS.md)); a zone correction does not move a bill. Old incorrectly entered booking instants are not automatically rewritten. Date-only Calendar imports retain date-only semantics.
+**Unchanged:** UTC ordering, countdowns, elapsed duration and trip-calendar day grouping. Trip-range validation also accepts a start or end inside the trip's dates on the event's own clock, such as a flight home that lands on the last day where it lands (JOB-100, D-112). A local date different from the trip date appears beside the clock. Financial dates stay in trip time, or on a trip with several clocks their day's clock ([destinations](TRIP_DESTINATIONS.md)); a zone correction does not move a bill. Old incorrectly entered booking instants are not automatically rewritten. Date-only Calendar imports retain date-only semantics.
 
 Google Calendar's source zone is not a manual venue override. Known venue geography wins for raw rows, preview and import; a valid source zone is retained only for an unresolved place, rechecked when a place is supplied during import.
 

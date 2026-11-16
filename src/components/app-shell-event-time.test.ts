@@ -12,7 +12,7 @@ import { resolveEventTimeZones } from "@/lib/app/event-time-zones";
 import { eventExpenseTimeFromStart, eventTimeInputsFromInstants, rebaseFlightTimeInputs } from "@/lib/app/flight-editor-time";
 import { isoToWallTime, wallTimeToIso, ZonedEventTimeError } from "@/lib/app/zoned-event-time";
 import { tripLocalDateKey } from "@/lib/app/day-view";
-import { moneyTimeZone, tripDayIdForInstant, tripDayZones } from "@/lib/app/trip-destinations";
+import { eventTimeWithinTrip, moneyTimeZone, tripDayIdForInstant, tripDayZones } from "@/lib/app/trip-destinations";
 import * as splitHelpers from "@/lib/app/expense-split-editor";
 import { expenseAmountInput } from "@/lib/app/expense-currency";
 import { parseExpenseAmount } from "@/lib/app/expense-entry";
@@ -70,7 +70,7 @@ const flightHelpers = evaluate<Record<string, unknown>>(["flightDraft", "flightF
 // Each day's destination zone (JOB-098); the synthetic trips here have one destination.
 const dayZoneHelpers = evaluate<Record<string, unknown>>(declaration("overviewDayZone"), "({overviewDayZone})", { tripDayZones });
 const baseBindings = { ...expenseHelpers, ...splitHelpers, expenseAmountInput, parseExpenseAmount, ...timing, overview, messages: messages.en,
-  ...dayZoneHelpers, tripDayZones, tripDayIdForInstant, moneyTimeZone,
+  ...dayZoneHelpers, tripDayZones, tripDayIdForInstant, moneyTimeZone, eventTimeWithinTrip,
   eventEditorCopy: eventEditorMessages("en"), eventEditorFailureMessage, addMinutesToWallTime, minutesBetweenWallTimes,
   ...flightHelpers, normalizeFlightNumber, isFlightNumber, flightMessages, resolveEventTimeZones,
   eventExpenseTimeFromStart, eventTimeInputsFromInstants, rebaseFlightTimeInputs, isoToWallTime, wallTimeToIso, ZonedEventTimeError, tripLocalDateKey, locale: "en" };
@@ -289,6 +289,17 @@ describe("airport-local clocks in actual manual and pending editors", () => {
     run.draft.linkedExpense.occurredAt = "2030-04-01T12:34";
     run.expenseEnabled(false); run.expenseEnabled(true);
     expect(run.draft.linkedExpense.occurredAt).toBe("2030-04-01T12:34");
+  });
+  it("keeps a flight home that lands on the last day where it lands, and nothing later (JOB-100)", async () => {
+    const home = { ...flight, title: "Synthetic flight home ZZ124", tripDayId: id(12), departureLocationName: "HND",
+      destinationLocationName: "SEA", flight: { flightNumber: "ZZ124" }, startsAt: "2030-04-02T07:00:00.000Z", endsAt: "2030-04-02T16:00:00.000Z" };
+    const run = initialized(home);
+    expect(run.draft).toMatchObject({ startsAt: "2030-04-02T16:00", endsAt: "2030-04-02T09:00" });
+    run.draft.title = "Synthetic flight home ZZ124 renamed";
+    expect(patchFrom(await run.save(home)).patch).toMatchObject({ startsAt: home.startsAt, endsAt: home.endsAt, tripDayId: id(12) });
+    const late = initialized(home); late.update("updateEventEnd", "2030-04-03T08:00");
+    expect(await late.save(home)).not.toHaveBeenCalled();
+    expect(late.setEventSaveError).toHaveBeenLastCalledWith(eventEditorMessages("en").endDateOutsideTrip);
   });
   it("rebases a changed airport and explicit time zone without changing UTC instants", async () => {
     const run = initialized(flight);

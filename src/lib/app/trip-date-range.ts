@@ -7,6 +7,9 @@ export const tripDateErrors = {
   destination: "Each destination's dates must be within the trip dates.",
 } as const;
 
+/** The code an event or bill outside the trip's dates carries, so the browser can say so in the reader's language (JOB-100). */
+export const TRIP_DATES_OUTSIDE = "TRIP_DATES_OUTSIDE";
+
 export function validTripDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value) || value.startsWith("0000-")) return false;
   const instant = Date.parse(`${value}T00:00:00Z`);

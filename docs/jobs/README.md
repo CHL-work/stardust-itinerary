@@ -4,6 +4,7 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 
 | Job | Title | Status |
 | --- | --- | --- |
+| [JOB-100](JOB-100-flight-home-arrival.md) | Flights home that land on the trip's last day, and a clear message for dates outside the trip | review |
 | [JOB-099](JOB-099-free-ai-models.md) | Free AI that works again: models that can plan, and a schema dialect free providers compile | review |
 | [JOB-098](JOB-098-multiple-destinations.md) | Several destinations with optional days and their own clocks, and an AI that plans by destination | done |
 | [JOB-097](JOB-097-plain-local-times.md) | Plain local times without zone names, retaken screenshots, and no free-model refresh button | done |

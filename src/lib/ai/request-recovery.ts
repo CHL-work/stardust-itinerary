@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 
 import { AppConflictError, assertTrip, inTransaction } from "@/lib/app/repository";
+import { TRIP_DATES_OUTSIDE } from "@/lib/app/trip-date-range";
 import type { AuthenticatedSession } from "@/lib/auth/repository";
 import { ACTIVE_REQUEST_WINDOW_MINUTES, CALENDAR_LOCATION_ACTIVE_WINDOW_MINUTES, lockBoundUserAi, lockActiveAiMember, supportsAiConversationHistory } from "@/lib/ai/conversation";
 import type { AiPlannerResult, AiRecoveredRequest, AiRequestRecoveryResponse } from "@/lib/ai/request-recovery-types";
@@ -73,6 +74,8 @@ function safeFailureCode(code: string | null): string {
   if (code === "AI_IMAGE_EXTRACTION_FAILED") return code;
   if (code === "AI_REQUEST_TIMEOUT" || code === "AbortError" || code === "TimeoutError") return "AI_REQUEST_TIMEOUT";
   if (code === "AI_SEARCH_EVIDENCE_MISSING") return code;
+  // A date outside the trip is explained the same way after reconnecting (JOB-100).
+  if (code === TRIP_DATES_OUTSIDE) return code;
   if (code === "ZodError") return "AI_PROPOSAL_VALIDATION_FAILED";
   return "AI_REQUEST_FAILED";
 }

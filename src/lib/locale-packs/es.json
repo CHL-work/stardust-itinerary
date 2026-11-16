@@ -101,6 +101,7 @@
     "aiApprovalCreated": "Pendiente de aprobación del propietario.",
     "aiApprovalBatchCreated": "Se crearon {count} solicitudes de cambio, pendientes de aprobación del propietario.",
     "aiInvalidProposal": "No se añadió nada porque el cambio no superó las comprobaciones. Revisa las fechas, los importes y los miembros del reparto, y vuelve a intentarlo.",
+    "aiOutsideTrip": "No se añadió nada: una de las fechas queda fuera del viaje.",
     "aiSearchEvidenceMissing": "La IA no terminó su búsqueda, así que no se añadió nada. Inténtalo de nuevo.",
     "pendingEvents": "Eventos pendientes",
     "pendingEventCountOne": "{count} evento pendiente",

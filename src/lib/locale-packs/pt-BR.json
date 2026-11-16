@@ -101,6 +101,7 @@
     "aiApprovalCreated": "Aguardando aprovação do dono.",
     "aiApprovalBatchCreated": "{count} pedidos de alteração foram criados e aguardam aprovação do dono.",
     "aiInvalidProposal": "Nada foi adicionado porque a alteração não passou nas verificações. Confira datas, valores e membros da divisão e tente novamente.",
+    "aiOutsideTrip": "Nada foi adicionado: uma das datas está fora desta viagem.",
     "aiSearchEvidenceMissing": "A IA não concluiu a busca, então nada foi adicionado. Tente novamente.",
     "pendingEvents": "Eventos pendentes",
     "pendingEventCountOne": "{count} evento pendente",

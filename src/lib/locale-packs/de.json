@@ -101,6 +101,7 @@
     "aiApprovalCreated": "Wartet auf Genehmigung durch den Organisator.",
     "aiApprovalBatchCreated": "{count} Änderungsanfragen erstellt; sie warten auf Genehmigung durch den Organisator.",
     "aiInvalidProposal": "Nichts hinzugefügt, weil die Änderung die Prüfung nicht bestanden hat. Prüfe Daten, Beträge und die Mitglieder der Aufteilung und versuch es noch mal.",
+    "aiOutsideTrip": "Nichts hinzugefügt: Ein Datum liegt außerhalb des Reisezeitraums.",
     "aiSearchEvidenceMissing": "Die KI hat ihre Suche nicht abgeschlossen, daher wurde nichts hinzugefügt. Versuch es noch mal.",
     "pendingEvents": "Ausstehende Termine",
     "pendingEventCountOne": "{count} ausstehender Termin",

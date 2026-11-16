@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 
 import { isTrustedGoogleMapsUrl } from "@/lib/app/transport";
-import { tripDateErrors, validTripDateRange } from "@/lib/app/trip-date-range";
+import { TRIP_DATES_OUTSIDE, tripDateErrors, validTripDateRange } from "@/lib/app/trip-date-range";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -122,7 +122,7 @@ import { TripDeletionCard, TripDeletionReview } from "@/components/trip-deletion
 import type { TripDeletionPreview } from "@/lib/app/trip-deletion-contract";
 import { tripDeletionMessages } from "@/lib/app/trip-deletion-i18n";
 import { countdownParts, shiftTripDay, tripLocalDateKey } from "@/lib/app/day-view";
-import { currentTripDate, moneyTimeZone, pickTripToday, singleDestination, tripDayIdForInstant, tripDayZones, type TripDestination } from "@/lib/app/trip-destinations";
+import { currentTripDate, eventTimeWithinTrip, moneyTimeZone, pickTripToday, singleDestination, tripDayIdForInstant, tripDayZones, type TripDestination } from "@/lib/app/trip-destinations";
 import { createRevalidationCoordinator, type RevalidationMode } from "@/lib/app/revalidation";
 import { notifyBrowserDisruptions } from "@/lib/disruptions/notifications";
 import {
@@ -684,6 +684,7 @@ export function aiRequestFailureMessage(error: unknown, messages: Messages, imag
   if (code === "AI_INVALID_PROPOSAL" || code === "INVALID_AI_PROPOSAL" || code === "AI_PROPOSAL_INVALID") {
     return messages.aiInvalidProposal;
   }
+  if (code === TRIP_DATES_OUTSIDE) return messages.aiOutsideTrip;
   const requestFields = new Set(["prompt", "model", "locale", "clientRequestId", "conversationId", "images"]);
   if (error.validationPaths.some((path) => !requestFields.has(path.split(".")[0] ?? ""))) {
     return messages.aiInvalidProposal;
@@ -722,6 +723,7 @@ export function aiRecoveryReply(state: AiRecoveryState, messages: Messages, imag
     const providerMessage = presentation && aiProviderFailureMessage(state.request, presentation);
     if (providerMessage) return providerMessage;
     if (code.toUpperCase().startsWith("AI_IMAGE_")) return imageCopy?.requestFailed ?? messages.aiRequestFailed;
+    if (code === TRIP_DATES_OUTSIDE) return messages.aiOutsideTrip;
     if (/abort|timeout|deadline/iu.test(code)) return messages.aiRequestTimedOut;
     if (/search.*evidence/iu.test(code)) return messages.aiSearchEvidenceMissing;
     if (/invalid.*proposal|validation|zod/iu.test(code)) return messages.aiInvalidProposal;
@@ -2511,14 +2513,11 @@ export function AppShell({ locale, messages }: { locale: Locale; messages: Messa
         : eventDraft.durationWasEdited && eventDraft.durationMinutes.trim()
           ? new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString()
         : wallTimeToIso(eventDraft.endsAt, zones.arrivalTimeZone, eventDraft.preferredEndsAt);
-      const multiZone = tripDayZones(overview.trip.destinations, overview.trip.timeZone, overview.days) !== null;
       if (endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
         throw new Error(eventEditorCopy.endAfterStart);
       }
-      // On a trip whose days have their own zones, the end is checked on its own local clock (JOB-098).
-      const endZone = multiZone ? zones.arrivalTimeZone : overview.trip.timeZone;
-      if (endsAt && (tripLocalDateKey(endsAt, endZone) < overview.trip.startsOn
-          || tripLocalDateKey(endsAt, endZone) > overview.trip.endsOn)) {
+      // The end lies within the trip on the trip's clocks or on its own, like a flight home's arrival (JOB-100).
+      if (endsAt && !eventTimeWithinTrip(endsAt, overview.trip, zones.arrivalTimeZone)) {
         throw new Error(eventEditorCopy.endDateOutsideTrip);
       }
       const linkedAmountMinor = eventDraft.linkedExpense.enabled ? parseExpenseAmount(eventDraft.linkedExpense.amount, eventDraft.linkedExpense.currency) : null;

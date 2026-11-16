@@ -40,11 +40,12 @@ import {
   pendingItineraryEditSchema,
   tripSettingsSchema,
 } from "@/lib/app/validation";
-import { tripDateErrors } from "@/lib/app/trip-date-range";
+import { TRIP_DATES_OUTSIDE, tripDateErrors } from "@/lib/app/trip-date-range";
 import { destinationOnDate, singleDestination, type TripDestination } from "@/lib/app/trip-destinations";
 import { readTripDestinations, replaceTripDestinations } from "@/lib/app/trip-destinations-store";
 import { readFlightDetails, type FlightChange, type FlightDetails } from "@/lib/app/flight";
 import { readEventTimeZones, resolveEventTimeZonesPatch, resolveLegacyFlightTimeZonesPatch, type EventTimeZones } from "@/lib/app/event-time-zone-contract";
+import { resolveEventTimeZones, type EventTimeZoneInput } from "@/lib/app/event-time-zones";
 import type { FlightStatusDecision } from "@/lib/flights/status";
 import { normalizeDestination } from "@/lib/app/trip-destination-defaults";
 import { validatedStoredDestinationDefaults } from "@/lib/app/trip-destination-cache";
@@ -107,7 +108,15 @@ function eventWeatherForecast(row: EventWeatherForecastRow): EventWeatherForecas
   };
 }
 
-export class AppConflictError extends Error {}
+export class AppConflictError extends Error {
+  /** A stable reason the browser can explain in the reader's language, when one applies (JOB-100). */
+  readonly code: string | undefined;
+
+  constructor(message?: string, code?: string) {
+    super(message);
+    this.code = code;
+  }
+}
 /** An account reached its daily limit of new trips; counted on the admin page (JOB-069). */
 export class TripDailyLimitError extends AppConflictError {}
 export class AppForbiddenError extends Error {}
@@ -1903,38 +1912,51 @@ export async function updateTripSettings(
 
 /** Recheck the live range under the trip lock, including after provider work.
  * Existing unchanged legacy timestamps may be retained by non-date edits.
- * New creates and changed dates must use the current selectable range. */
+ * New creates and changed dates must use the current selectable range.
+ * `event` is the event as it will be saved, for its own start and end clocks. */
 async function assertCurrentItineraryDates(
   client: Queryable,
   tripId: string,
   patch: Pick<ItineraryPatch, "tripDayId" | "startsAt" | "endsAt">,
   current?: { tripDayId?: string; entityId: string },
+  event?: EventTimeZoneInput,
 ): Promise<void> {
   const dayId = patch.tripDayId ?? current?.tripDayId;
   // The trip opens at midnight where the travellers are on its first day and closes at midnight after its
   // last day where they are then (JOB-098); with one destination both are the trip's zone, as before.
-  const tripRow = await client.query<{ starts_on: string; ends_on: string; time_zone: string; destination_name: string }>(
-    "SELECT starts_on::text, ends_on::text, time_zone, destination_name FROM trips WHERE id = $1", [tripId]);
+  const tripRow = await client.query<{ starts_on: string; ends_on: string; time_zone: string; destination_name: string; day_date: string | null }>(
+    `SELECT t.starts_on::text, t.ends_on::text, t.time_zone, t.destination_name,
+            (SELECT d.day_date::text FROM trip_days d WHERE d.trip_id = t.id AND d.id = $2) AS day_date
+       FROM trips t WHERE t.id = $1`, [tripId, dayId ?? null]);
   const tripDates = tripRow.rows[0];
   const destinations = tripDates
     ? await readTripDestinations(client, tripId, { name: tripDates.destination_name, timeZone: tripDates.time_zone }) : [];
   const startZone = tripDates ? destinationOnDate(destinations, tripDates.starts_on)?.timeZone ?? tripDates.time_zone : "UTC";
   const endZone = tripDates ? destinationOnDate(destinations, tripDates.ends_on)?.timeZone ?? tripDates.time_zone : "UTC";
+  // The event's own clocks count too (JOB-100, D-112): a flight home that lands on the last day where it
+  // lands is inside the trip, even when the trip's last-day clock has already passed midnight.
+  const own = event && tripDates ? resolveEventTimeZones(event, tripDates.time_zone,
+    tripDates.day_date ? destinationOnDate(destinations, tripDates.day_date)?.timeZone : null) : null;
   const day = await client.query<{ dates_valid: boolean }>(
     `SELECT 1, ((COALESCE(original.trip_day_id = d.id, false) OR d.day_date BETWEEN t.starts_on AND t.ends_on)
         AND ($3::timestamptz IS NULL OR $3::timestamptz = original.starts_at
           OR ($3::timestamptz >= t.starts_on::timestamp AT TIME ZONE $6
-            AND $3::timestamptz < (t.ends_on + 1)::timestamp AT TIME ZONE $7))
+            AND $3::timestamptz < (t.ends_on + 1)::timestamp AT TIME ZONE $7)
+          OR COALESCE($3::timestamptz >= t.starts_on::timestamp AT TIME ZONE $8::text
+            AND $3::timestamptz < (t.ends_on + 1)::timestamp AT TIME ZONE $8::text, false))
         AND ($4::timestamptz IS NULL OR $4::timestamptz = original.ends_at
           OR ($4::timestamptz >= t.starts_on::timestamp AT TIME ZONE $6
-            AND $4::timestamptz <= (t.ends_on + 1)::timestamp AT TIME ZONE $7))) AS dates_valid
+            AND $4::timestamptz <= (t.ends_on + 1)::timestamp AT TIME ZONE $7)
+          OR COALESCE($4::timestamptz >= t.starts_on::timestamp AT TIME ZONE $9::text
+            AND $4::timestamptz <= (t.ends_on + 1)::timestamp AT TIME ZONE $9::text, false))) AS dates_valid
        FROM trip_days d JOIN trips t ON t.id = d.trip_id
        LEFT JOIN itinerary_items original ON original.trip_id = d.trip_id AND original.id = $5
        WHERE d.trip_id = $1 AND d.id = $2`,
-    [tripId, dayId, patch.startsAt ?? null, patch.endsAt ?? null, current?.entityId ?? null, startZone, endZone],
+    [tripId, dayId, patch.startsAt ?? null, patch.endsAt ?? null, current?.entityId ?? null, startZone, endZone,
+      own?.departureTimeZone ?? null, own?.arrivalTimeZone ?? null],
   );
   if (day.rowCount !== 1) throw new AppNotFoundError("Trip day not found.");
-  if (day.rows[0]?.dates_valid !== true) throw new AppConflictError(tripDateErrors.event);
+  if (day.rows[0]?.dates_valid !== true) throw new AppConflictError(tripDateErrors.event, TRIP_DATES_OUTSIDE);
 }
 
 export async function createChangeRequestWithClient(
@@ -1966,6 +1988,7 @@ export async function createChangeRequestWithClient(
       const patch = input.patch as ItineraryPatch;
       let currentLocationState: (ItineraryLocationState & { timeZones?: EventTimeZones | null; flight?: FlightDetails | null }) | undefined;
       let currentDates: { tripDayId: string; entityId: string } | undefined;
+      let currentTitle: string | undefined;
       let currentApprovalAudience: ItineraryAudience | null = null;
       let audience: ItineraryAudience = {
         createdByMemberId: session.memberId,
@@ -1980,6 +2003,7 @@ export async function createChangeRequestWithClient(
           trip_day_id: string;
           current_revision: number;
           is_locked: boolean;
+          title: string;
           item_type: ItineraryLocationState["itemType"];
           location_name: string | null;
           map_url: string | null;
@@ -1993,7 +2017,7 @@ export async function createChangeRequestWithClient(
           visibility: "trip" | "private";
           viewer_member_ids: string[];
         }>(
-          `SELECT i.current_revision, i.is_locked, i.item_type, i.trip_day_id,
+          `SELECT i.current_revision, i.is_locked, i.item_type, i.trip_day_id, i.title,
                   i.location_name, i.map_url,
                   i.departure_location_name, i.departure_map_url,
                   i.destination_location_name, i.destination_map_url,
@@ -2036,6 +2060,7 @@ export async function createChangeRequestWithClient(
         }
         if (row.current_revision !== input.baseRevision) throw new AppConflictError("The plan item changed. Reload and try again.");
         currentDates = { tripDayId: row.trip_day_id, entityId: input.entityId };
+        currentTitle = row.title;
         if (row.is_locked && session.role !== "owner") throw new AppForbiddenError("The owner locked this plan item.");
         if ((patch.visibility !== undefined || patch.viewerMemberIds !== undefined)
             && session.memberId !== row.created_by_member_id) {
@@ -2047,7 +2072,6 @@ export async function createChangeRequestWithClient(
           viewerMemberIds: patch.viewerMemberIds ?? row.viewer_member_ids,
         };
       }
-      await assertCurrentItineraryDates(client, tripId, patch, currentDates);
       audience.viewerMemberIds = [...new Set(audience.viewerMemberIds)]
         .filter((memberId) => memberId !== audience.createdByMemberId);
       const normalizedPatch = canonicalizeItineraryLocationPatch(patch, currentLocationState);
@@ -2058,6 +2082,12 @@ export async function createChangeRequestWithClient(
         normalizedPatch.flight = resolveLegacyFlightTimeZonesPatch(patch, currentLocationState);
       }
       const locations = resolveItineraryLocationState(normalizedPatch, currentLocationState);
+      await assertCurrentItineraryDates(client, tripId, patch, currentDates, {
+        ...locations,
+        title: patch.title ?? currentTitle,
+        timeZones: normalizedPatch.timeZones !== undefined ? normalizedPatch.timeZones : currentLocationState?.timeZones,
+        flight: normalizedPatch.flight !== undefined ? normalizedPatch.flight : currentLocationState?.flight,
+      });
       if (!transportHasEndpoint(locations)) {
         throw new AppConflictError(transportEndpointRequiredMessage);
       }
@@ -2765,7 +2795,8 @@ export async function updatePendingItineraryRequestWithClient(
     }
 
     await assertCurrentItineraryDates(client, tripId, nextDraft,
-      request.operation === "update" ? { tripDayId: request.current_patch?.tripDayId as string, entityId: request.entity_id! } : undefined);
+      request.operation === "update" ? { tripDayId: request.current_patch?.tripDayId as string, entityId: request.entity_id! } : undefined,
+      nextDraft);
     await assertValidAudienceMembers(client, tripId, nextDraft.viewerMemberIds);
     if (nextDraft.linkedExpense) {
       validatedExpenseSplits(nextDraft.linkedExpense);
@@ -3153,8 +3184,9 @@ async function applyItineraryRequest(
   const patch = request.proposed_patch as ItineraryPatch;
   if (request.operation === "create") {
     if (!patch.tripDayId || !patch.title) throw new AppConflictError("The proposal is missing a day or title.");
-    await assertCurrentItineraryDates(client, session.tripId, patch);
     const locations = resolveItineraryLocationState(patch);
+    await assertCurrentItineraryDates(client, session.tripId, patch, undefined,
+      { ...locations, title: patch.title, timeZones: patch.timeZones, flight: patch.flight });
     if (!transportHasEndpoint(locations)) {
       throw new AppConflictError(transportEndpointRequiredMessage);
     }
@@ -3227,7 +3259,6 @@ async function applyItineraryRequest(
   if (current.current_revision !== request.base_revision) throw new AppConflictError("The proposal is stale and cannot be applied.");
   const currentViewerMemberIds = current.viewer_member_ids as string[];
   const before = itinerarySnapshot(current, currentViewerMemberIds);
-  await assertCurrentItineraryDates(client, session.tripId, patch, { tripDayId: current.trip_day_id as string, entityId: request.entity_id! });
   const nextRevision = Number(current.current_revision) + 1;
   const locations = resolveItineraryLocationState(patch, {
     itemType: current.item_type as ItineraryLocationState["itemType"],
@@ -3238,9 +3269,6 @@ async function applyItineraryRequest(
     destinationLocationName: current.destination_location_name as string | null,
     destinationMapUrl: current.destination_map_url as string | null,
   });
-  if (!transportHasEndpoint(locations)) {
-    throw new AppConflictError(transportEndpointRequiredMessage);
-  }
   const nextStatus = request.operation === "cancel" ? "cancelled" : request.operation === "restore" ? "planned" : patch.status ?? current.status;
   const nextVisibility = patch.visibility ?? current.visibility as "trip" | "private";
   const nextViewerMemberIds = nextVisibility === "private"
@@ -3271,6 +3299,11 @@ async function applyItineraryRequest(
     destinationLocationName: current.destination_location_name as string | null,
     destinationMapUrl: current.destination_map_url as string | null,
   });
+  await assertCurrentItineraryDates(client, session.tripId, patch, { tripDayId: current.trip_day_id as string, entityId: request.entity_id! },
+    { ...locations, title: patch.title ?? current.title as string, timeZones: nextTimeZones, flight: nextFlight });
+  if (!transportHasEndpoint(locations)) {
+    throw new AppConflictError(transportEndpointRequiredMessage);
+  }
   await client.query(
     `UPDATE itinerary_items
         SET trip_day_id = $3, title = $4, item_type = $5, starts_at = $6,

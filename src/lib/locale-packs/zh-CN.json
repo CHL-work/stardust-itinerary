@@ -101,6 +101,7 @@
     "aiApprovalCreated": "等待所有者批准。",
     "aiApprovalBatchCreated": "已创建 {count} 个更改请求，正在等待所有者批准。",
     "aiInvalidProposal": "更改未通过检查，因此未添加任何内容。请检查日期、金额和分摊成员，然后重试。",
+    "aiOutsideTrip": "未添加任何内容：有日期不在本次旅行内。",
     "aiSearchEvidenceMissing": "AI 未完成搜索，因此未添加任何内容。请重试。",
     "pendingEvents": "待批准日程",
     "pendingEventCountOne": "{count} 个待批准日程",
