@@ -1,7 +1,7 @@
 ---
 id: JOB-100
 title: Flights home that land on the trip's last day, and a clear message for dates outside the trip
-status: review
+status: done
 priority: P1
 depends_on: [JOB-098]
 claimant: CHL-work
@@ -37,5 +37,5 @@ On 16 November 2026 the owner pasted a round-trip flight booking into the AI on 
   - before the fix: the request failed with error code `Error` and "The event dates must be within the current trip dates.", as in production;
   - after it: both flights were proposed with their airports' clocks, the flight home ending on the last day in Los Angeles. One other run failed earlier because the model sent an empty `linkedExpense` (null), which validation refuses; that is unrelated to this job.
 - **Full check:** `pnpm check` passed on a disposable PostgreSQL 17 cluster: lint, typecheck, 281 files / 6,364 unit tests, the database migration and integration suite, the production build and the standalone smoke.
-- **Production:** pending.
+- **Production:** `c0f3b8a` deployed on 16 November: CI, image and rollout passed, health is ok, and both web pods run the new image. A read-only probe asked the deployed rule about the reported trip: the flight home's landing is outside on the trip's clocks alone and inside on its own clock, its departure is inside, and a landing the next day is still refused. Nothing was written.
 - **Documents:** D-112; the destinations contract, event-local times and AI notes; the changelog, the roadmap and the jobs list. Reviewed and unchanged: the README, the database guide (no migration) and deployment.
