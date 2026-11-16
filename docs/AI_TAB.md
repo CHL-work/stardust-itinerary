@@ -71,7 +71,7 @@ The key save (`PUT /api/trips/{tripId}/ai/keys`) claims the check and runs it af
 The create-trip destination lookup ([destination defaults](TRIP_DESTINATION_DEFAULTS.md)) runs on:
 1. the operator's pinned Codex Sol, for the platform operator;
 2. otherwise the requester's own key, first of OpenAI, Anthropic and Google, with that provider's lightest model at low effort (`gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.5-flash-lite`); the requester pays, so only the hourly throttle applies;
-3. otherwise a free model when free AI is on, within the account's ten lookups a day and 200 free lookups a day per instance;
+3. otherwise a free model when free AI is on, tried in the automatic order (Reflection Beam, ERNIE 5.5 Flash, then Particle-1 since D-111), within the account's ten lookups a day and 200 free lookups a day per instance;
 4. otherwise, on instances without free AI, the earlier operator-funded creator lookup.
 
 Every path is tool-free and returns the same validated JSON; `account_ai_lookups` records the model, provider, transport and `credential_source`.

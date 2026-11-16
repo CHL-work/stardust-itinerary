@@ -15,7 +15,7 @@ spec:
             - name: FREE_AI_ENABLED
               value: "true"
             - name: FREE_AI_MODELS
-              value: "dots-studio/dots-3-note-preview:free,liquid/lfm-3-1.7b:free"
+              value: "reflection/beam-free,baidu/ernie-5.5-flash-preview:free,particle-ai/particle-1:free"
             - name: FREE_AI_ENDPOINT
               value: "https://ai-gateway.kilo.ai/api/v1/chat/completions"
             - name: FREE_AI_PER_USER_DAILY

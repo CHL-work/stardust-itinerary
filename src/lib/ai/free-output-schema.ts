@@ -49,6 +49,11 @@ function narrowPatch(value: unknown, members: string[], days: string[], events: 
       properties.itineraryItemId = events.length
         ? { ...object(properties.itineraryItemId), enum: [...events, null] } : { type: "null" };
     }
+    // JOB-099: a free model once saved "4200 yen" as 420000; the prompt's JPY rule sits in its booking section.
+    if (Object.hasOwn(properties, "amountMinor")) {
+      properties.amountMinor = { ...object(properties.amountMinor),
+        description: "An integer in the currency's minor unit. JPY and KRW have none: 4200 yen is 4200. USD and EUR use cents: 12.50 dollars is 1250." };
+    }
     if (Object.hasOwn(properties, "splitAmounts")) {
       properties.splitAmounts = { ...object(properties.splitAmounts),
         description: "Omit for equal sharing; application code calculates equal shares. Include only exact unequal minor-unit amounts supplied by the user, using the listed member IDs." };

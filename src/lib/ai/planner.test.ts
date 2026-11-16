@@ -172,6 +172,8 @@ vi.mock("@/lib/ai/public-research-provider", () => ({ runPublicResearch: mocks.r
 import { AiPolicyDeniedError, AppConflictError } from "@/lib/app/repository";
 import { AiConversationBusyError } from "@/lib/ai/conversation";
 import { aiRequestPayloadHash } from "@/lib/ai/request-recovery";
+import { z } from "zod";
+import { freeProviderSchema } from "@/lib/ai/free-model";
 import {
   blocksLivePlaceSearchForPrivacy,
   freeOutputAsPlannerJson,
@@ -2134,6 +2136,38 @@ describe("AI planner live-search and approval policy", () => {
     const requestInsert = mocks.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO ai_requests"));
     expect(requestInsert?.[1]?.slice(8, 11)).toEqual(["kilo", "kilo_gateway", "anonymous"]);
     expect(requestInsert?.[1]?.at(-1)).toBe("free");
+  });
+
+  it("sends free providers the planner's schema in a dialect they compile, still accepting a full dinner and bill (JOB-099)", async () => {
+    mocks.getAiPolicy.mockResolvedValue({ enabled: true, model: "guest-free", usedToday: 0, limit: 10, credentialSource: "free" });
+    mocks.freeModel.mockResolvedValue({ text: JSON.stringify({ message: "Which day?", proposals: [], sources: [] }),
+      model: "baidu/ernie-5.5-flash-preview:free", inputTokens: 40, outputTokens: 9, cachedInputTokens: null });
+    await runAiPlanner({ query: mocks.query } as unknown as Pool, ownerSession, "Dinner tomorrow at 7pm for an hour, 4200 yen split with Guest", "guest-free");
+    const planned = mocks.freeModel.mock.calls[0]![0].responseJsonSchema as Record<string, unknown>;
+    // xgrammar refused these on November 16, 2026: format with pattern or lengths, pattern with lengths.
+    const conflicts = (value: unknown, path = "#"): string[] => {
+      if (Array.isArray(value)) return value.flatMap((item, index) => conflicts(item, `${path}/${index}`));
+      if (value === null || typeof value !== "object") return [];
+      const node = value as Record<string, unknown>;
+      const lengths = node.minLength !== undefined || node.maxLength !== undefined;
+      const own = "$schema" in node || (typeof node.format === "string" && (node.pattern !== undefined || lengths))
+        || (typeof node.pattern === "string" && lengths) ? [path] : [];
+      return [...own, ...Object.entries(node).flatMap(([key, child]) => key === "properties" && child && typeof child === "object"
+        ? Object.entries(child).flatMap(([name, schema]) => conflicts(schema, `${path}/properties/${name}`))
+        : conflicts(child, `${path}/${key}`))];
+    };
+    expect(conflicts(planned)).toEqual(expect.arrayContaining(["#/properties/researchRequests"]));
+    const sent = freeProviderSchema(planned) as { properties: Record<string, unknown> };
+    expect(conflicts(sent)).toEqual([]);
+    const guest = "20000000-0000-4000-8000-000000000002";
+    const dinner = { entityType: "itinerary_item", action: "create", entityId: null, baseRevision: null, reason: "Requested dinner",
+      patch: { tripDayId: context.days[1]!.id, title: "Dinner", itemType: "meal", visibility: "trip", viewerMemberIds: [],
+        startsAt: "2026-09-02T10:00:00Z", endsAt: "2026-09-02T11:00:00Z",
+        linkedExpense: { description: "Dinner", amountMinor: 4200, currency: "JPY", payerMemberId: ownerSession.memberId,
+          occurredAt: "2026-09-02T10:00:00Z", splitMemberIds: [ownerSession.memberId, guest] } } };
+    const proposals = z.fromJSONSchema(sent.properties.proposals as Parameters<typeof z.fromJSONSchema>[0]);
+    expect(proposals.safeParse([dinner]).success).toBe(true);
+    expect(proposals.safeParse([{ ...dinner, patch: { ...dinner.patch, tripDayId: guest } }]).success).toBe(false);
   });
 
   it("stores and returns a free model's reply with its HTML line breaks as newlines (JOB-077)", async () => {

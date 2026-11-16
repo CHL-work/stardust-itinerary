@@ -2,6 +2,22 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 16, 2026 free-model check
+
+Run for JOB-099 (D-111) after every Free AI request failed. The public catalog (`https://ai-gateway.kilo.ai/api/v1/models`) listed 14 free entries; seven passed Stardust's filters. Each got the planner's real request for a synthetic Tokyo trip, about 12,400 input tokens: "tmrw 7pm dinner at Example Cafe, Tokyo. 1hr. i paid 4200 yen split me n Sam. add dinner + linked bill, dont search", plus a dated one-hour dinner and a guest's dinner with no duration. Replies were checked with the application's parser and patch schemas. No key, account or real trip was used.
+
+| Model | Native JSON schema | JSON-object mode | Planning result |
+| --- | --- | --- | --- |
+| Reflection Beam (`reflection/beam-free`) | Refused: its provider applies OpenAI-style strict rules (every property required, no `exclusiveMinimum`), even with `strict: false` | Valid, 7–14 s | Dinner and bill exactly right 5 of 5 times; dated and guest dinners right, with no invented end time |
+| ERNIE 5.5 Flash (`baidu/ernie-5.5-flash-preview:free`) | Valid, 14–30 s | Valid, 25 s | 6 of 7 right; once it saved 4,200 yen as 420,000 (before the amount hint) |
+| Particle-1 (`particle-ai/particle-1:free`) | Valid, 8–20 s | Valid, 11 s | 5 of 6 right; once it described the bill but did not save it |
+| dots.3 note | Provider 400 "bad request" in every mode | The same | Short prompts work; prompts above about 7,000 input tokens fail |
+| Liquid LFM3 | xgrammar refused zod's `format` + `pattern` and `format` + length pairs; one constraint per string compiles | — | Spent all 8,192 output tokens reasoning, with no answer; often rate-limited upstream |
+| Ling 3.2 Flash | Shared daily cap reached (429) | — | Not tested |
+| Cohere North Mini Code (no `response_format`) | — | — | Prose once, malformed JSON once |
+
+A listing and one successful run are different evidence from sustained capacity: shared free pools can hit daily caps, as Ling's did. [Job record](jobs/JOB-099-free-ai-models.md).
+
 ## November 8, 2026 model prices and effort
 
 Checked for JOB-093 and JOB-094; the AI tab's estimates use these values (`src/lib/ai/model-prices.ts`):

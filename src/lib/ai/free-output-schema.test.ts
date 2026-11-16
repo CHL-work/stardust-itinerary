@@ -79,6 +79,16 @@ describe("free model typed patch schema", () => {
     expect(object(object(linked.properties).splitAmounts).description).toContain("Omit for equal sharing");
   });
 
+  it("says beside every amount that zero-decimal currencies have no minor unit (JOB-099)", () => {
+    const linked = object(object(patch("itinerary_item").properties).linkedExpense);
+    const shares = object(object(object(linked.properties).splitAmounts).items);
+    for (const amount of [object(linked.properties).amountMinor, object(patch("expense").properties).amountMinor, object(shares.properties).amountMinor]) {
+      expect(object(amount).description).toContain("4200 yen is 4200");
+      expect(object(amount).type).toBe("integer");
+    }
+    expect(validProposal(envelope("expense", { ...bill, amountMinor: 4200 }))).toBe(true);
+  });
+
   it("restricts all nested financial member IDs while allowing explicit unequal shares", () => {
     const fields = { ...bill, splitAmounts: [{ memberId: alex, amountMinor: 1000 }, { memberId: sam, amountMinor: 2001 }] };
     expect(validProposal(envelope("expense", fields))).toBe(true);

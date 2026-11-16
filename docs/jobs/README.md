@@ -4,6 +4,7 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 
 | Job | Title | Status |
 | --- | --- | --- |
+| [JOB-099](JOB-099-free-ai-models.md) | Free AI that works again: models that can plan, and a schema dialect free providers compile | review |
 | [JOB-098](JOB-098-multiple-destinations.md) | Several destinations with optional days and their own clocks, and an AI that plans by destination | done |
 | [JOB-097](JOB-097-plain-local-times.md) | Plain local times without zone names, retaken screenshots, and no free-model refresh button | done |
 | [JOB-096](JOB-096-routine-checks-on-by-themselves.md) | Routine checks that turn on by themselves, capable default models, and Chat inside Conversations | done |

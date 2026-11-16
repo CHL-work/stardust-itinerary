@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { withFreeAiCredential, withOperatorAiCredential } from "@/lib/ai/credential-context";
 import { DEFAULT_FREE_MODELS, FREE_AI_CATALOG, FREE_AI_ENDPOINT, eligibleFreeCatalogModels, freeAiSettings,
-  freeModelLabel, generateWithFreeModel, guestFreeAiSettings, listAvailableFreeModels } from "@/lib/ai/free-model";
+  freeModelLabel, freeProviderSchema, generateWithFreeModel, guestFreeAiSettings, listAvailableFreeModels } from "@/lib/ai/free-model";
 
 const schema = { type: "object", additionalProperties: false, required: ["message"], properties: { message: { type: "string" } } };
 const settings = { ...freeAiSettings({ FREE_AI_ENABLED: "true" }), models: ["vendor/first:free", "vendor/second-free"] };
@@ -31,7 +32,8 @@ describe("free model configuration", () => {
     expect(freeAiSettings({ FREE_AI_ENABLED: "true", FREE_AI_MODELS: "nvidia/trial:free,kilo-auto/free,openrouter/free,stealth/unknown" }).enabled).toBe(false);
     expect(freeAiSettings({ FREE_AI_ENABLED: "true", FREE_AI_MODELS: "vendor/paid,vendor/ok-free,bad id, vendor/paid" }).models)
       .toEqual(["vendor/paid", "vendor/ok-free"]); // pricing is verified from the catalog, before inference
-    expect(freeModelLabel(DEFAULT_FREE_MODELS[0])).toBe("dots.3 note");
+    expect(DEFAULT_FREE_MODELS.map(freeModelLabel)).toEqual(["Reflection Beam", "ERNIE 5.5 Flash", "Particle-1"]);
+    expect(freeModelLabel("dots-studio/dots-3-note-preview:free")).toBe("dots.3 note");
     expect(freeModelLabel("vendor/unknown:free")).toBe("vendor/unknown");
     expect(freeModelLabel("reflection/beam-free")).toBe("Reflection Beam");
     expect(freeModelLabel("cohere/north-mini-code:free")).toBe("Cohere North Mini Code");
@@ -277,5 +279,137 @@ describe("keyless gateway calls", () => {
       const fetchImpl = mockGateway(response);
       await expect(generate(fetchImpl)).rejects.toMatchObject({ details: { code: "AI_PROVIDER_OUTPUT_INVALID" } });
     }
+  });
+});
+
+type Node = Record<string, unknown>;
+/** Subschemas xgrammar refused on November 16, 2026: format with pattern or lengths, pattern with lengths. */
+function dialectConflicts(value: unknown, path = "#"): string[] {
+  if (Array.isArray(value)) return value.flatMap((item, index) => dialectConflicts(item, `${path}/${index}`));
+  if (value === null || typeof value !== "object") return [];
+  const node = value as Node;
+  const lengths = node.minLength !== undefined || node.maxLength !== undefined;
+  const own = "$schema" in node || (typeof node.format === "string" && (node.pattern !== undefined || lengths))
+    || (typeof node.pattern === "string" && lengths) ? [path] : [];
+  return [...own, ...Object.entries(node).flatMap(([key, child]) => dialectConflicts(child, `${path}/${key}`))];
+}
+const zodContract = z.object({
+  at: z.iso.datetime({ offset: true }), id: z.uuid(), day: z.iso.date().nullable(),
+  url: z.url().max(2000).nullable(), currency: z.string().regex(/^[A-Z]{3}$/u), name: z.string().min(1).max(80),
+}).strict();
+const zodSchema = z.toJSONSchema(zodContract, { target: "draft-7" }) as Node;
+const sentSchema = () => freeProviderSchema(zodSchema) as Node;
+const property = (schema: Node, name: string) => (schema.properties as Record<string, Node>)[name]!;
+
+describe("provider schema dialect (JOB-099)", () => {
+  it("keeps one string constraint per subschema and drops $schema, without changing the caller's schema", () => {
+    const original = structuredClone(zodSchema);
+    expect(dialectConflicts(zodSchema).length).toBeGreaterThan(0); // zod writes format + pattern pairs
+    const sent = sentSchema();
+    expect(dialectConflicts(sent)).toEqual([]);
+    expect(zodSchema).toEqual(original);
+    expect(property(sent, "at")).toEqual({ type: "string", format: "date-time" });
+    expect(property(sent, "id")).toEqual({ type: "string", format: "uuid" });
+    expect(property(sent, "day")).toEqual({ anyOf: [{ type: "string", format: "date" }, { type: "null" }] });
+    expect(property(sent, "url")).toEqual({ anyOf: [{ type: "string", format: "uri" }, { type: "null" }] });
+    expect(property(sent, "currency")).toEqual({ type: "string", pattern: "^[A-Z]{3}$" });
+    expect(property(sent, "name")).toEqual({ type: "string", minLength: 1, maxLength: 80 });
+    expect(sent).toMatchObject({ required: zodSchema.required, additionalProperties: false });
+  });
+
+  it("is generation guidance only: the application contract still rejects what the dialect no longer states", () => {
+    const valid = { at: "2030-04-01T19:00:00+09:00", id: "10000000-0000-4000-8000-000000000001", day: null, url: null, currency: "JPY", name: "Dinner" };
+    expect(zodContract.safeParse(valid).success).toBe(true);
+    for (const change of [{ url: `https://example.test/${"a".repeat(2000)}` }, { at: "2030-02-30T19:00:00+09:00" }, { currency: "jpy" }]) {
+      expect(zodContract.safeParse({ ...valid, ...change }).success).toBe(false);
+    }
+  });
+
+  it("treats property names, enums and required lists as data, accepts shared subschemas and refuses cycles", () => {
+    const shared = { type: "string", format: "date", pattern: "^x$", maxLength: 10 };
+    const schema = { type: "object", required: ["pattern", "format", "$schema"],
+      properties: { pattern: shared, format: shared, $schema: { type: "string", enum: ["pattern", "$schema"] } } };
+    expect(freeProviderSchema(schema)).toEqual({ type: "object", required: ["pattern", "format", "$schema"], properties: {
+      pattern: { type: "string", format: "date" }, format: { type: "string", format: "date" },
+      $schema: { type: "string", enum: ["pattern", "$schema"] } } });
+    const circular: Node = { type: "object" }; circular.items = circular;
+    expect(() => freeProviderSchema(circular)).toThrow("AI_PROVIDER_OUTPUT_INVALID");
+    let deep: Node = { type: "string" };
+    for (let depth = 0; depth < 80; depth += 1) deep = { type: "array", items: deep };
+    expect(() => freeProviderSchema(deep)).toThrow("AI_PROVIDER_OUTPUT_INVALID");
+  });
+
+  it("sends the dialect natively and inside JSON-object instructions", async () => {
+    const native = mockGateway();
+    await withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: zodSchema, settings, fetchImpl: native as typeof fetch }));
+    expect(JSON.parse(String(native.mock.calls[1]![1]?.body)).response_format.json_schema.schema).toEqual(sentSchema());
+    const instructed = mockGateway(() => answer(), [{ ...row(settings.models[0]!), supported_parameters: ["response_format"] }]);
+    await withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: zodSchema, settings, fetchImpl: instructed as typeof fetch }));
+    const body = JSON.parse(String(instructed.mock.calls[1]![1]?.body));
+    expect(body.messages[0].content).toContain(JSON.stringify(sentSchema()));
+    expect(body.messages[0].content).not.toContain('"pattern":"^(');
+  });
+});
+
+const strictRefusal = () => Response.json({ error: { message: "Invalid schema for response_format 'stardust_planner': In context=('properties', 'patch'), 'required' is required to be supplied and to be an array including every key in properties. Missing 'endsAt'.", type: "AI_APICallError" } }, { status: 400 });
+const grammarRefusal = () => Response.json({ error: { message: "Upstream error from Liquid: Failed to compile json grammar: JSON Schema at #/properties/at is not supported by xgrammar", code: 400, metadata: { error_type: "invalid_request" } } });
+const opaqueBadRequest = () => Response.json({ error: { message: "Provider returned error", code: 400, metadata: { raw: "{\"code\":400,\"msg\":\"bad request\"}", provider_name: "Synthetic" } } }, { status: 400 });
+const formatOf = (init: RequestInit | undefined) => (JSON.parse(String(init?.body)) as { response_format?: { type: string } }).response_format?.type;
+const posted = (fetchImpl: ReturnType<typeof mockGateway>) => fetchImpl.mock.calls.filter(([url]) => String(url) === FREE_AI_ENDPOINT)
+  .map(([, init]) => ({ model: JSON.parse(String(init?.body)).model as string, format: formatOf(init) }));
+
+describe("native schema refusals (JOB-099)", () => {
+  it.each([["a strict-schema 400", strictRefusal], ["a grammar error inside a 200 reply", grammarRefusal]])(
+    "retries the same model once with JSON-object instructions after %s", async (_name, refusal) => {
+      const fetchImpl = mockGateway((init) => formatOf(init) === "json_schema" ? refusal() : answer());
+      const reserve = vi.fn(async () => {});
+      const result = await generate(fetchImpl, { selectedModel: settings.models[0], beforeAttempt: reserve });
+      expect(result).toMatchObject({ model: settings.models[0], text: '{"message":"Plan dinner"}' });
+      expect(reserve).toHaveBeenCalledTimes(2);
+      expect(posted(fetchImpl)).toEqual([{ model: settings.models[0], format: "json_schema" }, { model: settings.models[0], format: "json_object" }]);
+      const retry = JSON.parse(String(fetchImpl.mock.calls[2]![1]?.body));
+      expect(retry.messages).toEqual([
+        { role: "system", content: expect.stringContaining(JSON.stringify(schema)) },
+        { role: "user", content: "Plan a synthetic dinner" },
+      ]);
+    });
+
+  it("moves on without a JSON-object retry when a 400 is not about the schema", async () => {
+    const fetchImpl = mockGateway((init) => JSON.parse(String(init.body)).model === settings.models[0] ? opaqueBadRequest() : answer());
+    expect((await generate(fetchImpl)).model).toBe(settings.models[1]);
+    expect(posted(fetchImpl)).toEqual([{ model: settings.models[0], format: "json_schema" }, { model: settings.models[1], format: "json_schema" }]);
+    const chosen = mockGateway(() => opaqueBadRequest());
+    await expect(generate(chosen, { selectedModel: settings.models[0] })).rejects.toMatchObject({ details: { code: "AI_PROVIDER_UNAVAILABLE" } });
+    expect(posted(chosen)).toHaveLength(1);
+  });
+
+  it("retries a refused model at most once, and never retries non-native requests", async () => {
+    const fetchImpl = mockGateway((init) => formatOf(init) === "json_schema" ? strictRefusal() : Response.json({}, { status: 503 }));
+    const reserve = vi.fn(async () => {});
+    await expect(generate(fetchImpl, { selectedModel: settings.models[0], beforeAttempt: reserve }))
+      .rejects.toMatchObject({ details: { code: "AI_PROVIDER_UNAVAILABLE" } });
+    expect(reserve).toHaveBeenCalledTimes(2);
+    const instructed = mockGateway(() => strictRefusal(), [{ ...row(settings.models[0]!), supported_parameters: ["response_format"] }]);
+    await expect(generate(instructed, { selectedModel: settings.models[0] })).rejects.toMatchObject({ details: { code: "AI_PROVIDER_UNAVAILABLE" } });
+    expect(posted(instructed)).toEqual([{ model: settings.models[0], format: "json_object" }]);
+  });
+
+  it("still stops at a rate limit during the retry instead of trying another model", async () => {
+    const fetchImpl = mockGateway((init) => formatOf(init) === "json_schema" ? strictRefusal() : Response.json({ privateDetail: "Never expose" }, { status: 429 }));
+    const failure = await generate(fetchImpl).catch((error: unknown) => error);
+    expect(failure).toMatchObject({ details: { code: "AI_PROVIDER_RATE_LIMITED" } });
+    expect(JSON.stringify(failure)).not.toMatch(/Never expose|Invalid schema/u);
+    expect(posted(fetchImpl)).toEqual([{ model: settings.models[0], format: "json_schema" }, { model: settings.models[0], format: "json_object" }]);
+  });
+
+  it("remembers a refusal on the real gateway, so later requests skip the refused attempt", async () => {
+    const gateway = mockGateway((init) => formatOf(init) === "json_schema" ? strictRefusal() : answer());
+    vi.stubGlobal("fetch", gateway);
+    try {
+      const call = () => withFreeAiCredential(() => generateWithFreeModel({ prompt: "Plan", responseJsonSchema: schema, settings, selectedModel: settings.models[0] }));
+      await call();
+      await call();
+      expect(posted(gateway).map(({ format }) => format)).toEqual(["json_schema", "json_object", "json_object"]);
+    } finally { vi.unstubAllGlobals(); }
   });
 });

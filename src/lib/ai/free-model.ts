@@ -4,7 +4,13 @@ import { AiProviderFailureError, type AiProviderFailureCode } from "@/lib/ai/pro
 /** Documented anonymous access only; no identity spoofing, accounts, keys or paid fallback. */
 export const FREE_AI_ENDPOINT = "https://ai-gateway.kilo.ai/api/v1/chat/completions";
 export const FREE_AI_CATALOG = "https://ai-gateway.kilo.ai/api/v1/models";
-export const DEFAULT_FREE_MODELS = ["dots-studio/dots-3-note-preview:free", "liquid/lfm-3-1.7b:free"] as const;
+/**
+ * Checked on November 16, 2026 (JOB-099) with the real planner prompt: dots.3 note's provider refuses
+ * prompts over about 7,000 tokens and Liquid LFM3 spends its whole output budget reasoning. These three
+ * returned valid plans, fastest and most consistent first (Beam through JSON-object mode, because its
+ * provider refuses the native schema). A listing never promises availability.
+ */
+export const DEFAULT_FREE_MODELS = ["reflection/beam-free", "baidu/ernie-5.5-flash-preview:free", "particle-ai/particle-1:free"] as const;
 const USER_AGENT = "StardustItinerary/0.1 (+https://github.com/CHL-work/stardust-itinerary)";
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,60}\/[a-z0-9][a-z0-9._:-]{0,100}$/u;
 // These trial/opaque routers can forbid personal/confidential data or route it to NVIDIA.
@@ -53,6 +59,9 @@ export function freeModelLabel(model: string): string {
     "liquid/lfm-3-1.7b:free": "Liquid LFM3",
     "reflection/beam-free": "Reflection Beam",
     "cohere/north-mini-code:free": "Cohere North Mini Code",
+    "baidu/ernie-5.5-flash-preview:free": "ERNIE 5.5 Flash",
+    "particle-ai/particle-1:free": "Particle-1",
+    "inclusionai/ling-3.2-flash:free": "Ling 3.2 Flash",
   };
   return known[model] ?? model.replace(/:free$/u, "");
 }
@@ -102,11 +111,48 @@ function invalidRequest(): AiProviderFailureError {
   return new AiProviderFailureError({ code: "AI_PROVIDER_OUTPUT_INVALID", provider: "kilo" });
 }
 
+const SCHEMA_MAPS = new Set(["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"]);
+const SCHEMA_DATA = new Set(["enum", "const", "required", "examples", "default", "description", "title"]);
+const MAX_SCHEMA_DEPTH = 64;
+
+/**
+ * The same schema in the dialect free providers compile (JOB-099): no nested `$schema`, and one string
+ * constraint per subschema (`format`, else `pattern`, else lengths), because xgrammar refuses to enforce
+ * zod's `format` + `pattern` pairs or a `format` with a length together. Generation guidance only: the
+ * application's parser still enforces the full contract, patterns and lengths included.
+ */
+export function freeProviderSchema(value: unknown): unknown {
+  const ancestors = new WeakSet<object>();
+  const visit = (node: unknown, depth: number): unknown => {
+    if (node === null || typeof node !== "object") return node;
+    // Cycles and absurd nesting are refused; a subschema shared by two branches is fine.
+    if (depth > MAX_SCHEMA_DEPTH || ancestors.has(node)) throw invalidRequest();
+    ancestors.add(node);
+    try {
+      if (Array.isArray(node)) return node.map((item) => visit(item, depth + 1));
+      const record = node as Record<string, unknown>;
+      const result: Record<string, unknown> = {};
+      const hasFormat = typeof record.format === "string";
+      const hasPattern = typeof record.pattern === "string";
+      for (const [key, child] of Object.entries(record)) {
+        if (key === "$schema" || (key === "pattern" && hasFormat)
+          || ((key === "minLength" || key === "maxLength") && (hasFormat || hasPattern))) continue;
+        result[key] = SCHEMA_DATA.has(key) ? child
+          : SCHEMA_MAPS.has(key) && object(child)
+            ? Object.fromEntries(Object.entries(child).map(([name, schema]) => [name, visit(schema, depth + 1)]))
+            : visit(child, depth + 1);
+      }
+      return result;
+    } finally { ancestors.delete(node); }
+  };
+  return visit(value, 0);
+}
+
 /** Only the application's parser-derived schema enters this channel, never catalog prose. */
 function serializedResponseSchema(value: unknown): string {
   if (!object(value)) throw invalidRequest();
   let serialized: string;
-  try { serialized = JSON.stringify(value); } catch { throw invalidRequest(); }
+  try { serialized = JSON.stringify(freeProviderSchema(value)); } catch { throw invalidRequest(); }
   if (!serialized || Buffer.byteLength(serialized, "utf8") > MAX_SCHEMA_BYTES) throw invalidRequest();
   return serialized;
 }
@@ -130,7 +176,7 @@ function requestBody(candidate: CatalogModel, prompt: string, schema: string, ma
   return body;
 }
 
-async function boundedJson(response: Response): Promise<unknown> {
+async function boundedJson(response: Response, limit = MAX_RESPONSE_BYTES): Promise<unknown> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("Empty upstream response");
   const chunks: Uint8Array[] = [];
@@ -140,11 +186,39 @@ async function boundedJson(response: Response): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_RESPONSE_BYTES) throw new Error("Oversized upstream response");
+      if (size > limit) throw new Error("Oversized upstream response");
       chunks.push(value);
     }
     return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
+
+const MAX_ERROR_BYTES = 64 * 1024;
+const SCHEMA_REFUSAL = /\b(?:json[\s_-]?schema|response_format|grammar|structured[\s_-]?outputs?)\b/iu;
+/**
+ * An error envelope saying the provider could not use the native response schema, as OpenAI-style
+ * strict validators and grammar compilers report it. The text is only classified, never kept or shown.
+ */
+function refusedNativeSchema(value: unknown): boolean {
+  const error = object(value) ? value.error : undefined;
+  if (!object(error)) return false;
+  const metadata = object(error.metadata) ? error.metadata : {};
+  return [error.message, metadata.raw].some((text) => typeof text === "string" && SCHEMA_REFUSAL.test(text.slice(0, 4_000)));
+}
+
+// Process-local and only for the real gateway (as the catalog cache): models whose provider refused the
+// native schema get JSON-object requests for an hour, instead of one refused attempt per request.
+const NATIVE_SCHEMA_REFUSAL_MS = 60 * 60_000;
+const nativeSchemaRefusals = new Map<string, number>();
+function nativeSchemaRefused(id: string, shared: boolean): boolean {
+  const until = shared ? nativeSchemaRefusals.get(id) : undefined;
+  if (until !== undefined && until <= Date.now()) nativeSchemaRefusals.delete(id);
+  return until !== undefined && until > Date.now();
+}
+function rememberNativeSchemaRefusal(id: string, shared: boolean): void {
+  if (!shared) return;
+  if (nativeSchemaRefusals.size >= 100) nativeSchemaRefusals.clear();
+  nativeSchemaRefusals.set(id, Date.now() + NATIVE_SCHEMA_REFUSAL_MS);
 }
 
 let catalogCache: { expiresAt: number; models: CatalogModel[] } | null = null;
@@ -205,6 +279,9 @@ function count(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
+type FreeModelResult = { text: string; model: string; inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null };
+type AttemptOutcome = { kind: "result"; value: FreeModelResult } | { kind: "schema_refused" } | { kind: "failed"; code: AiProviderFailureCode };
+
 export async function generateWithFreeModel(input: {
   prompt: string; responseJsonSchema: unknown; maxOutputTokens?: number; signal?: AbortSignal;
   /** Exact user choice. It must remain eligible, and never falls back to another model. */
@@ -212,12 +289,13 @@ export async function generateWithFreeModel(input: {
   settings?: FreeAiSettings; fetchImpl?: typeof fetch;
   /** The planner reserves every HTTP attempt against the durable instance cap before network I/O. */
   beforeAttempt?: () => Promise<void>;
-}): Promise<{ text: string; model: string; inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null }> {
+}): Promise<FreeModelResult> {
   if (requireAiCredential().source !== "free") throw new AiProviderFailureError({ code: "AI_PROVIDER_AUTH_REQUIRED", provider: "kilo" });
   const settings = input.settings ?? freeAiSettings();
   if (!settings.enabled || settings.endpoint !== FREE_AI_ENDPOINT) throw new AiProviderFailureError({ code: "AI_PROVIDER_AUTH_REQUIRED", provider: "kilo" });
   const responseSchema = serializedResponseSchema(input.responseJsonSchema);
   const fetchImpl = input.fetchImpl ?? fetch;
+  const shared = fetchImpl === fetch;
   let candidates: CatalogModel[];
   try {
     const available = await catalog(fetchImpl, input.signal);
@@ -228,8 +306,7 @@ export async function generateWithFreeModel(input: {
     if (input.signal?.aborted || error instanceof AiProviderFailureError) throw error;
     throw new AiProviderFailureError({ code: "AI_PROVIDER_UNAVAILABLE", provider: "kilo" });
   }
-  let failure: AiProviderFailureCode = "AI_PROVIDER_MODEL_UNAVAILABLE";
-  for (const candidate of candidates) {
+  const attempt = async (candidate: CatalogModel): Promise<AttemptOutcome> => {
     input.signal?.throwIfAborted();
     const body = requestBody(candidate, input.prompt, responseSchema, input.maxOutputTokens);
     await input.beforeAttempt?.();
@@ -243,37 +320,55 @@ export async function generateWithFreeModel(input: {
       });
     } catch (error) {
       if (input.signal?.aborted) throw error;
-      failure = "AI_PROVIDER_UNAVAILABLE";
-      continue;
+      return { kind: "failed", code: "AI_PROVIDER_UNAVAILABLE" };
     }
+    const native = candidate.outputMode === "json_schema";
     if (!response.ok) {
-      failure = failureCode(response.status);
+      const code = failureCode(response.status);
       const retry = response.headers.get("retry-after");
-      await response.body?.cancel();
+      let refused = false;
+      if (native && response.status === 400) refused = refusedNativeSchema(await boundedJson(response, MAX_ERROR_BYTES).catch(() => null));
+      else await response.body?.cancel();
       // These are service/account restrictions, not permission to try another model or identity.
       if ([401, 402, 403, 429].includes(response.status)) {
         const seconds = retry && /^\d{1,6}$/u.test(retry) ? Number(retry) : null;
-        throw new AiProviderFailureError({ code: failure, provider: "kilo",
+        throw new AiProviderFailureError({ code, provider: "kilo",
           ...(response.status === 429 && seconds !== null && seconds <= 86_400
             ? { retryAt: new Date(Date.now() + seconds * 1000).toISOString() } : {}) });
       }
-      continue;
+      return refused ? { kind: "schema_refused" } : { kind: "failed", code };
     }
     let parsed: unknown;
     try { parsed = await boundedJson(response); } catch {
       if (input.signal?.aborted) input.signal.throwIfAborted();
-      failure = "AI_PROVIDER_OUTPUT_INVALID"; continue;
+      return { kind: "failed", code: "AI_PROVIDER_OUTPUT_INVALID" };
     }
+    // Some gateways report a schema the provider could not compile inside a 200 reply.
+    if (native && object(parsed) && !Array.isArray(parsed.choices) && refusedNativeSchema(parsed)) return { kind: "schema_refused" };
     const choice = object(parsed) && Array.isArray(parsed.choices) ? parsed.choices[0] : null;
     const message = object(choice) && object(choice.message) ? choice.message : null;
     if (!object(parsed) || !message || typeof message.content !== "string" || !message.content.trim()
       || (object(choice) && choice.finish_reason && choice.finish_reason !== "stop")) {
-      failure = "AI_PROVIDER_OUTPUT_INVALID"; continue;
+      return { kind: "failed", code: "AI_PROVIDER_OUTPUT_INVALID" };
     }
     const usage = object(parsed.usage) ? parsed.usage : {};
     const details = object(usage.prompt_tokens_details) ? usage.prompt_tokens_details : {};
-    return { text: message.content, model: candidate.id, inputTokens: count(usage.prompt_tokens),
-      outputTokens: count(usage.completion_tokens), cachedInputTokens: count(details.cached_tokens) };
+    return { kind: "result", value: { text: message.content, model: candidate.id, inputTokens: count(usage.prompt_tokens),
+      outputTokens: count(usage.completion_tokens), cachedInputTokens: count(details.cached_tokens) } };
+  };
+
+  let failure: AiProviderFailureCode = "AI_PROVIDER_MODEL_UNAVAILABLE";
+  for (const listed of candidates) {
+    // Never another model: a provider that refused the native schema gets the same schema as
+    // JSON-object instructions, in one more reserved attempt (JOB-099).
+    const jsonObject = { ...listed, outputMode: "json_object" as const };
+    let outcome = await attempt(listed.outputMode === "json_schema" && nativeSchemaRefused(listed.id, shared) ? jsonObject : listed);
+    if (outcome.kind === "schema_refused") {
+      rememberNativeSchemaRefusal(listed.id, shared);
+      outcome = await attempt(jsonObject);
+    }
+    if (outcome.kind === "result") return outcome.value;
+    failure = outcome.kind === "failed" ? outcome.code : "AI_PROVIDER_OUTPUT_INVALID";
   }
   throw new AiProviderFailureError({ code: failure, provider: "kilo" });
 }

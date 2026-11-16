@@ -26,6 +26,7 @@ import type { Locale } from "@/lib/i18n";
 export type DestinationLookupChoice = { kind: "operator" } | { kind: "own"; model: SelectableOwnerModel } | { kind: "free" };
 
 const MAX_RESPONSE_BYTES = 4_096;
+export const FREE_LOOKUP_OUTPUT_TOKENS = 4_096;
 const outputSchema = z.toJSONSchema(destinationLookupOutputSchema) as Record<string, unknown>;
 
 function validated(raw: string, destination: string) {
@@ -110,7 +111,9 @@ export async function lookupTripDestinationWith(
   if (choice.kind === "free") {
     let result;
     try {
-      result = await generateWithFreeModel({ prompt, responseJsonSchema: outputSchema, maxOutputTokens: 2_048, signal: input.signal });
+      // Free reasoning models (Reflection Beam, JOB-099) sometimes think past 2,048 tokens before this
+      // small answer; the room costs nothing, and the reply itself stays bounded by MAX_RESPONSE_BYTES.
+      result = await generateWithFreeModel({ prompt, responseJsonSchema: outputSchema, maxOutputTokens: FREE_LOOKUP_OUTPUT_TOKENS, signal: input.signal });
     } catch (error) { throw providerFailure(error, input.signal); }
     return { defaults: validated(result.text, input.destination),
       usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens, cachedInputTokens: result.cachedInputTokens },

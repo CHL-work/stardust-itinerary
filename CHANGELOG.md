@@ -163,6 +163,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ### Fixed
 
+- **Free AI works again (JOB-099, D-111):** every free request was failing at the gateway. dots.3 note's provider refuses prompts the size of a planning request, Liquid LFM3's grammar compiler refused the schema and the model then reasoned past its output budget, and Reflection Beam's provider rejected the schema's optional fields. The automatic order is now Reflection Beam, ERNIE 5.5 Flash, then Particle-1. Free requests send the schema in a dialect free providers compile, and a provider that refuses the native schema gets the same schema as JSON-object instructions from the same model, never another one. Amount hints say that yen has no minor unit, and free trip-setup lookups have room for models that reason first. Validation, pending review, privacy, zero-price checks, quotas and no paid fallback are unchanged.
 - **Chat effort after removing a key:** saving only the chat effort no longer fails when the key routine checks ran on was removed.
 - **CI secret scan download:** GitHub's release-download URL for gitleaks was returning gateway errors, so CI now fetches the pinned release through the REST API with the workflow's own token, retries a dropped transfer, and checks the archive against the published checksum before the scan runs.
 - **French AI status lines:** a missing space after « L’IA » in two conversation messages.
