@@ -75,6 +75,7 @@ describe("database migration contracts", () => {
       "0068_ai_preferences_and_routine_funding.sql",
       "0069_routine_auto_start.sql",
       "0070_trip_destinations.sql",
+      "0071_gpt_6_2.sql",
     ]);
 
     const sql = await Promise.all(

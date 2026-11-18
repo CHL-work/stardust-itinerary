@@ -132,7 +132,7 @@ export async function getFeedbackOperatorStatus(pool: Pool, session: Authenticat
         count(*) FILTER(WHERE state='blocked')::int AS blocked_issues,
         count(*) FILTER(WHERE state='published')::int AS published_issues FROM feedback_issue_outbox`);
     const runs = await client.query<{ run_date: string | Date; state: "queued" | "running" | "succeeded" | "failed";
-      attempt_count: number; started_at: Date | null; completed_at: Date | null; model: "gpt-6-astra"; effort: "medium"; error_code: string | null }>(
+      attempt_count: number; started_at: Date | null; completed_at: Date | null; model: "gpt-6-astra" | "gpt-6.2-astra"; effort: "medium"; error_code: string | null }>(
       "SELECT run_date::text, state,attempt_count,started_at,completed_at,model,effort,error_code FROM feedback_triage_runs ORDER BY run_date DESC LIMIT 1");
     const count = counts.rows[0];
     const run = runs.rows[0];

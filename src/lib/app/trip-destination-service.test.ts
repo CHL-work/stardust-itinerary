@@ -10,7 +10,7 @@ import { validateLookupOutput } from "@/lib/app/trip-destination-defaults";
 
 const mocks = vi.hoisted(() => ({ provider: vi.fn(), operator: vi.fn(), secret: vi.fn() }));
 vi.mock("@/lib/ai/trip-destination-provider", () => ({ lookupTripDestination: mocks.provider,
-  DESTINATION_LOOKUP_MODEL: "gpt-6.1-sol", DESTINATION_LOOKUP_PROMPT_VERSION: 1, DESTINATION_LOOKUP_TIMEOUT_MS: 20_000,
+  DESTINATION_LOOKUP_MODEL: "gpt-6.2-sol", DESTINATION_LOOKUP_PROMPT_VERSION: 1, DESTINATION_LOOKUP_TIMEOUT_MS: 20_000,
   buildTripDestinationPrompt: () => "synthetic prompt", TripDestinationProviderError: class extends Error {} }));
 vi.mock("@/lib/auth/operator-access", () => ({ isPlatformOperator: mocks.operator }));
 vi.mock("@/lib/ai/credentials", () => ({ readAiCredentialSecret: mocks.secret }));
@@ -21,7 +21,7 @@ const principal = { sessionId: randomUUID(), userId: randomUUID(), memberId: ran
 const config = { authSecret: "synthetic-test-secret-only".repeat(2) } as AuthConfig;
 const defaults = validateLookupOutput({ status: "resolved", countryCode: "JP", timeZone: "Asia/Tokyo",
   timeZoneCandidates: [], currency: "JPY", currencyCandidates: [] }, "japan");
-const providerResult = { defaults, usage: { inputTokens: 15, outputTokens: 9, cachedInputTokens: 0 }, effectiveModel: "gpt-6.1-sol", latencyMs: 5 };
+const providerResult = { defaults, usage: { inputTokens: 15, outputTokens: 9, cachedInputTokens: 0 }, effectiveModel: "gpt-6.2-sol", latencyMs: 5 };
 type Row = { id: string; requestId: string; hash: Buffer; inputHash: Buffer; status: string;
   response_json: DestinationDefaults | null; error_code: string | null };
 
@@ -203,6 +203,6 @@ describe("account-scoped destination lookups", () => {
     const provider = vi.fn(async () => providerResult);
     await runTripDestinationLookup(db.pool, config, principal, input(), { provider });
     expect(provider).toHaveBeenCalledWith(expect.anything(), { kind: "operator" });
-    expect(db.state.inserted[0].slice(9)).toEqual(["gpt-6.1-sol", "openai", "codex_sdk", "api_key", "operator"]);
+    expect(db.state.inserted[0].slice(9)).toEqual(["gpt-6.2-sol", "openai", "codex_sdk", "api_key", "operator"]);
   });
 });

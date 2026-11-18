@@ -37,7 +37,7 @@ describe("readable AI message text", () => {
     const turn: AiConversationMessage = {
       requestId: "synthetic-request", clientRequestId: null, conversationId: "synthetic-chat",
       prompt: "附近餐廳\n\n営業日を確認", message: "A suggestion.\n\nPlease confirm before travelling.",
-      model: "gpt-6.1-sol", status: "succeeded", createdAt: "2030-04-01T00:00:00Z", completedAt: "2030-04-01T00:01:00Z",
+      model: "gpt-6.2-sol", status: "succeeded", createdAt: "2030-04-01T00:00:00Z", completedAt: "2030-04-01T00:01:00Z",
       errorCode: null, result: null,
     };
     const markup = renderToStaticMarkup(createElement(AiConversationTranscript, {

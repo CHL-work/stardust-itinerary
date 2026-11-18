@@ -13,6 +13,7 @@ import {
   DEFAULT_OWNER_MODEL,
   GUEST_FREE_MODEL,
   MEMBER_MODEL,
+  normalizeStoredOwnerModel,
   selectableOwnerModels,
   type ApprovalHistoryPage,
   type ApprovalRequest,
@@ -1117,7 +1118,7 @@ async function readAppOverviewSnapshot(
   );
   const settingsResult = await client.query<{
         enabled: boolean;
-        owner_default_model: OwnerModel;
+        owner_default_model: string;
         member_daily_limit: number;
         host_subscription_enabled: boolean;
         entitlement_available: boolean;
@@ -1272,6 +1273,8 @@ async function readAppOverviewSnapshot(
     host_subscription_enabled: false,
     entitlement_available: true,
   };
+  // Old pods can save retired IDs during a rolling release; never index the registry unchecked.
+  const ownerDefaultModel = normalizeStoredOwnerModel(settings.owner_default_model);
   const canSelectAiModel = session.role === "owner"
     && (!settings.entitlement_available || await isPlatformOperator(client, session.userId));
   // The platform operator's own AI in a sponsored trip runs on the server's keys, which they pay for (JOB-072).
@@ -1281,7 +1284,7 @@ async function readAppOverviewSnapshot(
   const ownKeyProviders = await aiCredentialProviders(client, session.userId);
   // An owner's keys shared with the viewer (JOB-063): who shares them and which model runs.
   const sharedGrant = await usableAiKeyGrant(client, session.tripId, session.memberId);
-  const sharedModel = sharedGrant ? ownKeyModel(undefined, settings.owner_default_model, sharedGrant.providers, false) : null;
+  const sharedModel = sharedGrant ? ownKeyModel(undefined, ownerDefaultModel, sharedGrant.providers, false) : null;
   const sharedKey = sharedGrant && sharedModel ? { sponsorName: sharedGrant.sponsorName, model: sharedModel } : null;
   // Free AI is a separate request choice even when the viewer can use a paid key (JOB-086).
   const freeSettings = freeAiSettings();
@@ -1544,8 +1547,8 @@ async function readAppOverviewSnapshot(
       freeAi,
       canSelectModel: canSelectAiModel,
       operatorOwnAi,
-      ownerDefaultModel: settings.owner_default_model,
-      effectiveModel: freeAi?.isDefault ? freeAi.model : canSelectAiModel ? settings.owner_default_model : MEMBER_MODEL,
+      ownerDefaultModel,
+      effectiveModel: freeAi?.isDefault ? freeAi.model : canSelectAiModel ? ownerDefaultModel : MEMBER_MODEL,
       memberDailyLimit: settings.member_daily_limit,
       usedToday: used,
       remainingToday: freeAi?.isDefault ? freeAi.remainingToday : canSelectAiModel ? null : Math.max(0, settings.member_daily_limit - used),
@@ -1684,7 +1687,7 @@ export async function createTrip(
       `INSERT INTO trip_ai_settings (
          trip_id, enabled, owner_default_model,
          member_daily_limit, updated_by_member_id${accountCreationEnabled ? ", host_subscription_enabled" : ""}
-       ) VALUES ($1,true,'gpt-6.1-sol',20,$2${accountCreationEnabled ? ",$3" : ""})`,
+       ) VALUES ($1,true,'${DEFAULT_OWNER_MODEL}',20,$2${accountCreationEnabled ? ",$3" : ""})`,
       accountCreationEnabled ? [tripId, memberId, hostEntitlement] : [tripId, memberId],
     );
     const disruptionSettingsAvailable = await client.query<{ available: boolean }>(
@@ -4196,7 +4199,7 @@ export async function updateAiSettings(
     await client.query(
       `INSERT INTO trip_ai_settings (
          trip_id, enabled, owner_default_model, member_daily_limit, updated_by_member_id
-       ) VALUES ($1, COALESCE($2, true), COALESCE($3, 'gpt-6.1-sol'), COALESCE($4, 20), $5)
+       ) VALUES ($1, COALESCE($2, true), COALESCE($3, '${DEFAULT_OWNER_MODEL}'), COALESCE($4, 20), $5)
        ON CONFLICT (trip_id) DO UPDATE
          SET enabled = COALESCE($2, trip_ai_settings.enabled),
              owner_default_model = COALESCE($3, trip_ai_settings.owner_default_model),
@@ -4281,7 +4284,7 @@ export async function getAiPolicy(
 ): Promise<AiPolicy> {
   const settings = await client.query<{
     enabled: boolean;
-    owner_default_model: OwnerModel;
+    owner_default_model: string;
     member_daily_limit: number;
     sponsored: boolean;
     migrated: boolean;
@@ -4290,9 +4293,10 @@ export async function getAiPolicy(
           to_jsonb(s) ? 'host_subscription_enabled' AS migrated
         FROM trip_ai_settings s WHERE trip_id = $1`, [session.tripId]);
   const row = settings.rows[0];
+  const ownerDefaultModel = normalizeStoredOwnerModel(row?.owner_default_model);
   if (requestedModel === GUEST_FREE_MODEL) return freeAiPolicy(client, session, Boolean(row?.enabled), options);
   const ownProviders = await aiCredentialProviders(client, session.userId);
-  const ownModel = ownKeyModel(requestedModel, row?.owner_default_model, ownProviders, Boolean(row?.enabled && row.sponsored));
+  const ownModel = ownKeyModel(requestedModel, ownerDefaultModel, ownProviders, Boolean(row?.enabled && row.sponsored));
   if (ownModel) {
     if (!row?.enabled) throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", ownModel);
     // Holding a key implies migration 0054, so credential_source exists. Counted per account across
@@ -4324,7 +4328,7 @@ export async function getAiPolicy(
   // A trip owner's own keys, shared with this member (JOB-063): the trip's one model, ignoring any
   // model the member asked for, within the trip's daily prompt limit.
   const grant = row ? await usableAiKeyGrant(client, session.tripId, session.memberId) : null;
-  const sharedModel = grant ? ownKeyModel(undefined, row?.owner_default_model, grant.providers, false) : null;
+  const sharedModel = grant ? ownKeyModel(undefined, ownerDefaultModel, grant.providers, false) : null;
   if (row && grant && sharedModel) {
     if (!row.enabled) throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", sharedModel);
     if (requestedModel && requestedModel !== sharedModel) {
@@ -4363,7 +4367,7 @@ export async function getAiPolicy(
   const privileged = session.role === "owner" && (!row?.migrated || await isPlatformOperator(client, session.userId));
   if (!privileged) await serializeQuota();
   const model = privileged
-    ? requestedModel ?? row?.owner_default_model ?? DEFAULT_OWNER_MODEL
+    ? requestedModel ?? ownerDefaultModel
     : MEMBER_MODEL;
   if (!row?.enabled) {
     throw new AiPolicyDeniedError("AI is disabled for this trip.", "ai_disabled", model);

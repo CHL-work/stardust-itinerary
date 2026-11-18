@@ -16,7 +16,7 @@ import {
   REUSE_WORKSPACE_PREFIX, runReuseEvaluation, validateReuseWorkspace, type ReuseEvalOptions,
 } from "../../../scripts/test-ai-venue-hours-reuse";
 
-const options: ReuseEvalOptions = { runLive: true, model: "gpt-6.1-sol", date: "2030-04-02" };
+const options: ReuseEvalOptions = { runLive: true, model: "gpt-6.2-sol", date: "2030-04-02" };
 const safeDirectory = join(tmpdir(), `${REUSE_WORKSPACE_PREFIX}a1B2c3`);
 const hoursTarget = { key: "V1", venueName: PUBLIC_REUSE_VENUE, date: options.date, timeZone: "Asia/Tokyo" };
 const evidence = { ...hoursTarget, status: "hours_found" as const,
@@ -39,24 +39,24 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); process.exitCode = p
 
 describe("public-only venue-hours reuse evaluator guards", () => {
   it.each([
-    [], ["--model=gpt-6.1-sol", "--date=2030-04-02"],
-    ["--run-live", "--date=2030-04-02"], ["--run-live", "--model=gpt-6.1-sol"],
+    [], ["--model=gpt-6.2-sol", "--date=2030-04-02"],
+    ["--run-live", "--date=2030-04-02"], ["--run-live", "--model=gpt-6.2-sol"],
     ["--run-live", "--model=unknown", "--date=2030-04-02"],
     ["--run-live", "--model=__proto__", "--date=2030-04-02"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-02-30"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-4-2"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-04-02", "--prompt=private"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-04-02", "--venue=private"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-04-02", "--work-directory=C:\\Code"],
-    ["--run-live", "--run-live", "--model=gpt-6.1-sol", "--date=2030-04-02"],
-    ["--run-live", "--model=gpt-6.1-sol", "--model=claude-opus-5-5", "--date=2030-04-02"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-04-02", "--date=2030-04-03"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-02-30"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-4-2"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-04-02", "--prompt=private"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-04-02", "--venue=private"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-04-02", "--work-directory=C:\\Code"],
+    ["--run-live", "--run-live", "--model=gpt-6.2-sol", "--date=2030-04-02"],
+    ["--run-live", "--model=gpt-6.2-sol", "--model=claude-opus-5-5", "--date=2030-04-02"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-04-02", "--date=2030-04-03"],
   ].map((args) => ({ args })))("rejects missing opt-in and unknown/ambiguous input: $args", ({ args }) => {
     expect(() => parseReuseEvalOptions(args)).toThrow("AI_HOURS_REUSE_EVAL_ARGUMENTS");
     expect(provider.research).not.toHaveBeenCalled();
   });
   it("accepts an explicit registered model and real date, with optional package separator", () => {
-    expect(parseReuseEvalOptions(["--", "--run-live", "--model=gpt-6.1-sol", "--date=2030-04-02"])).toEqual(options);
+    expect(parseReuseEvalOptions(["--", "--run-live", "--model=gpt-6.2-sol", "--date=2030-04-02"])).toEqual(options);
     expect(parseReuseEvalOptions(["--run-live", "--model=claude-opus-5-5", "--date=2032-02-29"]).model).toBe("claude-opus-5-5");
     expect(publicReuseTarget(options.date)).toEqual({ key: "R1", kind: "venue", subject: PUBLIC_REUSE_VENUE, date: options.date });
     expect(() => publicReuseTarget("2031-02-29")).toThrow("AI_HOURS_REUSE_EVAL_ARGUMENTS");

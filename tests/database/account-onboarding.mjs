@@ -74,9 +74,9 @@ export async function testAccountOnboarding(pool,connectionString,baseSession) {
     await assert.rejects(getAiPolicy(pool,session),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_disabled");
     await updateAiSettings(pool,session,created.tripId,{enabled:true});
     // Without sponsorship the trip model only picks which own or shared key runs (D-076).
-    await updateAiSettings(pool,session,created.tripId,{ownerDefaultModel:"gpt-6-astra"});
+    await updateAiSettings(pool,session,created.tripId,{ownerDefaultModel:"gpt-6.2-astra"});
     // An enabled toggle cannot confer operator sponsorship.
-    await assert.rejects(getAiPolicy(pool,session,"gpt-6-astra"),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_key_required");
+    await assert.rejects(getAiPolicy(pool,session,"gpt-6.2-astra"),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_key_required");
     await assert.rejects(getAiPolicy(pool,session),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="ai_key_required");
 
     // Signup is not a global trip-creation kill switch for an existing active
@@ -89,14 +89,14 @@ export async function testAccountOnboarding(pool,connectionString,baseSession) {
     const sponsoredOwner={...session,tripId:viewerTrip.tripId,memberId:viewerTrip.memberId};
     // Only this synthetic database fixture simulates a later operator grant.
     await pool.query("UPDATE trip_ai_settings SET host_subscription_enabled=true,enabled=true WHERE trip_id=$1",[viewerTrip.tripId]);
-    await assert.rejects(getAiPolicy(pool,sponsoredOwner,"gpt-6-astra"),{reasonCode:"ai_key_required"});
+    await assert.rejects(getAiPolicy(pool,sponsoredOwner,"gpt-6.2-astra"),{reasonCode:"ai_key_required"});
     const limited=await getAiPolicy(pool,sponsoredOwner);
-    assert.equal(limited.model,"gpt-6.1-sol");
+    assert.equal(limited.model,"gpt-6.2-sol");
     assert.equal(limited.limit,20,"sponsorship does not turn another trip owner into the platform operator");
-    await assert.rejects(updateAiSettings(pool,sponsoredOwner,viewerTrip.tripId,{ownerDefaultModel:"gpt-6-astra"}),(error)=>error instanceof AppForbiddenError);
+    await assert.rejects(updateAiSettings(pool,sponsoredOwner,viewerTrip.tripId,{ownerDefaultModel:"gpt-6.2-astra"}),(error)=>error instanceof AppForbiddenError);
     for(let index=0;index<20;index+=1) await pool.query(
       `INSERT INTO ai_requests (trip_id,id,actor_member_id,actor_user_id,actor_role,prompt_text,requested_model,status,completed_at)
-       VALUES ($1,$2,$3,$4,'owner','Synthetic quota fixture','gpt-6.1-sol','failed',CURRENT_TIMESTAMP)`,
+       VALUES ($1,$2,$3,$4,'owner','Synthetic quota fixture','gpt-6.2-sol','failed',CURRENT_TIMESTAMP)`,
       [viewerTrip.tripId,randomUUID(),viewerTrip.memberId,session.userId],
     );
     await assert.rejects(getAiPolicy(pool,sponsoredOwner),(error)=>error instanceof AiPolicyDeniedError && error.reasonCode==="daily_limit_reached");
@@ -169,9 +169,9 @@ export async function testAccountOnboarding(pool,connectionString,baseSession) {
     assert.deepEqual((await pool.query("SELECT enabled,host_subscription_enabled FROM trip_ai_settings WHERE trip_id=$1",[operatorTrip.tripId])).rows[0],
       {enabled:true,host_subscription_enabled:true});
     const operatorSession=await verifySession(pool,config,operatorTrip.sessionGrant.rawToken);
-    await updateAiSettings(pool,operatorSession,operatorTrip.tripId,{ownerDefaultModel:"gpt-6-astra",memberDailyLimit:1});
-    const operatorPolicy=await getAiPolicy(pool,operatorSession,"gpt-6-astra");
-    assert.equal(operatorPolicy.model,"gpt-6-astra");
+    await updateAiSettings(pool,operatorSession,operatorTrip.tripId,{ownerDefaultModel:"gpt-6.2-astra",memberDailyLimit:1});
+    const operatorPolicy=await getAiPolicy(pool,operatorSession,"gpt-6.2-astra");
+    assert.equal(operatorPolicy.model,"gpt-6.2-astra");
     assert.equal(operatorPolicy.limit,null);
     const invitedId=randomUUID();
     await pool.query("INSERT INTO trip_members (trip_id,id,display_name,role,status) VALUES ($1,$2,'Synthetic invited traveler','editor','invited')",

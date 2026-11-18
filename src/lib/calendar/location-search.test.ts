@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.query.mockResolvedValue({ rows: [], rowCount: 1 });
   mocks.permissions.mockResolvedValue({ canEditItinerary: true, canSyncCalendar: true });
-  mocks.policy.mockResolvedValue({ enabled: true, model: "gpt-6.1-sol", usedToday: 0, limit: 20 });
+  mocks.policy.mockResolvedValue({ enabled: true, model: "gpt-6.2-sol", usedToday: 0, limit: 20 });
   mocks.mkdir.mockResolvedValue("C:\\Temp\\stardust-calendar-location-synthetic");
   mocks.rm.mockResolvedValue(undefined);
   mocks.provider.mockResolvedValue({ evidence, queries: [`${input.subject} official address`], inputTokens: 10, outputTokens: 5, cachedInputTokens: 1 });
@@ -46,7 +46,7 @@ describe("Calendar AI lookup admission and delivery", () => {
     expect(mocks.policy).toHaveBeenCalledWith(expect.anything(), session, undefined, { serializeMemberQuota: true });
     expect(mocks.idle).toHaveBeenCalledWith(expect.anything(), session.userId);
     expect(mocks.authorize).toHaveBeenCalledTimes(2);
-    expect(mocks.provider).toHaveBeenCalledWith(expect.objectContaining({ subject: input.subject, model: "gpt-6.1-sol" }));
+    expect(mocks.provider).toHaveBeenCalledWith(expect.objectContaining({ subject: input.subject, model: "gpt-6.2-sol" }));
     const serializedProvider = JSON.stringify(mocks.provider.mock.calls);
     expect(serializedProvider).not.toContain(session.userId); expect(serializedProvider).not.toContain("calendarId");
     expect(mocks.query.mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO ai_requests"))).toHaveLength(1);
@@ -70,7 +70,7 @@ describe("Calendar AI lookup admission and delivery", () => {
     for (const denied of ["actor", "edit", "quota", "busy"]) {
       mocks.authorize.mockReset(); mocks.policy.mockReset(); mocks.idle.mockReset();
       mocks.permissions.mockResolvedValue({ canEditItinerary: denied !== "edit", canSyncCalendar: true });
-      mocks.policy.mockResolvedValue({ model: "gpt-6.1-sol" });
+      mocks.policy.mockResolvedValue({ model: "gpt-6.2-sol" });
       if (denied === "actor") mocks.authorize.mockRejectedValue(new AppForbiddenError("actor"));
       if (denied === "quota") mocks.policy.mockRejectedValue(new AppForbiddenError("quota"));
       if (denied === "busy") mocks.idle.mockRejectedValue(new AppConflictError("busy"));

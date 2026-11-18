@@ -11,7 +11,7 @@ import type { Locale } from "@/lib/i18n";
 import type { DestinationDefaults } from "@/lib/app/trip-destination-contract";
 import { destinationLookupOutputSchema, normalizeDestination, validateDestinationInput, validateLookupOutput } from "@/lib/app/trip-destination-defaults";
 
-export const DESTINATION_LOOKUP_MODEL = "gpt-6.1-sol";
+export const DESTINATION_LOOKUP_MODEL = "gpt-6.2-sol";
 export const DESTINATION_LOOKUP_PROMPT_VERSION = 1;
 export const DESTINATION_LOOKUP_TIMEOUT_MS = 20_000;
 const maxResponseBytes = 4_096;

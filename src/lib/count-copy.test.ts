@@ -57,7 +57,7 @@ describe("counts in the singular and plural (JOB-077)", () => {
     expect(countLabel(1, messages.aiMemberRemainingOne, messages.aiMemberRemaining, { remaining: 1 })).toBe("1 prompt remaining this UTC day");
     expect(countLabel(1, messages.aiLimitChangedOne, messages.aiLimitChanged, { limit: 1 })).toBe("Member AI limit changed to 1 prompt per UTC day.");
     expect(countLabel(1, messages.aiMemberAccessDescriptionOne, messages.aiMemberAccessDescription, { limit: 1 }))
-      .toBe("Member access is fixed to gpt-6.1-sol and 1 prompt per UTC day.");
+      .toBe("Member access is fixed to gpt-6.2-sol and 1 prompt per UTC day.");
     expect(countLabel(1, keys.sharedAccessOne, keys.sharedAccess, { owner: "Ada", model: "synthetic-model", limit: 1 }))
       .toBe("Runs on Ada's key with synthetic-model, up to 1 prompt a day.");
   });

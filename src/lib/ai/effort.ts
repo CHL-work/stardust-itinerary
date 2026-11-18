@@ -21,7 +21,7 @@ export function isSelectableModel(value: unknown): value is SelectableOwnerModel
  * searching model, at medium effort, so a warning about a delay or closure is worth trusting.
  */
 export const routineDefaultModels: Readonly<Record<KeyedModelProvider, SelectableOwnerModel>> = {
-  openai: "gpt-6-astra",
+  openai: "gpt-6.2-astra",
   anthropic: "claude-opus-5-5",
   google: "gemini-4-argon",
 };
@@ -29,7 +29,7 @@ export const ROUTINE_DEFAULT_EFFORT: AiEffort = "medium";
 
 /** Trip setup is a one-line lookup: the lightest model of each provider, at low effort. */
 export const lookupModels: Readonly<Record<KeyedModelProvider, SelectableOwnerModel>> = {
-  openai: "gpt-6.1-terra",
+  openai: "gpt-6.2-sol",
   anthropic: "claude-haiku-5-5",
   google: "gemini-3.5-flash-lite",
 };

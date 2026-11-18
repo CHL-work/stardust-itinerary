@@ -20,7 +20,7 @@ beforeEach(() => {
   vi.clearAllMocks(); mock.connect.mockResolvedValue(undefined); mock.end.mockResolvedValue(undefined);
   vi.stubEnv("DATABASE_URL", "postgresql://localhost/application"); vi.stubEnv("DATABASE_DIRECT_URL", "");
   vi.stubEnv("TEST_DATABASE_URL", target); vi.stubEnv("OWNER_GOOGLE_EMAIL", "original@example.test");
-  process.argv = ["node", "not-this-evaluator.ts", "--model=gpt-6.1-sol", "--run-live"];
+  process.argv = ["node", "not-this-evaluator.ts", "--model=gpt-6.2-sol", "--run-live"];
 });
 afterEach(() => { process.argv = [...originalArgv]; vi.unstubAllEnvs(); });
 
@@ -43,13 +43,13 @@ describe("pending evaluator preflight guards", () => {
     expect(mock.construct).not.toHaveBeenCalled(); expect(mock.planner).not.toHaveBeenCalled();
   });
   it("requires explicit live opt-in and one registered model", async () => {
-    expect(() => selectedModel(["--model=gpt-6.1-sol"])).toThrow("live_eval_not_authorized");
+    expect(() => selectedModel(["--model=gpt-6.2-sol"])).toThrow("live_eval_not_authorized");
     expect(() => selectedModel(["--run-live"])).toThrow("invalid_model");
     expect(() => selectedModel(["--run-live", "--model=unregistered"])).toThrow("invalid_model");
-    expect(() => selectedModel(["--run-live", "--model=gpt-6.1-sol", "--model=claude-opus-5-5"])).toThrow("invalid_model");
-    expect(selectedModel(["--run-live", "--model=gpt-6.1-sol"])).toBe("gpt-6.1-sol");
+    expect(() => selectedModel(["--run-live", "--model=gpt-6.2-sol", "--model=claude-opus-5-5"])).toThrow("invalid_model");
+    expect(selectedModel(["--run-live", "--model=gpt-6.2-sol"])).toBe("gpt-6.2-sol");
     expect(selectedModel(["--run-live", "--model=claude-opus-5-5"])).toBe("claude-opus-5-5");
-    process.argv = ["node", "not-this-evaluator.ts", "--model=gpt-6.1-sol"];
+    process.argv = ["node", "not-this-evaluator.ts", "--model=gpt-6.2-sol"];
     await expect(main()).rejects.toThrow("live_eval_not_authorized");
     expect(mock.construct).not.toHaveBeenCalled(); expect(mock.planner).not.toHaveBeenCalled();
   });

@@ -9,8 +9,8 @@ import { formatMessage, messages, locales, type Locale } from "@/lib/i18n";
 
 type Overview = ComponentProps<typeof AiCard>["overview"];
 function render(ai: Partial<Overview["ai"]>, isOwner: boolean, locale: Locale = "en") {
-  const overview = { session: { isOwner }, ai: { enabled: true, ownerDefaultModel: "gpt-6.1-sol", effectiveModel: "gpt-6.1-sol", memberDailyLimit: 20, usedToday: 2, remainingToday: 18, ...ai } } as Overview;
-  return renderToStaticMarkup(createElement(AiCard, { overview, locale, messages: messages[locale], prompt: "", setPrompt: vi.fn(), reply: null, sources: [], memory: null, busy: false, thinking: false, selectedModel: "gpt-6.1-sol", setModel: vi.fn(), submit: vi.fn(),
+  const overview = { session: { isOwner }, ai: { enabled: true, ownerDefaultModel: "gpt-6.2-sol", effectiveModel: "gpt-6.2-sol", memberDailyLimit: 20, usedToday: 2, remainingToday: 18, ...ai } } as Overview;
+  return renderToStaticMarkup(createElement(AiCard, { overview, locale, messages: messages[locale], prompt: "", setPrompt: vi.fn(), reply: null, sources: [], memory: null, busy: false, thinking: false, selectedModel: "gpt-6.2-sol", setModel: vi.fn(), submit: vi.fn(),
     imagePicker: { locale, images: [], preparing: false, error: null, add: vi.fn(), remove: vi.fn() },
   }));
 }
@@ -24,7 +24,7 @@ describe("paid model choices require the current user's own matching API key", (
       const html = render(ai, owner);
       expect(html).not.toContain("model-select");
       expect(html).not.toContain("claude-sonnet-5-5");
-      expect(html).not.toContain("gpt-6.1-sol");
+      expect(html).not.toContain("gpt-6.2-sol");
       expect(html).toContain(aiKeysMessages("en").keyRequired.replaceAll("'", "&#x27;"));
     }
   });

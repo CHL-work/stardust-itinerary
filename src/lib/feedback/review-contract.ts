@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { feedbackDiagnosticsSchema } from "./contracts";
 
-export const FEEDBACK_MODEL = "gpt-6-astra";
+export const FEEDBACK_MODEL = "gpt-6.2-astra";
 export const FEEDBACK_EFFORT = "medium";
 export const FEEDBACK_BATCH_LIMIT = 20;
 export type ReviewReport = { key: string; title: string; description: string; kind: "bug" | "feedback";

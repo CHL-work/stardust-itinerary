@@ -22,7 +22,7 @@ const request = (method: string, body?: unknown) => new NextRequest("https://sta
   method, headers: { origin: "https://stardust.test", "content-type": "application/json" }, body: JSON.stringify(body ?? {}),
 });
 const view = { chatEffort: null, providers: ["openai"], revision: 3, routine: { enabled: false, model: null, effort: "medium", active: false,
-  lastCheckAt: null, checksToday: 0, optedOut: false, autoCheck: { state: "running", model: "gpt-6-astra", reason: null } } };
+  lastCheckAt: null, checksToday: 0, optedOut: false, autoCheck: { state: "running", model: "gpt-6.2-astra", reason: null } } };
 
 describe("AI preferences route (JOB-094, JOB-096)", () => {
   beforeEach(() => {
@@ -35,7 +35,7 @@ describe("AI preferences route (JOB-094, JOB-096)", () => {
   });
 
   it("starts a due automatic check after responding, and returns its progress", async () => {
-    const claim = { model: "gpt-6-astra", effort: "medium", claimedAt: new Date("2030-01-01T00:00:01Z") };
+    const claim = { model: "gpt-6.2-astra", effort: "medium", claimedAt: new Date("2030-01-01T00:00:01Z") };
     mocks.claim.mockResolvedValueOnce(claim);
     const response = await POST(request("POST"), context);
     expect(response.status).toBe(200);

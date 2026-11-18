@@ -124,7 +124,7 @@ function noReplacementOrApproval() {
   expect(mocks.createBatch).not.toHaveBeenCalled();
   expect(mocks.approve).not.toHaveBeenCalled();
 }
-async function submit(prompt = "Update it", model: OwnerModel = "gpt-6.1-sol") {
+async function submit(prompt = "Update it", model: OwnerModel = "gpt-6.2-sol") {
   const result = await runAiPlanner(pool, session, prompt, model, "zh-HK-lihkg", submissionId, conversationId);
   if ("request" in result) throw new Error("Unexpected replay in synthetic fresh submission.");
   return result;
@@ -143,13 +143,13 @@ beforeEach(() => {
   mocks.selectConversation.mockResolvedValue(conversationId); mocks.replay.mockResolvedValue(null);
   mocks.checkpoint.mockResolvedValue(null); mocks.draft.mockResolvedValue(null);
   mocks.instructions.mockResolvedValue({ instructions: "", revision: 0 });
-  modelReply("gpt-6.1-sol");
+  modelReply("gpt-6.2-sol");
 });
 
 describe("AI editing of existing pending events", () => {
   it.each([
-    ["gpt-6.1-sol", "Update it"], ["claude-opus-5-5", "Update it"],
-    ["gpt-6.1-sol", "Update it to be in Cantonese but location in Japanese"],
+    ["gpt-6.2-sol", "Update it"], ["claude-opus-5-5", "Update it"],
+    ["gpt-6.2-sol", "Update it to be in Cantonese but location in Japanese"],
     ["claude-opus-5-5", "Update it to be in Cantonese but location in Japanese"],
   ] as const)("%s handles '%s' without replacing or approving the pending proposal", async (model, prompt) => {
     modelReply(model);
@@ -193,7 +193,7 @@ describe("AI editing of existing pending events", () => {
   });
 
   it("uses the saved event date for 'today's pending restaurant' without changing omitted times or linked expense", async () => {
-    modelReply("gpt-6.1-sol", output({ title: "去架空餐廳食晚飯" }));
+    modelReply("gpt-6.2-sol", output({ title: "去架空餐廳食晚飯" }));
     const result = await submit("Update today's pending restaurant title to Cantonese, keeping the location in Japanese.");
     expect(result).toMatchObject({ proposalId: requestId, changeStatus: "pending" });
     expect(mocks.editPending.mock.calls[0]?.[4].patch).toEqual({ title: "去架空餐廳食晚飯" });
@@ -201,7 +201,7 @@ describe("AI editing of existing pending events", () => {
   });
 
   it("rejects an empty no-op patch rather than sending a meaningless pending revision", async () => {
-    modelReply("gpt-6.1-sol", output({}));
+    modelReply("gpt-6.2-sol", output({}));
     await expect(submit()).rejects.toBeDefined();
     expect(mocks.editPending).not.toHaveBeenCalled();
     noReplacementOrApproval();
@@ -215,14 +215,14 @@ describe("AI editing of existing pending events", () => {
   });
 
   it("rejects a stale model proposal revision before any pending mutation", async () => {
-    modelReply("gpt-6.1-sol", output(partialPatch, { baseRevision: 2 }));
+    modelReply("gpt-6.2-sol", output(partialPatch, { baseRevision: 2 }));
     await expect(submit()).rejects.toBeDefined();
     expect(mocks.editPending).not.toHaveBeenCalled();
     noReplacementOrApproval();
   });
 
   it("does not treat a pending request ID as an approved canonical event ID", async () => {
-    modelReply("gpt-6.1-sol", output(partialPatch, { action: "update" }));
+    modelReply("gpt-6.2-sol", output(partialPatch, { action: "update" }));
     await expect(submit()).rejects.toBeDefined();
     expect(mocks.editPending).not.toHaveBeenCalled();
     noReplacementOrApproval();
@@ -230,7 +230,7 @@ describe("AI editing of existing pending events", () => {
 
   it("does not bypass an existing pending edit by addressing its canonical target", async () => {
     mocks.getPending.mockResolvedValue({ pendingItinerary: [{ ...pending, operation: "update", targetItemId: canonicalId }], pendingItineraryTruncated: false });
-    modelReply("gpt-6.1-sol", output(partialPatch, { action: "update", entityId: canonicalId, baseRevision: 7 }));
+    modelReply("gpt-6.2-sol", output(partialPatch, { action: "update", entityId: canonicalId, baseRevision: 7 }));
     await expect(submit()).rejects.toBeDefined();
     expect(mocks.editPending).not.toHaveBeenCalled();
     noReplacementOrApproval();
@@ -243,7 +243,7 @@ describe("AI editing of existing pending events", () => {
       return sql.includes("AS context") && sql.includes("FROM trips")
         ? { rows: [{ context: structuredClone(context) }], rowCount: 1 } : { rows: [], rowCount: 1 };
     });
-    modelReply("gpt-6.1-sol", output(partialPatch, { action: "update", entityId: canonicalId, baseRevision: 7 }));
+    modelReply("gpt-6.2-sol", output(partialPatch, { action: "update", entityId: canonicalId, baseRevision: 7 }));
 
     await expect(submit()).rejects.toThrow("This event has a pending change.");
 
@@ -259,7 +259,7 @@ describe("AI editing of existing pending events", () => {
 
   it("cannot use an expense action or omit revision/target identity for pending event editing", async () => {
     for (const invalid of [{ entityType: "expense" }, { entityId: null }, { baseRevision: null }]) {
-      modelReply("gpt-6.1-sol", output(partialPatch, invalid));
+      modelReply("gpt-6.2-sol", output(partialPatch, invalid));
       await expect(submit()).rejects.toBeDefined();
     }
     expect(mocks.editPending).not.toHaveBeenCalled();
@@ -270,7 +270,7 @@ describe("AI editing of existing pending events", () => {
     const payload = output();
     payload.proposals.push({ ...payload.proposals[0]!, action: "create", entityId: null as unknown as string,
       baseRevision: null as unknown as number, patchJson: JSON.stringify(originalPatch) });
-    modelReply("gpt-6.1-sol", payload);
+    modelReply("gpt-6.2-sol", payload);
     await expect(submit()).rejects.toBeDefined();
     expect(mocks.editPending).not.toHaveBeenCalled();
     noReplacementOrApproval();
@@ -280,14 +280,14 @@ describe("AI editing of existing pending events", () => {
     const recovered = { request: { requestId: "70000000-0000-4000-8000-000000000001", status: "succeeded",
       result: { proposalId: requestId, proposalIds: [requestId], changeStatus: "pending" } }, busyElsewhere: false, activeConversationId: conversationId };
     mocks.replay.mockResolvedValue(recovered);
-    await expect(runAiPlanner(pool, session, "Update it", "gpt-6.1-sol", "zh-HK-lihkg", submissionId, conversationId)).resolves.toEqual(recovered);
+    await expect(runAiPlanner(pool, session, "Update it", "gpt-6.2-sol", "zh-HK-lihkg", submissionId, conversationId)).resolves.toEqual(recovered);
     expect(mocks.codex).not.toHaveBeenCalled(); expect(mocks.claude).not.toHaveBeenCalled();
     expect(mocks.getPending).not.toHaveBeenCalled(); expect(mocks.editPending).not.toHaveBeenCalled();
     noReplacementOrApproval();
   });
 
   it.each([{ linkedExpense: originalPatch.linkedExpense }, { linkedExpense: null }, { isLocked: false }])("rejects expense or owner-lock changes through the pending event-only AI operation", async (extra) => {
-    modelReply("gpt-6.1-sol", output({ ...partialPatch, ...extra }));
+    modelReply("gpt-6.2-sol", output({ ...partialPatch, ...extra }));
     await expect(submit()).rejects.toBeDefined();
     expect(mocks.editPending).not.toHaveBeenCalled();
     noReplacementOrApproval();

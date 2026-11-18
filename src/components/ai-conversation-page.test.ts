@@ -15,7 +15,7 @@ const conversation: AiConversationSummary = {
 };
 const turn: AiConversationMessage = {
   requestId: "synthetic-request", clientRequestId: null, conversationId: conversation.conversationId,
-  prompt: "Plan a museum visit.\nThen find a garden.", model: "gpt-6.1-sol", status: "succeeded",
+  prompt: "Plan a museum visit.\nThen find a garden.", model: "gpt-6.2-sol", status: "succeeded",
   createdAt: "2030-04-01T01:30:00Z", completedAt: "2030-04-01T01:31:00Z", errorCode: null,
   message: "A museum and garden suggestion.", result: null,
 };
@@ -40,7 +40,7 @@ describe("private AI conversation transcript", () => {
     expect(markup).toContain(turn.prompt);
     expect(markup).toContain(turn.message);
     expect(markup).toContain('dateTime="2030-04-01T01:30:00Z"');
-    expect(markup).toContain("gpt-6.1-sol");
+    expect(markup).toContain("gpt-6.2-sol");
   });
 
   it.each(locales)("uses %s progress and terminal feedback without raw failure details", (locale) => {

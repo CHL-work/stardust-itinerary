@@ -8,7 +8,7 @@ import { tripDateErrors, validTripDate } from "@/lib/app/trip-date-range";
 import { MAX_TRIP_DESTINATIONS } from "@/lib/app/trip-destinations";
 import { canonicalTripTimeZone } from "@/lib/app/trip-time-zone";
 
-import { ownerModels, selectableOwnerModels } from "@/lib/app/types";
+import { normalizeRetiredModelId, ownerModels, selectableOwnerModels } from "@/lib/app/types";
 import { locales } from "@/lib/i18n";
 
 export const expenseSplitAmountsSchema = z.array(z.object({
@@ -109,7 +109,7 @@ export const aiRequestSchema = z.object({
     data: z.string().min(1).max(2_796_204),
   })).max(3).optional(),
   prompt: z.string().trim().min(1).max(8000),
-  model: z.enum(ownerModels).optional(),
+  model: z.preprocess(normalizeRetiredModelId, z.enum(ownerModels)).optional(),
   freeModel: z.string().max(160).regex(/^[a-z0-9][a-z0-9._-]{0,60}\/[a-z0-9][a-z0-9._:-]{0,100}$/u).optional(),
   locale: z.enum(locales).optional(),
   clientRequestId: z.uuid().optional(),
@@ -127,7 +127,7 @@ export const aiConversationActionSchema = z.discriminatedUnion("action", [
 
 export const aiSettingsSchema = z.object({
   enabled: z.boolean().optional(),
-  ownerDefaultModel: z.enum(selectableOwnerModels).optional(),
+  ownerDefaultModel: z.preprocess(normalizeRetiredModelId, z.enum(selectableOwnerModels)).optional(),
   memberDailyLimit: z.number().int().min(1).max(1000).optional(),
 }).refine((input) => Object.values(input).some((value) => value !== undefined), {
   message: "Submit at least one AI setting.",

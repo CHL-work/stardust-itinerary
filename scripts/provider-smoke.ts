@@ -16,7 +16,7 @@ const schema = {
   properties: { answer: { type: "string", maxLength: 40 } }, required: ["answer"],
 } as const;
 const prompt = "Reply with JSON whose answer field is exactly the word ok. Do not use tools.";
-const models = { openai: "gpt-6.1-sol", anthropic: "claude-haiku-5-5", google: "gemini-3.8-flash" } as const;
+const models = { openai: "gpt-6.2-sol", anthropic: "claude-haiku-5-5", google: "gemini-3.8-flash" } as const;
 type Provider = keyof typeof models;
 
 async function openai(): Promise<string> {

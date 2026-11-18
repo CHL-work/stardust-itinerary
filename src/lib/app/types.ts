@@ -4,15 +4,13 @@ import type { Locale } from "@/lib/i18n";
 
 export type { EventWeatherTargetRole } from "@/lib/weather/domain";
 
-export const DEFAULT_OWNER_MODEL = "gpt-6.1-sol" as const;
-export const MEMBER_MODEL = "gpt-6.1-sol" as const;
+export const DEFAULT_OWNER_MODEL = "gpt-6.2-sol" as const;
+export const MEMBER_MODEL = "gpt-6.2-sol" as const;
 
 /** Models a person can choose: owners in a sponsored trip, and anyone on their own key. */
 export const selectableOwnerModels = [
   DEFAULT_OWNER_MODEL,
-  "gpt-6-astra",
-  "gpt-6.1-terra",
-  "gpt-6-luna",
+  "gpt-6.2-astra",
   "claude-haiku-5-5",
   "claude-sonnet-5-5",
   "claude-opus-5-5",
@@ -34,6 +32,28 @@ export const ownerModels = [...selectableOwnerModels, GUEST_FREE_MODEL] as const
 
 export type OwnerModel = (typeof ownerModels)[number];
 export type SelectableOwnerModel = (typeof selectableOwnerModels)[number];
+
+/** Retired selections accepted only as aliases; historical request records keep their actual model. */
+export const retiredOwnerModelReplacements = {
+  "gpt-6.1-sol": "gpt-6.2-sol",
+  "gpt-6-astra": "gpt-6.2-astra",
+  "gpt-6.1-terra": "gpt-6.2-sol",
+  "gpt-6-luna": "gpt-6.2-sol",
+} as const satisfies Record<string, SelectableOwnerModel>;
+
+/** Preserve unknown input so request schemas still reject unsupported explicit selections. */
+export function normalizeRetiredModelId(value: unknown): unknown {
+  if (typeof value !== "string" || !Object.hasOwn(retiredOwnerModelReplacements, value)) return value;
+  return retiredOwnerModelReplacements[value as keyof typeof retiredOwnerModelReplacements];
+}
+
+/** Old pods can still write retired defaults during a rolling release; never index the registry blindly. */
+export function normalizeStoredOwnerModel(value: unknown): SelectableOwnerModel {
+  const current = normalizeRetiredModelId(value);
+  return typeof current === "string" && (selectableOwnerModels as readonly string[]).includes(current)
+    ? current as SelectableOwnerModel
+    : DEFAULT_OWNER_MODEL;
+}
 
 type OpenAiOwnerModelProfile = Readonly<{
   provider: "openai";
@@ -66,25 +86,13 @@ export type OwnerModelProfile = OpenAiOwnerModelProfile | AnthropicOwnerModelPro
 export type KeyedModelProvider = Exclude<OwnerModelProfile["provider"], "kilo">;
 
 export const ownerModelRegistry = {
-  "gpt-6.1-sol": {
+  "gpt-6.2-sol": {
     provider: "openai",
     transport: "codex_sdk",
     authenticationMode: "api_key",
     reasoningEffort: "low",
   },
-  "gpt-6-astra": {
-    provider: "openai",
-    transport: "codex_sdk",
-    authenticationMode: "api_key",
-    reasoningEffort: "medium",
-  },
-  "gpt-6.1-terra": {
-    provider: "openai",
-    transport: "codex_sdk",
-    authenticationMode: "api_key",
-    reasoningEffort: "medium",
-  },
-  "gpt-6-luna": {
+  "gpt-6.2-astra": {
     provider: "openai",
     transport: "codex_sdk",
     authenticationMode: "api_key",
@@ -138,7 +146,7 @@ export const ownerModelRegistry = {
 
 /** The model used with a user's own key when they have not chosen one: a capable, moderately priced tier. */
 export const providerDefaultModels = {
-  openai: "gpt-6.1-sol",
+  openai: "gpt-6.2-sol",
   anthropic: "claude-sonnet-5-5",
   google: "gemini-3.8-flash",
 } as const satisfies Record<KeyedModelProvider, OwnerModel>;

@@ -25,7 +25,7 @@ const hoursTarget = { key: "V1", venueName: target.subject, date: target.date, t
 const hours: VenueHoursEvidence = { ...hoursTarget, status: "hours_found", intervals: [{
   opensAt: "2030-04-01T09:00:00+09:00", closesAt: "2030-04-01T17:00:00+09:00", lastAdmissionAt: null,
 }], sources: ["https://example.test/park/hours"] };
-function input(model: OwnerModel = "gpt-6.1-sol"): PublicResearchInput {
+function input(model: OwnerModel = "gpt-6.2-sol"): PublicResearchInput {
   return { model, targets: [target], workDirectory: join(tmpdir(), "stardust-public-research-synthetic"),
     abortController: new AbortController(), nowUtc: "2030-03-20T12:00:00Z" };
 }
@@ -81,14 +81,14 @@ describe("bounded published tariff adapters", () => {
     expect(prompt).toContain("at most one initial controlled query per target");
     expect(prompt).toContain("No structured hours targets were supplied");
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("retains source-bound tiers and unknown fees after one %s query", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("retains source-bound tiers and unknown fees after one %s query", async (model) => {
     mockPrice();
     const result = await runPublicResearch({ ...input(model), targets: [price] });
     expect(result).toMatchObject({ facts: [published], sourceUrls: [source], webSearchQueries: [priceQuery], hoursEvidence: [], attemptedHoursTargets: [] });
-    expect(model === "gpt-6.1-sol" ? mocks.run : mocks.claudeQuery).toHaveBeenCalledOnce();
+    expect(model === "gpt-6.2-sol" ? mocks.run : mocks.claudeQuery).toHaveBeenCalledOnce();
     expect(result.facts[0]?.priceQuotes?.[0]?.fees[0]?.amountMinor).toBeNull();
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("does not equate prices or source claims with observed bound search on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("does not equate prices or source claims with observed bound search on %s", async (model) => {
     for (const targets of [[price], [price, { ...target, key: "R2" }]]) {
       mockPrice([published], targets.length > 1 ? query : null);
       const result = await runPublicResearch({ ...input(model), targets });
@@ -97,20 +97,20 @@ describe("bounded published tariff adapters", () => {
       expect(result.sourceUrls).toEqual([]);
     }
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("drops malformed and stale tiers without losing valid siblings on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("drops malformed and stale tiers without losing valid siblings on %s", async (model) => {
     mockPrice([{ ...published, priceQuotes: [quote, { ...quote, baseFeeMinor: 9000 }, published.priceQuotes[1],
       { service: "Malformed" }, { ...quote, service: "Expired", validThrough: "2029-12-31" }] }]);
     const result = await runPublicResearch({ ...input(model), targets: [price] });
     expect(result.facts[0]?.priceQuotes).toEqual([published.priceQuotes[1]]);
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("returns unknown for missing, unsupported or conflicting tariffs on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("returns unknown for missing, unsupported or conflicting tariffs on %s", async (model) => {
     for (const priceQuotes of [undefined, [], [quote, quote], [{ ...quote, source: "https://wrong.example.test/menu" }], [{ ...quote, currency: "VND" }]]) {
       mockPrice([{ ...published, priceQuotes }]);
       expect((await runPublicResearch({ ...input(model), targets: [price] })).facts[0])
         .toMatchObject({ status: "unverified", sources: [] });
     }
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("rejects explicit unsupported service target before %s execution", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("rejects explicit unsupported service target before %s execution", async (model) => {
     await expect(runPublicResearch({ ...input(model), targets: [{ ...price, subject: "Synthetic sexual services" }] }))
       .rejects.toMatchObject({ code: "AI_PUBLIC_RESEARCH_FAILED" });
     expect(mocks.run).not.toHaveBeenCalled(); expect(mocks.claudeQuery).not.toHaveBeenCalled();
@@ -147,7 +147,7 @@ describe("bounded public discovery adapters", () => {
     expect(prompt).not.toContain("OPTIONAL_VENUE_HOURS_TARGETS_JSON");
     expect(JSON.parse(prompt.split("INITIAL_PUBLIC_QUERIES_JSON\n")[1]!)).toEqual([publicResearchQuery(discovery)]);
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("preserves discovery facts alongside exact venue hours on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("preserves discovery facts alongside exact venue hours on %s", async (model) => {
     const facts = [fact, discovered];
     const queries = [query, publicResearchQuery(discovery)];
     mocks.run.mockResolvedValue({ ...codexResult(facts), finalResponse: JSON.stringify({ facts, hours: [hours] }),
@@ -159,9 +159,9 @@ describe("bounded public discovery adapters", () => {
     expect(await runPublicResearch({ ...input(model), targets: [target, discovery], hoursTargets: [hoursTarget] }))
       .toMatchObject({ facts, hoursEvidence: [hours], attemptedHoursTargets: [hoursTarget], webSearchQueries: queries,
         sourceUrls: [...fact.sources, ...discovered.sources, ...hours.sources] });
-    expect(model === "gpt-6.1-sol" ? mocks.run : mocks.claudeQuery).toHaveBeenCalledOnce();
+    expect(model === "gpt-6.2-sol" ? mocks.run : mocks.claudeQuery).toHaveBeenCalledOnce();
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("does not verify an unsearched discovery target using a venue search on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("does not verify an unsearched discovery target using a venue search on %s", async (model) => {
     mocks.run.mockResolvedValue(codexResult([fact, discovered]));
     mocks.claudeQuery.mockImplementation(() => messages([search, claudeResult([fact, discovered])]));
     const result = await runPublicResearch({ ...input(model), targets: [target, discovery] });
@@ -169,7 +169,7 @@ describe("bounded public discovery adapters", () => {
     expect(result.sourceUrls).toEqual(fact.sources);
     expect(result.hoursEvidence).toEqual([]);
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("rejects caller-supplied discovery hours before %s executes", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("rejects caller-supplied discovery hours before %s executes", async (model) => {
     await expect(runPublicResearch({ ...input(model), targets: [discovery], hoursTargets: [{
       key: "V2", venueName: discovery.subject, date: discovery.date, timeZone: "Asia/Tokyo",
     }] })).rejects.toMatchObject({ code: "AI_PUBLIC_RESEARCH_FAILED" });
@@ -204,12 +204,12 @@ describe("same-search reusable structured venue hours", () => {
     expect(prompt).toContain("status unknown with intervals=[] and sources=[]");
     expect(prompt).not.toContain(value.workDirectory);
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("returns assessed reusable hours and per-target attempt with a single %s turn", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("returns assessed reusable hours and per-target attempt with a single %s turn", async (model) => {
     mockHoursResult([hours]);
     const result = await runPublicResearch({ ...input(model), hoursTargets: [hoursTarget] });
     expect(result).toMatchObject({ facts: [fact], hoursEvidence: [hours], attemptedHoursTargets: [hoursTarget], webSearchQueries: [query] });
     expect(result.sourceUrls).toEqual([...fact.sources, ...hours.sources]);
-    if (model === "gpt-6.1-sol") {
+    if (model === "gpt-6.2-sol") {
       expect(mocks.run).toHaveBeenCalledOnce(); expect(mocks.claudeQuery).not.toHaveBeenCalled();
       expect(mocks.startThread).toHaveBeenCalledWith(expect.objectContaining({ model }));
     } else {
@@ -217,7 +217,7 @@ describe("same-search reusable structured venue hours", () => {
       expect(mocks.claudeQuery.mock.calls[0]![0].options).toMatchObject({ model, tools: ["WebSearch"], maxTurns: 4 });
     }
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("retains the exact allowlisted public article supporting hours through %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("retains the exact allowlisted public article supporting hours through %s", async (model) => {
     const article = "https://www.the-chara.com/blog/?p=119155";
     mockHoursResult([{ ...hours, sources: [`${article}&utm_source=synthetic#hours`] }]);
     const result = await runPublicResearch({ ...input(model), hoursTargets: [hoursTarget] });
@@ -232,18 +232,18 @@ describe("same-search reusable structured venue hours", () => {
       webSearchQueries: [query], cleanupFailed: true });
     expect(JSON.stringify(result)).not.toContain("private cleanup detail");
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("preserves legacy facts-only responses without suppressing fallback on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("preserves legacy facts-only responses without suppressing fallback on %s", async (model) => {
     expect(await runPublicResearch({ ...input(model), hoursTargets: [hoursTarget] })).toMatchObject({
       facts: [fact], hoursEvidence: [], attemptedHoursTargets: [],
     });
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("never treats source claims as observed search on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("never treats source claims as observed search on %s", async (model) => {
     mockHoursResult([hours], false);
     expect(await runPublicResearch({ ...input(model), hoursTargets: [hoursTarget] })).toMatchObject({
       hoursEvidence: [], attemptedHoursTargets: [], webSearchQueries: [], sourceUrls: [],
     });
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("keeps explicit researched unknown distinct from skipped/missing hours on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("keeps explicit researched unknown distinct from skipped/missing hours on %s", async (model) => {
     mockHoursResult([{ ...hours, status: "unknown", intervals: [], sources: [] }]);
     expect(await runPublicResearch({ ...input(model), hoursTargets: [hoursTarget] })).toMatchObject({
       hoursEvidence: [], attemptedHoursTargets: [hoursTarget], facts: [fact],
@@ -253,7 +253,7 @@ describe("same-search reusable structured venue hours", () => {
       hoursEvidence: [], attemptedHoursTargets: [],
     });
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("rejects malformed/boundary-mismatched evidence without discarding valid general facts on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("rejects malformed/boundary-mismatched evidence without discarding valid general facts on %s", async (model) => {
     for (const override of [{ venueName: "Another venue" }, { date: "2030-04-02" }, { timeZone: "UTC" },
       { key: "V2" }, { intervals: [] }, { sources: [] }, { sources: ["https://example.test/account/private"] },
       { intervals: [{ ...hours.intervals[0], lastAdmissionAt: undefined }] },
@@ -264,14 +264,14 @@ describe("same-search reusable structured venue hours", () => {
       });
     }
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("requires a corresponding query for each hours target on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("requires a corresponding query for each hours target on %s", async (model) => {
     const otherTarget = { ...target, key: "R2", subject: "Synthetic Maple Museum" };
     const otherHoursTarget = { ...hoursTarget, key: "V2", venueName: otherTarget.subject };
     mockHoursResult([hours, { ...hours, ...otherHoursTarget }]);
     expect(await runPublicResearch({ ...input(model), targets: [target, otherTarget], hoursTargets: [hoursTarget, otherHoursTarget] }))
       .toMatchObject({ hoursEvidence: [hours], attemptedHoursTargets: [hoursTarget] });
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("does not accept unsolicited hours without an authorized input target on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("does not accept unsolicited hours without an authorized input target on %s", async (model) => {
     mockHoursResult([hours]);
     expect(await runPublicResearch(input(model))).toMatchObject({ facts: [fact], hoursEvidence: [], attemptedHoursTargets: [] });
   });
@@ -359,7 +359,7 @@ describe("isolated same-model public research", () => {
     expect(mocks.run.mock.calls[0]![0]).toBe(mocks.claudeQuery.mock.calls[0]![0].prompt);
     expect(mocks.run.mock.calls[0]![1].outputSchema).toEqual(mocks.claudeQuery.mock.calls[0]![0].options.outputFormat.schema);
   });
-  it.each(["gpt-6.1-sol", "claude-opus-5-5"] as const)("reports unverified without observed search on %s", async (model) => {
+  it.each(["gpt-6.2-sol", "claude-opus-5-5"] as const)("reports unverified without observed search on %s", async (model) => {
     mocks.run.mockResolvedValue({ ...codexResult(), items: [] });
     mocks.claudeQuery.mockImplementation(() => messages([claudeResult()]));
     const result = await runPublicResearch(input(model));

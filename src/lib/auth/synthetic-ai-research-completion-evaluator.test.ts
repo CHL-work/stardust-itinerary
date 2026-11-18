@@ -21,7 +21,7 @@ import {
 } from "../../../scripts/test-ai-research-completion";
 
 const targetUrl = "postgresql://test:synthetic-password@127.0.0.1:5432/stardust_test_ai_completion_guard";
-const options: CompletionOptions = { model: "gpt-6.1-sol", date: "2026-09-12" };
+const options: CompletionOptions = { model: "gpt-6.2-sol", date: "2026-09-12" };
 const session: AuthenticatedSession = { tripId: "10000000-0000-4000-8000-000000000099", memberId: "20000000-0000-4000-8000-000000000099",
   userId: "00000000-0000-4000-8000-000000000001", sessionId: "synthetic", role: "owner", displayName: "Demo Owner",
   expiresAt: new Date("2026-09-13T00:00:00Z"), absoluteExpiresAt: new Date("2026-09-15T00:00:00Z"),
@@ -57,14 +57,14 @@ afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
 
 describe("completion evaluator preflight", () => {
   it.each([
-    [], ["--run-live"], ["--model=gpt-6.1-sol"], ["--run-live", "--model=unknown"],
-    ["--run-live", "--model=gpt-6-astra"], ["--run-live", "--model=__proto__"],
-    ["--run-live", "--model=gpt-6.1-sol", "--model=claude-fable-5-1"],
-    ["--run-live", "--run-live", "--model=gpt-6.1-sol"],
-    ["--run-live", "--model=gpt-6.1-sol", "--prompt=arbitrary"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2026-09-11"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-02-30"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2026-09-12", "--date=2026-09-12"],
+    [], ["--run-live"], ["--model=gpt-6.2-sol"], ["--run-live", "--model=unknown"],
+    ["--run-live", "--model=gpt-6.2-astra"], ["--run-live", "--model=__proto__"],
+    ["--run-live", "--model=gpt-6.2-sol", "--model=claude-fable-5-1"],
+    ["--run-live", "--run-live", "--model=gpt-6.2-sol"],
+    ["--run-live", "--model=gpt-6.2-sol", "--prompt=arbitrary"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2026-09-11"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-02-30"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2026-09-12", "--date=2026-09-12"],
   ].map((args) => ({ args })))("rejects invalid CLI before connection or operator override: $args", async ({ args }) => {
     expect(await main(args)).toEqual({ status: "failed", stage: "preflight", code: "arguments_invalid" });
     expect(mock.construct).not.toHaveBeenCalled(); expect(mock.planner).not.toHaveBeenCalled();
@@ -72,7 +72,7 @@ describe("completion evaluator preflight", () => {
   });
   it("anchors the fixed public prompt to actual Japan date and accepts only the incident models", () => {
     expect(currentJapanDate(new Date("2026-09-11T15:00:00Z"))).toBe("2026-09-12");
-    expect(parseOptions(["--", "--run-live", "--model=gpt-6.1-sol"])).toEqual(options);
+    expect(parseOptions(["--", "--run-live", "--model=gpt-6.2-sol"])).toEqual(options);
     expect(parseOptions(["--run-live", "--model=claude-fable-5-1", "--date=2026-09-12"]).model).toBe("claude-fable-5-1");
     const prompt = publicDiscoveryPrompt(options.date);
     expect(prompt).toContain("Nagoya"); expect(prompt).toContain("2026-09-12");
@@ -86,13 +86,13 @@ describe("completion evaluator preflight", () => {
     "postgresql://localhost/%E0%A4%A", `postgresql://localhost/stardust_test_ai_completion_${"a".repeat(64)}`,
   ])("rejects an unsafe DB URL without any side effects", async (url) => {
     vi.stubEnv("TEST_DATABASE_URL", url);
-    expect(await main(["--run-live", "--model=gpt-6.1-sol"])).toMatchObject({ status: "failed", code: "test_database_invalid" });
+    expect(await main(["--run-live", "--model=gpt-6.2-sol"])).toMatchObject({ status: "failed", code: "test_database_invalid" });
     expect(mock.construct).not.toHaveBeenCalled(); expect(mock.planner).not.toHaveBeenCalled();
   });
   it.each(["DATABASE_URL", "DATABASE_DIRECT_URL"] as const)("rejects a live target through another loopback alias in %s", async (variable) => {
     vi.stubEnv(variable, targetUrl.replace("127.0.0.1", "localhost"));
     expect(() => requireIsolatedTarget(parseDatabaseTarget(targetUrl))).toThrow("test_database_not_isolated");
-    expect(await main(["--run-live", "--model=gpt-6.1-sol"])).toMatchObject({ code: "test_database_not_isolated" });
+    expect(await main(["--run-live", "--model=gpt-6.2-sol"])).toMatchObject({ code: "test_database_not_isolated" });
     expect(mock.construct).not.toHaveBeenCalled();
   });
   it("requires the exact disposable database confirmation, including programmatic callers", async () => {

@@ -70,7 +70,7 @@ describe("Codex lockdown for in-app model turns", () => {
     expect(usedForbiddenCodexItem([item("reasoning"), item("agent_message")], { webSearch: false })).toBe(false);
     expect(usedForbiddenCodexItem([item("web_search")], { webSearch: true })).toBe(false);
     expect(usedForbiddenCodexItem([item("web_search")], { webSearch: false })).toBe(true);
-    for (const type of ["command_execution", "file_change", "mcp_tool_call", "todo_list"]) {
+    for (const type of ["command_execution", "file_change", "mcp_tool_call", "todo_list", "request_user_input"]) {
       expect(usedForbiddenCodexItem([item(type)], { webSearch: true })).toBe(true);
     }
   });

@@ -10,7 +10,7 @@ import { providerEnvironment } from "@/lib/ai/provider-environment";
 import { sanitizeSearchQueries } from "@/lib/disruptions/privacy";
 import type { DisruptionProvider, DisruptionProviderResult } from "@/lib/disruptions/types";
 
-export const DISRUPTION_MODEL = "gpt-6.1-sol";
+export const DISRUPTION_MODEL = "gpt-6.2-sol";
 export const DISRUPTION_TIMEOUT_MS = 120_000;
 
 export class DisruptionProviderInvocationError extends Error {

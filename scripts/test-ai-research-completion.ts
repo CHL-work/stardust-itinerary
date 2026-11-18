@@ -19,7 +19,7 @@ import { bindSyntheticAiOperator, sponsorSyntheticAiTrip, syntheticOperatorIdent
 // absence afterwards. This script neither creates nor drops a database.
 const databasePattern = /^stardust_test_ai_completion_[a-z0-9_]+$/u;
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
-const models = ["gpt-6.1-sol", "claude-fable-5-1"] as const satisfies readonly OwnerModel[];
+const models = ["gpt-6.2-sol", "claude-fable-5-1"] as const satisfies readonly OwnerModel[];
 export const EXPECTED_MIGRATION_COUNT = 45;
 export const FINAL_MIGRATION = "0049_custom_ai_instructions.sql";
 export type CompletionOptions = { model: typeof models[number]; date: string };

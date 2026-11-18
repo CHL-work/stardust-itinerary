@@ -1,21 +1,20 @@
-import { selectableOwnerModels, type KeyedModelProvider, type SelectableOwnerModel } from "@/lib/app/types";
+import { type KeyedModelProvider, type SelectableOwnerModel } from "@/lib/app/types";
 import { estimateLlmCostUsd } from "@/lib/domain/costs";
 
 /**
- * Published standard prices of the registered models in USD per million tokens (JOB-093, D-105), checked
- * against the providers' pricing pages on the date below. The AI tab shows costs from these as estimates;
+ * Published standard prices in USD per million tokens (JOB-093, D-105). The date below is the last table
+ * update (OpenAI 6.2); other provider rates retain their dated source checks in docs/SOURCES.md. The AI tab shows estimates;
  * the provider's bill is final. A later window applies from its UTC date onward.
  */
-export const MODEL_PRICES_CHECKED_ON = "2026-11-08";
+export const MODEL_PRICES_CHECKED_ON = "2026-11-18";
 
 type PriceWindow = Readonly<{ from?: string; input: number; cachedInput: number; output: number }>;
 type ModelPrice = Readonly<{ provider: KeyedModelProvider; windows: readonly PriceWindow[] }>;
 
 export const modelPrices: Readonly<Record<SelectableOwnerModel, ModelPrice>> = {
-  "gpt-6.1-sol": { provider: "openai", windows: [{ input: 2, cachedInput: 0.1, output: 10 }] },
-  "gpt-6-astra": { provider: "openai", windows: [{ input: 10, cachedInput: 1, output: 50 }] },
-  "gpt-6.1-terra": { provider: "openai", windows: [{ input: 1, cachedInput: 0.05, output: 5 }] },
-  "gpt-6-luna": { provider: "openai", windows: [{ input: 0.1, cachedInput: 0.01, output: 0.5 }] },
+  // OpenAI's input tiers above 272,000 tokens are not included in this standard-rate estimate.
+  "gpt-6.2-sol": { provider: "openai", windows: [{ input: 2, cachedInput: 0.1, output: 10 }] },
+  "gpt-6.2-astra": { provider: "openai", windows: [{ input: 8, cachedInput: 0.4, output: 40 }] },
   // Haiku's prompts over 100,000 tokens cost more; the app's prompts stay far below that.
   "claude-haiku-5-5": { provider: "anthropic", windows: [{ input: 0.1, cachedInput: 0.01, output: 0.5 }] },
   "claude-sonnet-5-5": { provider: "anthropic", windows: [{ input: 2, cachedInput: 0.1, output: 10 }] },
@@ -32,14 +31,25 @@ export const modelPrices: Readonly<Record<SelectableOwnerModel, ModelPrice>> = {
   "gemini-3.5-flash-lite": { provider: "google", windows: [{ input: 0.3, cachedInput: 0.03, output: 2.5 }] },
 };
 
+/** Retired models remain priceable in the usage ledger, never selectable for new provider calls. */
+export const retiredModelPrices = {
+  "gpt-6.1-sol": { provider: "openai", windows: [{ input: 2, cachedInput: 0.1, output: 10 }] },
+  "gpt-6-astra": { provider: "openai", windows: [{ input: 10, cachedInput: 1, output: 50 }] },
+  "gpt-6.1-terra": { provider: "openai", windows: [{ input: 1, cachedInput: 0.05, output: 5 }] },
+  "gpt-6-luna": { provider: "openai", windows: [{ input: 0.1, cachedInput: 0.01, output: 0.5 }] },
+} as const satisfies Record<string, ModelPrice>;
+
+export type PricedModel = SelectableOwnerModel | keyof typeof retiredModelPrices;
+const allModelPrices: Readonly<Record<PricedModel, ModelPrice>> = { ...retiredModelPrices, ...modelPrices };
+
 /**
  * Search fees in USD per thousand: OpenAI and Anthropic bill each web search; Google bills each grounded
  * request after a monthly free allowance, which the estimate ignores.
  */
 export const webSearchUsdPerThousand: Readonly<Record<KeyedModelProvider, number>> = { openai: 10, anthropic: 10, google: 14 };
 
-export function isPricedModel(model: string): model is SelectableOwnerModel {
-  return (selectableOwnerModels as readonly string[]).includes(model);
+export function isPricedModel(model: string): model is PricedModel {
+  return Object.hasOwn(allModelPrices, model);
 }
 
 function priceAt(price: ModelPrice, at: Date): PriceWindow {
@@ -67,7 +77,7 @@ export function estimateRequestUsd(usage: PricedUsage): number | null {
   if (!isPricedModel(usage.model)) return null;
   const at = usage.at instanceof Date ? usage.at : new Date(usage.at);
   if (!Number.isFinite(at.getTime())) return null;
-  const price = modelPrices[usage.model];
+  const price = allModelPrices[usage.model];
   const window = priceAt(price, at);
   const cached = tokens(usage.cachedInputTokens);
   const input = tokens(usage.inputTokens);

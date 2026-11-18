@@ -168,14 +168,14 @@ describe("localized Settings instructions and retired preference controls", () =
     const overview = { ai: { enabled: true } } as ComponentProps<typeof AiCard>["overview"];
     const html = renderToStaticMarkup(createElement(AiCard, {
       overview, messages: messages[locale], locale, readOnly: true, prompt: "", setPrompt: vi.fn(),
-      reply: null, sources: [], memory: null, busy: false, thinking: false, selectedModel: "gpt-6.1-sol", setModel: vi.fn(), submit: vi.fn(),
+      reply: null, sources: [], memory: null, busy: false, thinking: false, selectedModel: "gpt-6.2-sol", setModel: vi.fn(), submit: vi.fn(),
       imagePicker: { locale, images: [], preparing: false, error: null, add: vi.fn(), remove: vi.fn() },
     }));
     expect(html).toContain(aiInstructionsMessages(locale).archivedNotice);
     expect(html).not.toContain("<form"); expect(html).not.toContain("<textarea"); expect(html).not.toContain('type="file"');
   });
   it("shows historical text without rendering removed structured preference receipts", () => {
-    const turn = { requestId: "old", clientRequestId: null, conversationId: "old", prompt: "Old prompt", model: "gpt-6.1-sol", createdAt: "2030-04-01T00:00:00Z", completedAt: null, status: "succeeded" as const, message: "Old answer", errorCode: null,
+    const turn = { requestId: "old", clientRequestId: null, conversationId: "old", prompt: "Old prompt", model: "gpt-6.2-sol", createdAt: "2030-04-01T00:00:00Z", completedAt: null, status: "succeeded" as const, message: "Old answer", errorCode: null,
       result: { message: "Old answer", webSearch: { sources: [] }, preferenceChanges: [{ id: "old-memory", action: "created", subject: "Retired receipt content" }] } };
     const html = renderToStaticMarkup(createElement(AiConversationTranscript, { turns: [turn] as unknown as ComponentProps<typeof AiConversationTranscript>["turns"], locale: "en", timeZone: "Asia/Tokyo", messages: aiHistoryMessages("en") }));
     expect(html).toContain("Old answer"); expect(html).not.toContain("Retired receipt content");

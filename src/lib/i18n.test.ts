@@ -19,11 +19,20 @@ describe("LIHKG localization boundaries", () => {
 
   it("formats localized AI quota messages without sentence fragments", () => {
     expect(formatMessage(messages.en.aiMemberQuota, { remaining: 7, limit: 20 }))
-      .toBe("gpt-6.1-sol · 7/20 prompts left this UTC day");
+      .toBe("gpt-6.2-sol · 7/20 prompts left this UTC day");
     expect(formatMessage(messages["zh-HK"].aiMemberRemaining, { remaining: 7 }))
       .toBe("本 UTC 日尚餘 7 次提問");
-    expect(formatMessage(messages["ja-JP"].aiModelChanged, { model: "gpt-6.1-sol" }))
-      .toBe("オーナーのAIモデルをgpt-6.1-solに変更しました。");
+    expect(formatMessage(messages["ja-JP"].aiModelChanged, { model: "gpt-6.2-sol" }))
+      .toBe("オーナーのAIモデルをgpt-6.2-solに変更しました。");
+  });
+
+  it("names the current member model in every language and count form (JOB-101)", () => {
+    for (const locale of locales) {
+      for (const key of ["aiMemberQuota", "aiMemberAccessDescription", "aiMemberAccessDescriptionOne"] as const) {
+        expect(messages[locale][key], `${locale}.${key}`).toContain("gpt-6.2-sol");
+        expect(messages[locale][key], `${locale}.${key}`).not.toMatch(/gpt-6\.1|gpt-6-astra|gpt-6-luna/u);
+      }
+    }
   });
 
   it("keeps conversation reset copy brief and neutral (JOB-073)", () => {

@@ -20,7 +20,7 @@ const subject = "Synthetic Sakura Park Tokyo";
 const search = `${subject} official address`;
 const evidence = { subject, status: "found", venueName: "Synthetic Sakura Park", address: "1-2-3 Synthetic Ward, Tokyo, Japan",
   sources: ["https://sakura.example.test/access"] };
-function input(model: OwnerModel = "gpt-6.1-sol") {
+function input(model: OwnerModel = "gpt-6.2-sol") {
   return { subject, model, workDirectory: join(tmpdir(), "synthetic-location"), abortController: new AbortController() };
 }
 function messages(values: unknown[]) { return Object.assign((async function* () { for (const value of values) yield value; })(), { close: mocks.close }); }

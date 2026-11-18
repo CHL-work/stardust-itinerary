@@ -31,7 +31,7 @@ const evidence = {
     { opensAt: "2030-04-01T17:00:00+09:00", closesAt: "2030-04-01T21:00:00+09:00", lastAdmissionAt: null },
   ], sources: ["https://example.test/sakura/hours"] }],
 };
-function input(model: OwnerModel = "gpt-6.1-sol"): VenueHoursResearchInput {
+function input(model: OwnerModel = "gpt-6.2-sol"): VenueHoursResearchInput {
   return { model, targets: [target], workDirectory: join(tmpdir(), "stardust-venue-hours-synthetic"),
     abortController: new AbortController(), nowUtc: "2030-03-20T12:00:00Z" };
 }

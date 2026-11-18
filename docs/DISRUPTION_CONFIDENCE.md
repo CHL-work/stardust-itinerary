@@ -6,7 +6,7 @@ A deleted trip has its checks disabled and is excluded from the worker's due que
 
 ## When a warning qualifies
 
-The monitor runs Sol (`gpt-6.1-sol`) at medium effort with live hosted search. It extracts a bounded `impactAssessment`: source authority, qualitative confidence, event/transport match, affected public entity, effect, supported minimum delay, short evidence facts and whether the incident is explicitly ongoing. Structured output is not proof that the facts are true. Application code in `src/lib/disruptions/eligibility.ts` independently enforces the following applicability rules:
+The operator-funded monitor runs Sol (`gpt-6.2-sol`) at medium effort with live hosted search; member-funded checks use the member's [verified model and effort](AI_TAB.md#routine-checks-on-your-own-key). It extracts a bounded `impactAssessment`: source authority, qualitative confidence, event/transport match, affected public entity, effect, supported minimum delay, short evidence facts and whether the incident is explicitly ongoing. Structured output is not proof that the facts are true. Application code in `src/lib/disruptions/eligibility.ts` independently enforces the following applicability rules:
 
 - `confirmed`, warning/critical severity, high confidence and an official issuing source with supporting public URL and facts are required. Possible, low/medium-confidence, informational, nearby/unknown matches and legacy output without assessment stay quiet.
 - Evidence must identify the venue or an explicitly planned transport service. A station serving a shop/hotel district does not establish the traveler's route. Network/road/strike notices cannot attach to non-transport events; endpoints alone cannot identify a planned line. Address/district substrings are not exact venue matches, and an endpoint name alone is not a service.
@@ -26,7 +26,7 @@ Successful researched responses retain parsed claims, assessment facts, policy v
 
 ## Monitor boundaries
 
-- `gpt-6.1-sol`, medium effort; no model switch or extra page-load call.
+- Operator-funded: `gpt-6.2-sol`, medium effort; no model switch or extra page-load call. Member-funded: the selected verified model and effort.
 - Backend-only checks: current-trip-date events at the configured 30-minute default, later seven-day events once per rolling day, staggered in bounded batches with leases/deadlines. The deployment's scheduler (for example cron or a Kubernetes CronJob) runs `pnpm monitor:disruptions` periodically; each run handles a small bounded batch, and the database decides which checks are due.
 - Private, pending, cancelled and completed events are excluded from external disruption research; public payloads are privacy-sanitized.
 - Selected-language neutral safety text, append-only [translations](DISRUPTION_LOCALIZATION.md), open-app notification permission and persistent device-local [deduplication](COMMUNICATIONS.md#current-local-browser-notification-subset) apply. There is no reliable closed-app push.

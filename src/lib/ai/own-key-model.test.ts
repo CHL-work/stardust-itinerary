@@ -10,6 +10,6 @@ describe("keyed models exclude the keyless slot", () => {
   it("never resolves free as an own or shared model", () => {
     expect(ownKeyModel(GUEST_FREE_MODEL, undefined, new Set(["kilo", "openai"]), false)).toBeNull();
     expect(ownKeyModel(undefined, GUEST_FREE_MODEL, new Set(["kilo"]), false)).toBeNull();
-    expect(ownKeyModel(undefined, GUEST_FREE_MODEL, new Set(["kilo", "openai"]), false)).toBe("gpt-6.1-sol");
+    expect(ownKeyModel(undefined, GUEST_FREE_MODEL, new Set(["kilo", "openai"]), false)).toBe("gpt-6.2-sol");
   });
 });

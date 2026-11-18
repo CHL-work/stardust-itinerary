@@ -12,11 +12,12 @@ describe("effort and default models (JOB-094)", () => {
   });
 
   it("turns routine checks on with each provider's most capable searching model (JOB-096, D-108)", () => {
-    expect(routineDefaultModels).toEqual({ openai: "gpt-6-astra", anthropic: "claude-opus-5-5", google: "gemini-4-argon" });
+    expect(routineDefaultModels).toEqual({ openai: "gpt-6.2-astra", anthropic: "claude-opus-5-5", google: "gemini-4-argon" });
     for (const [provider, model] of Object.entries(routineDefaultModels)) expect(modelProvider(model)).toBe(provider);
   });
 
   it("defaults trip setup to a registered, low-cost model of each provider", () => {
+    expect(lookupModels).toEqual({ openai: "gpt-6.2-sol", anthropic: "claude-haiku-5-5", google: "gemini-3.5-flash-lite" });
     for (const [provider, model] of Object.entries(lookupModels)) {
       expect(modelProvider(model)).toBe(provider);
       // Never the most expensive model of the provider.
@@ -26,8 +27,8 @@ describe("effort and default models (JOB-094)", () => {
   });
 
   it("keeps each model's tuned registry effort as the chat default", () => {
-    expect(registryEffort("gpt-6.1-sol")).toBe("low");
-    expect(registryEffort("gpt-6-astra")).toBe("medium");
+    expect(registryEffort("gpt-6.2-sol")).toBe("low");
+    expect(registryEffort("gpt-6.2-astra")).toBe("medium");
     expect(registryEffort("claude-sonnet-5-5")).toBe("low");
     expect(registryEffort("gemini-3.8-flash")).toBeNull();
   });

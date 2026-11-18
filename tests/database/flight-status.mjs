@@ -54,7 +54,7 @@ export async function testFlightStatus(pool, connectionString) {
     assert.doesNotMatch(input.prompt, /Synthetic status flyer|example\.test/u);
     const answer = answers.shift();
     assert.ok(answer, "an answer was scripted");
-    return { rawOutput: JSON.stringify(answer), effectiveModel: "gpt-6.1-sol", inputTokens: 10, outputTokens: 5,
+    return { rawOutput: JSON.stringify(answer), effectiveModel: "gpt-6.2-sol", inputTokens: 10, outputTokens: 5,
       cachedInputTokens: 0, webSearchCount: 1, webSearchQueries: [] };
   } };
   const answer = (overrides) => ({ flightNumber: "ZZ500", flightDate: "2031-05-01", status: "scheduled",

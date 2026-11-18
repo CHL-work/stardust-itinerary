@@ -11,7 +11,7 @@ import { routineAutoState, routineIsActive, type RoutineAutoRow } from "@/lib/ai
 import { verifyRoutineWebSearch, type RoutineSearchCheck } from "@/lib/ai/routine-check-provider";
 import { AppConflictError, AppInvalidInputError, appendAudit, assertTrip, inTransaction } from "@/lib/app/repository";
 import { lockCurrentTripActor } from "@/lib/app/trip-authorization";
-import { selectableOwnerModels, type KeyedModelProvider, type SelectableOwnerModel } from "@/lib/app/types";
+import { normalizeRetiredModelId, selectableOwnerModels, type KeyedModelProvider, type SelectableOwnerModel } from "@/lib/app/types";
 import type { AuthConfig } from "@/lib/auth/config";
 import { isGuestSession } from "@/lib/auth/guest-identity";
 import { enforceRateLimit, type AuthenticatedSession } from "@/lib/auth/repository";
@@ -29,7 +29,7 @@ export const aiPreferencesInputSchema = z.object({
   chatEffort: z.enum(aiEfforts).nullable().optional(),
   routine: z.object({
     enabled: z.boolean(),
-    model: z.enum(selectableOwnerModels).optional(),
+    model: z.preprocess(normalizeRetiredModelId, z.enum(selectableOwnerModels)).optional(),
     effort: z.enum(aiEfforts).optional(),
   }).strict().optional(),
 }).strict();

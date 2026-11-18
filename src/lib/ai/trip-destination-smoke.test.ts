@@ -7,7 +7,7 @@ function success(destination: string) {
   const ambiguous = destination === "USA";
   return { defaults: validateLookupOutput({ status: ambiguous ? "ambiguous" : "resolved", countryCode: japan ? "JP" : "US",
     timeZone: ambiguous ? null : japan ? "Asia/Tokyo" : "America/Chicago", timeZoneCandidates: [], currency: japan ? "JPY" : "USD",
-    currencyCandidates: [] }, destination), effectiveModel: "gpt-6.1-sol", latencyMs: 1,
+    currencyCandidates: [] }, destination), effectiveModel: "gpt-6.2-sol", latencyMs: 1,
   usage: { inputTokens: 20, outputTokens: 15, cachedInputTokens: 0 } };
 }
 

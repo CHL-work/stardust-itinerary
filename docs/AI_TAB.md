@@ -29,7 +29,7 @@ Settings keeps trip-level AI controls for owners under Advanced: AI access (trip
 
 Tokens are input plus output; Anthropic cache reads are added because Anthropic reports them apart from input. Only requests the account's own keys paid for carry a cost. Free models, a key someone shares with you and the site's own AI show tokens and "—".
 
-Costs come from `src/lib/ai/model-prices.ts`: each registered model's standard input, cached-input and output price per million tokens, with dated windows where a provider announced a change, plus search fees (OpenAI and Anthropic $10 per thousand searches; Google $14 per thousand grounded requests, whose monthly free allowance the estimate ignores). Prices were checked on November 8, 2026 against the providers' pricing pages ([sources](SOURCES.md#november-8-2026-model-prices-and-effort)). The page calls the figure an estimate: the provider's bill is final. Search counts are recorded from migration 0068 on (`ai_requests.web_search_count`), so earlier requests show token costs only.
+Costs come from `src/lib/ai/model-prices.ts`: standard input, cached-input and output prices per million tokens, dated windows where a provider announced a change, and retained prices for retired GPT models. GPT-6.2 Sol is $2/$0.10/$10 and Astra $8/$0.40/$40, checked November 18, 2026 ([sources](SOURCES.md#november-18-2026-gpt-62-models-and-codex-compatibility)); the other providers' November 8 prices remain unchanged. Search fees are OpenAI and Anthropic $10 per thousand searches and Google $14 per thousand grounded requests, ignoring free allowances. The figure is an estimate: the provider's bill is final. Search counts are recorded from migration 0068 on (`ai_requests.web_search_count`), so earlier requests show token costs only.
 
 The chart is a hand-written SVG: 30 stacked daily bars in four validated categorical colors (separately stepped for dark mode), a legend, a tap or hover readout, and the two tables as its accessible equivalent.
 
@@ -48,7 +48,7 @@ Routine checks are the [flight status checks](FLIGHT_STATUS.md) and the [disrupt
 
 The key save (`PUT /api/trips/{tripId}/ai/keys`) claims the check and runs it after responding, with `routineCheck: "running"` in its reply, so saving stays fast. For a key saved before this change, the AI tab finds the check due and starts it with `POST /api/trips/{tripId}/ai/preferences`. While a check runs, the tab reads `GET` every few seconds. The claim locks the account's preferences row, so two web servers never test one key twice; a claim that never finishes, for example across a restart, is due again after three minutes. Automatic checks count toward the same rate limit.
 
-**Defaults.** Each provider's most capable searching model at medium effort: `gpt-6-astra` (OpenAI), `claude-opus-5-5` (Anthropic) and `gemini-4-argon` (Google, with a Gemini API or Vertex AI key). A model the member already chose for the same provider is kept. The member may pick any model of a provider they hold a key for, and low, medium or high effort. These cost more per check than JOB-094's low-cost defaults; the Usage section shows the estimate.
+**Defaults.** Each provider's most capable searching model at medium effort: `gpt-6.2-astra` (OpenAI), `claude-opus-5-5` (Anthropic) and `gemini-4-argon` (Google, with a Gemini API or Vertex AI key). A model the member already chose for the same provider is kept, after the JOB-101 retired-GPT mapping. The member may pick any model of a provider they hold a key for, and low, medium or high effort. These cost more per check than JOB-094's low-cost defaults; the Usage section shows the estimate.
 
 **What runs.** With `ROUTINE_CHECKS_ENABLED=true` (on in the public web overlay and in Compose), each web server process starts a loop from `src/instrumentation.ts` that wakes every five minutes and runs a small batch: at most 4 flight checks and 2 trips of disruption checks, finishing within four minutes. Database claims (a flight slot row, the per-trip disruption lock) stop two replicas from checking the same thing twice. Logs carry counts only.
 
@@ -62,7 +62,7 @@ The key save (`PUT /api/trips/{tripId}/ai/keys`) claims the check and runs it af
 
 ## Effort
 
-`account_ai_preferences.chat_effort` (Default, Low, Medium, High) applies to the main chat request when the requester pays: their own key, or the operator's own requests. Default keeps each model's tuned registry effort (`low` for Sol and every Claude model, `medium` for Astra, Terra and Luna, and Gemini's own default). Shared-key, sponsored and free requests keep their defaults. OpenAI receives `modelReasoningEffort`, Claude `effort` and Gemini `thinkingConfig.thinkingLevel`; every registered paid model accepts the three levels ([sources](SOURCES.md#november-8-2026-model-prices-and-effort)).
+`account_ai_preferences.chat_effort` (Default, Low, Medium, High) applies to the main chat request when the requester pays: their own key, or the operator's own requests. Default keeps each model's tuned registry effort (`low` for Sol and every Claude model, `medium` for Astra, and Gemini's own default). Shared-key, sponsored and free requests keep their defaults. OpenAI receives `modelReasoningEffort`, Claude `effort` and Gemini `thinkingConfig.thinkingLevel`; every registered paid model accepts the three levels ([GPT-6.2](SOURCES.md#november-18-2026-gpt-62-models-and-codex-compatibility), [other providers](SOURCES.md#november-8-2026-model-prices-and-effort)).
 
 `GET`/`PATCH /api/trips/{tripId}/ai/preferences` read and save chat effort and routine settings with a revision check, and `POST` starts a due automatic check. Changes are audited without keys (`ai_preferences`, shown in Activity as a system change; an automatic turn-on carries `automatic: true`).
 
@@ -70,11 +70,13 @@ The key save (`PUT /api/trips/{tripId}/ai/keys`) claims the check and runs it af
 
 The create-trip destination lookup ([destination defaults](TRIP_DESTINATION_DEFAULTS.md)) runs on:
 1. the operator's pinned Codex Sol, for the platform operator;
-2. otherwise the requester's own key, first of OpenAI, Anthropic and Google, with that provider's lightest model at low effort (`gpt-6.1-terra`, `claude-haiku-5-5`, `gemini-3.5-flash-lite`); the requester pays, so only the hourly throttle applies;
+2. otherwise the requester's own key, first of OpenAI, Anthropic and Google, with that provider's lightest supported model at low effort (`gpt-6.2-sol`, `claude-haiku-5-5`, `gemini-3.5-flash-lite`); the requester pays, so only the hourly throttle applies;
 3. otherwise a free model when free AI is on, tried in the automatic order (Reflection Beam, ERNIE 5.5 Flash, then Particle-1 since D-111), within the account's ten lookups a day and 200 free lookups a day per instance;
 4. otherwise, on instances without free AI, the earlier operator-funded creator lookup.
 
 Every path is tool-free and returns the same validated JSON; `account_ai_lookups` records the model, provider, transport and `credential_source`.
+
+Sol is the least expensive GPT-6.2 choice, but its standard token rates are twice the retired Terra rates previously used for own-key trip setup. This does not change the lookup quotas or enable another payer.
 
 ## Limits
 
@@ -86,3 +88,5 @@ Every path is tool-free and returns the same validated JSON; `account_ai_lookups
 ## Compatibility and rollback
 
 Migration 0068 is additive: a new `account_ai_preferences` table, nullable `credential_member_id` and `web_search_count` columns on `ai_requests`, and relaxed model/provider checks plus `credential_source` on `account_ai_lookups`. Migration 0069 adds `routine_opted_out` and the latest automatic check (`routine_check_model`, `routine_check_at`, `routine_check_result`) to `account_ai_preferences`. Older builds ignore them. Rolling back the code stops member-funded checks and the new tab; recorded rows stay valid. To stop member-funded checks without a rollback, set `ROUTINE_CHECKS_ENABLED=false` on the web server: saved keys are still tested and checks still show as on, but none run.
+
+Migration 0071 maps saved GPT selections and routine model/verification fields to 6.2 without rewriting usage history. Before rolling back to code without those models, follow the [database compatibility checkpoint](DATABASE.md#compatibility-checkpoints).

@@ -12,6 +12,8 @@ Where the project is going, in job-sized steps. Each job gets a file in [`jobs/`
 
 | Job | What | Status |
 | --- | --- | --- |
+| JOB-101 | GPT 6.2 only, compatible selections and historical usage prices | Review: full local checks passed; Sol/Astra 6.2, migration 0071 and stale-client aliases; authorized CI-gated release (D-113) |
+| JOB-102 | Codex SDK with a bundled GPT 6.2 catalog | Proposed follow-up: wait for the dependency's one-day release-age gate, then repeat lockdown and offline request verification |
 | JOB-100 | Flights home that land on the trip's last day, and a clear message for dates outside the trip | Done: an event's own clock counts at the trip's edges on the server and in the editor; AI changes outside the trip say so in the reader's language (D-112) |
 | JOB-099 | Free AI that works again: models that can plan, and a schema dialect free providers compile | Review: local checks passed; Reflection Beam, ERNIE 5.5 Flash and Particle-1 as the automatic order; one string constraint per schema field; a same-model JSON-object retry when a provider refuses the native schema (D-111) |
 | JOB-098 | Several destinations with optional days and their own clocks, and an AI that plans by destination | Done: up to 12 destinations in order with optional dates; each dated day uses its destination's clock for events, today and the trip window; the AI, weather, Calendar and offline snapshots follow it (D-110) |

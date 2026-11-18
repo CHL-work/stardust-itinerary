@@ -14,7 +14,7 @@ import type {
 const firstKey = "10000000-0000-4000-8000-000000000001";
 const secondKey = "10000000-0000-4000-8000-000000000002";
 const requestId = "20000000-0000-4000-8000-000000000001";
-const prompt: AiSubmission = { prompt: "Plan a museum visit.", locale: "en", model: "gpt-6.1-sol" };
+const prompt: AiSubmission = { prompt: "Plan a museum visit.", locale: "en", model: "gpt-6.2-sol" };
 const empty: AiRequestRecoveryResponse = { request: null, busyElsewhere: false };
 
 function result(id = requestId): AiPlannerResult {
@@ -26,7 +26,7 @@ function result(id = requestId): AiPlannerResult {
     proposalId: "30000000-0000-4000-8000-000000000001",
     changeStatus: "pending",
     entityId: null,
-    model: "gpt-6.1-sol",
+    model: "gpt-6.2-sol",
     usedToday: 1,
     remainingToday: 19,
     webSearch: { performed: true, queryCount: 1, sources: ["https://example.org/museum"] },
@@ -274,7 +274,7 @@ describe("private AI request recovery controller", () => {
   it.each([
     { ...prompt, prompt: "Plan a garden visit." },
     { ...prompt, locale: "ja-JP" },
-    { ...prompt, model: "gpt-6-astra" },
+    { ...prompt, model: "gpt-6.2-astra" },
     { ...prompt, model: "guest-free", freeModel: "liquid/lfm-3-1.7b:free" },
   ])("gives an explicitly changed payload a new key after uncertain delivery (%#)", async (changedPrompt) => {
     const h = harness();

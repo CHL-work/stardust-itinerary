@@ -26,6 +26,7 @@ import { testGoogleKeyModes } from "./google-key-modes.mjs";
 import { testEventTimeZones } from "./event-time-zones.mjs";
 import { testAiPreferencesAndRoutine } from "./ai-preferences-routine.mjs";
 import { testTripDestinations } from "./trip-destinations.mjs";
+import { testGpt62Migration } from "./gpt-6-2.mjs";
 import { testTripEdgeClocks } from "./trip-edge-clocks.mjs";
 import { testAiPendingItinerary } from "./ai-pending-itinerary.mjs";
 import { testLinkedEventExpense } from "./linked-event-expense.mjs";
@@ -4542,7 +4543,7 @@ test(
       const usageBeforeBusyRejection = (await getAiPolicy(appPool, ownerSession)).usedToday;
       const busyPrompt = "Move dinner to 20:30 while another request is running";
       await assert.rejects(
-        runAiPlanner(appPool, ownerSession, busyPrompt, "gpt-6.1-sol", "en"),
+        runAiPlanner(appPool, ownerSession, busyPrompt, "gpt-6.2-sol", "en"),
         (error) => error instanceof AppConflictError
           && /another AI request is already being processed/i.test(error.message),
       );
@@ -4570,7 +4571,7 @@ test(
         transport: "policy_gate",
         authentication_mode: "none",
         billing_basis: "none",
-        requested_model: "gpt-6.1-sol",
+        requested_model: "gpt-6.2-sol",
         effective_model: null,
         result_text: "Another AI request is already being processed for this conversation.",
         input_tokens: 0,
@@ -6627,9 +6628,9 @@ test(
         reset_audited: true,
       });
 
-      await assert.rejects(getAiPolicy(appPool, memberSession, "gpt-6.1-terra"), { reasonCode: "ai_key_required" });
+      await assert.rejects(getAiPolicy(appPool, memberSession, "gpt-6.2-astra"), { reasonCode: "ai_key_required" });
       const memberPolicy = await getAiPolicy(appPool, memberSession);
-      assert.equal(memberPolicy.model, "gpt-6.1-sol");
+      assert.equal(memberPolicy.model, "gpt-6.2-sol");
       assert.equal(memberPolicy.limit, 20);
       await updateAiSettings(appPool, ownerSession, ownerSession.tripId, { memberDailyLimit: 3 });
       const limitedMemberPolicy = await getAiPolicy(appPool, memberSession);
@@ -7325,6 +7326,7 @@ test(
       await testAiCredentials(appPool,connectionString);
       await testAiKeySharing(appPool,connectionString);
       await testGuestAccounts(appPool,connectionString);
+      await testGpt62Migration(appPool,connectionString);
       await testPrivateFeedbackRepository(appPool,connectionString);
       await testPlatformAdmin(appPool,connectionString);
       await testOwnKeyAi(appPool,connectionString);

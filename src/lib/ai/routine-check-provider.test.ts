@@ -56,7 +56,7 @@ describe("routine checks on a member's key (JOB-094)", () => {
   });
 
   it("labels each provider's transport", () => {
-    expect(routineTransport("gpt-6.1-terra")).toBe("codex_sdk");
+    expect(routineTransport("gpt-6.2-sol")).toBe("codex_sdk");
     expect(routineTransport("claude-haiku-5-5")).toBe("claude_agent_sdk");
     expect(routineTransport("gemini-3.5-flash-lite")).toBe("gemini_api");
   });

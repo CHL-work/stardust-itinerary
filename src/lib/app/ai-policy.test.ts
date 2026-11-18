@@ -46,7 +46,7 @@ function policyClient(usedToday: number, ownerDefaultModel = "claude-haiku-5-5",
           rows: [{
             enabled: options.enabled ?? true,
             owner_default_model: ownerDefaultModel,
-            member_model: "gpt-6.1-sol",
+            member_model: "gpt-6.2-sol",
             member_daily_limit: 20,
             sponsored: options.sponsored ?? true,
             migrated: options.sponsored === false,
@@ -63,6 +63,25 @@ function policyClient(usedToday: number, ownerDefaultModel = "claude-haiku-5-5",
 }
 
 describe("AI policy quota serialization", () => {
+  it.each([
+    ["gpt-6.1-sol", "gpt-6.2-sol"],
+    ["gpt-6-astra", "gpt-6.2-astra"],
+    ["gpt-6.1-terra", "gpt-6.2-sol"],
+    ["gpt-6-luna", "gpt-6.2-sol"],
+    ["unregistered-model", "gpt-6.2-sol"],
+    ["guest-free", "gpt-6.2-sol"],
+  ])("normalizes stored %s without changing funding or member quotas", async (stored, expected) => {
+    const ownerSession = { ...memberSession, role: "owner" as const };
+    await expect(getAiPolicy(policyClient(4, stored) as unknown as Pool, ownerSession))
+      .resolves.toMatchObject({ model: expected, limit: null });
+    await expect(getAiPolicy(policyClient(4, stored) as unknown as Pool, memberSession))
+      .resolves.toMatchObject({ model: "gpt-6.2-sol", limit: 20 });
+    await expect(getAiPolicy(policyClient(4, stored, { sponsored: false, ownProviders: ["openai"] }) as unknown as Pool, ownerSession))
+      .resolves.toMatchObject({ model: expected, credentialSource: "own" });
+    await expect(getAiPolicy(policyClient(4, stored, { sponsored: false, sharedProviders: ["openai"] }) as unknown as Pool, memberSession))
+      .resolves.toMatchObject({ model: expected, credentialSource: "shared", limit: 20 });
+  });
+
   it("takes the transaction-scoped member lock before reading quota usage", async () => {
     const client = policyClient(19);
 
@@ -79,7 +98,7 @@ describe("AI policy quota serialization", () => {
     expect(client.query.mock.calls.find(([sql]) => String(sql).includes("pg_advisory_xact_lock"))?.[1]).toEqual([
       JSON.stringify([memberSession.tripId, memberSession.memberId, "ai-daily-quota"]),
     ]);
-    expect(policy).toMatchObject({ model: "gpt-6.1-sol", usedToday: 19, limit: 20 });
+    expect(policy).toMatchObject({ model: "gpt-6.2-sol", usedToday: 19, limit: 20 });
   });
 
   it("keeps owners unlimited without taking the member quota lock", async () => {
@@ -105,30 +124,30 @@ describe("AI policy quota serialization", () => {
     const ownerPolicy = await getAiPolicy(
       ownerClient as unknown as Pool,
       ownerSession,
-      "gpt-6-astra",
+      "gpt-6.2-astra",
     );
     await expect(getAiPolicy(
       policyClient(3) as unknown as Pool,
       memberSession,
-      "gpt-6-astra",
-    )).rejects.toMatchObject({ reasonCode: "ai_key_required", model: "gpt-6-astra" });
+      "gpt-6.2-astra",
+    )).rejects.toMatchObject({ reasonCode: "ai_key_required", model: "gpt-6.2-astra" });
 
-    expect(ownerPolicy).toMatchObject({ model: "gpt-6-astra", limit: null });
+    expect(ownerPolicy).toMatchObject({ model: "gpt-6.2-astra", limit: null });
   });
 
   it("uses a persisted Astra owner default without changing the member model", async () => {
     const ownerSession = { ...memberSession, role: "owner" as const };
     const ownerPolicy = await getAiPolicy(
-      policyClient(4, "gpt-6-astra") as unknown as Pool,
+      policyClient(4, "gpt-6.2-astra") as unknown as Pool,
       ownerSession,
     );
     const memberPolicy = await getAiPolicy(
-      policyClient(4, "gpt-6-astra") as unknown as Pool,
+      policyClient(4, "gpt-6.2-astra") as unknown as Pool,
       memberSession,
     );
 
-    expect(ownerPolicy).toMatchObject({ model: "gpt-6-astra", usedToday: 4, limit: null });
-    expect(memberPolicy).toMatchObject({ model: "gpt-6.1-sol", usedToday: 4, limit: 20 });
+    expect(ownerPolicy).toMatchObject({ model: "gpt-6.2-astra", usedToday: 4, limit: null });
+    expect(memberPolicy).toMatchObject({ model: "gpt-6.2-sol", usedToday: 4, limit: 20 });
   });
 
   it("rejects a member attempt to persist Astra before any database write", async () => {
@@ -138,7 +157,7 @@ describe("AI policy quota serialization", () => {
       client as unknown as Pool,
       memberSession,
       memberSession.tripId,
-      { ownerDefaultModel: "gpt-6-astra" },
+      { ownerDefaultModel: "gpt-6.2-astra" },
     )).rejects.toThrow("Only the owner can change AI settings.");
 
     expect(client.query).not.toHaveBeenCalled();
@@ -162,7 +181,7 @@ describe("AI policy quota serialization", () => {
       { serializeMemberQuota: true },
     )).rejects.toMatchObject({
       reasonCode: "daily_limit_reached",
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
     });
   });
 });
@@ -170,7 +189,7 @@ describe("AI policy quota serialization", () => {
 describe("AI policy with the requester's own keys", () => {
   it("keeps a sponsored trip free when the member makes no explicit model choice", async () => {
     const policy = await getAiPolicy(policyClient(3, "claude-haiku-5-5", { ownProviders: ["anthropic"] }) as unknown as Pool, memberSession);
-    expect(policy).toMatchObject({ model: "gpt-6.1-sol", limit: 20, credentialSource: "operator" });
+    expect(policy).toMatchObject({ model: "gpt-6.2-sol", limit: 20, credentialSource: "operator" });
   });
 
   it("uses the member's own key, without the trip cap, for an explicitly chosen model of that provider", async () => {
@@ -181,21 +200,21 @@ describe("AI policy with the requester's own keys", () => {
 
   it("rejects an explicit model whose provider the member holds no key for instead of substituting one", async () => {
     await expect(getAiPolicy(policyClient(3, "claude-haiku-5-5", { ownProviders: ["anthropic"] }) as unknown as Pool,
-      memberSession, "gpt-6-astra")).rejects.toMatchObject({ reasonCode: "ai_key_required", model: "gpt-6-astra" });
+      memberSession, "gpt-6.2-astra")).rejects.toMatchObject({ reasonCode: "ai_key_required", model: "gpt-6.2-astra" });
   });
 
   it("lets a key holder plan in an unsponsored trip and asks everyone else for a key", async () => {
-    const own = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { ownProviders: ["google"], sponsored: false }) as unknown as Pool, memberSession);
+    const own = await getAiPolicy(policyClient(0, "gpt-6.2-sol", { ownProviders: ["google"], sponsored: false }) as unknown as Pool, memberSession);
     expect(own).toMatchObject({ model: "gemini-3.8-flash", limit: null, credentialSource: "own" });
     const sameProviderDefault = await getAiPolicy(policyClient(0, "gemini-4-argon", { ownProviders: ["google"], sponsored: false }) as unknown as Pool, memberSession);
     expect(sameProviderDefault).toMatchObject({ model: "gemini-4-argon", credentialSource: "own" });
-    await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { sponsored: false }) as unknown as Pool, memberSession))
+    await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", { sponsored: false }) as unknown as Pool, memberSession))
       .rejects.toMatchObject({ reasonCode: "ai_key_required" });
   });
 
   it("still honors an owner's decision to turn AI off for the trip", async () => {
-    await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { ownProviders: ["openai"], enabled: false }) as unknown as Pool,
-      memberSession, "gpt-6.1-terra")).rejects.toMatchObject({ reasonCode: "ai_disabled" });
+    await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", { ownProviders: ["openai"], enabled: false }) as unknown as Pool,
+      memberSession, "gpt-6.2-sol")).rejects.toMatchObject({ reasonCode: "ai_disabled" });
   });
 });
 
@@ -208,26 +227,26 @@ describe("AI policy with a trip owner's shared keys (JOB-063)", () => {
   });
 
   it("falls back to the sponsor's provider default when the trip model's provider has no shared key", async () => {
-    const policy = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { sharedProviders: ["google"], sponsored: false }) as unknown as Pool, memberSession);
+    const policy = await getAiPolicy(policyClient(0, "gpt-6.2-sol", { sharedProviders: ["google"], sponsored: false }) as unknown as Pool, memberSession);
     expect(policy).toMatchObject({ model: "gemini-3.8-flash", credentialSource: "shared" });
   });
 
   it("prefers the member's own key, and is used before operator sponsorship", async () => {
-    const own = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { ownProviders: ["openai"], sharedProviders: ["anthropic"], sponsored: false }) as unknown as Pool, memberSession);
+    const own = await getAiPolicy(policyClient(0, "gpt-6.2-sol", { ownProviders: ["openai"], sharedProviders: ["anthropic"], sponsored: false }) as unknown as Pool, memberSession);
     expect(own.credentialSource).toBe("own");
-    const shared = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { sharedProviders: ["anthropic"], sponsored: true }) as unknown as Pool, memberSession);
+    const shared = await getAiPolicy(policyClient(0, "gpt-6.2-sol", { sharedProviders: ["anthropic"], sponsored: true }) as unknown as Pool, memberSession);
     expect(shared).toMatchObject({ credentialSource: "shared", model: "claude-sonnet-5-5" });
   });
 
   it("stops at the daily limit and respects AI being off", async () => {
-    await expect(getAiPolicy(policyClient(20, "gpt-6.1-sol", { sharedProviders: ["openai"], sponsored: false }) as unknown as Pool, memberSession))
+    await expect(getAiPolicy(policyClient(20, "gpt-6.2-sol", { sharedProviders: ["openai"], sponsored: false }) as unknown as Pool, memberSession))
       .rejects.toMatchObject({ reasonCode: "daily_limit_reached" });
-    await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { sharedProviders: ["openai"], sponsored: false, enabled: false }) as unknown as Pool, memberSession))
+    await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", { sharedProviders: ["openai"], sponsored: false, enabled: false }) as unknown as Pool, memberSession))
       .rejects.toMatchObject({ reasonCode: "ai_disabled" });
   });
 
   it("serializes the shared quota check like the member quota", async () => {
-    const client = policyClient(0, "gpt-6.1-sol", { sharedProviders: ["openai"], sponsored: false });
+    const client = policyClient(0, "gpt-6.2-sol", { sharedProviders: ["openai"], sponsored: false });
     await getAiPolicy(client as unknown as Pool, memberSession, undefined, { serializeMemberQuota: true });
     const statements = client.query.mock.calls.map(([sql]) => String(sql));
     const lock = statements.findIndex((sql) => sql.includes("pg_advisory_xact_lock"));
@@ -247,7 +266,7 @@ describe("free AI funding for every account (JOB-086)", () => {
 
   it.each(["owner", "editor", "viewer"] as const)("lets a signed-in %s explicitly choose free even with paid keys", async (role) => {
     enableFree();
-    const client = policyClient(25, "gpt-6-astra", { ownProviders: ["openai"], sharedProviders: ["anthropic"], sponsored: true });
+    const client = policyClient(25, "gpt-6.2-astra", { ownProviders: ["openai"], sharedProviders: ["anthropic"], sponsored: true });
     const result = await getAiPolicy(client as unknown as Pool, { ...memberSession, role }, GUEST_FREE_MODEL,
       { serializeMemberQuota: true });
     expect(result).toEqual({ enabled: true, model: GUEST_FREE_MODEL, credentialSource: "free", usedToday: 0, limit: 10 });
@@ -259,7 +278,7 @@ describe("free AI funding for every account (JOB-086)", () => {
 
   it.each(["https://accounts.google.com", "urn:stardust:guest"])("defaults an unfunded %s account to free", async (issuer) => {
     enableFree();
-    const result = await getAiPolicy(policyClient(0, "gpt-6.1-sol", { sponsored: false }) as unknown as Pool,
+    const result = await getAiPolicy(policyClient(0, "gpt-6.2-sol", { sponsored: false }) as unknown as Pool,
       { ...memberSession, issuer });
     expect(result).toMatchObject({ model: GUEST_FREE_MODEL, credentialSource: "free", limit: 10 });
   });
@@ -271,7 +290,7 @@ describe("free AI funding for every account (JOB-086)", () => {
       ["shared", { sharedProviders: ["openai"], sponsored: false }],
       ["operator", { sponsored: true }],
     ] as const) {
-      const client = policyClient(0, "gpt-6.1-sol", { ...options, freeUsage: { mine: 10, hour: 10, day: 10 } });
+      const client = policyClient(0, "gpt-6.2-sol", { ...options, freeUsage: { mine: 10, hour: 10, day: 10 } });
       expect((await getAiPolicy(client as unknown as Pool, memberSession)).credentialSource).toBe(source);
       await expect(getAiPolicy(client as unknown as Pool, memberSession, GUEST_FREE_MODEL))
         .rejects.toMatchObject({ reasonCode: "daily_limit_reached", model: GUEST_FREE_MODEL });
@@ -281,25 +300,25 @@ describe("free AI funding for every account (JOB-086)", () => {
   it("never changes an explicit unsupported paid choice into free or another paid provider", async () => {
     enableFree();
     for (const options of [{ sponsored: false }, { sponsored: false, sharedProviders: ["openai"] }, { sponsored: true }]) {
-      await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", options) as unknown as Pool,
+      await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", options) as unknown as Pool,
         memberSession, "claude-opus-5-5")).rejects.toMatchObject({ reasonCode: "ai_key_required", model: "claude-opus-5-5" });
     }
   });
 
   it("rejects explicit free while disabled even if operator funding and own keys exist", async () => {
-    await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { sponsored: true, ownProviders: ["openai"] }) as unknown as Pool,
+    await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", { sponsored: true, ownProviders: ["openai"] }) as unknown as Pool,
       { ...memberSession, role: "owner" }, GUEST_FREE_MODEL)).rejects.toMatchObject({ reasonCode: "ai_key_required", model: GUEST_FREE_MODEL });
     enableFree();
-    await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { enabled: false, sponsored: true }) as unknown as Pool,
+    await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", { enabled: false, sponsored: true }) as unknown as Pool,
       memberSession, GUEST_FREE_MODEL)).rejects.toMatchObject({ reasonCode: "ai_disabled", model: GUEST_FREE_MODEL });
-    await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { enabled: false, sponsored: false }) as unknown as Pool,
+    await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", { enabled: false, sponsored: false }) as unknown as Pool,
       memberSession)).rejects.toMatchObject({ reasonCode: "ai_disabled" });
   });
 
   it.each([{ mine: 10, hour: 10, day: 10 }, { mine: 0, hour: 60, day: 60 }, { mine: 0, hour: 0, day: 500 }])(
     "enforces free account and instance caps: %o", async (freeUsage) => {
       enableFree();
-      await expect(getAiPolicy(policyClient(0, "gpt-6.1-sol", { freeUsage }) as unknown as Pool,
+      await expect(getAiPolicy(policyClient(0, "gpt-6.2-sol", { freeUsage }) as unknown as Pool,
         memberSession, GUEST_FREE_MODEL)).rejects.toMatchObject({ reasonCode: "daily_limit_reached", model: GUEST_FREE_MODEL });
     },
   );

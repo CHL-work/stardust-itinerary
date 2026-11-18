@@ -68,7 +68,7 @@ function claudeResult(output: unknown = extracted) {
   };
 }
 
-function input(model: OwnerModel = "gpt-6.1-sol", locale: Locale = "en") {
+function input(model: OwnerModel = "gpt-6.2-sol", locale: Locale = "en") {
   return { model, locale, images: [image], signal: new AbortController().signal };
 }
 
@@ -143,7 +143,7 @@ describe("bounded picture extraction", () => {
       $schema: "http://json-schema.org/draft-07/schema#", type: "object", additionalProperties: false,
       required: ["facts", "uncertainties", "credentials", "privateUrls"],
     });
-    expect(result).toMatchObject({ effectiveModel: "gpt-6.1-sol", inputTokens: 400, outputTokens: 80, cachedInputTokens: 12 });
+    expect(result).toMatchObject({ effectiveModel: "gpt-6.2-sol", inputTokens: 400, outputTokens: 80, cachedInputTokens: 12 });
     expect(result.facts).toContain("Final paid total: JPY 12000");
     expect(result.facts).toContain("No split instructions are visible.");
     expect(result.facts.length).toBeLessThanOrEqual(AI_IMAGE_FACTS_MAX_CHARACTERS);
@@ -203,7 +203,7 @@ describe("bounded picture extraction", () => {
   });
 
   it.each(["en", "zh-HK", "zh-HK-lihkg", "ja-JP"] as const)("keeps extraction neutral in %s", async (locale) => {
-    await extractAiImageFacts(input("gpt-6.1-sol", locale));
+    await extractAiImageFacts(input("gpt-6.2-sol", locale));
     const prompt: string = mocks.run.mock.calls[0]![0][0].text;
     const expected = locale === "ja-JP" ? "Japanese" : locale.startsWith("zh-HK") ? "neutral Hong Kong Cantonese" : "English";
     expect(prompt).toContain(`Use ${expected}`);

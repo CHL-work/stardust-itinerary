@@ -44,7 +44,7 @@ describe("own AI keys route", () => {
   });
 
   it("starts the routine web search test after the response when a saved key needs one (JOB-096)", async () => {
-    const claim = { model: "gpt-6-astra", effort: "medium", claimedAt: new Date("2030-01-01T00:00:01Z") };
+    const claim = { model: "gpt-6.2-astra", effort: "medium", claimedAt: new Date("2030-01-01T00:00:01Z") };
     mocks.claim.mockResolvedValueOnce(claim);
     const response = await PUT(request("PUT", { provider: "openai", apiKey: syntheticKey }), context);
     expect(await response.json()).toEqual({ key: saved, routineCheck: "running" });

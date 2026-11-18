@@ -50,13 +50,13 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
     const editor = await person("Synthetic routine editor", "editor");
 
     // Constraints: "on" needs a verified model, and only a system request on a member's own key names a payer.
-    await assert.rejects(pool.query("INSERT INTO account_ai_preferences(user_id,routine_enabled,routine_model) VALUES($1,true,'gpt-6.1-terra')",
+    await assert.rejects(pool.query("INSERT INTO account_ai_preferences(user_id,routine_enabled,routine_model) VALUES($1,true,'gpt-6.2-sol')",
       [owner.userId]), (error) => error.code === "23514");
     await assert.rejects(pool.query(`INSERT INTO ai_requests(trip_id,id,actor_member_id,actor_user_id,conversation_id,actor_role,initiator_kind,feature,
-        prompt_text,requested_model,status,credential_source) VALUES($1,$2,NULL,NULL,NULL,'system','system','flight_status','Synthetic','gpt-6.1-terra','started','own')`,
+        prompt_text,requested_model,status,credential_source) VALUES($1,$2,NULL,NULL,NULL,'system','system','flight_status','Synthetic','gpt-6.2-sol','started','own')`,
       [tripId, randomUUID()]), (error) => error.code === "23514");
     await assert.rejects(pool.query(`INSERT INTO ai_requests(trip_id,id,actor_member_id,actor_user_id,actor_role,feature,prompt_text,requested_model,status,
-        credential_source,credential_member_id) VALUES($1,$2,$3,$4,'editor','planning','Synthetic','gpt-6.1-terra','started','own',$3)`,
+        credential_source,credential_member_id) VALUES($1,$2,$3,$4,'editor','planning','Synthetic','gpt-6.2-sol','started','own',$3)`,
       [tripId, randomUUID(), editor.memberId, editor.userId]), (error) => error.code === "23514");
 
     // Defaults: nothing stored, nothing on, no providers.
@@ -148,19 +148,19 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
     // JOB-096: a saved key turns checks on by itself after one web search check; one claim at a time.
     const auto = await person("Synthetic auto member", "editor");
     await saveAiCredential(pool, auto.session, tripId, { provider: "openai", apiKey: "sk-synthetic-routine-auto-0001" }, async () => true);
-    assert.deepEqual((await getAiPreferences(pool, auto.session, tripId)).routine.autoCheck, { state: "due", model: "gpt-6-astra", reason: null });
+    assert.deepEqual((await getAiPreferences(pool, auto.session, tripId)).routine.autoCheck, { state: "due", model: "gpt-6.2-astra", reason: null });
     let budgeted = 0;
     const beforeCheck = async () => { budgeted += 1; };
     const claim = await claimRoutineAutoCheck(pool, auto.session, tripId, { beforeCheck });
-    assert.deepEqual([claim.model, claim.effort, budgeted], ["gpt-6-astra", "medium", 1]);
+    assert.deepEqual([claim.model, claim.effort, budgeted], ["gpt-6.2-astra", "medium", 1]);
     assert.equal(await claimRoutineAutoCheck(pool, auto.session, tripId, { beforeCheck }), null, "never two checks of one key");
     let viewed = await getAiPreferences(pool, auto.session, tripId);
     assert.deepEqual([viewed.routine.autoCheck?.state, viewed.routine.enabled, budgeted], ["running", false, 1]);
     assert.equal(await runRoutineAutoCheck(pool, auto.session, tripId, claim, { verify: async (input) => {
-      assert.deepEqual([input.model, input.effort], ["gpt-6-astra", "medium"]); return { ok: true }; } }), "enabled");
+      assert.deepEqual([input.model, input.effort], ["gpt-6.2-astra", "medium"]); return { ok: true }; } }), "enabled");
     viewed = await getAiPreferences(pool, auto.session, tripId);
     assert.deepEqual([viewed.routine.enabled, viewed.routine.active, viewed.routine.model, viewed.routine.autoCheck],
-      [true, true, "gpt-6-astra", null]);
+      [true, true, "gpt-6.2-astra", null]);
     const autoAudit = await pool.query(`SELECT metadata FROM audit_events WHERE trip_id=$1 AND actor_member_id=$2
       AND action='ai.routine.enabled'`, [tripId, auto.memberId]);
     assert.equal(autoAudit.rows[0].metadata.automatic, true);
@@ -171,11 +171,11 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
     // The key saved again while checks run on it is checked again with the chosen model; a failure shows and is not retried.
     await saveAiCredential(pool, auto.session, tripId, { provider: "openai", apiKey: "sk-synthetic-routine-auto-0002" }, async () => true);
     const recheck = await claimRoutineAutoCheck(pool, auto.session, tripId);
-    assert.equal(recheck.model, "gpt-6-astra");
+    assert.equal(recheck.model, "gpt-6.2-astra");
     assert.equal(await runRoutineAutoCheck(pool, auto.session, tripId, recheck, { verify: async () => ({ ok: false, reason: "no_search" }) }), "failed");
     viewed = await getAiPreferences(pool, auto.session, tripId);
     assert.deepEqual([viewed.routine.enabled, viewed.routine.active, viewed.routine.autoCheck],
-      [true, false, { state: "failed", model: "gpt-6-astra", reason: "no_search" }]);
+      [true, false, { state: "failed", model: "gpt-6.2-astra", reason: "no_search" }]);
     assert.equal(await claimRoutineAutoCheck(pool, auto.session, tripId), null, "a failed key waits until it is saved again");
 
     // A key saved during a check is not the key that passed.
@@ -201,7 +201,7 @@ export async function testAiPreferencesAndRoutine(pool, connectionString) {
     await deleteAiCredential(pool, auto.session, tripId, "anthropic");
     viewed = await getAiPreferences(pool, auto.session, tripId);
     assert.deepEqual([viewed.routine.enabled, viewed.routine.active, viewed.routine.autoCheck],
-      [false, false, { state: "due", model: "gpt-6-astra", reason: null }]);
+      [false, false, { state: "due", model: "gpt-6.2-astra", reason: null }]);
     viewed = await saveAiPreferences(pool, auto.session, tripId, { expectedRevision: viewed.revision, chatEffort: "low" });
     assert.deepEqual([viewed.chatEffort, viewed.routine.enabled, viewed.routine.optedOut], ["low", false, false]);
 

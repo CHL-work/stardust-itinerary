@@ -2,6 +2,16 @@
 
 This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
 
+## November 18, 2026 GPT-6.2 models and Codex compatibility
+
+Checked for JOB-101:
+
+- [GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol) and [GPT-6.2 Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra), with [OpenAI pricing](https://developers.openai.com/api/docs/pricing): standard input/cached-input/output per million tokens is $2/$0.10/$10 for Sol and $8/$0.40/$40 for Astra. Both reject reasoning effort `none`; Stardust keeps Sol low and Astra medium. The app's estimate excludes the higher rate above 272K input tokens. Terra and Luna have no 6.2 IDs, so they are retired here rather than invented; their historical prices stay available for usage records.
+- Offline loopback captures of Codex SDK 0.165.0 and 0.169.0, with synthetic input and a dummy key: unknown 6.2 IDs retain model/effort but use fallback metadata, omit `text.verbosity`/`reasoning.context` and can offer `request_user_input`. No API-key-mode model discovery was observed. Application guards still reject forbidden tool use. These captures are transport checks, not live model evaluations.
+- The 0.169.1 binary contains both 6.2 IDs; its npm publication time was November 17, 22:27 UTC. JOB-101 retains 0.165.0 while the one-day release-age gate applies. [JOB-102](jobs/JOB-102-codex-6-2-catalog.md) requires an eligible release, real CLI feature review and another offline capture before changing the pin.
+
+The November 8 price evidence below remains historical, not the current selectable GPT list.
+
 ## November 16, 2026 free-model check
 
 Run for JOB-099 (D-111) after every Free AI request failed. The public catalog (`https://ai-gateway.kilo.ai/api/v1/models`) listed 14 free entries; seven passed Stardust's filters. Each got the planner's real request for a synthetic Tokyo trip, about 12,400 input tokens: "tmrw 7pm dinner at Example Cafe, Tokyo. 1hr. i paid 4200 yen split me n Sam. add dinner + linked bill, dont search", plus a dated one-hour dinner and a guest's dinner with no duration. Replies were checked with the application's parser and patch schemas. No key, account or real trip was used.
@@ -99,7 +109,7 @@ Retrieved on 6 November 2026 for JOB-069 (D-084):
 
 ## October 28, 2026 destination defaults review
 
-- [Official Codex SDK](https://developers.openai.com/codex/sdk/) and [authentication](https://developers.openai.com/codex/auth/): reviewed the documented SDK authentication used by the destination lookup. The implementation is pinned to SDK 0.165.0 and passes the lookup subprocess no API-key or base-URL overrides. This is a narrow lookup, not a new auth product or connector.
+- [Official Codex SDK](https://developers.openai.com/codex/sdk/) and [authentication](https://developers.openai.com/codex/auth/): reviewed the documented SDK authentication used by the destination lookup. It forwards only the selected provider key and no base-URL overrides. See the [current pin and 6.2 limitation](IMPLEMENTATION.md#2-stack). This is a narrow lookup, not a new auth product or connector.
 - [Unicode CLDR currencyData pinned revision](https://github.com/unicode-org/cldr-json/blob/a198dbf17e1d2314a76b84b30904b87a5f8618bb/cldr-json/cldr-core/supplemental/currencyData.json): pinned country/territory currency facts used for validation, never an expansion of ledger currency precision. SIX ISO4217 amendment180 confirms Bulgaria's EUR transition on January1,2026; archived/non-tender codes are not suggestions. See source comments/tests in `region-currencies.ts`.
 - Runtime ICU supplies recognized IANA zones and localized labels; the database integration suite checks every selectable zone against PostgreSQL's zone catalog. No paid geocoding, exchange-rate conversion or live web search is introduced.
 - [Official Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference): instruction overrides, project document bounds and MCP enablement. Empty MCP tables merge with, rather than disable, inherited entries, so the implementation explicitly disables and verifies them without executing servers or making a model call during that check.
@@ -184,8 +194,7 @@ Venue-hours references checked on September 7, 2026: [OpenAI grounding/retrieval
 - [OpenAI Codex authentication: ChatGPT subscription or API key](https://learn.chatgpt.com/docs/auth)
 - [OpenAI Codex SDK](https://learn.chatgpt.com/docs/codex-sdk)
 - [OpenAI Codex pricing and plan access](https://learn.chatgpt.com/docs/pricing)
-- [OpenAI GPT-6 Astra model identifier and supported reasoning efforts](https://developers.openai.com/api/docs/models/gpt-6-astra)
-- [OpenAI GPT-6.1 Sol model and supported Web search tool](https://developers.openai.com/api/docs/models/gpt-6.1-sol), [GPT-6.1 Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra), [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna), [model catalog](https://developers.openai.com/api/docs/models) and [Codex models](https://learn.chatgpt.com/docs/models), reviewed 2026-10-31
+- [OpenAI GPT-6.2 Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra) and [GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol), reviewed 2026-11-18; [model catalog](https://developers.openai.com/api/docs/models) and [Codex models](https://learn.chatgpt.com/docs/models). Earlier model evidence stays in the dated sections above.
 - [OpenAI conversation state guide](https://developers.openai.com/api/docs/guides/conversation-state)
 - [OpenAI structured outputs: handling mistakes and avoiding schema divergence](https://developers.openai.com/api/docs/guides/structured-outputs)
 - [OpenAI prompt engineering guidance](https://developers.openai.com/api/docs/guides/prompt-engineering)

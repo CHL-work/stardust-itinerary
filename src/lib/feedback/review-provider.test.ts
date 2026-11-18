@@ -26,7 +26,7 @@ describe("isolated Astra feedback reviewer", () => {
     vi.stubEnv("STARDUST_FEEDBACK_GITHUB_TOKEN", "never-forward"); vi.stubEnv("DATABASE_URL", "never-forward-db");
     const result = await reviewFeedback([report], []);
     expect(result).toMatchObject({ inputTokens: 100, outputTokens: 20 });
-    expect(mocks.start).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-6-astra", modelReasoningEffort: "medium", sandboxMode: "read-only", networkAccessEnabled: false, webSearchMode: "disabled", approvalPolicy: "never" }));
+    expect(mocks.start).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-6.2-astra", modelReasoningEffort: "medium", sandboxMode: "read-only", networkAccessEnabled: false, webSearchMode: "disabled", approvalPolicy: "never" }));
     const config = mocks.construct.mock.calls[0]![0];
     expect(config.env.STARDUST_FEEDBACK_GITHUB_TOKEN).toBeUndefined(); expect(config.env.DATABASE_URL).toBeUndefined();
     expect(config.config).toMatchObject({ project_doc_max_bytes: 0, features: { shell_tool: false, unified_exec: false, apps: false, multi_agent: false, hooks: false, plugins: false } });

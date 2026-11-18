@@ -15,7 +15,7 @@ import {
   publicPriceTarget, runPriceEvaluation, validatePriceWorkspace, type PriceEvalOptions,
 } from "../../../scripts/test-ai-service-prices";
 
-const options: PriceEvalOptions = { runLive: true, model: "gpt-6.1-sol" };
+const options: PriceEvalOptions = { runLive: true, model: "gpt-6.2-sol" };
 const safeDirectory = join(tmpdir(), `${PRICE_WORKSPACE_PREFIX}a1B2c3`);
 const source = "https://www.tnm.jp/synthetic-public-admission";
 const quote = { service: "Synthetic general admission", durationMinutes: null, currency: "JPY", baseFeeMinor: 1234,
@@ -38,20 +38,20 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); process.exitCode = p
 
 describe("database-free public service-price evaluator guards", () => {
   it.each([
-    [], ["--model=gpt-6.1-sol"], ["--run-live"], ["--run-live", "--model=unknown"],
+    [], ["--model=gpt-6.2-sol"], ["--run-live"], ["--run-live", "--model=unknown"],
     ["--run-live", "--model=__proto__"], ["--run-live", "--model=constructor"],
-    ["--run-live", "--model=gpt-6.1-sol", "--date=2030-04-02"],
-    ["--run-live", "--model=gpt-6.1-sol", "--prompt=private"],
-    ["--run-live", "--model=gpt-6.1-sol", "--venue=private"],
-    ["--run-live", "--model=gpt-6.1-sol", "--work-directory=C:\\Code"],
-    ["--run-live", "--run-live", "--model=gpt-6.1-sol"],
-    ["--run-live", "--model=gpt-6.1-sol", "--model=claude-opus-5-5"],
+    ["--run-live", "--model=gpt-6.2-sol", "--date=2030-04-02"],
+    ["--run-live", "--model=gpt-6.2-sol", "--prompt=private"],
+    ["--run-live", "--model=gpt-6.2-sol", "--venue=private"],
+    ["--run-live", "--model=gpt-6.2-sol", "--work-directory=C:\\Code"],
+    ["--run-live", "--run-live", "--model=gpt-6.2-sol"],
+    ["--run-live", "--model=gpt-6.2-sol", "--model=claude-opus-5-5"],
   ].map((args) => ({ args })))("rejects missing opt-in and extra or ambiguous arguments: $args", ({ args }) => {
     expect(() => parsePriceEvalOptions(args)).toThrow("AI_PRICE_EVAL_ARGUMENTS");
     expect(provider.research).not.toHaveBeenCalled();
   });
   it("accepts a registered model while keeping subject and date code-owned", () => {
-    expect(parsePriceEvalOptions(["--", "--run-live", "--model=gpt-6.1-sol"])).toEqual(options);
+    expect(parsePriceEvalOptions(["--", "--run-live", "--model=gpt-6.2-sol"])).toEqual(options);
     expect(parsePriceEvalOptions(["--run-live", "--model=claude-opus-5-5"]).model).toBe("claude-opus-5-5");
     expect(publicPriceTarget()).toEqual({ key: "R1", kind: "price", subject: "Tokyo National Museum", date: null });
   });

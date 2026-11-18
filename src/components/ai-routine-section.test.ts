@@ -27,7 +27,7 @@ describe("AI tab routine checks (JOB-094, JOB-096)", () => {
     const html = render(state(preferences({ providers: ["anthropic", "google"] })));
     expect(html).toContain('<option value="claude-opus-5-5" selected="">claude-opus-5-5</option>');
     expect(html).toContain("gemini-4-argon");
-    expect(html).not.toContain("gpt-6.1-sol");
+    expect(html).not.toContain("gpt-6.2-sol");
     expect(html).toContain('<option value="medium" selected="">Medium</option>');
     // What the checks do sits behind the section's single "?".
     expect(html.match(/popovertarget|popoverTarget/giu)?.length).toBe(1);
@@ -44,9 +44,9 @@ describe("AI tab routine checks (JOB-094, JOB-096)", () => {
   });
 
   it("shows the automatic check after a key is saved: running with its model, then why it failed", () => {
-    const running = render(state(preferences({ providers: ["openai", "anthropic"] }, { autoCheck: { state: "running", model: "gpt-6-astra", reason: null } })));
+    const running = render(state(preferences({ providers: ["openai", "anthropic"] }, { autoCheck: { state: "running", model: "gpt-6.2-astra", reason: null } })));
     expect(running).toContain("Checking that this key can search the web…");
-    expect(running).toContain('<option value="gpt-6-astra" selected="">gpt-6-astra</option>');
+    expect(running).toContain('<option value="gpt-6.2-astra" selected="">gpt-6.2-astra</option>');
     // Ticked while it runs, and locked until it finishes.
     const toggle = (html: string) => html.match(/<input type="checkbox"[^>]*>/u)?.[0] ?? "";
     expect(toggle(running)).toContain('checked=""');

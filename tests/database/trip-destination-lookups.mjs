@@ -14,7 +14,7 @@ const config = { authSecret: "synthetic-destination-secret-only-for-tests", trip
 const request = (destination = "Japan") => ({ destination, locale: "en", requestId: randomUUID() });
 const defaults = validateLookupOutput({ status: "resolved", countryCode: "JP", timeZone: "Asia/Tokyo",
   timeZoneCandidates: [], currency: "JPY", currencyCandidates: [] }, "japan");
-const output = { defaults, usage: { inputTokens: 40, outputTokens: 30, cachedInputTokens: 0 }, effectiveModel: "gpt-6.1-sol", latencyMs: 1 };
+const output = { defaults, usage: { inputTokens: 40, outputTokens: 30, cachedInputTokens: 0 }, effectiveModel: "gpt-6.2-sol", latencyMs: 1 };
 async function account(pool, label = "ordinary") {
   const grant = await issueAccountOnboarding(pool, config, { issuer: "https://accounts.google.com", subject: `synthetic-destination-${randomUUID()}`,
     emailHint: `${label}-${randomUUID()}@example.test`, displayNameHint: "Synthetic destination test" });
@@ -41,6 +41,13 @@ export async function testTripDestinationLookups(pool, connectionString) {
   // Pinned to this module's schema stage; later modules (0052 trip deletion) apply their own migrations.
   assert.deepEqual(await migrate({ connectionString, through: "0051_model_refresh.sql" }), []);
   assert.equal((await pool.query("SELECT count(*)::int AS count FROM app_schema_migrations")).rows[0].count, 47);
+  // Keep this suite's historical migration/identity assumptions while exercising
+  // current 6.2 lookup code. The real 0071 upgrade is tested in gpt-6-2.mjs.
+  await pool.query(`ALTER TABLE account_ai_lookups
+    DROP CONSTRAINT account_ai_lookups_requested_model_check,
+    DROP CONSTRAINT account_ai_lookups_effective_model_check,
+    ADD CONSTRAINT account_ai_lookups_requested_model_check CHECK (requested_model IN ('gpt-5.6-sol','gpt-6.1-sol','gpt-6.2-sol')),
+    ADD CONSTRAINT account_ai_lookups_effective_model_check CHECK (effective_model IN ('gpt-5.6-sol','gpt-6.1-sol','gpt-6.2-sol'))`);
   const previous = Object.fromEntries(["PUBLIC_SIGNUP_ENABLED", "STARDUST_DESTINATION_LOOKUP", "OWNER_GOOGLE_EMAIL"].map((key) => [key, process.env[key]]));
   const singlePool = new pg.Pool({ connectionString, max: 1, connectionTimeoutMillis: 3000 });
   try {

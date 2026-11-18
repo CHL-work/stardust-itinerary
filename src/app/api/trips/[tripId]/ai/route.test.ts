@@ -68,7 +68,7 @@ describe("POST /api/trips/[tripId]/ai", () => {
       proposalId: null,
       changeStatus: null,
       entityId: null,
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
       webSearch: { performed: false, queryCount: 0, sources: [] },
       memory: {
         previousTurnsUsed: 0,
@@ -83,7 +83,7 @@ describe("POST /api/trips/[tripId]/ai", () => {
   it("runs the planner for the authenticated trip and disables caching", async () => {
     const response = await POST(request({
       prompt: "  Tell me the next event.  ",
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
       locale: "en",
     }), { params: Promise.resolve({ tripId }) });
 
@@ -95,7 +95,7 @@ describe("POST /api/trips/[tripId]/ai", () => {
       { synthetic: true },
       session,
       "Tell me the next event.",
-      "gpt-6.1-sol",
+      "gpt-6.2-sol",
       "en",
       undefined,
       null,
@@ -105,7 +105,7 @@ describe("POST /api/trips/[tripId]/ai", () => {
   it("accepts the exact Astra model id for an owner request", async () => {
     const response = await POST(request({
       prompt: "Review the dinner plan.",
-      model: "gpt-6-astra",
+      model: "gpt-6.2-astra",
       locale: "en",
     }), { params: Promise.resolve({ tripId }) });
 
@@ -114,7 +114,7 @@ describe("POST /api/trips/[tripId]/ai", () => {
       { synthetic: true },
       session,
       "Review the dinner plan.",
-      "gpt-6-astra",
+      "gpt-6.2-astra",
       "en",
       undefined,
       null,
@@ -129,7 +129,7 @@ describe("POST /api/trips/[tripId]/ai", () => {
     expect(mocks.runAiPlanner).toHaveBeenCalledWith({ synthetic: true }, session, "Add lunch", "guest-free", "en", undefined, null, [], freeModel);
   });
 
-  it.each([undefined, "gpt-6.1-sol"])("rejects a free selection paired with %s instead of silently using funding", async (model) => {
+  it.each([undefined, "gpt-6.2-sol"])("rejects a free selection paired with %s instead of silently using funding", async (model) => {
     const response = await POST(request({ prompt: "Add lunch", model, freeModel: "liquid/lfm-3-1.7b:free" }),
       { params: Promise.resolve({ tripId }) });
     expect(response.status).toBe(400);

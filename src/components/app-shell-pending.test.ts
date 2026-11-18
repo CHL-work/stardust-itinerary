@@ -943,13 +943,13 @@ describe("pending repayment approval placement", () => {
 describe("aiLogExecutionLabel", () => {
   it("does not present deterministic local decisions as model calls", () => {
     expect(aiLogExecutionLabel({
-      requestedModel: "gpt-6.1-sol",
-      effectiveModel: "gpt-6.1-sol",
+      requestedModel: "gpt-6.2-sol",
+      effectiveModel: "gpt-6.2-sol",
       provider: "local",
       transport: "deterministic_gate",
     })).toBe("Local scope gate · no provider call");
     expect(aiLogExecutionLabel({
-      requestedModel: "gpt-6.1-sol",
+      requestedModel: "gpt-6.2-sol",
       effectiveModel: null,
       provider: "local",
       transport: "policy_gate",
@@ -958,7 +958,7 @@ describe("aiLogExecutionLabel", () => {
 
   it("keeps the effective model label for a real provider call", () => {
     expect(aiLogExecutionLabel({
-      requestedModel: "gpt-6.1-sol",
+      requestedModel: "gpt-6.2-sol",
       effectiveModel: "claude-haiku-5-5",
       provider: "anthropic",
       transport: "claude-agent-sdk",

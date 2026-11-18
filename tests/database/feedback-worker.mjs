@@ -49,6 +49,11 @@ export async function testFeedbackWorker(pool, connectionString) {
   assert.equal(process.env.TEST_DATABASE_CONFIRM_DESTROY, database);
   assert.equal((await pool.query("SELECT current_database() AS name")).rows[0].name, database);
   assert.equal((await pool.query("SELECT count(*)::int AS count FROM app_schema_migrations")).rows[0].count, 44);
+  // This behavior suite deliberately retains the historical receipt schema. Its
+  // current application worker uses 6.2; widen only the synthetic model fixture.
+  // The real 0070 -> 0071 migration/default/history checks live in gpt-6-2.mjs.
+  await pool.query(`ALTER TABLE feedback_triage_runs DROP CONSTRAINT feedback_triage_runs_model_check,
+    ADD CONSTRAINT feedback_triage_runs_model_check CHECK (model IN ('gpt-6-astra','gpt-6.2-astra'))`);
   const canonicalCounts = async () => (await pool.query(`SELECT
     (SELECT count(*)::int FROM itinerary_items) AS events,
     (SELECT count(*)::int FROM expenses) AS expenses,
@@ -108,7 +113,7 @@ export async function testFeedbackWorker(pool, connectionString) {
   assert.equal(await completeFeedbackRun(pool, first, firstOutput), 1);
   await assert.rejects(completeFeedbackRun(pool, first, firstOutput), /lease_expired/u);
   const firstRun = (await pool.query("SELECT * FROM feedback_triage_runs WHERE id=$1", [first.id])).rows[0];
-  assert.equal(firstRun.model, "gpt-6-astra");
+  assert.equal(firstRun.model, "gpt-6.2-astra");
   assert.equal(firstRun.effort, "medium");
   assert.equal(firstRun.attempt_count, 1);
   assert.equal(firstRun.input_tokens, "12");
@@ -213,9 +218,11 @@ export async function testFeedbackWorker(pool, connectionString) {
   assert.match(expiredRun.error?.message ?? "", /lease_expired/u);
   assert.equal((await pool.query("SELECT processed_at FROM feedback_triage_items WHERE report_id=$1", [retryReportId])).rows[0].processed_at, null);
   assert.equal(await claimFeedbackRun(pool), null, "An expired lease cannot spend a second attempt on the same UTC date");
-  await pool.query("UPDATE feedback_triage_runs SET last_attempt_date=(clock_timestamp() AT TIME ZONE 'UTC')::date-1 WHERE id=$1", [retryFirst.id]);
+  await pool.query("UPDATE feedback_triage_runs SET model='gpt-6-astra',last_attempt_date=(clock_timestamp() AT TIME ZONE 'UTC')::date-1 WHERE id=$1", [retryFirst.id]);
   const retrySecond = await claimFeedbackRun(pool);
   assert.equal(retrySecond.id, retryFirst.id);
+  assert.equal((await pool.query("SELECT model FROM feedback_triage_runs WHERE id=$1", [retrySecond.id])).rows[0].model,
+    "gpt-6.2-astra", "a retry records the current model instead of a previous attempt's retired model");
   assert.deepEqual(retrySecond.reportIds, retryFirst.reportIds);
   assert.notEqual(retrySecond.leaseOwner, retryFirst.leaseOwner);
   await failFeedbackRun(pool, retryFirst, "worker_failed");

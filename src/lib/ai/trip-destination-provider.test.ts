@@ -35,10 +35,10 @@ describe("isolated subscription destination lookup", () => {
   it("calls Sol even for a known country, and returns validated defaults/usage", async () => {
     const result = await lookupTripDestination(input);
     expect(mocks.run).toHaveBeenCalledOnce();
-    expect(result).toMatchObject({ effectiveModel: "gpt-6.1-sol", defaults: { timeZone: "Asia/Tokyo", currency: "JPY" },
+    expect(result).toMatchObject({ effectiveModel: "gpt-6.2-sol", defaults: { timeZone: "Asia/Tokyo", currency: "JPY" },
       usage: { inputTokens: 37, outputTokens: 16, cachedInputTokens: 8 } });
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
-    expect(mocks.start).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-6.1-sol", modelReasoningEffort: "low", sandboxMode: "read-only",
+    expect(mocks.start).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-6.2-sol", modelReasoningEffort: "low", sandboxMode: "read-only",
       skipGitRepoCheck: true, networkAccessEnabled: false, webSearchMode: "disabled", approvalPolicy: "never" }));
     expect(mocks.codex).toHaveBeenCalledWith(expect.objectContaining({ config: expect.objectContaining({
       forced_login_method: "api", model_provider: "openai", mcp_servers: {}, hooks: {}, history: { persistence: "none" },

@@ -23,7 +23,9 @@ Not shipped: external MCP connector, structured preference collection (removed),
 
 ## 2. Stack
 
-Use `package.json` and lockfile, not copied install versions: Node 24 (`>=24 <25`), pnpm 11.19.0, Next 16.3.1, React 19.2.8, TypeScript 6.0.3, PostgreSQL via `pg`, Zod, Vitest and MapLibre. Codex SDK is pinned to 0.165.0, because 6.1 Terra needs CLI 0.159.0 or later; Claude Agent SDK is lockfile-resolved. Never upgrade dependencies just because a newer version exists.
+Use `package.json` and lockfile, not copied install versions: Node 24 (`>=24 <25`), pnpm 11.19.0, Next 16.3.1, React 19.2.8, TypeScript 6.0.3, PostgreSQL via `pg`, Zod, Vitest and MapLibre. Codex SDK remains pinned to 0.165.0; Claude Agent SDK is lockfile-resolved. Keep pnpm's one-day release-age gate, with no exemption for Codex.
+
+**GPT-6.2 compatibility:** 0.165.0 sends the requested 6.2 ID and effort but lacks its bundled model metadata. Offline captures use fallback metadata (no `text.verbosity` or `reasoning.context`) and can advertise `request_user_input`; the existing application tool guard rejects it rather than granting new capability. Do not rely on API-key `codex exec` to refresh that catalog: the capture made no discovery request. [JOB-102](jobs/JOB-102-codex-6-2-catalog.md) tracks a release-age-eligible SDK with the 6.2 catalog, followed by real CLI lockdown and offline transport checks. This limitation is not proof of a successful live answer. [Evidence](SOURCES.md#november-18-2026-gpt-62-models-and-codex-compatibility).
 
 Next standalone is the release artifact. Builds run map-asset preparation; standalone staging must include static/public assets. The `Dockerfile` packages the standalone server (port 8080); `compose.yaml` adds PostgreSQL 17 for self-hosting.
 
@@ -86,7 +88,7 @@ Server secrets come from runtime configuration (environment or the deployment's 
 
 ## 7. Schema, release and rollback
 
-Current source has **63 SQL files through 0067**. Numeric gaps 0045–0048 are historical, not missing migrations to invent. Applied checksums cannot be rewritten. Review the [database compatibility checkpoints](DATABASE.md#compatibility-checkpoints) before choosing an older runtime; 0067 adds optional event-zone corrections and must retain a zone-aware writer after use.
+Current source has **67 SQL files through 0071**. Numeric gaps 0045–0048 are historical, not missing migrations to invent. Applied checksums cannot be rewritten. Review the [database compatibility checkpoints](DATABASE.md#compatibility-checkpoints) before choosing an older runtime: retain a zone-aware writer after 0067, and map 0071's saved GPT selections back before reverting to a build that lacks 6.2. Request history is never rewritten.
 
 Release and rollback procedures depend on the hosting option: see [deployment](DEPLOYMENT.md) and [self-hosting](SELF_HOSTING.md). Take and verify a backup before migrating a database that holds real data.
 

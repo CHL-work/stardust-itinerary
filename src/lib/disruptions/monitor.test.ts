@@ -126,7 +126,7 @@ function qualifiedAlert(overrides: Partial<DisruptionAlert> = {}): DisruptionAle
 
 function checkedAlerts(alerts: DisruptionAlert[]): DisruptionProvider {
   return provider({
-    rawOutput: JSON.stringify({ alerts }), effectiveModel: "gpt-6.1-sol",
+    rawOutput: JSON.stringify({ alerts }), effectiveModel: "gpt-6.2-sol",
     inputTokens: 10, outputTokens: 10, cachedInputTokens: 0,
     webSearchCount: 1, webSearchQueries: ["official venue status"],
   });
@@ -150,7 +150,7 @@ describe("due disruption monitor", () => {
         validForMinutes: 15,
         impactAssessment: qualifiedAssessment,
       }] }),
-      effectiveModel: "gpt-6.1-sol",
+      effectiveModel: "gpt-6.2-sol",
       inputTokens: 100,
       outputTokens: 50,
       cachedInputTokens: 0,
@@ -217,7 +217,7 @@ describe("due disruption monitor", () => {
     const requestStarted = database.calls.find((call) =>
       call.sql.includes("'request.started'"));
     expect(JSON.parse(String(requestStarted?.values[2]))).toMatchObject({
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
       reasoningEffort: "medium",
     });
     const dueTripRead = database.calls.find((call) =>
@@ -235,7 +235,7 @@ describe("due disruption monitor", () => {
     const result = await runDueDisruptionMonitors(database.pool, {
       provider: provider({
         rawOutput: '{"alerts":[]}',
-        effectiveModel: "gpt-6.1-sol",
+        effectiveModel: "gpt-6.2-sol",
         inputTokens: 10,
         outputTokens: 2,
         cachedInputTokens: 0,
@@ -259,7 +259,7 @@ describe("due disruption monitor", () => {
     const result = await runDueDisruptionMonitors(database.pool, {
       provider: provider({
         rawOutput: '{"alerts":[]}',
-        effectiveModel: "gpt-6.1-sol",
+        effectiveModel: "gpt-6.2-sol",
         inputTokens: 10,
         outputTokens: 2,
         cachedInputTokens: 0,
@@ -291,7 +291,7 @@ describe("due disruption monitor", () => {
           affectedUntil: null,
           validForMinutes: 30,
         }] }),
-        effectiveModel: "gpt-6.1-sol",
+        effectiveModel: "gpt-6.2-sol",
         inputTokens: 10,
         outputTokens: 12,
         cachedInputTokens: 0,
@@ -316,7 +316,7 @@ describe("due disruption monitor", () => {
     const database = fakePool({ candidateCount: 25 });
     const model = provider({
       rawOutput: '{"alerts":[]}',
-      effectiveModel: "gpt-6.1-sol",
+      effectiveModel: "gpt-6.2-sol",
       inputTokens: 10,
       outputTokens: 2,
       cachedInputTokens: 0,
@@ -358,7 +358,7 @@ describe("due disruption monitor", () => {
       ))
       .mockResolvedValueOnce({
         rawOutput: '{"alerts":[]}',
-        effectiveModel: "gpt-6.1-sol",
+        effectiveModel: "gpt-6.2-sol",
         inputTokens: 10,
         outputTokens: 2,
         cachedInputTokens: 0,
@@ -438,7 +438,7 @@ describe("due disruption monitor", () => {
     const result = await runDueDisruptionMonitors(database.pool, {
       provider: provider({
         rawOutput: JSON.stringify({ alerts: [alert] }),
-        effectiveModel: "gpt-6.1-sol",
+        effectiveModel: "gpt-6.2-sol",
         inputTokens: 10,
         outputTokens: 10,
         cachedInputTokens: 0,
@@ -477,7 +477,7 @@ describe("due disruption monitor", () => {
           affectedUntil: null,
           validForMinutes: 30,
         }] }),
-        effectiveModel: "gpt-6.1-sol",
+        effectiveModel: "gpt-6.2-sol",
         inputTokens: 10,
         outputTokens: 10,
         cachedInputTokens: 0,
@@ -511,7 +511,7 @@ describe("due disruption monitor", () => {
           validForMinutes: 30,
           impactAssessment: qualifiedAssessment,
         }] }),
-        effectiveModel: "gpt-6.1-sol",
+        effectiveModel: "gpt-6.2-sol",
         inputTokens: null,
         outputTokens: null,
         cachedInputTokens: null,
@@ -544,7 +544,7 @@ describe("due disruption monitor", () => {
             validForMinutes: 30,
             impactAssessment: qualifiedAssessment,
           }] }),
-          effectiveModel: "gpt-6.1-sol",
+          effectiveModel: "gpt-6.2-sol",
           inputTokens: 10,
           outputTokens: 10,
           cachedInputTokens: 0,

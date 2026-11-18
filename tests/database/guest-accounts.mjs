@@ -14,7 +14,9 @@ import { createGuestTripFixture } from "./guest-fixture.mjs";
  */
 export async function testGuestAccounts(pool, connectionString) {
   assert.deepEqual(await migrate({ connectionString, through: "0056_guest_accounts.sql" }), ["0056_guest_accounts.sql"]);
-  await migrate({ connectionString });
+  // Keep the next model-upgrade fixture at a genuine 0070 head; the suite calls
+  // testGpt62Migration immediately after this module before testing newer code.
+  await migrate({ connectionString, through: "0070_trip_destinations.sql" });
   const config = { authSecret: "synthetic-guest-account-secret-only", tripGraceDays: 2,
     appBaseUrl: new URL("http://localhost:3100"), databaseUrl: connectionString };
   const previousKey = process.env.CREDENTIAL_ENCRYPTION_KEY;

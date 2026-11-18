@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { inTransaction } from "@/lib/app/repository";
-import { FEEDBACK_BATCH_LIMIT, feedbackFingerprint, issuePayloadHash, projectReviewReport,
+import { FEEDBACK_BATCH_LIMIT, FEEDBACK_MODEL, feedbackFingerprint, issuePayloadHash, projectReviewReport,
   renderFeedbackIssue, sanitizeFeedbackText, unsafeFeedbackInstructions, validateReviewOutput,
   type KnownFeedbackIssue, type ReviewReport, type ReviewResult } from "./review-contract";
 import { validateIssuePayload, type DeliveryOutcome, type IssuePayload } from "./github-publisher";
@@ -35,13 +35,13 @@ export async function claimFeedbackRun(pool: Pool): Promise<ClaimedFeedbackRun |
         AND NOT EXISTS(SELECT 1 FROM feedback_triage_items i WHERE i.report_id=r.id) ORDER BY created_at,id LIMIT $1 FOR UPDATE SKIP LOCKED`, [FEEDBACK_BATCH_LIMIT]);
       if (!candidates.rowCount) return null;
       runId = randomUUID();
-      await client.query("INSERT INTO feedback_triage_runs(id,run_date) VALUES($1,(clock_timestamp() AT TIME ZONE 'UTC')::date)", [runId]);
+      await client.query("INSERT INTO feedback_triage_runs(id,run_date,model) VALUES($1,(clock_timestamp() AT TIME ZONE 'UTC')::date,$2)", [runId, FEEDBACK_MODEL]);
       await client.query("INSERT INTO feedback_triage_items(run_id,report_id) SELECT $1,unnest($2::uuid[])", [runId, candidates.rows.map((row) => row.id)]);
     }
     const leaseOwner = randomUUID();
     await client.query(`UPDATE feedback_triage_runs SET state='running',lease_owner=$2,lease_until=clock_timestamp()+interval '${LEASE_MINUTES} minutes',
       attempt_count=attempt_count+1,last_attempt_date=(clock_timestamp() AT TIME ZONE 'UTC')::date,
-      started_at=clock_timestamp(),completed_at=NULL,error_code=NULL,updated_at=clock_timestamp() WHERE id=$1`, [runId, leaseOwner]);
+      started_at=clock_timestamp(),completed_at=NULL,error_code=NULL,model=$3,updated_at=clock_timestamp() WHERE id=$1`, [runId, leaseOwner, FEEDBACK_MODEL]);
     const raw = await client.query<ReportRow>(`SELECT r.id,r.title,r.description,r.kind,r.diagnostics,r.build_version,
       ARRAY(SELECT DISTINCT name FROM (SELECT m.display_name AS name FROM trip_members m WHERE m.trip_id=r.trip_id
         UNION SELECT u.display_name FROM app_users u WHERE u.id=r.actor_user_id

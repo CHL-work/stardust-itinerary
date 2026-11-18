@@ -43,5 +43,5 @@ export type FeedbackOperatorStatus = {
   configuration: { triageConfigured: boolean; publishingConfigured: boolean };
   queue: { reports: number; queuedIssues: number; uncertainIssues: number; blockedIssues: number; publishedIssues: number };
   lastRun: { runDate: string; state: "queued" | "running" | "succeeded" | "failed"; attemptCount: number; startedAt: string | null;
-    completedAt: string | null; model: "gpt-6-astra"; effort: "medium"; errorCode: string | null } | null;
+    completedAt: string | null; model: "gpt-6-astra" | "gpt-6.2-astra"; effort: "medium"; errorCode: string | null } | null;
 };

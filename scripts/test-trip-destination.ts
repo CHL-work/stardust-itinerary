@@ -21,7 +21,7 @@ function safeTokens(usage: Awaited<ReturnType<Provider>>["usage"]): ReportedToke
 }
 
 function matches(code: CaseCode, output: Awaited<ReturnType<Provider>>): boolean {
-  if (output.effectiveModel !== "gpt-6.1-sol") return false;
+  if (output.effectiveModel !== "gpt-6.2-sol") return false;
   const value = output.defaults;
   if (value.reason !== null) return false;
   if (code === "USA") return value.status === "ambiguous" && value.countryCode === "US" && value.timeZone === null

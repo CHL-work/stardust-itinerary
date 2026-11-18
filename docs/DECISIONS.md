@@ -2,6 +2,15 @@
 
 Current decisions are summarized here; accepted direction does not imply implementation or current permission to act. [IMPLEMENTATION](IMPLEMENTATION.md) describes shipped scope; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Superseded detail remains in Git history; do not follow historical rollout commands.
 
+## D-113: GPT 6.2 only, with compatible saved choices (accepted November 18, 2026)
+
+The owner requested GPT 6.2 support and removal of older GPT models (JOB-101), and authorized the release.
+
+- **Choices:** `gpt-6.2-sol` at low effort and `gpt-6.2-astra` at medium. Terra and Luna have no documented 6.2 versions, so they are removed rather than renamed speculatively. Claude, Gemini and Free AI are unchanged.
+- **Compatibility:** old Sol, Terra and Luna selections map to Sol 6.2; old Astra maps to Astra 6.2. Current trip/routine settings and defaults migrate, stale inputs normalize before validation, and unknown stored trip defaults safely use Sol. Recorded requests and completed feedback history retain their actual model; retired price entries remain estimate-only.
+- **Helpers:** member-funded routine checks default to Astra 6.2; operator disruption/flight checks and destination lookup use Sol 6.2, feedback review uses Astra 6.2. This supersedes only the OpenAI defaults in D-108/D-106. Sol lookup token rates are about twice the retired Terra rates. Funding, privacy, quota and approval policy do not change.
+- **Transport:** the dependency release-age gate stays on. Before an eligible SDK with a bundled 6.2 catalog is available, keep the tested current pin, disclose fallback metadata and track the catalog upgrade separately; never relax the forbidden-tool checks.
+
 ## D-112: An event's own clock at the trip's edges (accepted November 16, 2026)
 
 The owner pasted a round-trip flight booking into the AI, got "AI request failed. Please try again." twice, and asked for it to be diagnosed and fixed (JOB-100).

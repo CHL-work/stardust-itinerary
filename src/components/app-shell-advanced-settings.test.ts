@@ -44,10 +44,10 @@ function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectMod
       { id: "synthetic-removed", displayName: "Synthetic removed", role: "viewer", status: "removed", identityBound: false, permissions },
     ],
     ai: { canSelectModel: options.canSelectModel ?? isOwner, hostSubscriptionEnabled: options.sponsored ?? true, enabled: true,
-      memberDailyLimit: 20, usedToday: 3, remainingToday: 17, effectiveModel: "gpt-6.1-sol", ...options.ai },
+      memberDailyLimit: 20, usedToday: 3, remainingToday: 17, effectiveModel: "gpt-6.2-sol", ...options.ai },
     liveOperations: { synthetic: true },
     aiLogs: [{ id: "synthetic-log", actorName: "Synthetic actor", prompt: "SYNTHETIC_PRIVATE_PROMPT", result: "SYNTHETIC_PRIVATE_RESPONSE",
-      status: "succeeded", effectiveModel: "gpt-6.1-sol", provider: "openai", transport: "codex_sdk", billingBasis: "subscription",
+      status: "succeeded", effectiveModel: "gpt-6.2-sol", provider: "openai", transport: "codex_sdk", billingBasis: "subscription",
       inputTokens: 120, outputTokens: 40, latencyMs: 2500, error: null, createdAt: "2030-04-01T00:00:00Z" }],
   };
   const updatePermissions = vi.fn(); const unbindMemberIdentity = vi.fn(); const createMemberInvitation = vi.fn();
@@ -59,7 +59,7 @@ function renderAdvanced(locale: Locale, options: { owner?: boolean; canSelectMod
     ChevronRight, RefreshCw, ActivitySettingsEntry,
     FeedbackOperations: () => null,
     AdminEntry: () => null,
-    advancedRequestStatus, countLabel, formatMessage, selectableOwnerModels, busy: options.busy ?? false, selectedModel: "gpt-6.1-sol",
+    advancedRequestStatus, countLabel, formatMessage, selectableOwnerModels, busy: options.busy ?? false, selectedModel: "gpt-6.2-sol",
     memberDailyLimit: "20", setMemberDailyLimit: vi.fn(), updateModel: vi.fn(), saveMemberDailyLimit,
     tripSettings: { destinationName: "Synthetic city", timeZone: "Asia/Tokyo", maxMembers: "10", endsOn: "2030-04-05" },
     setTripSettings: vi.fn(), maximumTripEndDate: () => "2030-04-30", saveTripSettings: vi.fn(),

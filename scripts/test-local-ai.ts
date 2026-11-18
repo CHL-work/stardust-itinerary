@@ -15,7 +15,7 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is required. Configure ignored .env.local first.");
 }
 
-const requested = process.argv.slice(2).find((argument) => !argument.startsWith("--")) ?? "gpt-6.1-sol";
+const requested = process.argv.slice(2).find((argument) => !argument.startsWith("--")) ?? "gpt-6.2-sol";
 const requireWebSearch = process.argv.includes("--require-web-search");
 const prompt = process.argv.slice(2).find((argument) => argument.startsWith("--prompt="))?.slice("--prompt=".length)
   ?? (requireWebSearch

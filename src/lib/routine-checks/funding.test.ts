@@ -27,7 +27,7 @@ describe("routine check funding (JOB-094)", () => {
   });
 
   it("records the paying member and the chosen model on member-funded checks only", () => {
-    expect(routineRequestColumns({ kind: "operator" })).toEqual({ model: "gpt-6.1-sol", provider: "openai", transport: "codex_sdk",
+    expect(routineRequestColumns({ kind: "operator" })).toEqual({ model: "gpt-6.2-sol", provider: "openai", transport: "codex_sdk",
       credentialSource: null, credentialMemberId: null, effort: "medium" });
     expect(routineRequestColumns({ kind: "member", payer: { memberId: "m", userId: "u", model: "claude-haiku-5-5", effort: "high", provider: "anthropic" } }))
       .toEqual({ model: "claude-haiku-5-5", provider: "anthropic", transport: "claude_agent_sdk", credentialSource: "own", credentialMemberId: "m", effort: "high" });

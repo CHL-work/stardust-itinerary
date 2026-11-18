@@ -15,7 +15,7 @@ const session = { tripId: id(1), memberId: id(2), userId: id(3), role: "editor" 
 const clientRequestId = id(4);
 const response = {
   requestId: id(5), message: "Dinner is awaiting review.", proposalIds: [id(6)], proposalCount: 1,
-  proposalId: id(6), changeStatus: "pending", entityId: null, model: "gpt-6.1-sol", usedToday: 1,
+  proposalId: id(6), changeStatus: "pending", entityId: null, model: "gpt-6.2-sol", usedToday: 1,
   remainingToday: 19, webSearch: { performed: false, queryCount: 0, sources: [] },
   memory: { previousTurnsUsed: 1, tokenEstimate: 200, tokenBudget: 6000, checkpointVersion: null,
     truncated: false },
@@ -55,7 +55,7 @@ describe("self-only AI recovery", () => {
     expect(original).toMatch(/^[0-9a-f]{64}$/u);
     expect(aiRequestPayloadHash("Plan dinner", undefined, "en")).toBe(original);
     expect(aiRequestPayloadHash("Plan dinner ", undefined, "en")).not.toBe(original);
-    expect(aiRequestPayloadHash("Plan dinner", "gpt-6.1-sol", "en")).not.toBe(original);
+    expect(aiRequestPayloadHash("Plan dinner", "gpt-6.2-sol", "en")).not.toBe(original);
     expect(aiRequestPayloadHash("Plan dinner", undefined, "zh-HK")).not.toBe(original);
     expect(aiRequestPayloadHash("Plan dinner", undefined, "en", null)).not.toBe(original);
     expect(aiRequestPayloadHash("Plan dinner", undefined, "en", id(7))).not.toBe(original);
