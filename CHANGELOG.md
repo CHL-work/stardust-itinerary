@@ -102,6 +102,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 ### Changed
 
 - **GPT 6.2 only (JOB-101, D-113):** OpenAI choices are Sol 6.2 (default, low effort) and Astra 6.2 (medium). Saved Sol, Terra and Luna choices move to Sol 6.2; Astra moves to Astra 6.2, including stale browser submissions. Migration 0071 updates current settings and defaults without rewriting request history; historical prices remain available for usage estimates. Member-funded routine checks default to Astra 6.2; destination lookups use Sol 6.2, about twice the former Terra token rates. Claude, Gemini, Free AI and funding/review rules are unchanged.
+  Released after full local checks and CI; deployment and read-only checks passed. Codex remains pinned at 0.165.0 under the release-age gate, with catalog verification tracked in JOB-102. A real model answer remains unverified due to provider quota; the job records the evidence and limitation.
 
 - **Plain local times (JOB-097, D-109):** times show each place's own clock without a zone name such as "GMT+9" or a "Trip time" suffix, in the itinerary, map, approvals, Activity, Calendar previews and flight change notes; the time column no longer wraps over five lines. The event editor names zones in words instead of IDs such as `Asia/Tokyo`. The itinerary and AI proposal screenshots were retaken.
 - **Routine check defaults (JOB-096, D-108):** GPT-6 Astra, Claude Opus 5.5 and Gemini 4 Argon at medium effort, instead of the low-cost Terra, Haiku and Flash; a model you chose for the same provider is kept.

@@ -1,6 +1,6 @@
 # Research Sources
 
-This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; these external pages were not re-verified when this list was last edited.
+This is a **dated evidence bibliography**, not setup instructions or current provider eligibility/pricing. Superseded alternatives (retired preference storage, earlier hosting plans) are not deployed or authorized. Follow [current architecture](ARCHITECTURE.md) and the relevant feature contract; hosting is in [self-hosting](SELF_HOSTING.md) and [deployment](DEPLOYMENT.md). Recheck volatile primary sources when a new task depends on them; each section records its own check date, and later edits do not re-verify older sections.
 
 ## November 18, 2026 GPT-6.2 models and Codex compatibility
 
@@ -8,7 +8,7 @@ Checked for JOB-101:
 
 - [GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol) and [GPT-6.2 Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra), with [OpenAI pricing](https://developers.openai.com/api/docs/pricing): standard input/cached-input/output per million tokens is $2/$0.10/$10 for Sol and $8/$0.40/$40 for Astra. Both reject reasoning effort `none`; Stardust keeps Sol low and Astra medium. The app's estimate excludes the higher rate above 272K input tokens. Terra and Luna have no 6.2 IDs, so they are retired here rather than invented; their historical prices stay available for usage records.
 - Offline loopback captures of Codex SDK 0.165.0 and 0.169.0, with synthetic input and a dummy key: unknown 6.2 IDs retain model/effort but use fallback metadata, omit `text.verbosity`/`reasoning.context` and can offer `request_user_input`. No API-key-mode model discovery was observed. Application guards still reject forbidden tool use. These captures are transport checks, not live model evaluations.
-- The 0.169.1 binary contains both 6.2 IDs; its npm publication time was November 17, 22:27 UTC. JOB-101 retains 0.165.0 while the one-day release-age gate applies. [JOB-102](jobs/JOB-102-codex-6-2-catalog.md) requires an eligible release, real CLI feature review and another offline capture before changing the pin.
+- The 0.169.1 binary contains both 6.2 IDs; its npm publication time was November 17, 22:27 UTC. JOB-101 shipped on 0.165.0 before that release passed the one-day release-age gate. [JOB-102](jobs/JOB-102-codex-6-2-catalog.md) requires an eligible release, real CLI feature review and another offline capture before changing the pin.
 
 The November 8 price evidence below remains historical, not the current selectable GPT list.
 

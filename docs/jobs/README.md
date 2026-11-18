@@ -4,7 +4,7 @@ Job files for work in this repository, following the [job system](../JOB_SYSTEM.
 
 | Job | Title | Status |
 | --- | --- | --- |
-| [JOB-101](JOB-101-gpt-6-2.md) | GPT 6.2 only | review |
+| [JOB-101](JOB-101-gpt-6-2.md) | GPT 6.2 only | done |
 | [JOB-102](JOB-102-codex-6-2-catalog.md) | Codex SDK with a bundled GPT 6.2 catalog | proposed |
 | [JOB-100](JOB-100-flight-home-arrival.md) | Flights home that land on the trip's last day, and a clear message for dates outside the trip | done |
 | [JOB-099](JOB-099-free-ai-models.md) | Free AI that works again: models that can plan, and a schema dialect free providers compile | review |
